@@ -1,0 +1,10 @@
+Oh yes, still more detritus from 4D obsession.
+
+Motivation:
+- D's compile-time introspection makes it actually possible to write
+  world-level objects as D classes! Isn't that awesome?!
+- We can probably even auto-serialize using this trick too! No need for flaky
+  fragile wrappers and hacked parse scripts to generate code from hand-made
+  unreliable templates; just write straight D code and use introspection to
+  auto-serialize stuff. Whoa! D just acquired whole new levels of cool!
+
