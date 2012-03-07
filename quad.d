@@ -56,17 +56,31 @@ struct quad {
 	}
 
 	/**
+	 * Tests if $(D this) is bounded by a hypercube of dimensions
+	 * $(D bounds).
+	 */
+	const bool boundedBy(in quad bounds) {
+		for (auto i=0; i < x.length; i++) {
+			if (x[i] < 0 || x[i] >= bounds[i])
+				return false;
+		}
+		return true;
+	}
+
+	unittest {
+		assert(quad(1,2,3,4).boundedBy(quad(2,5,5,5)));
+		assert(!quad(1,2,3,4).boundedBy(quad(3,3,3,3)));
+		assert(!quad(-1,1,1,1).boundedBy(quad(2,2,2,2)));
+	}
+
+	/**
 	 * Computes the offset of $(D this) from the beginning of a row-major
 	 * array of dimensions $(D bounds).
 	 */
-	const long offsetInto(quad bounds)
-	in {
-		for (auto i=0; i < x.length; i++) {
-			assert(x[i] >= 0 && x[i] < bounds[i]);
-		}
-	} out(result) {
-		assert(result >= 0 && result < bounds.volume);
-	} body {
+	const long offsetInto(in quad bounds)
+	in { assert(this.boundedBy(bounds)); }
+	out(result) { assert(result >= 0 && result < bounds.volume); }
+	body {
 		alias bounds b;
 		return ((x[0]*b[2] + x[1])*b[1] + x[2])*b[0] + x[3];
 	}
@@ -81,13 +95,9 @@ struct quad {
 	 * dimensions $(D this), returns the corresponding vector location.
 	 */
 	const quad locationOf(long offset)
-	in {
-		assert(offset >= 0 && offset < this.volume);
-	} out(result) {
-		for (auto i=0; i < this.length; i++) {
-			assert(result[i] >= 0 && result[i] < this[i]);
-		}
-	} body {
+	in { assert(offset >= 0 && offset < this.volume); }
+	out(result) { assert(result.boundedBy(this)); }
+	body {
 		return quad(
 			cast(short)(offset / x[0] / x[1] / x[2]),
 			cast(short)((offset / x[0] / x[1]) % x[2]),
