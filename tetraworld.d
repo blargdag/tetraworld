@@ -107,9 +107,9 @@ void main()
     auto screenRect = Rectangle(0, 0, term.width, term.height);
 
     auto msg = "Welcome to Tetraworld!";
-    auto msgRect = screenRect.centerRect(cast(int)(msg.length + 2), 3);
+    auto msgRect = screenRect.centerRect(cast(int)(msg.length + 4), 3);
     drawBox(term, msgRect);
-    term.moveTo(msgRect.x + 1, msgRect.y + 1);
+    term.moveTo(msgRect.x + 2, msgRect.y + 1);
     term.writef(msg);
 
     addListener(&handleGlobalEvent);
