@@ -22,33 +22,96 @@
 import arsd.eventloop;
 import arsd.terminal;
 
+struct Rectangle
+{
+    int x, y, width, height;
+}
+
+void handleGlobalEvent(InputEvent event)
+{
+    switch (event.type)
+    {
+        case InputEvent.Type.CharacterEvent:
+            auto ev = event.get!(InputEvent.Type.CharacterEvent);
+            if (ev.eventType == CharacterEvent.Type.Pressed)
+            {
+                switch (ev.character)
+                {
+                    case 'q':
+                        arsd.eventloop.exit();
+                    default:
+                        break;
+                }
+            }
+            break;
+
+        default:
+            break;
+    }
+}
+
+void drawBox(T)(ref T display, Rectangle box)
+in { assert(box.width >= 2 && box.height >= 2); }
+body
+{
+    enum
+    {
+        UpperLeft = 0,
+        UpperRight = 1,
+        LowerLeft = 2,
+        LowerRight = 3,
+        Horiz = 4,
+        Vert = 5,
+        BreakLeft = 6,
+        BreakRight = 7
+    }
+    static immutable dstring thinBoxChars   = "┌┐└┘─│┤├"d;
+    static immutable dstring doubleBoxChars = "╔╗╚╝═║╡╞"d;
+
+    import std.array : replicate;
+    import std.range : chain, repeat;
+
+    alias boxChars = thinBoxChars; // for now
+
+    // Top row
+    display.moveTo(box.x, box.y);
+    display.writef("%s", chain(
+        boxChars[UpperLeft].repeat(1),
+        boxChars[Horiz].repeat(box.width-2),
+        boxChars[UpperRight].repeat(1)
+    ));
+
+    // Middle rows
+    foreach (y; 1 .. box.height-1)
+    {
+        display.moveTo(box.x, y);
+        display.writef("%s", chain(
+            boxChars[Vert].repeat(1),
+            dchar(' ').repeat(box.width-2),
+            boxChars[Vert].repeat(1)
+        ));
+    }
+
+    // Bottom rows
+    display.moveTo(box.x, box.y);
+    display.writef("%s", chain(
+        boxChars[LowerLeft].repeat(1),
+        boxChars[Horiz].repeat(box.width-2),
+        boxChars[LowerRight].repeat(1)
+    ));
+}
+
 void main()
 {
     auto term = Terminal(ConsoleOutputType.cellular);
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
-    addListener((InputEvent event) {
-        switch (event.type)
-        {
-            case InputEvent.Type.CharacterEvent:
-                auto ev = event.get!(InputEvent.Type.CharacterEvent);
-                if (ev.eventType == CharacterEvent.Type.Pressed)
-                {
-                    switch (ev.character)
-                    {
-                        case 'q':
-                            arsd.eventloop.exit();
-                        default:
-                            break;
-                    }
-                }
-                break;
+    term.clear();
+    drawBox(term, Rectangle(0, 0, term.width, term.height));
 
-            default:
-                break;
-        }
-    });
+    addListener(&handleGlobalEvent);
 
+    term.flush();
     loop();
 }
 
