@@ -33,6 +33,15 @@ struct Rectangle
      */
     @property bool empty() { return width <= 0 && height <= 0; }
 
+    unittest
+    {
+        auto r1 = Rectangle.init;
+        assert(r1.empty);
+
+        auto r2 = Rectangle(0, 0, 1, 1);
+        assert(!r2.empty);
+    }
+
     /**
      * Returns: A rectangle of the specified dimensions centered in this
      * rectangle.
@@ -45,12 +54,14 @@ struct Rectangle
         return Rectangle(x + (width - ctrWidth)/2, y + (height - ctrHeight)/2,
                          ctrWidth, ctrHeight);
     }
-}
 
-unittest
-{
-    auto r1 = Rectangle.init;
-    assert(r1.empty);
+    unittest
+    {
+        auto r1 = Rectangle(0, 0, 5, 5);
+        auto r2 = Rectangle(1, 1, 3, 3);
+        assert(r1.centerRect(3,3) == r2);
+        assert(r2.centerRect(5,5) == r1);
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
