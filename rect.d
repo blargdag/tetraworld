@@ -31,7 +31,7 @@ struct Rectangle
     /**
      * Returns: true if this rectangle does not have positive area.
      */
-    @property bool empty() { return width > 0 && height > 0; }
+    @property bool empty() { return width <= 0 && height <= 0; }
 
     /**
      * Returns: A rectangle of the specified dimensions centered in this
@@ -45,6 +45,12 @@ struct Rectangle
         return Rectangle(x + (width - ctrWidth)/2, y + (height - ctrHeight)/2,
                          ctrWidth, ctrHeight);
     }
+}
+
+unittest
+{
+    auto r1 = Rectangle.init;
+    assert(r1.empty);
 }
 
 // vim:set ai sw=4 ts=4 et:
