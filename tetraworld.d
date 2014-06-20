@@ -22,10 +22,7 @@
 import arsd.eventloop;
 import arsd.terminal;
 
-struct Rectangle
-{
-    int x, y, width, height;
-}
+import rect;
 
 void handleGlobalEvent(InputEvent event)
 {
@@ -82,9 +79,9 @@ body
     ));
 
     // Middle rows
-    foreach (y; 1 .. box.height-1)
+    foreach (y; 1 .. box.height)
     {
-        display.moveTo(box.x, y);
+        display.moveTo(box.x, box.y + y);
         display.writef("%s", chain(
             boxChars[Vert].repeat(1),
             dchar(' ').repeat(box.width-2),
@@ -93,7 +90,7 @@ body
     }
 
     // Bottom rows
-    display.moveTo(box.x, box.y);
+    display.moveTo(box.x, box.y + box.height - 1);
     display.writef("%s", chain(
         boxChars[LowerLeft].repeat(1),
         boxChars[Horiz].repeat(box.width-2),
@@ -107,7 +104,13 @@ void main()
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
     term.clear();
-    drawBox(term, Rectangle(0, 0, term.width, term.height));
+    auto screenRect = Rectangle(0, 0, term.width, term.height);
+
+    auto msg = "Welcome to Tetraworld!";
+    auto msgRect = screenRect.centerRect(cast(int)(msg.length + 2), 3);
+    drawBox(term, msgRect);
+    term.moveTo(msgRect.x + 1, msgRect.y + 1);
+    term.writef(msg);
 
     addListener(&handleGlobalEvent);
 
