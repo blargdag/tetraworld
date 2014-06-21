@@ -95,7 +95,26 @@ unittest
         enum opDollar(int n) = 3;
         dchar opIndex(int w, int x, int y, int z) { return '.'; }
     }
-    assert(renderSize(Map()) == Dim(18, 12));
+    auto map = Map();
+    auto rsize = map.renderSize();
+    assert(rsize == Dim(18, 12));
+
+    struct TestDisplay
+    {
+        void moveTo(int x, int y)
+        {
+            // Check that rendered output is within stated bounds.
+            assert(x >= 0 && x < rsize.width);
+            assert(y >= 0 && y < rsize.height);
+        }
+        void writef(A...)(string fmt, A args) {}
+        @property auto width() { return rsize.width; }
+        @property auto height() { return rsize.height; }
+    }
+    auto disp = TestDisplay();
+
+    // This will assert if output exceeds stated bounds.
+    disp.renderMap(map);
 }
 
 // vim:set ai sw=4 ts=4 et:

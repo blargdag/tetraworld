@@ -146,12 +146,15 @@ void main()
     static assert(is4DArray!(Map,dchar));
 
     auto map = Map();
-    renderMap(subdisplay(&term, screenRect.centerRect(map.renderSize)), map);
+    auto mapview = subdisplay(&term, screenRect.centerRect(map.renderSize));
+    renderMap(mapview, map);
 
     addListener(&handleGlobalEvent);
 
     term.flush();
     loop();
+
+    term.clear();
 }
 
 // vim:set ai sw=4 ts=4 et:
