@@ -22,6 +22,8 @@
 import arsd.eventloop;
 import arsd.terminal;
 
+import display;
+import map;
 import rect;
 
 /**
@@ -49,21 +51,6 @@ void handleGlobalEvent(InputEvent event)
             break;
     }
 }
-
-/**
- * Statically checks if a given type is a grid-based output display.
- *
- * A grid-based output display is any type T for which the following code is
- * valid:
- *------
- * void f(T, A...)(T term, int x, int y, A args) {
- *     term.moveTo(x, y);       // can position output cursor
- *     term.writef("%s", args); // can output formatted strings
- * }
- *------
- */
-enum isGridDisplay(T) = is(typeof(T.moveTo(0,0))) &&
-                        is(typeof(T.writef("%s", "")));
 
 /**
  * Draws a box of the specified position and dimensions to the given display.
@@ -125,55 +112,6 @@ body
 }
 
 /**
- * Checks if T is a 4D array of elements of type E, and furthermore has
- * dimensions that can be queried via opDollar.
- */
-enum is4DArray(T,E) = is(typeof(T.init[0,0,0,0]) : E) &&
-                      is(typeof(T.init.opDollar!0) : size_t) &&
-                      is(typeof(T.init.opDollar!1) : size_t) &&
-                      is(typeof(T.init.opDollar!2) : size_t) &&
-                      is(typeof(T.init.opDollar!3) : size_t);
-
-/**
- * Renders a 4D map to the given grid-based display.
- *
- * Params:
- *  display = A grid-based output display satisfying isGridDisplay.
- *  map = An object which returns a printable character given a set of 4D
- *      coordinates.
- */
-void drawMap(T, Map)(T display, Map map)
-    if (isGridDisplay!T && is4DArray!(Map,dchar))
-{
-    enum interColSpace = 1;
-    enum interRowSpace = 1;
-
-    auto wlen = map.opDollar!0;
-    auto xlen = map.opDollar!1;
-    auto ylen = map.opDollar!2;
-    auto zlen = map.opDollar!3;
-
-    foreach (w; 0 .. wlen)
-    {
-        auto rowy = w*(ylen + interRowSpace);
-        foreach (x; 0 .. xlen)
-        {
-            auto colx = x*(ylen + zlen + interColSpace);
-            foreach (y; 0 .. ylen)
-            {
-                auto outx = colx + (ylen - y);
-                auto outy = rowy + y;
-                foreach (z; 0 .. zlen)
-                {
-                    display.moveTo(outx++, outy);
-                    display.writef("%s", map[w,x,y,z]);
-                }
-            }
-        }
-    }
-}
-
-/**
  * Main program.
  */
 void main()
@@ -206,7 +144,9 @@ void main()
     static assert(is(typeof(Map.init[0,0,0,0])));
     static assert(is(typeof(Map.init.opDollar!0) : size_t));
     static assert(is4DArray!(Map,dchar));
-    drawMap(&term, Map());
+
+    auto map = Map();
+    renderMap(subdisplay(&term, screenRect.centerRect(map.renderSize)), map);
 
     addListener(&handleGlobalEvent);
 

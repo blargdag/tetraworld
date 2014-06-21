@@ -55,6 +55,8 @@ env = Environment(
 # Tetraworld main program
 env.Command('tetraworld', Split("""
 		tetraworld.d
+		display.d
+		map.d
 		rect.d
 
 		eventloop.o

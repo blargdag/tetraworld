@@ -18,8 +18,23 @@
  * You should have received a copy of the GNU General Public License along with
  * Tetraworld.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 module rect;
+
+/**
+ * Represents a position in a rectangular region.
+ */
+struct Pos
+{
+    int x, y;
+}
+
+/**
+ * Represents the dimensions of a rectangular region.
+ */
+struct Dim
+{
+    int width, height;
+}
 
 /**
  * Represents a rectangular area.
@@ -27,6 +42,26 @@ module rect;
 struct Rectangle
 {
     int x, y, width, height;
+
+    /**
+     * Constructor.
+     */
+    this(int _x, int _y, int _width, int _height)
+    {
+        x = _x;
+        y = _y;
+        width = _width;
+        height = _height;
+    }
+
+    /// ditto
+    this(Pos pos, Dim dim)
+    {
+        x = pos.x;
+        y = pos.y;
+        width = dim.width;
+        height = dim.height;
+    }
 
     /**
      * Returns: true if this rectangle does not have positive area.
@@ -48,12 +83,17 @@ struct Rectangle
      * Params:
      *  ctrWidth = Width of centered rectangle.
      *  ctrHeight = Height of centered rectangle.
+     *  dim = Dimensions of centered rectangle.
      */
     Rectangle centerRect(int ctrWidth, int ctrHeight)
     {
-        return Rectangle(x + (width - ctrWidth)/2, y + (height - ctrHeight)/2,
+        return Rectangle(x + (width - ctrWidth)/2,
+                         y + (height - ctrHeight)/2,
                          ctrWidth, ctrHeight);
     }
+
+    /// ditto
+    Rectangle centerRect(Dim dim) { return centerRect(dim.width, dim.height); }
 
     unittest
     {
