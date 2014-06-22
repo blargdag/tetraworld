@@ -122,15 +122,17 @@ void main()
 
     term.clear();
     auto screenRect = Rectangle(0, 0, term.width, term.height);
+    auto msgRect = Rectangle(screenRect.x, screenRect.y,
+                             screenRect.width, 1);
+    auto msgBox = subdisplay(&term, msgRect);
 
-    version(none)
+    void message(A...)(string fmt, A args)
     {
-        auto msg = "Welcome to Tetraworld!";
-        auto msgRect = screenRect.centerRect(cast(int)(msg.length + 4), 3);
-        drawBox(&term, msgRect);
-        term.moveTo(msgRect.x + 2, msgRect.y + 1);
-        term.writef(msg);
+        msgBox.moveTo(0,0);
+        msgBox.writef(fmt, args);
     }
+
+    message("Welcome to Tetraworld!");
 
     // Map test
     struct Map
