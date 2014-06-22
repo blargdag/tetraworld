@@ -19,22 +19,23 @@
  * Tetraworld.  If not, see <http://www.gnu.org/licenses/>.
  */
 module rect;
+import std.typecons : Tuple;
 
 /**
  * Represents a position in a rectangular region.
  */
-struct Pos
-{
-    int x, y;
-}
+alias Pos = Tuple!(
+    int, "x",
+    int, "y",
+);
 
 /**
  * Represents the dimensions of a rectangular region.
  */
-struct Dim
-{
-    int width, height;
-}
+alias Dim = Tuple!(
+    int, "width",
+    int, "height",
+);
 
 /**
  * Represents a rectangular area.
@@ -52,15 +53,6 @@ struct Rectangle
         y = _y;
         width = _width;
         height = _height;
-    }
-
-    /// ditto
-    this(Pos pos, Dim dim)
-    {
-        x = pos.x;
-        y = pos.y;
-        width = dim.width;
-        height = dim.height;
     }
 
     /**
@@ -91,9 +83,6 @@ struct Rectangle
                          y + (height - ctrHeight)/2,
                          ctrWidth, ctrHeight);
     }
-
-    /// ditto
-    Rectangle centerRect(Dim dim) { return centerRect(dim.width, dim.height); }
 
     unittest
     {

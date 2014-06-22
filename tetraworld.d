@@ -41,6 +41,7 @@ void handleGlobalEvent(InputEvent event)
                 {
                     case 'q':
                         arsd.eventloop.exit();
+                        break;
                     default:
                         break;
                 }
@@ -146,7 +147,8 @@ void main()
     static assert(is4DArray!(Map,dchar));
 
     auto map = Map();
-    auto mapview = subdisplay(&term, screenRect.centerRect(map.renderSize));
+    auto mapview = subdisplay(&term,
+                              screenRect.centerRect(map.renderSize.expand));
     renderMap(mapview, map);
 
     addListener(&handleGlobalEvent);
