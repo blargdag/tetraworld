@@ -139,6 +139,11 @@ void main()
         dchar opIndex(int w, int x, int y, int z)
         {
             if (w==2 && x==2 && y==2 && z==2) return '@';
+            if (w*x*y*z == 0 ||
+                w==4 || x==4 || y==4 || z==4)
+            {
+                return '/';
+            }
             return '.';
         }
     }
