@@ -54,65 +54,6 @@ void handleGlobalEvent(InputEvent event)
 }
 
 /**
- * Draws a box of the specified position and dimensions to the given display.
- * Params:
- *  display = A grid-based output display satisfying isGridDisplay.
- *  box = a Rectangle specifying the position and dimensions of the box to be
- *  drawn.
- */
-void drawBox(T)(T display, Rectangle box)
-    if (isGridDisplay!T)
-in { assert(box.width >= 2 && box.height >= 2); }
-body
-{
-    enum
-    {
-        UpperLeft = 0,
-        UpperRight = 1,
-        LowerLeft = 2,
-        LowerRight = 3,
-        Horiz = 4,
-        Vert = 5,
-        BreakLeft = 6,
-        BreakRight = 7
-    }
-    static immutable dstring thinBoxChars   = "┌┐└┘─│┤├"d;
-    static immutable dstring doubleBoxChars = "╔╗╚╝═║╡╞"d;
-
-    import std.array : replicate;
-    import std.range : chain, repeat;
-
-    alias boxChars = thinBoxChars; // for now
-
-    // Top row
-    display.moveTo(box.x, box.y);
-    display.writef("%s", chain(
-        boxChars[UpperLeft].repeat(1),
-        boxChars[Horiz].repeat(box.width-2),
-        boxChars[UpperRight].repeat(1)
-    ));
-
-    // Middle rows
-    foreach (y; 1 .. box.height)
-    {
-        display.moveTo(box.x, box.y + y);
-        display.writef("%s", chain(
-            boxChars[Vert].repeat(1),
-            dchar(' ').repeat(box.width-2),
-            boxChars[Vert].repeat(1)
-        ));
-    }
-
-    // Bottom rows
-    display.moveTo(box.x, box.y + box.height - 1);
-    display.writef("%s", chain(
-        boxChars[LowerLeft].repeat(1),
-        boxChars[Horiz].repeat(box.width-2),
-        boxChars[LowerRight].repeat(1)
-    ));
-}
-
-/**
  * Main program.
  */
 void main()
