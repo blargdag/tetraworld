@@ -34,6 +34,14 @@ template TypeVec(T, size_t n)
         alias TypeVec = tuple!(T, TypeVec!(T, n-1));
 }
 
+
+/**
+ * Checks if a given type is a scalar type or an instance of Vec!(T,n).
+ */
+enum isScalar(T) = !is(T : Vec!(U,n), U, size_t n);
+static assert(isScalar!int);
+static assert(!isScalar!(Vec!(int,2)));
+
 /**
  * Represents an n-dimensional vector of values.
  */
@@ -61,6 +69,32 @@ struct Vec(T, size_t n)
         }
         return result;
     }
+
+    /// ditto
+    Vec opBinary(string op, U)(U y)
+        if (isScalar!U &&
+            is(typeof(mixin("T.init" ~ op ~ "U.init"))))
+    {
+        Vec result;
+        foreach (i, ref x; result.byComponent)
+        {
+            x = mixin("this[i]" ~ op ~ "y");
+        }
+        return result;
+    }
+
+    /// ditto
+    Vec opBinaryRight(string op, U)(U y)
+        if (isScalar!U &&
+            is(typeof(mixin("U.init" ~ op ~ "T.init"))))
+    {
+        Vec result;
+        foreach (i, ref x; result.byComponent)
+        {
+            x = mixin("y" ~ op ~ "this[i]");
+        }
+        return result;
+    }
 }
 
 /**
@@ -80,6 +114,7 @@ auto vec(T...)(T args)
 ///
 unittest
 {
+    // Basic vector construction
     auto v1 = vec(1,2,3);
     static assert(is(typeof(v1) == Vec!(int,3)));
     assert(v1[0] == 1 && v1[1] == 2 && v1[2] == 3);
@@ -89,15 +124,29 @@ unittest
     void func(int x, int y, int z) { }
     func(v1.byComponent);
 
+    // Vector comparison
     auto v2 = vec(1,2,3);
     assert(v1 == v2);
 
+    // Binary vector operations
     auto v3 = vec(2,3,1);
     assert(v1 + v3 == vec(3,5,4));
 
     auto v4 = vec(1.1, 2.2, 3.3);
     static assert(is(typeof(v4) == Vec!(double,3)));
     assert(v4 + v1 == vec(2.1, 4.2, 6.3));
+
+    // Binary operations with scalars
+    assert(vec(1,2,3)*2 == vec(2,4,6));
+    assert(vec(4,2,6)/2 == vec(2,1,3));
+    assert(3*vec(1,2,3) == vec(3,6,9));
+
+    // Non-numeric vectors
+    auto sv1 = vec("a", "b");
+    static assert(is(typeof(sv1) == Vec!(string,2)));
+    assert(sv1 ~ vec("c", "d") == vec("ac", "bd"));
+    assert(sv1 ~ "post" == vec("apost", "bpost"));
+    assert("pre" ~ sv1 == vec("prea", "preb"));
 }
 
 // vim:set ai sw=4 ts=4 et:
