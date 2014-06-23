@@ -39,22 +39,65 @@ template TypeVec(T, size_t n)
  */
 struct Vec(T, size_t n)
 {
+    /// The dimension of this vector.
+    enum dim = n;
+
     /**
      * Retrieve this vector's contents as a tuple of n integers.
      */
-    TypeVec!(T,n) expand;
-    alias expand this;
+    TypeVec!(T,n) byComponent;
+    alias byComponent this;
+
+    /**
+     * Per-element binary operations.
+     */
+    Vec opBinary(string op, U)(Vec!(U,n) v)
+        if (is(typeof(mixin("T.init" ~ op ~ "U.init"))))
+    {
+        Vec result;
+        foreach (i, ref x; result.byComponent)
+        {
+            x = mixin("this[i]" ~ op ~ "v[i]");
+        }
+        return result;
+    }
+}
+
+/**
+ * Convenience function for creating vectors.
+ * Returns: Vec!(U,n) instance where n = args.length, and U is the common type
+ * of the elements given in args. A compile-time error results if the arguments
+ * have no common type.
+ */
+auto vec(T...)(T args)
+{
+    static if (is(typeof([args]) : U[], U))
+        return Vec!(U, args.length)(args);
+    else
+        static assert(false, "No common type for " ~ T.stringof);
 }
 
 ///
 unittest
 {
-    auto v3 = Vec!(int,3)(1,2,3);
-    assert(v3[0] == 1 && v3[1] == 2 && v3[2] == 3);
+    auto v1 = vec(1,2,3);
+    static assert(is(typeof(v1) == Vec!(int,3)));
+    assert(v1[0] == 1 && v1[1] == 2 && v1[2] == 3);
 
-    // Vector components can be individually passed to functions via .expand:
+    // Vector components can be individually passed to functions via
+    // .byComponent:
     void func(int x, int y, int z) { }
-    func(v3.expand);
+    func(v1.byComponent);
+
+    auto v2 = vec(1,2,3);
+    assert(v1 == v2);
+
+    auto v3 = vec(2,3,1);
+    assert(v1 + v3 == vec(3,5,4));
+
+    auto v4 = vec(1.1, 2.2, 3.3);
+    static assert(is(typeof(v4) == Vec!(double,3)));
+    assert(v4 + v1 == vec(2.1, 4.2, 6.3));
 }
 
 // vim:set ai sw=4 ts=4 et:
