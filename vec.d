@@ -57,6 +57,20 @@ struct Vec(T, size_t n)
     alias byComponent this;
 
     /**
+     * Per-element unary operations.
+     */
+    Vec opUnary(string op)()
+        if (is(typeof((T t) => mixin(op ~ "t"))))
+    {
+        Vec result;
+        foreach (i, ref x; result.byComponent)
+        {
+            x = mixin(op ~ "this[i]");
+        }
+        return result;
+    }
+
+    /**
      * Per-element binary operations.
      */
     Vec opBinary(string op, U)(Vec!(U,n) v)
@@ -127,6 +141,13 @@ unittest
     // Vector comparison
     auto v2 = vec(1,2,3);
     assert(v1 == v2);
+
+    // Unary operations
+    assert(-v1 == vec(-1, -2, -3));
+    assert(++v2 == vec(2,3,4));
+    assert(v2 == vec(2,3,4));
+    assert(v2-- == vec(2,3,4));
+    assert(v2 == vec(1,2,3));
 
     // Binary vector operations
     auto v3 = vec(2,3,1);
