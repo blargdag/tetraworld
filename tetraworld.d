@@ -81,7 +81,8 @@ void main()
         enum opDollar(int n) = 5;
         dchar opIndex(int w, int x, int y, int z)
         {
-            if (w==2 && x==2 && y==2 && z==2) return '@';
+            import vec : vec;
+            if (vec(w,x,y,z) == vec(2,2,2,2)) return '@';
             if (w*x*y*z == 0 ||
                 w==4 || x==4 || y==4 || z==4)
             {
