@@ -29,10 +29,10 @@ import vec : vec, Vec, TypeVec;
  * can be queried via opDollar.
  */
 enum is4DArray(T) = is(typeof(T.init[0,0,0,0])) &&
-                    is(typeof(T.init.opDollar!0) : size_t) &&
-                    is(typeof(T.init.opDollar!1) : size_t) &&
-                    is(typeof(T.init.opDollar!2) : size_t) &&
-                    is(typeof(T.init.opDollar!3) : size_t);
+                    is(typeof(T.init.opDollar!0) : int) &&
+                    is(typeof(T.init.opDollar!1) : int) &&
+                    is(typeof(T.init.opDollar!2) : int) &&
+                    is(typeof(T.init.opDollar!3) : int);
 
 /**
  * Returns: The element type of the given 4D array.
@@ -154,7 +154,7 @@ struct SubMap(Map)
     }
 
     /// Array dimensions.
-    @property size_t opDollar(size_t n)()
+    @property int opDollar(size_t n)()
         if (n < 4)
     {
         return size[n];
@@ -172,7 +172,7 @@ struct SubMap(Map)
                 enforce(x >= 0 && x < size[i], new RangeError);
         }
 
-        return impl.opIndex((vec(coors) - offset).byComponent);
+        return impl.opIndex((vec(coors) + offset).byComponent);
     }
 
     static assert(is4DArray!(typeof(this)));

@@ -78,13 +78,13 @@ void main()
     // Map test
     struct Map
     {
-        enum opDollar(int n) = 5;
+        enum opDollar(int n) = 7;
         dchar opIndex(int w, int x, int y, int z)
         {
             import vec : vec;
-            if (vec(w,x,y,z) == vec(2,2,2,2)) return '@';
-            if (w*x*y*z == 0 ||
-                w==4 || x==4 || y==4 || z==4)
+            if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
+            if (w < 2 || w >= 5 || x < 2 || x >= 5 ||
+                y < 2 || y >= 5 || z < 2 || z >= 5)
             {
                 return '/';
             }
@@ -96,9 +96,10 @@ void main()
     static assert(is4DArray!Map && is(ElementType!Map == dchar));
 
     auto map = Map();
-    auto maprect = screenRect.centerRect(map.renderSize.expand);
+    auto vismap = map.submap(vec(1,1,1,2), vec(5,5,5,5));
+    auto maprect = screenRect.centerRect(vismap.renderSize.expand);
     auto mapview = subdisplay(&term, maprect);
-    renderMap(mapview, map);
+    renderMap(mapview, vismap);
 
     drawBox(&term, Rectangle(maprect.x-1, maprect.y-1,
                              maprect.width+2, maprect.height+2));
