@@ -96,9 +96,12 @@ void main()
     static assert(is4DArray!(Map,dchar));
 
     auto map = Map();
-    auto mapview = subdisplay(&term,
-                              screenRect.centerRect(map.renderSize.expand));
+    auto maprect = screenRect.centerRect(map.renderSize.expand);
+    auto mapview = subdisplay(&term, maprect);
     renderMap(mapview, map);
+
+    drawBox(&term, Rectangle(maprect.x-1, maprect.y-1,
+                             maprect.width+2, maprect.height+2));
 
     addListener(&handleGlobalEvent);
 

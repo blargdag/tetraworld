@@ -143,11 +143,9 @@ body
     foreach (y; 1 .. box.height)
     {
         display.moveTo(box.x, box.y + y);
-        display.writef("%s", chain(
-            boxChars[Vert].repeat(1),
-            dchar(' ').repeat(box.width-2),
-            boxChars[Vert].repeat(1)
-        ));
+        display.writef("%s", boxChars[Vert]);
+        display.moveTo(box.x + box.width - 1, box.y + y);
+        display.writef("%s", boxChars[Vert]);
     }
 
     // Bottom rows

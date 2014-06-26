@@ -84,8 +84,8 @@ Dim renderSize(Map)(Map map)
     auto ylen = map.opDollar!2;
     auto zlen = map.opDollar!3;
 
-    return Dim(xlen*(ylen + zlen + interColSpace),
-               wlen*(ylen + interRowSpace));
+    return Dim(xlen*(ylen + zlen + interColSpace) - 1,
+               wlen*(ylen + interRowSpace) - 1);
 }
 
 unittest
@@ -97,15 +97,21 @@ unittest
     }
     auto map = Map();
     auto rsize = map.renderSize();
-    assert(rsize == Dim(18, 12));
+    assert(rsize == Dim(17, 11));
+
+    Rectangle writtenArea;
 
     struct TestDisplay
     {
+
         void moveTo(int x, int y)
         {
             // Check that rendered output is within stated bounds.
             assert(x >= 0 && x < rsize.width);
             assert(y >= 0 && y < rsize.height);
+
+            if (x > writtenArea.width)  writtenArea.width  = x+1;
+            if (y > writtenArea.height) writtenArea.height = y+1;
         }
         void writef(A...)(string fmt, A args) {}
         @property auto width() { return rsize.width; }
@@ -113,8 +119,8 @@ unittest
     }
     auto disp = TestDisplay();
 
-    // This will assert if output exceeds stated bounds.
-    disp.renderMap(map);
+    disp.renderMap(map); // This will assert if output exceeds stated bounds.
+    assert(Dim(writtenArea.width, writtenArea.height) == rsize);
 }
 
 // vim:set ai sw=4 ts=4 et:
