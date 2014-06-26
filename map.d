@@ -22,16 +22,26 @@ module map;
 
 import display;
 import rect;
+import vec : vec, Vec, TypeVec;
 
 /**
- * Checks if T is a 4D array of elements of type E, and furthermore has
- * dimensions that can be queried via opDollar.
+ * Checks if T is a 4D array of elements, and furthermore has dimensions that
+ * can be queried via opDollar.
  */
-enum is4DArray(T,E) = is(typeof(T.init[0,0,0,0]) : E) &&
-                      is(typeof(T.init.opDollar!0) : size_t) &&
-                      is(typeof(T.init.opDollar!1) : size_t) &&
-                      is(typeof(T.init.opDollar!2) : size_t) &&
-                      is(typeof(T.init.opDollar!3) : size_t);
+enum is4DArray(T) = is(typeof(T.init[0,0,0,0])) &&
+                    is(typeof(T.init.opDollar!0) : size_t) &&
+                    is(typeof(T.init.opDollar!1) : size_t) &&
+                    is(typeof(T.init.opDollar!2) : size_t) &&
+                    is(typeof(T.init.opDollar!3) : size_t);
+
+/**
+ * Returns: The element type of the given 4D array.
+ */
+template ElementType(T)
+    if (is4DArray!T)
+{
+    alias ElementType = typeof(T.init[0,0,0,0]);
+}
 
 enum interColSpace = 0;
 enum interRowSpace = 1;
@@ -45,7 +55,7 @@ enum interRowSpace = 1;
  *      coordinates.
  */
 void renderMap(T, Map)(T display, Map map)
-    if (isGridDisplay!T && is4DArray!(Map,dchar))
+    if (isGridDisplay!T && is4DArray!Map && is(ElementType!Map == dchar))
 {
     auto wlen = map.opDollar!0;
     auto xlen = map.opDollar!1;
@@ -77,7 +87,7 @@ void renderMap(T, Map)(T display, Map map)
  * rendered by renderMap.
  */
 Dim renderSize(Map)(Map map)
-    if (is4DArray!(Map,dchar))
+    if (is4DArray!Map && is(ElementType!Map == dchar))
 {
     auto wlen = map.opDollar!0;
     auto xlen = map.opDollar!1;
@@ -121,6 +131,86 @@ unittest
 
     disp.renderMap(map); // This will assert if output exceeds stated bounds.
     assert(Dim(writtenArea.width, writtenArea.height) == rsize);
+}
+
+/**
+ * An adaptor that represents a rectangular subset of a 4D array.
+ */
+struct SubMap(Map)
+    if (is4DArray!Map)
+{
+    alias Elem = ElementType!Map;
+
+    private Map impl;
+    Vec!(int,4) offset;
+    Vec!(int,4) size;
+
+    /// Constructor.
+    this(Map map, Vec!(int,4) _offset, Vec!(int,4) _size)
+    {
+        impl = map;
+        offset = _offset;
+        size = _size;
+    }
+
+    /// Array dimensions.
+    @property size_t opDollar(size_t n)()
+        if (n < 4)
+    {
+        return size[n];
+    }
+
+    /// Array dereference
+    auto ref Elem opIndex(TypeVec!(int, 4) coors)
+    {
+        version(D_NoBoundsChecks) {} else
+        {
+            import core.exception : RangeError;
+            import std.exception : enforce;
+
+            foreach (i, x; coors)
+                enforce(x >= 0 && x < size[i], new RangeError);
+        }
+
+        return impl.opIndex((vec(coors) - offset).byComponent);
+    }
+
+    static assert(is4DArray!(typeof(this)));
+}
+
+/**
+ * Constructs a submap of the given 4D map, with the specified dimensions.
+ */
+auto submap(Map)(Map map, Vec!(int,4) offset, Vec!(int,4) size)
+    if (is4DArray!Map)
+{
+    return SubMap!Map(map, offset, size);
+}
+
+unittest
+{
+    import core.exception : RangeError;
+    import std.exception : assertThrown;
+
+    struct Map
+    {
+        enum opDollar(int n) = 5;
+        dchar opIndex(int w, int x, int y, int z)
+        {
+            if (w*x*y*z == 0 || w==4 || x==4 || y==4 || z==4)
+                return '/';
+            else
+                return '.';
+        }
+    }
+    auto map = Map();
+    auto submap = map.submap(vec(1,1,1,1), vec(3,3,3,3));
+
+    assertThrown!RangeError(submap[-1,-1,-1,-1]);
+    assertThrown!RangeError(submap[3,3,3,3]);
+
+    assert(submap[0,0,0,0] == '.');
+    assert(submap[2,2,2,2] == '.');
 }
 
 // vim:set ai sw=4 ts=4 et:

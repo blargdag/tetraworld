@@ -93,7 +93,7 @@ void main()
     }
     static assert(is(typeof(Map.init[0,0,0,0])));
     static assert(is(typeof(Map.init.opDollar!0) : size_t));
-    static assert(is4DArray!(Map,dchar));
+    static assert(is4DArray!Map && is(ElementType!Map == dchar));
 
     auto map = Map();
     auto maprect = screenRect.centerRect(map.renderSize.expand);
