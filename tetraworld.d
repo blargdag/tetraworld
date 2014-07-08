@@ -27,6 +27,40 @@ import map;
 import rect;
 
 /**
+ * Map representation.
+ */
+struct Map
+{
+    enum opDollar(int n) = 7;
+    dchar opIndex(int w, int x, int y, int z)
+    {
+        import vec : vec;
+        if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
+        if (w < 2 || w >= 5 || x < 2 || x >= 5 ||
+            y < 2 || y >= 5 || z < 2 || z >= 5)
+        {
+            return '/';
+        }
+        return '.';
+    }
+}
+static assert(is4DArray!Map && is(ElementType!Map == dchar));
+
+/**
+ * Viewport representation.
+ */
+struct MapView
+{
+    Map map;
+    SubMap!Map view;
+
+    this(Map _map)
+    {
+        map = _map;
+    }
+}
+
+/**
  * Global input event handler.
  */
 void handleGlobalEvent(InputEvent event)
@@ -76,25 +110,6 @@ void main()
     message("Welcome to Tetraworld!");
 
     // Map test
-    struct Map
-    {
-        enum opDollar(int n) = 7;
-        dchar opIndex(int w, int x, int y, int z)
-        {
-            import vec : vec;
-            if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
-            if (w < 2 || w >= 5 || x < 2 || x >= 5 ||
-                y < 2 || y >= 5 || z < 2 || z >= 5)
-            {
-                return '/';
-            }
-            return '.';
-        }
-    }
-    static assert(is(typeof(Map.init[0,0,0,0])));
-    static assert(is(typeof(Map.init.opDollar!0) : size_t));
-    static assert(is4DArray!Map && is(ElementType!Map == dchar));
-
     auto map = Map();
     auto vismap = map.submap(vec(1,1,1,2), vec(5,5,5,5));
     auto maprect = screenRect.centerRect(vismap.renderSize.expand);
