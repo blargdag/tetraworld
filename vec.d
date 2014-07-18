@@ -109,6 +109,18 @@ struct Vec(T, size_t n)
         }
         return result;
     }
+
+    /**
+     * Per-element assignment operators.
+     */
+    void opOpAssign(string op, U)(Vec!(U,n) v)
+        if (is(typeof({ T t; mixin("t " ~ op ~ "= U.init;"); })))
+    {
+        foreach (i, ref x; byComponent)
+        {
+            mixin("x " ~ op ~ "= v[i];");
+        }
+    }
 }
 
 /**
@@ -168,6 +180,15 @@ unittest
     assert(sv1 ~ vec("c", "d") == vec("ac", "bd"));
     assert(sv1 ~ "post" == vec("apost", "bpost"));
     assert("pre" ~ sv1 == vec("prea", "preb"));
+}
+
+unittest
+{
+    // Test opOpAssign.
+    auto v = Vec!(int,3)(1,2,3);
+    auto w = Vec!(int,3)(4,5,6);
+    v += w;
+    assert(v == vec(5,7,9));
 }
 
 // vim:set ai sw=4 ts=4 et:

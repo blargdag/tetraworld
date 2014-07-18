@@ -49,41 +49,86 @@ static assert(is4DArray!Map && is(ElementType!Map == dchar));
 /**
  * Viewport representation.
  */
-struct MapView
+struct ViewPort
 {
-    Map map;
-    SubMap!Map view;
+    Map         map;
+    Vec!(int,4) dim;
+    Vec!(int,4) pos;
 
-    this(Map _map)
+    /// Constructor.
+    this(Map _map, Vec!(int,4) _dim, Vec!(int,4) _pos)
     {
         map = _map;
+        dim = _dim;
+        pos = _pos;
+    }
+
+    /**
+     * Returns a 4D array of dchar representing the current view of the map
+     * given the current viewport settings.
+     */
+    @property auto curView()
+    {
+        return submap(map, pos, dim);
+    }
+
+    /**
+     * Translates the viewport by the given displacement.
+     */
+    void move(Vec!(int,4) displacement)
+    {
+        pos += displacement;
     }
 }
 
 /**
- * Global input event handler.
+ * Input event handler.
+ *
+ * Manages key bindings. In the future, will also manage stack of key handlers
+ * for implementing modal dialogues.
  */
-void handleGlobalEvent(InputEvent event)
+struct InputEventHandler
 {
-    switch (event.type)
-    {
-        case InputEvent.Type.CharacterEvent:
-            auto ev = event.get!(InputEvent.Type.CharacterEvent);
-            if (ev.eventType == CharacterEvent.Type.Pressed)
-            {
-                switch (ev.character)
-                {
-                    case 'q':
-                        arsd.eventloop.exit();
-                        break;
-                    default:
-                        break;
-                }
-            }
-            break;
+    void delegate(dchar ch)[dchar] bindings;
 
-        default:
-            break;
+    /**
+     * Binds a particular key to an action.
+     */
+    void bind(dchar key, void delegate(dchar) action)
+    {
+        bindings[key] = action;
+    }
+
+    /**
+     * Global input event handler to be hooked up to main event loop.
+     */
+    void handleGlobalEvent(InputEvent event)
+    {
+        switch (event.type)
+        {
+            case InputEvent.Type.CharacterEvent:
+                auto ev = event.get!(InputEvent.Type.CharacterEvent);
+                if (ev.eventType == CharacterEvent.Type.Pressed)
+                {
+                    switch (ev.character)
+                    {
+                        case 'q':
+                            arsd.eventloop.exit();
+                            break;
+                        default:
+                            if (auto handler = ev.character in bindings)
+                            {
+                                // Invoke user-defined action.
+                                (*handler)(ev.character);
+                            }
+                            break;
+                    }
+                }
+                break;
+
+            default:
+                break;
+        }
     }
 }
 
@@ -111,15 +156,35 @@ void main()
 
     // Map test
     auto map = Map();
-    auto vismap = map.submap(vec(1,1,1,2), vec(5,5,5,5));
-    auto maprect = screenRect.centerRect(vismap.renderSize.expand);
+    auto viewport = ViewPort(map, vec(5,5,5,5), vec(2,2,2,2));
+    auto maprect = screenRect.centerRect(viewport.curView.renderSize.expand);
     auto mapview = subdisplay(&term, maprect);
-    renderMap(mapview, vismap);
+    mapview.renderMap(viewport.curView);
 
     drawBox(&term, Rectangle(maprect.x-1, maprect.y-1,
                              maprect.width+2, maprect.height+2));
 
-    addListener(&handleGlobalEvent);
+    void refresh()
+    {
+        mapview.renderMap(viewport.curView);
+    }
+
+    void moveView(Vec!(int,4) displacement)
+    {
+        viewport.move(displacement);
+        refresh();
+    }
+
+    InputEventHandler inputHandler;
+    inputHandler.bind('I', (dchar) { moveView(vec(-1,0,0,0)); });
+    inputHandler.bind('M', (dchar) { moveView(vec(1,0,0,0)); });
+    inputHandler.bind('H', (dchar) { moveView(vec(0,-1,0,0)); });
+    inputHandler.bind('L', (dchar) { moveView(vec(0,1,0,0)); });
+    inputHandler.bind('O', (dchar) { moveView(vec(0,0,-1,0)); });
+    inputHandler.bind('N', (dchar) { moveView(vec(0,0,1,0)); });
+    inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
+    inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
+    addListener(&inputHandler.handleGlobalEvent);
 
     term.flush();
     loop();
