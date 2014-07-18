@@ -29,12 +29,17 @@ import rect;
 /**
  * Map representation.
  */
-struct Map
+struct GameMap
 {
+    // For initial testing only; this should be replaced with a proper object
+    // system.
+    Vec!(int,4) playerPos;
+
     enum opDollar(int n) = 7;
     dchar opIndex(int w, int x, int y, int z)
     {
         import vec : vec;
+        if (vec(w,y,x,z) == playerPos) return '&';
         if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
         if (w < 2 || w >= 5 || x < 2 || x >= 5 ||
             y < 2 || y >= 5 || z < 2 || z >= 5)
@@ -44,19 +49,20 @@ struct Map
         return '.';
     }
 }
-static assert(is4DArray!Map && is(ElementType!Map == dchar));
+static assert(is4DArray!GameMap && is(ElementType!GameMap == dchar));
 
 /**
  * Viewport representation.
  */
-struct ViewPort
+struct ViewPort(Map)
+    if (is4DArray!Map)
 {
-    Map         map;
+    Map*        map;
     Vec!(int,4) dim;
     Vec!(int,4) pos;
 
     /// Constructor.
-    this(Map _map, Vec!(int,4) _dim, Vec!(int,4) _pos)
+    this(Map* _map, Vec!(int,4) _dim, Vec!(int,4) _pos)
     {
         map = _map;
         dim = _dim;
@@ -69,7 +75,7 @@ struct ViewPort
      */
     @property auto curView()
     {
-        return submap(map, pos, dim);
+        return submap(*map, pos, dim);
     }
 
     /**
@@ -155,10 +161,13 @@ void main()
     message("Welcome to Tetraworld!");
 
     // Map test
-    auto map = Map();
-    auto viewport = ViewPort(map, vec(5,5,5,5), vec(2,2,2,2));
+    auto map = GameMap();
+    map.playerPos = vec(3,3,3,2);
+    auto viewport = ViewPort!GameMap(&map, vec(5,5,5,5),
+                                     map.playerPos - vec(2,2,2,2));
     auto maprect = screenRect.centerRect(viewport.curView.renderSize.expand);
     auto mapview = subdisplay(&term, maprect);
+
     mapview.renderMap(viewport.curView);
 
     drawBox(&term, Rectangle(maprect.x-1, maprect.y-1,
@@ -169,6 +178,15 @@ void main()
         mapview.renderMap(viewport.curView);
     }
 
+    void movePlayer(Vec!(int,4) displacement)
+    {
+        auto newPos = map.playerPos + displacement;
+        if (map[newPos.byComponent] == '/')
+            return; // movement blocked
+        map.playerPos = newPos;
+        refresh();
+    }
+
     void moveView(Vec!(int,4) displacement)
     {
         viewport.move(displacement);
@@ -176,6 +194,14 @@ void main()
     }
 
     InputEventHandler inputHandler;
+    inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
+    inputHandler.bind('m', (dchar) { movePlayer(vec(1,0,0,0)); });
+    inputHandler.bind('o', (dchar) { movePlayer(vec(0,-1,0,0)); });
+    inputHandler.bind('n', (dchar) { movePlayer(vec(0,1,0,0)); });
+    inputHandler.bind('h', (dchar) { movePlayer(vec(0,0,-1,0)); });
+    inputHandler.bind('l', (dchar) { movePlayer(vec(0,0,1,0)); });
+    inputHandler.bind('j', (dchar) { movePlayer(vec(0,0,0,-1)); });
+    inputHandler.bind('k', (dchar) { movePlayer(vec(0,0,0,1)); });
     inputHandler.bind('I', (dchar) { moveView(vec(-1,0,0,0)); });
     inputHandler.bind('M', (dchar) { moveView(vec(1,0,0,0)); });
     inputHandler.bind('H', (dchar) { moveView(vec(0,-1,0,0)); });
