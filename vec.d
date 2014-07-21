@@ -199,6 +199,7 @@ unittest
 struct Region(T, size_t n)
     if (is(typeof(T.init < T.init)))
 {
+    import std.traits : CommonType;
     import std.typecons : staticIota;
 
     /**
@@ -282,6 +283,22 @@ struct Region(T, size_t n)
         }
         return true;
     }
+
+    /**
+     * Computes intersection of two regions.
+     */
+    Region!(CommonType!(T,U),n) intersect(U)(Region!(U,n) r)
+        if (is(typeof(T.init < U.init)) && is(CommonType!(T,U)))
+    {
+        Region!(CommonType!(T,U),n) result;
+        foreach (i; staticIota!(0, n))
+        {
+            import std.algorithm : max, min;
+            result.lowerBound[i] = max(lowerBound[i], r.lowerBound[i]);
+            result.upperBound[i] = min(upperBound[i], r.upperBound[i]);
+        }
+        return result;
+    }
 }
 
 /// ditto
@@ -336,6 +353,22 @@ unittest
     assert(region(vec(0,0)) in region(vec(1,1), vec(2,2)));
     assert(region(vec(0,0)) !in region(vec(0,0)));
     assert(region(vec(-1,-1), vec(1,1)) !in region(vec(0,0)));
+}
+
+unittest
+{
+    // Region intersections
+    auto r1 = region(vec(1,1,1), vec(4,3,3));
+    auto r2 = region(vec(2,0,0), vec(3,4,3));
+    assert(r1.intersect(r2) == region(vec(2,1,1), vec(3,3,3)));
+
+    // Disjoint regions
+    auto r3 = region(vec(1,1,1));
+    assert(r1.intersect(r3).empty);
+
+    // Intersection with empty region
+    auto r4 = region(vec(2,0,0), vec(2,4,4));
+    assert(r1.intersect(r4).empty);
 }
 
 // vim:set ai sw=4 ts=4 et:
