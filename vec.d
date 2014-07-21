@@ -255,6 +255,33 @@ struct Region(T, size_t n)
                 return false;
         return true;
     }
+
+    /**
+     * Returns: true if this region lies within the given region r. Lying
+     * within means all of the bounds in the given region is either the same,
+     * or a narrowing of the corresponding bounds in this region. Empty regions
+     * never contain anything, but are contained by all non-empty regions.
+     */
+    bool opBinary(string op, U)(Region!(U,n) r)
+        if (op == "in" && is(typeof(T.init < U.init)))
+    {
+        foreach (i; staticIota!(0, n))
+        {
+            // Empty regions never contain anything
+            if (r.lowerBound[i] >= r.upperBound[i])
+                return false;
+
+            // Empty regions are always contained in non-empty regions.
+            assert(r.lowerBound[i] < r.upperBound[i]);
+            if (lowerBound[i] < upperBound[i] &&
+                (lowerBound[i] < r.lowerBound[i] ||
+                 upperBound[i] > r.upperBound[i]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 /// ditto
@@ -274,6 +301,7 @@ unittest
     Region!(int,4) r0;
     assert(r0.empty);
 
+    // Test ctors & .empty
     auto r1 = region(vec(2,2,2,2));
     assert(r1.lowerBound == vec(0,0,0,0) && r1.upperBound == vec(2,2,2,2));
     assert(!r1.empty);
@@ -282,17 +310,32 @@ unittest
     assert(r2.lowerBound == vec(1,1,1,1) && r2.upperBound == vec(2,2,2,2));
     assert(!r2.empty);
 
+    // Test .empty
     assert(region(vec(1,1,1,1), vec(0,0,0,0)).empty);
     assert(region(vec(1,1,1,1), vec(1,1,1,0)).empty);
     assert(region(vec(1,1,1,1), vec(2,2,2,1)).empty);
     assert(region(vec(1,1,1,1), vec(2,1,2,2)).empty);
     assert(region(vec(1,1,1,1), vec(2,0,2,2)).empty);
 
+    // Test vector containment
     assert(vec(1,1,1,1) in r2);
     assert(vec(1,1,1,0) !in r2);
     assert(vec(1,1,1,2) !in r2);
     assert(vec(1,1,0,1) !in r2);
     assert(vec(1,1,2,1) !in r2);
+
+    // Test region containment
+    assert(r2 in r2);   // reflexivity
+    assert(r2 in region(vec(0,0,0,0), vec(2,2,2,2)));
+    assert(r2 in region(vec(1,0,1,1), vec(2,2,2,2)));
+    assert(r2 in region(vec(1,1,1,1), vec(3,3,3,3)));
+    assert(r2 in region(vec(1,1,1,1), vec(3,2,2,2)));
+
+    // Empty regions containment
+    assert(region(vec(0,0)) in region(vec(-1,-1), vec(2,2)));
+    assert(region(vec(0,0)) in region(vec(1,1), vec(2,2)));
+    assert(region(vec(0,0)) !in region(vec(0,0)));
+    assert(region(vec(-1,-1), vec(1,1)) !in region(vec(0,0)));
 }
 
 // vim:set ai sw=4 ts=4 et:
