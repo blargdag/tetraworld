@@ -191,4 +191,87 @@ unittest
     assert(v == vec(5,7,9));
 }
 
+/**
+ * Represents an n-dimensional cubic subregion of an n-dimensional cube, or
+ * equivalently, the upper and lower bounds of the n components of an
+ * n-dimensional vector.
+ */
+struct Region(T, size_t n)
+    if (is(typeof(T.init < T.init)))
+{
+    import std.typecons : staticIota;
+
+    /**
+     * The bounds of the n-dimensional cube.
+     *
+     * The lowerbound is inclusive, whereas the upperbound is exclusive; hence,
+     * when any element of lowerBound is equal to the corresponding element of
+     * upperBound, the region is empty.
+     */
+    Vec!(T,n) lowerBound;
+    Vec!(T,n) upperBound; /// ditto
+
+    /**
+     * Constructor.
+     *
+     * The single-argument case defaults the lowerBound to (T.init, T.init,
+     * ...).
+     */
+    this(Vec!(T,n) _upperBound)
+    {
+        upperBound = _upperBound;
+    }
+
+    /// ditto
+    this(Vec!(T,n) _lowerBound, Vec!(T,n) _upperBound)
+    {
+        lowerBound = _lowerBound;
+        upperBound = _upperBound;
+    }
+
+    /**
+     * Returns: false if every element of lowerBound is strictly less than the
+     * corresponding element of upperBound; true otherwise.
+     */
+    @property bool empty()
+    {
+        foreach (i; staticIota!(0, n))
+            if (lowerBound[i] >= upperBound[i])
+                return true;
+        return false;
+    }
+}
+
+/// ditto
+auto region(T, size_t n)(Vec!(T,n) upperBound)
+{
+    return Region!(T,n)(upperBound);
+}
+
+/// ditto
+auto region(T, size_t n)(Vec!(T,n) lowerBound, Vec!(T,n) upperBound)
+{
+    return Region!(T,n)(lowerBound, upperBound);
+}
+
+unittest
+{
+    Region!(int,4) r0;
+    assert(r0.empty);
+
+    auto r1 = region(vec(2,2,2,2));
+    assert(r1.lowerBound == vec(0,0,0,0) && r1.upperBound == vec(2,2,2,2));
+    assert(!r1.empty);
+
+    auto r2 = region(vec(1,1,1,1), vec(2,2,2,2));
+    assert(r2.lowerBound == vec(1,1,1,1) && r2.upperBound == vec(2,2,2,2));
+    assert(!r2.empty);
+
+    assert(region(vec(1,1,1,1), vec(0,0,0,0)).empty);
+    assert(region(vec(1,1,1,1), vec(1,1,1,0)).empty);
+    assert(region(vec(1,1,1,1), vec(2,2,2,1)).empty);
+    assert(region(vec(1,1,1,1), vec(2,1,2,2)).empty);
+    assert(region(vec(1,1,1,1), vec(2,0,2,2)).empty);
+}
+
 // vim:set ai sw=4 ts=4 et:
