@@ -240,6 +240,21 @@ struct Region(T, size_t n)
                 return true;
         return false;
     }
+
+    /**
+     * Returns: true if the given vector lies within the region; false
+     * otherwise. Lying within means each component c of the vector satisfies l
+     * <= c < h, where l and h are the corresponding components from lowerBound
+     * and upperBound, respectively.
+     */
+    bool opBinaryRight(string op, U)(Vec!(U,n) v)
+        if (op == "in" && is(typeof(T.init < U.init)))
+    {
+        foreach (i; staticIota!(0, n))
+            if (v[i] < lowerBound[i] || v[i] >= upperBound[i])
+                return false;
+        return true;
+    }
 }
 
 /// ditto
@@ -272,6 +287,12 @@ unittest
     assert(region(vec(1,1,1,1), vec(2,2,2,1)).empty);
     assert(region(vec(1,1,1,1), vec(2,1,2,2)).empty);
     assert(region(vec(1,1,1,1), vec(2,0,2,2)).empty);
+
+    assert(vec(1,1,1,1) in r2);
+    assert(vec(1,1,1,0) !in r2);
+    assert(vec(1,1,1,2) !in r2);
+    assert(vec(1,1,0,1) !in r2);
+    assert(vec(1,1,2,1) !in r2);
 }
 
 // vim:set ai sw=4 ts=4 et:
