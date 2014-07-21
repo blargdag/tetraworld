@@ -31,22 +31,22 @@ import rect;
  */
 struct GameMap
 {
+    import vec : Vec, vec, Region, region;
+
     // For initial testing only; this should be replaced with a proper object
     // system.
     Vec!(int,4) playerPos;
 
-    enum opDollar(int n) = 7;
+    Vec!(int,4) dim = vec(7,7,7,7);
+
+    @property int opDollar(int i)() { return dim[i]; }
+
     dchar opIndex(int w, int x, int y, int z)
     {
-        import vec : vec;
         if (vec(w,y,x,z) == playerPos) return '&';
         if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
-        if (w < 2 || w >= 5 || x < 2 || x >= 5 ||
-            y < 2 || y >= 5 || z < 2 || z >= 5)
-        {
-            return '/';
-        }
-        return '.';
+        if (vec(w,x,y,z) in region(vec(2,2,2,2), vec(5,5,5,5))) return '.';
+        return '/';
     }
 }
 static assert(is4DArray!GameMap && is(ElementType!GameMap == dchar));
