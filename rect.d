@@ -22,22 +22,6 @@ module rect;
 import std.typecons : Tuple;
 
 /**
- * Represents a position in a rectangular region.
- */
-alias Pos = Tuple!(
-    int, "x",
-    int, "y",
-);
-
-/**
- * Represents the dimensions of a rectangular region.
- */
-alias Dim = Tuple!(
-    int, "width",
-    int, "height",
-);
-
-/**
  * Represents a rectangular area.
  */
 struct Rectangle

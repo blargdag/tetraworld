@@ -165,7 +165,8 @@ void main()
     map.playerPos = vec(3,3,3,2);
     auto viewport = ViewPort!GameMap(&map, vec(5,5,5,5),
                                      map.playerPos - vec(2,2,2,2));
-    auto maprect = screenRect.centerRect(viewport.curView.renderSize.expand);
+    auto maprect = screenRect.centerRect(renderSize(viewport.curView)
+                                         .byComponent);
     auto mapview = subdisplay(&term, maprect);
 
     mapview.renderMap(viewport.curView);

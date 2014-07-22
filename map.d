@@ -83,10 +83,10 @@ void renderMap(T, Map)(T display, Map map)
 }
 
 /**
- * Returns: The dimensions of the rendered image of a 4D map, that would be
- * rendered by renderMap.
+ * Returns: The dimensions of the rendered image of a 4D map that would be
+ * rendered by renderMap, as a vector of width and height, respectively.
  */
-Dim renderSize(Map)(Map map)
+Vec!(int,2) renderSize(Map)(Map map)
     if (is4DArray!Map && is(ElementType!Map == dchar))
 {
     auto wlen = map.opDollar!0;
@@ -94,7 +94,7 @@ Dim renderSize(Map)(Map map)
     auto ylen = map.opDollar!2;
     auto zlen = map.opDollar!3;
 
-    return Dim(xlen*(ylen + zlen + interColSpace) - 1,
+    return vec(xlen*(ylen + zlen + interColSpace) - 1,
                wlen*(ylen + interRowSpace) - 1);
 }
 
@@ -107,30 +107,29 @@ unittest
     }
     auto map = Map();
     auto rsize = map.renderSize();
-    assert(rsize == Dim(17, 11));
+    assert(rsize == vec(17, 11));
 
     Rectangle writtenArea;
 
     struct TestDisplay
     {
-
         void moveTo(int x, int y)
         {
             // Check that rendered output is within stated bounds.
-            assert(x >= 0 && x < rsize.width);
-            assert(y >= 0 && y < rsize.height);
+            assert(x >= 0 && x < rsize[0]);
+            assert(y >= 0 && y < rsize[1]);
 
             if (x > writtenArea.width)  writtenArea.width  = x+1;
             if (y > writtenArea.height) writtenArea.height = y+1;
         }
         void writef(A...)(string fmt, A args) {}
-        @property auto width() { return rsize.width; }
-        @property auto height() { return rsize.height; }
+        @property auto width() { return rsize[0]; }
+        @property auto height() { return rsize[1]; }
     }
     auto disp = TestDisplay();
 
     disp.renderMap(map); // This will assert if output exceeds stated bounds.
-    assert(Dim(writtenArea.width, writtenArea.height) == rsize);
+    assert(vec(writtenArea.width, writtenArea.height) == rsize);
 }
 
 /**
