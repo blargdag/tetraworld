@@ -240,6 +240,23 @@ struct Region(T, size_t n)
     }
 
     /**
+     * Returns: Vector of the lengths of this Region along each dimension of
+     * type Vec!(U,n), where U is the type of the difference between two
+     * instances of T.
+     */
+    @property auto lengths()()
+        if (is(typeof(T.init - T.init)))
+    {
+        import std.typecons : staticIota;
+        alias U = typeof(T.init - T.init);
+
+        Vec!(U,n) result;
+        foreach (i; staticIota!(0, n))
+            result[i] = length!i;
+        return result;
+    }
+
+    /**
      * Returns: false if every element of lowerBound is strictly less than the
      * corresponding element of upperBound; true otherwise.
      */
@@ -395,8 +412,14 @@ unittest
     auto r1 = region(vec(0, 0), vec(5, 5));
     auto r2 = region(vec(1, 1), vec(4, 4));
     assert(r1.centeredRegion(vec(3,3)) == r2);
-    import std.stdio; writeln(r2.centeredRegion(vec(5,5)));
     assert(r2.centeredRegion(vec(5,5)) == r1);
+}
+
+unittest
+{
+    // Test .lengths
+    auto r = region(vec(0,1,2,3), vec(8,7,6,5));
+    assert(r.lengths == vec(8,6,4,2));
 }
 
 // vim:set ai sw=4 ts=4 et:

@@ -140,22 +140,26 @@ struct SubMap(Map)
     alias Elem = ElementType!Map;
 
     private Map impl;
-    Vec!(int,4) offset;
-    Vec!(int,4) size;
+    Region!(int,4) reg;
 
     /// Constructor.
-    this(Map map, Vec!(int,4) _offset, Vec!(int,4) _size)
+    this(Map map, Region!(int,4) _reg)
+    in
+    {
+        assert(reg in region(vec(map.opDollar!0, map.opDollar!1,
+                                 map.opDollar!2, map.opDollar!3)));
+    }
+    body
     {
         impl = map;
-        offset = _offset;
-        size = _size;
+        reg = _reg;
     }
 
     /// Array dimensions.
     @property int opDollar(size_t n)()
         if (n < 4)
     {
-        return size[n];
+        return reg.length!n;
     }
 
     /// Array dereference
@@ -166,11 +170,10 @@ struct SubMap(Map)
             import core.exception : RangeError;
             import std.exception : enforce;
 
-            foreach (i, x; coors)
-                enforce(x >= 0 && x < size[i], new RangeError);
+            enforce((vec(coors) + reg.lowerBound) in reg, new RangeError);
         }
 
-        return impl.opIndex((vec(coors) + offset).byComponent);
+        return impl.opIndex((vec(coors) + reg.lowerBound).byComponent);
     }
 
     static assert(is4DArray!(typeof(this)));
@@ -179,10 +182,10 @@ struct SubMap(Map)
 /**
  * Constructs a submap of the given 4D map, with the specified dimensions.
  */
-auto submap(Map)(Map map, Vec!(int,4) offset, Vec!(int,4) size)
+auto submap(Map)(Map map, Region!(int,4) reg)
     if (is4DArray!Map)
 {
-    return SubMap!Map(map, offset, size);
+    return SubMap!Map(map, reg);
 }
 
 unittest
@@ -202,7 +205,7 @@ unittest
         }
     }
     auto map = Map();
-    auto submap = map.submap(vec(1,1,1,1), vec(3,3,3,3));
+    auto submap = map.submap(region(vec(1,1,1,1), vec(4,4,4,4)));
 
     assertThrown!RangeError(submap[-1,-1,-1,-1]);
     assertThrown!RangeError(submap[3,3,3,3]);

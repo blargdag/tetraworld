@@ -73,7 +73,7 @@ struct ViewPort(Map)
      */
     @property auto curView()
     {
-        return submap(*map, pos, dim);
+        return submap(*map, region(pos, pos + dim));
     }
 
     /**
