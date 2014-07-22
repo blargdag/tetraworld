@@ -57,8 +57,7 @@ env.Command('tetraworld', Split("""
 		tetraworld.d
 		display.d
 		map.d
-		rect.d
-		vec.d
+		vector.d
 
 		eventloop.o
 		terminal.o

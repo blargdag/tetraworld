@@ -24,15 +24,13 @@ import arsd.terminal;
 
 import display;
 import map;
-import rect;
+import vector;
 
 /**
  * Map representation.
  */
 struct GameMap
 {
-    import vec : Vec, vec, Region, region;
-
     // For initial testing only; this should be replaced with a proper object
     // system.
     Vec!(int,4) playerPos;
@@ -147,9 +145,9 @@ void main()
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
     term.clear();
-    auto screenRect = Rectangle(0, 0, term.width, term.height);
-    auto msgRect = Rectangle(screenRect.x, screenRect.y,
-                             screenRect.width, 1);
+    auto screenRect = region(vec(term.width, term.height));
+    auto msgRect = region(screenRect.lowerBound,
+                          vec(screenRect.upperBound[0], 1));
     auto msgBox = subdisplay(&term, msgRect);
 
     void message(A...)(string fmt, A args)
@@ -165,14 +163,13 @@ void main()
     map.playerPos = vec(3,3,3,2);
     auto viewport = ViewPort!GameMap(&map, vec(5,5,5,5),
                                      map.playerPos - vec(2,2,2,2));
-    auto maprect = screenRect.centerRect(renderSize(viewport.curView)
-                                         .byComponent);
+    auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&term, maprect);
 
     mapview.renderMap(viewport.curView);
 
-    drawBox(&term, Rectangle(maprect.x-1, maprect.y-1,
-                             maprect.width+2, maprect.height+2));
+    drawBox(&term, region(maprect.lowerBound - vec(1,1),
+                          maprect.upperBound + vec(1,1)));
 
     void refresh()
     {

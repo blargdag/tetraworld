@@ -18,7 +18,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Tetraworld.  If not, see <http://www.gnu.org/licenses/>.
  */
-module vec;
+module vector;
 
 /**
  * Template for constructing an n-tuple of a given type T.
@@ -231,6 +231,15 @@ struct Region(T, size_t n)
     }
 
     /**
+     * Returns: The length of the Region along the i'th dimension.
+     */
+    @property auto length(uint i)()
+        if (is(typeof(T.init - T.init)))
+    {
+        return upperBound[i] - lowerBound[i];
+    }
+
+    /**
      * Returns: false if every element of lowerBound is strictly less than the
      * corresponding element of upperBound; true otherwise.
      */
@@ -298,6 +307,15 @@ struct Region(T, size_t n)
             result.upperBound[i] = min(upperBound[i], r.upperBound[i]);
         }
         return result;
+    }
+
+    /**
+     * Returns: A region of the specified dimensions centered on this region.
+     */
+    Region centeredRegion(Vec!(T,n) size)
+    {
+        auto lb = lowerBound + (upperBound - lowerBound - size)/2;
+        return Region(lb, lb + size);
     }
 }
 
@@ -369,6 +387,16 @@ unittest
     // Intersection with empty region
     auto r4 = region(vec(2,0,0), vec(2,4,4));
     assert(r1.intersect(r4).empty);
+}
+
+unittest
+{
+    // Test centeredRegion
+    auto r1 = region(vec(0, 0), vec(5, 5));
+    auto r2 = region(vec(1, 1), vec(4, 4));
+    assert(r1.centeredRegion(vec(3,3)) == r2);
+    import std.stdio; writeln(r2.centeredRegion(vec(5,5)));
+    assert(r2.centeredRegion(vec(5,5)) == r1);
 }
 
 // vim:set ai sw=4 ts=4 et:

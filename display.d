@@ -32,7 +32,7 @@
  */
 module display;
 
-import rect;
+import vector;
 
 /**
  * Statically checks if a given type is a grid-based output display.
@@ -68,24 +68,24 @@ struct SubDisplay(T)
     if (isGridDisplay!T)
 {
     T parent;
-    Rectangle rect;
+    Region!(int,2) rect;
 
     ///
     void moveTo(int x, int y)
-    in { assert(x + rect.x < parent.width && y + rect.y < parent.height); }
+    in { assert((vec(x,y) + rect.lowerBound) in rect); }
     body
     {
-        parent.moveTo(x + rect.x, y + rect.y);
+        parent.moveTo((vec(x,y) + rect.lowerBound).byComponent);
     }
 
     ///
     void writef(A...)(string fmt, A args) { parent.writef(fmt, args); }
 
     ///
-    @property auto width() { return rect.width; }
+    @property auto width() { return rect.lowerBound[0]; }
 
     ///
-    @property auto height() { return rect.height; }
+    @property auto height() { return rect.lowerBound[1]; }
 }
 
 unittest
@@ -95,7 +95,8 @@ unittest
 }
 
 /// Convenience method for constructing a SubDisplay.
-auto subdisplay(T)(T display, Rectangle rect)
+auto subdisplay(T)(T display, Region!(int,2) rect)
+    if (isGridDisplay!T)
 {
     return SubDisplay!T(display, rect);
 }
@@ -107,9 +108,9 @@ auto subdisplay(T)(T display, Rectangle rect)
  *  box = a Rectangle specifying the position and dimensions of the box to be
  *  drawn.
  */
-void drawBox(T)(T display, Rectangle box)
+void drawBox(T)(T display, Region!(int,2) box)
     if (isGridDisplay!T)
-in { assert(box.width >= 2 && box.height >= 2); }
+in { assert(box.length!0 >= 2 && box.length!1 >= 2); }
 body
 {
     enum
@@ -131,28 +132,33 @@ body
 
     alias boxChars = thinBoxChars; // for now
 
+    auto bx = box.lowerBound[0];
+    auto by = box.lowerBound[1];
+    auto width = box.length!0;
+    auto height = box.length!1;
+
     // Top row
-    display.moveTo(box.x, box.y);
+    display.moveTo(box.lowerBound.byComponent);
     display.writef("%s", chain(
         boxChars[UpperLeft].repeat(1),
-        boxChars[Horiz].repeat(box.width-2),
+        boxChars[Horiz].repeat(width-2),
         boxChars[UpperRight].repeat(1)
     ));
 
     // Middle rows
-    foreach (y; 1 .. box.height)
+    foreach (y; 1 .. height)
     {
-        display.moveTo(box.x, box.y + y);
+        display.moveTo(bx, by + y);
         display.writef("%s", boxChars[Vert]);
-        display.moveTo(box.x + box.width - 1, box.y + y);
+        display.moveTo(bx + width - 1, by + y);
         display.writef("%s", boxChars[Vert]);
     }
 
     // Bottom rows
-    display.moveTo(box.x, box.y + box.height - 1);
+    display.moveTo(bx, by + height - 1);
     display.writef("%s", chain(
         boxChars[LowerLeft].repeat(1),
-        boxChars[Horiz].repeat(box.width-2),
+        boxChars[Horiz].repeat(width-2),
         boxChars[LowerRight].repeat(1)
     ));
 }

@@ -21,8 +21,7 @@
 module map;
 
 import display;
-import rect;
-import vec : vec, Vec, TypeVec;
+import vector;
 
 /**
  * Checks if T is a 4D array of elements, and furthermore has dimensions that
@@ -109,7 +108,7 @@ unittest
     auto rsize = map.renderSize();
     assert(rsize == vec(17, 11));
 
-    Rectangle writtenArea;
+    Region!(int,2) writtenArea;
 
     struct TestDisplay
     {
@@ -119,8 +118,8 @@ unittest
             assert(x >= 0 && x < rsize[0]);
             assert(y >= 0 && y < rsize[1]);
 
-            if (x > writtenArea.width)  writtenArea.width  = x+1;
-            if (y > writtenArea.height) writtenArea.height = y+1;
+            if (x > writtenArea.upperBound[0]) writtenArea.upperBound[0] = x+1;
+            if (y > writtenArea.upperBound[1]) writtenArea.upperBound[1] = y+1;
         }
         void writef(A...)(string fmt, A args) {}
         @property auto width() { return rsize[0]; }
@@ -129,7 +128,7 @@ unittest
     auto disp = TestDisplay();
 
     disp.renderMap(map); // This will assert if output exceeds stated bounds.
-    assert(vec(writtenArea.width, writtenArea.height) == rsize);
+    assert(writtenArea.upperBound == rsize);
 }
 
 /**
