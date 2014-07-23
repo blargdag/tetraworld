@@ -42,6 +42,28 @@ template ElementType(T)
     alias ElementType = typeof(T.init[0,0,0,0]);
 }
 
+/**
+ * Returns: The dimensions of the given map as a Vec.
+ */
+Vec!(typeof(Map.init.opDollar!0),4) dimensions(Map)(Map map)
+    if (is4DArray!Map)
+{
+    return vec(map.opDollar!0, map.opDollar!1, map.opDollar!2, map.opDollar!3);
+}
+
+unittest
+{
+    struct Map1(T)
+    {
+        enum opDollar(size_t i) = 3;
+        T opIndex(int,int,int,int) { return T.init; }
+    }
+    static assert(is(ElementType!(Map1!int) == int));
+    static assert(is(ElementType!(Map1!dchar) == dchar));
+
+    assert(Map1!int.init.dimensions == vec(3,3,3,3));
+}
+
 enum interColSpace = 0;
 enum interRowSpace = 1;
 
@@ -82,19 +104,21 @@ void renderMap(T, Map)(T display, Map map)
 }
 
 /**
- * Returns: The dimensions of the rendered image of a 4D map that would be
- * rendered by renderMap, as a vector of width and height, respectively.
+ * Returns: The dimensions of the rendered image of a 4D map of the given
+ * dimensions that would be rendered by renderMap, as a vector of width and
+ * height, respectively.
  */
-Vec!(int,2) renderSize(Map)(Map map)
-    if (is4DArray!Map && is(ElementType!Map == dchar))
+Vec!(int,2) renderSize(int wlen, int xlen, int ylen, int zlen)
 {
-    auto wlen = map.opDollar!0;
-    auto xlen = map.opDollar!1;
-    auto ylen = map.opDollar!2;
-    auto zlen = map.opDollar!3;
-
     return vec(xlen*(ylen + zlen + interColSpace) - 1,
                wlen*(ylen + interRowSpace) - 1);
+}
+
+/// ditto
+Vec!(int,2) renderSize(Map)(Map map)
+    if (is4DArray!Map)
+{
+    return renderSize(map.dimensions.byComponent);
 }
 
 unittest
