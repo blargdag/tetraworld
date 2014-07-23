@@ -161,15 +161,18 @@ void main()
     // Map test
     auto map = GameMap();
     map.playerPos = vec(3,3,3,2);
-    auto viewport = ViewPort!GameMap(&map, vec(5,5,5,5),
+
+    auto optVPSize = optimalViewportSize(
+        (screenRect.upperBound - vec(0,2)).byComponent);
+    auto viewport = ViewPort!GameMap(&map, optVPSize,
                                      map.playerPos - vec(2,2,2,2));
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&term, maprect);
 
     mapview.renderMap(viewport.curView);
 
-    drawBox(&term, region(maprect.lowerBound - vec(1,1),
-                          maprect.upperBound + vec(1,1)));
+    //drawBox(&term, region(maprect.lowerBound - vec(1,1),
+    //                      maprect.upperBound + vec(1,1)));
 
     void refresh()
     {

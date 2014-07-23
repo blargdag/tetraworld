@@ -238,4 +238,128 @@ unittest
     assert(submap[2,2,2,2] == '.');
 }
 
+enum minDisplaySize = renderSize(3,3,3,3);
+
+/**
+ * Finds the optimal map dimensions whose rendering will fit within the given
+ * target grid-based display.
+ *
+ * Note that the smallest viewport size is a 3x3x3x3 section of the map, which
+ * requires a display size of at least minDisplaySize. An Exception will be
+ * thrown if the display is smaller than this.
+ *
+ * Returns: The 4D dimensions as a Vec.
+ */
+Vec!(int,4) optimalViewportSize(int width, int height)
+out(r)
+{
+    auto rs = renderSize(r.byComponent);
+    assert(rs[0] > 0 && rs[0] <= width &&
+           rs[1] > 0 && rs[1] <= height);
+}
+body
+{
+    import std.algorithm : min;
+    static import std.math;
+
+    static int sqrt(int x) { return cast(int)std.math.sqrt(cast(double)x); }
+
+    if (width < minDisplaySize[0] || height < minDisplaySize[1])
+    {
+        import std.string : format;
+        throw new Exception("%dx%d is too small to represent a 3x3x3x3 map"
+                            .format(width, height));
+    }
+
+    // Find largest fitting regular hypercube in the given display.
+    // Given a display size of W*H, we must satisfy:
+    //
+    //      (vtiles + htiles + interColSpace)*hplanes - 1 <= W  [1]
+    //      (vtiles + interRowSpace)*vplanes - 1 <= H           [2]
+    //
+    // First we set all dimensions to be equal to n1, the unknown to be solved,
+    // and try to maximize it. Substituting into [1], we have:
+    //
+    //      (n1 + n1 + interColSpace)*n1 - 1 <= W
+    //
+    // Solving for n1, we get:
+    //
+    //      n1a = (-interColSpace ± √(interColSpace^2 + 8*(W+1))) / 4
+    //
+    // Since n1 must be positive, we take the positive root.
+    auto n1a = (-interColSpace + sqrt(interColSpace^^2 + 8*(width+1))) / 4;
+    assert(n1a > 0.0);
+
+    // Substituting into [2], we have:
+    //
+    //      (n1 + interRowSpace)*n1 - 1 <= H
+    //      n1b = (-interRowSpace ± √(interRowSpace^2 + 4*(H+1))) / 2
+    //
+    // Since n1b must also be positive, we take the positive root.
+    auto n1b = (-interRowSpace + sqrt(interRowSpace^^2 + 4*(height+1))) / 2;
+    assert(n1b > 0.0);
+
+    // The largest fitting hypercube, therefore, has edge length equal to the
+    // minimum of n1a and n1b.
+    auto n1 = cast(int)min(n1a, n1b);
+
+    // Since we want to be able to center the rendered map on the player, the
+    // hypercube must have odd edge length. So if it's even, we subtract 1.
+    if (n1 % 2 == 0)
+        n1--;
+
+    // (This should already be assured by minDisplaySize, but just in case.)
+    assert(n1 >= 3);
+
+    // Now, a completely regular hypercube may not take maximum advantage of
+    // the display size; so the next best choice is to have a regular cubic
+    // base with irregular height.
+    //
+    // We do this by setting vplanes=n1 and the remaining 3 dimensions to be
+    // n2, and try to maximize that. This is equivalent to maximizing vtiles in
+    // [2], so we set vplanes=n1 and solve for vtiles:
+    //
+    //      (vtiles + interRowSpace)*n1 - 1 <= H
+    //      vtiles <= (H+1)/n1 - interRowSpace
+    //
+    // We still have to obey [1], though, so we take the minimum of n1a and
+    // vtiles. Again, we require n2 to be odd so that we can center the
+    // viewport on the player, so we decrement n2 if it's even.
+    auto vplanes = n1;
+    auto n2 = min(n1a, (height+1)/n1 - interRowSpace);
+    if (n2 % 2 == 0)
+        n2--;
+    assert(n2 >= 3);
+
+    // Finally, we try to fill out as much horizontal space as we can while
+    // maintaining a square configuration in at least 2 of the dimensions.
+    // Since terminals generally have more horizontal space than vertical, we
+    // choose to vary htiles by setting vtiles = hplanes = n2 and maximizing
+    // htiles.
+    //
+    // So substituting n2 into [1], we have:
+    //
+    //      (n2 + htiles + interColSpace)*n2 - 1 <= W
+    //      n2 + htiles + interColSpace <= (W+1)/n2
+    //      htiles <= (W+1)/n2 - n2 - interColSpace
+    auto htiles = (width+1)/n2 - n2 - interColSpace;
+
+    // But we don't want htiles to be *too* disproportionate to the other
+    // dimensions (i.e., we don't want an overly long hypercuboid), so we limit
+    // it to at most 2*n2+1. And again, it must be an odd number so that the
+    // viewport is centerable.
+    auto n3 = min(2*n2 + 1, htiles);
+    if (n3 % 2 == 0)
+        n3--;
+    assert(n3 >= 3);
+
+    return vec(n1,n2,n2,n3);
+}
+
+unittest
+{
+    assert(optimalViewportSize(minDisplaySize.byComponent) == vec(3,3,3,3));
+    assert(optimalViewportSize(80,24) == vec(3,5,5,11));
+}
+
 // vim:set ai sw=4 ts=4 et:
