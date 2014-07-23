@@ -1,8 +1,8 @@
 - Map underlying representation should be distinct from dchar.
    - The dchar view should be via a MapTile proxy object that maps underlying
      game objects into printable tiles.
-- Unify Rectangle with Vec?
-- Implement .dim and .pos for Rectangle.
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
   and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
+X Implement .dim and .pos for Rectangle.
++ Unify Rectangle with Vec?
