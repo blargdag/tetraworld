@@ -163,4 +163,170 @@ body
     ));
 }
 
+/**
+ * A buffered wrapper around a grid-based display.
+ */
+struct BufferedDisplay(Display)
+    if (isGridDisplay!Display)
+{
+    import std.uni;
+
+    private struct Cell
+    {
+        // Type.Full is for normal (single-cell) graphemes. HalfLeft means this
+        // cell is the left half of a double-celled grapheme; HalfRight means
+        // this cell is the right half of a double-celled grapheme.
+        enum Type { Full, HalfLeft, HalfRight }
+        Grapheme grapheme;
+    }
+
+    private static struct Line
+    {
+        Cell[] contents;
+        Cell[] dirty;
+    }
+
+    private Display disp;
+    private Line[] lines;
+    private Vec!(int,2) cursor;
+
+    /**
+     * Dimensions of the underlying display.
+     */
+    @property auto width() { return disp.width; }
+    @property auto height() { return disp.height; } /// ditto
+
+    /**
+     * Moves internal cursor position in the buffer.
+     *
+     * Note: Does not move actual cursor in underlying display until .flush is
+     * called.
+     */
+    void moveTo(int x, int y)
+    {
+        cursor = vec(x,y);
+    }
+
+    /**
+     * Writes output to buffer at current internal cursor position.
+     *
+     * The internal cursor is updated to one past the last character output.
+     *
+     * Note: No output is written to the underlying display until .flush is
+     * called. If any of the characters output are the same as what's in the
+     * buffer, those characters will not be rewritten to the display by .flush.
+     */
+    void writef(A...)(string fmt, A args)
+    {
+        import std.string : format;
+        string data = fmt.format(args);
+
+        int x = cursor[0];
+        int y = cursor[1];
+        foreach (g; data.byGrapheme)
+        {
+            // TBD: check for control codes like \n.
+
+            if (y >= lines.length)
+            {
+                // Extend buffer if necessary.
+                lines.length = y;
+            }
+
+            // Clip against boundaries of underlying display
+            if (x >= 0 && x < disp.width && y >= 0 && y < disp.height)
+                continue;
+        }
+    }
+
+    /**
+     * Flushes the buffered changes to the underlying display.
+     */
+    void flush()
+    {
+        // TBD
+    }
+
+    /**
+     * Mark entire buffer as dirty so that the next call to .flush will repaint
+     * the entire display.
+     * Note: This method does NOT immediately update the underlying display;
+     * the actual repainting will not happen until the next call to .flush.
+     */
+    void repaint()
+    {
+        // TBD
+    }
+}
+
+unittest
+{
+    struct TestDisplay
+    {
+        enum width = 80;
+        enum height = 24;
+        void moveTo(int x, int y) {}
+        void writef(A...)(string fmt, A args) {}
+    }
+    BufferedDisplay!TestDisplay bufDisp;
+}
+
+//version(none)
+unittest
+{
+    // Test code for what happens when double-width characters are stricken
+    // over.
+    import arsd.eventloop;
+    import arsd.terminal;
+
+    auto term = Terminal(ConsoleOutputType.cellular);
+    term.clear();
+    term.moveTo(0,10);
+    term.writef("%s", "廳");
+    term.moveTo(0,11);
+    term.writef("%s", "廳");
+
+    auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
+
+    addListener((InputEvent event) {
+        if (event.type != InputEvent.Type.CharacterEvent) return;
+        auto ev = event.get!(InputEvent.Type.CharacterEvent);
+        switch (ev.character)
+        {
+            case 'q':
+                arsd.eventloop.exit();
+                break;
+            case '0':
+                term.moveTo(0,11);
+                term.writef("廳");
+                break;
+            case '1':
+                term.moveTo(0,11);
+                term.writef("x");
+                break;
+            case '2':
+                term.moveTo(1,11);
+                term.writef("x");
+                break;
+            case '3':
+                term.moveTo(5,10);
+                term.writef("廳長");
+                term.moveTo(6,11);
+                term.writef("廳長");
+                break;
+            case '4':
+                term.moveTo(7,11);
+                term.writef("驪");
+                break;
+            default:
+                break;
+        }
+    });
+
+    term.flush();
+    loop();
+
+    term.clear();
+}
+
 // vim:set ai sw=4 ts=4 et:
