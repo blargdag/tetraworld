@@ -73,3 +73,11 @@ env.Command('eventloop.o', arsd_path + os.sep + 'eventloop.d',
 env.Command('terminal.o', arsd_path + os.sep + 'terminal.d',
 	"$ARSD_COM"
 )
+
+
+# Utilities
+env.Command('uniwidth', Split("""
+		uniwidth.d
+	"""),
+	"$DMD $DFLAGS -of$TARGET $SOURCES"
+)
