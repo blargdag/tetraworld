@@ -246,12 +246,52 @@ auto mergeConsecutive(R)(R input)
     return Result(input);
 }
 
+void outputByCodePoint(R)(R input)
+    if (isInputRange!R && is(ElementType!R : const(char)[]))
+{
+    writefln("%(%s\n%)", input.parse().mergeConsecutive());
+}
+
+void tally(R)(R input)
+    if (isInputRange!R && is(ElementType!R : const(char)[]))
+{
+    int totalW, totalN;
+
+    foreach (e; input.parse().mergeConsecutive())
+    {
+        if (e.width=="W")
+            totalW += (e.range.end - e.range.start);
+        else if (e.width=="N")
+            totalN += (e.range.end - e.range.start);
+        else
+            assert(0);
+    }
+    writefln("Tally: W=%d N=%d\n", totalW, totalN);
+}
+
+void genRecogCode(R)(R input)
+    if (isInputRange!R && is(ElementType!R : const(char)[]))
+{
+    import std.uni;
+
+    CodepointSet wideChars;
+    foreach (e; input.parse().mergeConsecutive())
+    {
+        if (e.width=="W")
+            wideChars.add(e.range.start, e.range.end);
+    }
+
+    writeln(wideChars.toSourceCode("isWide"));
+}
+
 void main()
 {
     auto input = File("ext/EastAsianWidth.txt", "r").byLine();
     
     //outputByWidthType(input);
-    writefln("%(%s\n%)", input.parse().mergeConsecutive());
+    //outputByCodePoint(input);
+    //tally(input);
+    genRecogCode(input);
 }
 
 // vim:set ai sw=4 ts=4 et:
