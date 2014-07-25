@@ -28,7 +28,7 @@ struct CodeRange
 {
     dchar start, end;
 
-    bool canMerge(CodeRange cr)
+    bool overlaps(CodeRange cr)
     {
         return ((start >= cr.start && start < cr.end) ||
                 (end >= cr.start && end < cr.end));
@@ -36,13 +36,11 @@ struct CodeRange
 
     unittest
     {
-        assert(CodeRange(1,11).canMerge(CodeRange(11,12)));
-        assert(!CodeRange(1,10).canMerge(CodeRange(11,12)));
+        assert(CodeRange(1,11).overlaps(CodeRange(11,12)));
+        assert(!CodeRange(1,10).overlaps(CodeRange(11,12)));
     }
 
     void merge(CodeRange cr)
-    in { assert(canMerge(cr)); }
-    body
     {
         start = min(start, cr.start);
         end = max(end, cr.end);
@@ -83,16 +81,19 @@ void main()
     ];
 
     CodeRange[][string] widths;
+    string lastWidth;
 
     void addRange(CodeRange range, string width)
     {
         auto ranges = width in widths;
-        if (ranges && ranges.length > 0 && (*ranges)[$-1].canMerge(range))
+        if (ranges && ranges.length > 0 && width == lastWidth)
         {
             (*ranges)[$-1].merge(range);
         }
         else
             widths[width] ~= range;
+
+        lastWidth = width;
     }
 
     foreach (line; File("ext/EastAsianWidth.txt", "r").byLine())
