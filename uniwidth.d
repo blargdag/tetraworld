@@ -75,9 +75,8 @@ struct Entry
     }
 }
 
-void parse(R,S)(R input, S sink)
-    if (isInputRange!R && is(ElementType!R : const(char)[]) &&
-        isOutputRange!(S, Entry))
+auto parse(R)(R input)
+    if (isInputRange!R && is(ElementType!R : const(char)[]))
 {
     // For our purposes, we don't need to distinguish between explicit/implicit
     // narrowness, and ambiguous cases can just default to narrow. So we map
@@ -92,28 +91,66 @@ void parse(R,S)(R input, S sink)
         "F"  : "W"
     ];
 
+    auto reEmpty = regex(`^\s*$`);
     auto reSingle = regex(`^([0-9A-F]+);(N|A|H|W|F|Na)\b`);
     auto reRange = regex(`^([0-9A-F]+)\.\.([0-9A-F]+);(N|A|H|W|F|Na)\b`);
 
-    foreach (line; input)
+    struct Result
     {
-        if (line.startsWith("#"))
-            continue;
+        R     range;
+        Entry front;
+        bool  empty;
 
-        if (auto m = line.match(reSingle))
+        this(R _range)
         {
-            auto width = equivs[m.captures[2]];
-            dchar ch = cast(dchar) m.captures[1].to!int(16);
-            sink(Entry(CodeRange(ch, ch+1), width));
+            range = _range;
+            next(); // get things started
         }
-        else if (auto m = line.match(reRange))
+
+        void next()
         {
-            auto width = equivs[m.captures[3]];
-            dchar start = cast(dchar) m.captures[1].to!int(16);
-            dchar end = cast(dchar) m.captures[2].to!int(16) + 1;
-            sink(Entry(CodeRange(start, end), width));
+            while (!range.empty)
+            {
+                auto line = range.front;
+
+                if (auto m = line.match(reSingle))
+                {
+                    auto width = equivs[m.captures[2]];
+                    dchar ch = cast(dchar) m.captures[1].to!int(16);
+                    front = Entry(CodeRange(ch, ch+1), width);
+                    empty = false;
+                    return;
+                }
+                else if (auto m = line.match(reRange))
+                {
+                    auto width = equivs[m.captures[3]];
+                    dchar start = cast(dchar) m.captures[1].to!int(16);
+                    dchar end = cast(dchar) m.captures[2].to!int(16) + 1;
+                    front = Entry(CodeRange(start, end), width);
+                    empty = false;
+                    return;
+                }
+                else if (!line.startsWith("#") && !line.match(reEmpty))
+                {
+                    import std.string : format;
+                    throw new Exception("Couldn't parse line:\n%s"
+                                        .format(line));
+                }
+
+                range.popFront();
+            }
+            empty = true;
+        }
+
+        void popFront()
+        {
+            range.popFront();
+            next();
         }
     }
+    static assert(isInputRange!Result);
+
+    return Result(input);
 }
 
 void outputByWidthType(R)(R input)
@@ -137,7 +174,10 @@ void outputByWidthType(R)(R input)
         lastWidth = width;
     }
 
-    input.parse(&addRange);
+    foreach (entry; input.parse())
+    {
+         addRange(entry);
+    }
 
     foreach (width; widths.byKey())
     {
@@ -155,7 +195,8 @@ void outputByCodePoint(R)(R input)
 {
     Entry current;
 
-    input.parse((Entry e) {
+    foreach (e; input.parse())
+    {
         if (current.width != e.width)
         {
             if (current.width != "")
@@ -166,7 +207,7 @@ void outputByCodePoint(R)(R input)
         {
             current.range.merge(e.range);
         }
-    });
+    }
 
     if (current.width != "")
         writeln(current);
