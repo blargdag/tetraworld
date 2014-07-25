@@ -21,6 +21,7 @@
 
 import std.algorithm;
 import std.conv;
+import std.range;
 import std.regex;
 import std.stdio;
 
@@ -62,11 +63,16 @@ struct CodeRange
     }
 }
 
-void main()
+struct Entry
 {
-    auto reSingle = regex(`^([0-9A-F]+);(N|A|H|W|F|Na)\b`);
-    auto reRange = regex(`^([0-9A-F]+)\.\.([0-9A-F]+);(N|A|H|W|F|Na)\b`);
+    CodeRange range;
+    string width;
+}
 
+void parse(R,S)(R input, S sink)
+    if (isInputRange!R && is(ElementType!R : const(char)[]) &&
+        isOutputRange!(S, Entry))
+{
     // For our purposes, we don't need to distinguish between explicit/implicit
     // narrowness, and ambiguous cases can just default to narrow. So we map
     // the original width to its equivalent using the following equivalence
@@ -80,11 +86,39 @@ void main()
         "F"  : "W"
     ];
 
+    auto reSingle = regex(`^([0-9A-F]+);(N|A|H|W|F|Na)\b`);
+    auto reRange = regex(`^([0-9A-F]+)\.\.([0-9A-F]+);(N|A|H|W|F|Na)\b`);
+
+    foreach (line; input)
+    {
+        if (line.startsWith("#"))
+            continue;
+
+        if (auto m = line.match(reSingle))
+        {
+            auto width = equivs[m.captures[2]];
+            dchar ch = cast(dchar) m.captures[1].to!int(16);
+            sink(Entry(CodeRange(ch, ch+1), width));
+        }
+        else if (auto m = line.match(reRange))
+        {
+            auto width = equivs[m.captures[3]];
+            dchar start = cast(dchar) m.captures[1].to!int(16);
+            dchar end = cast(dchar) m.captures[2].to!int(16) + 1;
+            sink(Entry(CodeRange(start, end), width));
+        }
+    }
+}
+
+void outputByWidthType(string inputfile)
+{
     CodeRange[][string] widths;
     string lastWidth;
 
-    void addRange(CodeRange range, string width)
+    void addRange(Entry entry)
     {
+        auto range = entry.range;
+        auto width = entry.width;
         auto ranges = width in widths;
         if (ranges && ranges.length > 0 && width == lastWidth)
         {
@@ -96,25 +130,7 @@ void main()
         lastWidth = width;
     }
 
-    foreach (line; File("ext/EastAsianWidth.txt", "r").byLine())
-    {
-        if (line.startsWith("#"))
-            continue;
-
-        if (auto m = line.match(reSingle))
-        {
-            auto width = equivs[m.captures[2]];
-            dchar ch = cast(dchar) m.captures[1].to!int(16);
-            addRange(CodeRange(ch, ch+1), width);
-        }
-        else if (auto m = line.match(reRange))
-        {
-            auto width = equivs[m.captures[3]];
-            dchar start = cast(dchar) m.captures[1].to!int(16);
-            dchar end = cast(dchar) m.captures[2].to!int(16) + 1;
-            addRange(CodeRange(start, end), width);
-        }
-    }
+    File(inputfile, "r").byLine().parse(&addRange);
 
     foreach (width; widths.byKey())
     {
@@ -125,6 +141,12 @@ void main()
         }
         writeln();
     }
+}
+
+void main()
+{
+    auto inputfile = "ext/EastAsianWidth.txt";
+    outputByWidthType(inputfile);
 }
 
 // vim:set ai sw=4 ts=4 et:
