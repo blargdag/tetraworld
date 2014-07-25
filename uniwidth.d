@@ -67,6 +67,12 @@ struct Entry
 {
     CodeRange range;
     string width;
+
+    void toString(scope void delegate(const(char)[]) sink)
+    {
+        import std.format : formattedWrite;
+        sink.formattedWrite("%s;%s", range, width);
+    }
 }
 
 void parse(R,S)(R input, S sink)
@@ -110,7 +116,8 @@ void parse(R,S)(R input, S sink)
     }
 }
 
-void outputByWidthType(string inputfile)
+void outputByWidthType(R)(R input)
+    if (isInputRange!R && is(ElementType!R : const(char)[]))
 {
     CodeRange[][string] widths;
     string lastWidth;
@@ -130,7 +137,7 @@ void outputByWidthType(string inputfile)
         lastWidth = width;
     }
 
-    File(inputfile, "r").byLine().parse(&addRange);
+    input.parse(&addRange);
 
     foreach (width; widths.byKey())
     {
@@ -143,10 +150,34 @@ void outputByWidthType(string inputfile)
     }
 }
 
+void outputByCodePoint(R)(R input)
+    if (isInputRange!R && is(ElementType!R : const(char)[]))
+{
+    Entry current;
+
+    input.parse((Entry e) {
+        if (current.width != e.width)
+        {
+            if (current.width != "")
+                writeln(current);
+            current = e;
+        }
+        else
+        {
+            current.range.merge(e.range);
+        }
+    });
+
+    if (current.width != "")
+        writeln(current);
+}
+
 void main()
 {
-    auto inputfile = "ext/EastAsianWidth.txt";
-    outputByWidthType(inputfile);
+    auto input = File("ext/EastAsianWidth.txt", "r").byLine();
+    
+    //outputByWidthType(input);
+    outputByCodePoint(input);
 }
 
 // vim:set ai sw=4 ts=4 et:
