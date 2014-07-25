@@ -75,6 +75,9 @@ struct Entry
     }
 }
 
+/**
+ * Returns: An input range of Entry objects.
+ */
 auto parse(R)(R input)
     if (isInputRange!R && is(ElementType!R : const(char)[]))
 {
@@ -190,27 +193,57 @@ void outputByWidthType(R)(R input)
     }
 }
 
-void outputByCodePoint(R)(R input)
-    if (isInputRange!R && is(ElementType!R : const(char)[]))
+/**
+ * Returns: An input range of Entry objects.
+ */
+auto mergeConsecutive(R)(R input)
+    if (isInputRange!R && is(ElementType!R : Entry))
 {
-    Entry current;
-
-    foreach (e; input.parse())
+    struct Result
     {
-        if (current.width != e.width)
+        R     range;
+        bool  empty;
+        Entry front;
+
+        this(R _range)
         {
-            if (current.width != "")
-                writeln(current);
-            current = e;
+            range = _range;
+            next();
         }
-        else
+
+        void next()
         {
-            current.range.merge(e.range);
+            while (!range.empty)
+            {
+                auto e = range.front;
+                if (front.width != e.width)
+                {
+                    if (front.width != "")
+                    {
+                        empty = false;
+                        front = e;
+                        return;
+                    }
+                    front = e;
+                }
+                else
+                    front.range.merge(e.range);
+
+                range.popFront();
+            }
+            empty = (front.width == "");
+        }
+
+        void popFront()
+        {
+            if (range.empty)
+                empty = true; // on last element
+            else
+                next();
         }
     }
 
-    if (current.width != "")
-        writeln(current);
+    return Result(input);
 }
 
 void main()
@@ -218,7 +251,7 @@ void main()
     auto input = File("ext/EastAsianWidth.txt", "r").byLine();
     
     //outputByWidthType(input);
-    outputByCodePoint(input);
+    writefln("%(%s\n%)", input.parse().mergeConsecutive());
 }
 
 // vim:set ai sw=4 ts=4 et:
