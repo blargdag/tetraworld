@@ -204,6 +204,7 @@ auto mergeConsecutive(R)(R input)
         R     range;
         bool  empty;
         Entry front;
+        Entry current;
 
         this(R _range)
         {
@@ -216,22 +217,37 @@ auto mergeConsecutive(R)(R input)
             while (!range.empty)
             {
                 auto e = range.front;
-                if (front.width != e.width)
+                if (current.width != e.width)
                 {
-                    if (front.width != "")
+                    if (current.width != "")
                     {
                         empty = false;
-                        front = e;
+                        front = current;
+
+                        current = e;
+                        range.popFront();
+
+                        //writefln("Yielding: %s", front);
                         return;
                     }
-                    front = e;
+                    current = e;
                 }
                 else
-                    front.range.merge(e.range);
+                {
+                    //writefln("Merging: %s with %s", current, e);
+                    current.range.merge(e.range);
+                }
 
                 range.popFront();
             }
-            empty = (front.width == "");
+
+            if (current.width != "")
+            {
+                empty = false;
+                front = current;
+            }
+            else
+                empty = true;
         }
 
         void popFront()
