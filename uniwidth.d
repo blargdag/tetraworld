@@ -300,14 +300,41 @@ void genRecogCode(R)(R input)
     writeln(wideChars.toSourceCode("isWide"));
 }
 
-void main()
+int main(string[] args)
 {
+    if (args.length < 2)
+    {
+        assert(args.length > 0);
+        stderr.writefln("Usage: %s (bywidth|bypoint|tally|gencode)", args[0]);
+        return 1;
+    }
+
     auto input = File("ext/EastAsianWidth.txt", "r").byLine();
-    
-    //outputByWidthType(input);
-    //outputByCodePoint(input);
-    //tally(input);
-    genRecogCode(input);
+
+    auto cmd = args[1];
+    switch (cmd)
+    {
+        case "bywidth":
+            outputByWidthType(input);
+            break;
+
+        case "bypoint":
+            outputByCodePoint(input);
+            break;
+
+        case "tally":
+            tally(input);
+            break;
+
+        case "gencode":
+            genRecogCode(input);
+            break;
+
+        default:
+            stderr.writefln("Unknown command: %s", cmd);
+            return 1;
+    }
+    return 0;
 }
 
 // vim:set ai sw=4 ts=4 et:
