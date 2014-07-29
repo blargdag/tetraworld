@@ -301,9 +301,10 @@ private struct DispBuffer
     void opIndexAssign(ref Grapheme g, int x, int y)
     {
         if (y < 0 || x < 0) return;
-        if (y > lines.length)
+        if (y >= lines.length)
             lines.length = y+1;
 
+        assert(y < lines.length);
         if (x >= lines[y].contents.length)
             lines[y].contents.length = g[0].isWide() ? x+2 : x+1;
 
