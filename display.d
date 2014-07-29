@@ -261,11 +261,7 @@ unittest
                format("Shouldn't be wide but is: %s (U+%04X)", ch, ch));
 }
 
-/**
- * A buffered wrapper around a grid-based display.
- */
-struct BufferedDisplay(Display)
-    if (isGridDisplay!Display)
+private struct DispBuffer
 {
     import std.uni;
 
@@ -282,11 +278,73 @@ struct BufferedDisplay(Display)
     private static struct Line
     {
         Cell[] contents;
-        Cell[] dirty;
+        int dirtyStart, dirtyEnd;
     }
 
-    private Display disp;
     private Line[] lines;
+
+    Grapheme* opIndex(int x, int y)
+    {
+        if (y < 0 || y >= lines.length ||
+            x < 0 || x >= lines[y].contents.length)
+            return null;
+
+        if (lines[y].contents[x].type == Cell.Type.HalfRight)
+        {
+            assert(x > 0);
+            return &lines[y].contents[x-1].grapheme;
+        }
+        else
+            return &lines[y].contents[x].grapheme;
+    }
+
+    void opIndexAssign(ref Grapheme g, int x, int y)
+    {
+        if (y < 0 || x < 0) return;
+        if (y > lines.length)
+            lines.length = y+1;
+
+        if (x >= lines[y].contents.length)
+            lines[y].contents.length = g[0].isWide() ? x+2 : x+1;
+
+        final switch (lines[y].contents[x].type)
+        {
+            case Cell.Type.HalfLeft:
+                assert(lines[y].contents.length > x+1);
+                lines[y].contents[x+1].type = Cell.Type.Full;
+                lines[y].contents[x+1].grapheme = Grapheme(" ");
+                goto case Cell.Type.Full;
+
+            case Cell.Type.HalfRight:
+                assert(x > 0);
+                lines[y].contents[x-1].type = Cell.Type.Full;
+                lines[y].contents[x-1].grapheme = Grapheme(" ");
+                goto case Cell.Type.Full;
+
+            case Cell.Type.Full:
+                lines[y].contents[x].grapheme = g;
+                if (isWide(g[0]))
+                {
+                    lines[y].contents[x].type = Cell.Type.HalfLeft;
+                    lines[y].contents[x++].type = Cell.Type.HalfRight;
+                }
+                else
+                    lines[y].contents[x].type = Cell.Type.Full;
+        }
+    }
+}
+
+/**
+ * A buffered wrapper around a grid-based display.
+ */
+struct BufferedDisplay(Display)
+    if (isGridDisplay!Display)
+{
+    import std.uni;
+
+    private Display    disp;
+    private DispBuffer buf;
+
     private Vec!(int,2) cursor;
 
     /**
@@ -334,41 +392,7 @@ struct BufferedDisplay(Display)
             if (x < 0 || x >= disp.width || y < 0 || y >= disp.height)
                 continue;
 
-            // Extend buffer if necessary.
-            if (y >= lines.length)
-            {
-                lines.length = y+1;
-            }
-
-            if (x >= lines[y].contents.length)
-            {
-                lines[y].contents.length = x+1;
-            }
-
-            final switch (lines[y].contents[x].type)
-            {
-                case Cell.Type.HalfLeft:
-                    assert(lines[y].contents.length > x+1);
-                    lines[y].contents[x+1].type = Cell.Type.Full;
-                    lines[y].contents[x+1].grapheme = Grapheme(" ");
-                    goto case Cell.Type.Full;
-
-                case Cell.Type.HalfRight:
-                    assert(x > 0);
-                    lines[y].contents[x-1].type = Cell.Type.Full;
-                    lines[y].contents[x-1].grapheme = Grapheme(" ");
-                    goto case Cell.Type.Full;
-
-                case Cell.Type.Full:
-                    lines[y].contents[x].grapheme = g;
-                    if (isWide(g[0]))
-                    {
-                        lines[y].contents[x].type = Cell.Type.HalfLeft;
-                        lines[y].contents[x++].type = Cell.Type.HalfRight;
-                    }
-                    else
-                        lines[y].contents[x].type = Cell.Type.Full;
-            }
+            buf[x,y] = g;
         }
     }
 
