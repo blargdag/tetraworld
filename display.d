@@ -333,6 +333,18 @@ private struct DispBuffer
                     lines[y].contents[x].type = Cell.Type.Full;
         }
     }
+
+    void toString(scope void delegate(const(char)[]) sink)
+    {
+        foreach (y; 0 .. lines.length)
+        {
+            foreach (x; 0 .. lines[y].contents.length)
+            {
+                import std.algorithm : copy;
+                lines[y].contents[x].grapheme[].copy(sink);
+            }
+        }
+    }
 }
 
 /**
@@ -394,6 +406,8 @@ struct BufferedDisplay(Display)
                 continue;
 
             buf[x,y] = g;
+
+            x += g[0].isWide() ? 2 : 1;
         }
     }
 
@@ -427,7 +441,13 @@ unittest
         void writef(A...)(string fmt, A args) {}
     }
     BufferedDisplay!TestDisplay bufDisp;
-    bufDisp.writef("Ж");
+    bufDisp.writef("Живу");
+
+    import std.algorithm : equal;
+    assert((*bufDisp.buf[0,0])[].equal("Ж"));
+    assert((*bufDisp.buf[1,0])[].equal("и"));
+    assert((*bufDisp.buf[2,0])[].equal("в"));
+    assert((*bufDisp.buf[3,0])[].equal("у"));
 }
 
 version(none)
