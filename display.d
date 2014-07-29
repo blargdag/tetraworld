@@ -164,6 +164,104 @@ body
 }
 
 /**
+ * Returns: true if the given character occupies two cells in the display grid,
+ * false otherwise.
+ */
+bool isWide(dchar ch) @safe pure nothrow
+{
+    // WARNING: DO NOT MODIFY THIS FUNCTION BY HAND: it has been auto-generated
+    // by the uniwidth utility based on data in the Unicode Standard's
+    // EastAsianWidth.txt file. Any fixes should be done there instead, and the
+    // code replaced by the new output.
+    if(ch < 63744)
+    {
+        if(ch < 12880)
+        {
+            if(ch < 11904)
+            {
+                if(ch < 4352) return false;
+                if(ch < 4448) return true;
+                if(ch == 9001 || ch == 9002) return true;
+                return false;
+            }
+            else if (ch < 12351) return true;
+            else
+            {
+                if(ch < 12353) return false;
+                if(ch < 12872) return true;
+                return false;
+            }
+        }
+        else if (ch < 19904) return true;
+        else
+        {
+            if(ch < 43360)
+            {
+                if(ch < 19968) return false;
+                if(ch < 42183) return true;
+                return false;
+            }
+            else if (ch < 43389) return true;
+            else
+            {
+                if(ch < 44032) return false;
+                if(ch < 55204) return true;
+                return false;
+            }
+        }
+    }
+    else if (ch < 64256) return true;
+    else
+    {
+        if(ch < 65504)
+        {
+            if(ch < 65072)
+            {
+                if(ch < 65040) return false;
+                if(ch < 65050) return true;
+                return false;
+            }
+            else if (ch < 65132) return true;
+            else
+            {
+                if(ch < 65281) return false;
+                if(ch < 65377) return true;
+                return false;
+            }
+        }
+        else if (ch < 65511) return true;
+        else
+        {
+            if(ch < 127488)
+            {
+                if(ch == 110592 || ch == 110593) return true;
+                return false;
+            }
+            else if (ch < 127570) return true;
+            else
+            {
+                if(ch < 131072) return false;
+                if(ch < 262142) return true;
+                return false;
+            }
+        }
+    }
+}
+
+unittest
+{
+    import std.string : format;
+
+    foreach (dchar ch; "一二三石１２３\u2329\u232A")
+        assert(ch.isWide(),
+               format("Should be wide but isn't: %s (U+%04X)", ch, ch));
+
+    foreach (dchar ch; "123abcШаг\u2328\u232B")
+        assert(!ch.isWide(),
+               format("Shouldn't be wide but is: %s (U+%04X)", ch, ch));
+}
+
+/**
  * A buffered wrapper around a grid-based display.
  */
 struct BufferedDisplay(Display)
@@ -177,6 +275,7 @@ struct BufferedDisplay(Display)
         // cell is the left half of a double-celled grapheme; HalfRight means
         // this cell is the right half of a double-celled grapheme.
         enum Type { Full, HalfLeft, HalfRight }
+        Type type;
         Grapheme grapheme;
     }
 
@@ -225,17 +324,51 @@ struct BufferedDisplay(Display)
         int y = cursor[1];
         foreach (g; data.byGrapheme)
         {
-            // TBD: check for control codes like \n.
-
-            if (y >= lines.length)
+            if (!g[0].isGraphical)
             {
-                // Extend buffer if necessary.
-                lines.length = y;
+                // TBD: interpret \n, \t, etc..
+                continue;
             }
 
             // Clip against boundaries of underlying display
-            if (x >= 0 && x < disp.width && y >= 0 && y < disp.height)
+            if (x < 0 || x >= disp.width || y < 0 || y >= disp.height)
                 continue;
+
+            // Extend buffer if necessary.
+            if (y >= lines.length)
+            {
+                lines.length = y+1;
+            }
+
+            if (x >= lines[y].contents.length)
+            {
+                lines[y].contents.length = x+1;
+            }
+
+            final switch (lines[y].contents[x].type)
+            {
+                case Cell.Type.HalfLeft:
+                    assert(lines[y].contents.length > x+1);
+                    lines[y].contents[x+1].type = Cell.Type.Full;
+                    lines[y].contents[x+1].grapheme = Grapheme(" ");
+                    goto case Cell.Type.Full;
+
+                case Cell.Type.HalfRight:
+                    assert(x > 0);
+                    lines[y].contents[x-1].type = Cell.Type.Full;
+                    lines[y].contents[x-1].grapheme = Grapheme(" ");
+                    goto case Cell.Type.Full;
+
+                case Cell.Type.Full:
+                    lines[y].contents[x].grapheme = g;
+                    if (isWide(g[0]))
+                    {
+                        lines[y].contents[x].type = Cell.Type.HalfLeft;
+                        lines[y].contents[x++].type = Cell.Type.HalfRight;
+                    }
+                    else
+                        lines[y].contents[x].type = Cell.Type.Full;
+            }
         }
     }
 
@@ -269,9 +402,10 @@ unittest
         void writef(A...)(string fmt, A args) {}
     }
     BufferedDisplay!TestDisplay bufDisp;
+    bufDisp.writef("Ж");
 }
 
-//version(none)
+version(none)
 unittest
 {
     // Test code for what happens when double-width characters are stricken
