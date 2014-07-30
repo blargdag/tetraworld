@@ -508,4 +508,29 @@ unittest
     term.clear();
 }
 
+
+version(none)
+unittest
+{
+	("龘\n\t龘1\u2060a\u0308Ш ж\u0301\u0325\u200Bи\u200DвI\u0334"~
+	 "\0D\u0338\u0321o\u0330\n\tu\u0313\u0338\u0330\n5\u035A\n"~
+	 "ΐ\u032E 尓１２３1\u033023")
+		.byGrapheme
+		.map!((g) {
+			string s;
+			if (isGraphical(g[0]))
+				s ~= "graph[%d]: %s".format(g.length, g[]);
+			else
+				s ~= "nongrph[%d]:".format(g.length);
+			s ~= "(%(U+%04X %))".format(g[]);
+
+			if (isGraphical(g[0]))
+				s ~= " %s".format(g[0].isWide ?
+							"wide" : "narrow");
+			return s;
+		})
+		.joiner("\n")
+		.writeln;
+}
+
 // vim:set ai sw=4 ts=4 et:
