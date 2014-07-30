@@ -283,19 +283,22 @@ private struct DispBuffer
 
     private Line[] lines;
 
-    Grapheme* opIndex(int x, int y)
+    Grapheme opIndex(int x, int y)
     {
         if (y < 0 || y >= lines.length ||
             x < 0 || x >= lines[y].contents.length)
-            return null;
+        {
+            // Unassigned areas default to empty space
+            return " ".byGrapheme().front;
+        }
 
         if (lines[y].contents[x].type == Cell.Type.HalfRight)
         {
             assert(x > 0);
-            return &lines[y].contents[x-1].grapheme;
+            return lines[y].contents[x-1].grapheme;
         }
         else
-            return &lines[y].contents[x].grapheme;
+            return lines[y].contents[x].grapheme;
     }
 
     void opIndexAssign(ref Grapheme g, int x, int y)
@@ -308,30 +311,41 @@ private struct DispBuffer
         if (x >= lines[y].contents.length)
             lines[y].contents.length = g[0].isWide() ? x+2 : x+1;
 
-        final switch (lines[y].contents[x].type)
+        void stomp(int x, int y)
         {
-            case Cell.Type.HalfLeft:
-                assert(lines[y].contents.length > x+1);
-                lines[y].contents[x+1].type = Cell.Type.Full;
-                lines[y].contents[x+1].grapheme = Grapheme(" ");
-                goto case Cell.Type.Full;
+            final switch (lines[y].contents[x].type)
+            {
+                case Cell.Type.HalfLeft:
+                    assert(lines[y].contents.length > x+1);
+                    lines[y].contents[x+1].type = Cell.Type.Full;
+                    lines[y].contents[x+1].grapheme = Grapheme(" ");
+                    return;
 
-            case Cell.Type.HalfRight:
-                assert(x > 0);
-                lines[y].contents[x-1].type = Cell.Type.Full;
-                lines[y].contents[x-1].grapheme = Grapheme(" ");
-                goto case Cell.Type.Full;
+                case Cell.Type.HalfRight:
+                    assert(x > 0);
+                    lines[y].contents[x-1].type = Cell.Type.Full;
+                    lines[y].contents[x-1].grapheme = Grapheme(" ");
+                    return;
 
-            case Cell.Type.Full:
-                lines[y].contents[x].grapheme = g;
-                if (isWide(g[0]))
-                {
-                    lines[y].contents[x].type = Cell.Type.HalfLeft;
-                    lines[y].contents[x++].type = Cell.Type.HalfRight;
-                }
-                else
-                    lines[y].contents[x].type = Cell.Type.Full;
+                case Cell.Type.Full:
+                    // No need to do anything here; the subsequent write will
+                    // overwrite this cell.
+                    return;
+            }
         }
+
+        stomp(x, y);
+        lines[y].contents[x].grapheme = g;
+
+        if (g[0].isWide())
+        {
+            stomp(x+1, y);
+            lines[y].contents[x].type = Cell.Type.HalfLeft;
+            lines[y].contents[x+1].grapheme = g;
+            lines[y].contents[x+1].type = Cell.Type.HalfRight;
+        }
+        else
+            lines[y].contents[x].type = Cell.Type.Full;
     }
 
     void toString(scope void delegate(const(char)[]) sink)
@@ -398,6 +412,20 @@ struct BufferedDisplay(Display)
             if (!g[0].isGraphical)
             {
                 // TBD: interpret \n, \t, etc..
+                switch (g[0])
+                {
+                    case '\n':
+                        x = 0;
+                        y++;
+                        break;
+
+                    case '\t':
+                        x = (x + 8) & ~7;
+                        break;
+
+                    default:
+                        break;
+                }
                 continue;
             }
 
@@ -441,13 +469,25 @@ unittest
         void writef(A...)(string fmt, A args) {}
     }
     BufferedDisplay!TestDisplay bufDisp;
-    bufDisp.writef("Живу");
+    bufDisp.writef("Живу\n尓是");
 
     import std.algorithm : equal;
-    assert((*bufDisp.buf[0,0])[].equal("Ж"));
-    assert((*bufDisp.buf[1,0])[].equal("и"));
-    assert((*bufDisp.buf[2,0])[].equal("в"));
-    assert((*bufDisp.buf[3,0])[].equal("у"));
+    assert(bufDisp.buf[0,0][].equal("Ж"));
+    assert(bufDisp.buf[1,0][].equal("и"));
+    assert(bufDisp.buf[2,0][].equal("в"));
+    assert(bufDisp.buf[3,0][].equal("у"));
+    assert(bufDisp.buf[4,0][].equal(" "));
+    assert(bufDisp.buf[0,1][].equal("尓"));
+    assert(bufDisp.buf[1,1][].equal("尓"));
+    assert(bufDisp.buf[2,1][].equal("是"));
+    assert(bufDisp.buf[3,1][].equal("是"));
+
+    bufDisp.moveTo(1,1);
+    bufDisp.writef("大");
+    assert(bufDisp.buf[0,1][].equal(" "));
+    assert(bufDisp.buf[1,1][].equal("大"));
+    assert(bufDisp.buf[2,1][].equal("大"));
+    assert(bufDisp.buf[3,1][].equal(" "));
 }
 
 version(none)
