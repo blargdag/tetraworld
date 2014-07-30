@@ -355,8 +355,10 @@ private struct DispBuffer
             foreach (x; 0 .. lines[y].contents.length)
             {
                 import std.algorithm : copy;
-                lines[y].contents[x].grapheme[].copy(sink);
+                if (lines[y].contents[x].type != Cell.Type.HalfRight)
+                    lines[y].contents[x].grapheme[].copy(sink);
             }
+            sink("\n");
         }
     }
 }
@@ -488,6 +490,12 @@ unittest
     assert(bufDisp.buf[1,1][].equal("大"));
     assert(bufDisp.buf[2,1][].equal("大"));
     assert(bufDisp.buf[3,1][].equal(" "));
+
+    import std.array : appender;
+    import std.format : formattedWrite;
+    auto app = appender!string();
+    app.formattedWrite("%s", bufDisp.buf);
+    assert(app.data == "Живу\n 大 \n");
 }
 
 version(none)
