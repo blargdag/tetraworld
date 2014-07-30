@@ -491,11 +491,15 @@ unittest
     assert(bufDisp.buf[2,1][].equal("大"));
     assert(bufDisp.buf[3,1][].equal(" "));
 
+    bufDisp.moveTo(3,0);
+    bufDisp.writef("и");
+    assert(bufDisp.buf[3,0][].equal("и"));
+
     import std.array : appender;
     import std.format : formattedWrite;
     auto app = appender!string();
     app.formattedWrite("%s", bufDisp.buf);
-    assert(app.data == "Живу\n 大 \n");
+    assert(app.data == "Живи\n 大 \n");
 }
 
 version(none)
