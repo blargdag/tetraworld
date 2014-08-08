@@ -265,24 +265,29 @@ private struct DispBuffer
 {
     import std.uni;
 
-    private struct Cell
+    struct Cell
     {
         // Type.Full is for normal (single-cell) graphemes. HalfLeft means this
         // cell is the left half of a double-celled grapheme; HalfRight means
         // this cell is the right half of a double-celled grapheme.
-        enum Type { Full, HalfLeft, HalfRight }
+        enum Type : ubyte { Full, HalfLeft, HalfRight }
+
         Type type;
+        bool dirty;
         Grapheme grapheme;
     }
 
-    private static struct Line
+    static struct Line
     {
         Cell[] contents;
-        int dirtyStart, dirtyEnd;
+        bool dirty;
     }
 
     private Line[] lines;
 
+    /**
+     * Lookup a grapheme in the buffer.
+     */
     Grapheme opIndex(int x, int y)
     {
         if (y < 0 || y >= lines.length ||
@@ -301,7 +306,12 @@ private struct DispBuffer
             return lines[y].contents[x].grapheme;
     }
 
+    /**
+     * Write a single grapheme into the buffer.
+     */
     void opIndexAssign(ref Grapheme g, int x, int y)
+    in { assert(isGraphical(g[0])); }
+    body
     {
         if (y < 0 || x < 0) return;
         if (y >= lines.length)
@@ -313,6 +323,9 @@ private struct DispBuffer
 
         void stomp(int x, int y)
         {
+            assert(y >= 0 && y < lines.length &&
+                   x >= 0 && x < lines[y].contents.length);
+
             final switch (lines[y].contents[x].type)
             {
                 case Cell.Type.HalfLeft:
@@ -334,20 +347,34 @@ private struct DispBuffer
             }
         }
 
+        auto contents = lines[y].contents;
+        if (contents[x].grapheme == g &&
+            contents[x].type != Cell.Type.HalfRight)
+        {
+            // Written character identical to what's in buffer; nothing to do.
+            return;
+        }
+
+        lines[y].dirty = true;
+        contents[x].dirty = true;
+
         stomp(x, y);
-        lines[y].contents[x].grapheme = g;
+        contents[x].grapheme = g;
 
         if (g[0].isWide())
         {
             stomp(x+1, y);
-            lines[y].contents[x].type = Cell.Type.HalfLeft;
-            lines[y].contents[x+1].grapheme = g;
-            lines[y].contents[x+1].type = Cell.Type.HalfRight;
+            contents[x].type = Cell.Type.HalfLeft;
+            contents[x+1].grapheme = g;
+            contents[x+1].type = Cell.Type.HalfRight;
         }
         else
-            lines[y].contents[x].type = Cell.Type.Full;
+            contents[x].type = Cell.Type.Full;
     }
 
+    /**
+     * Dump contents of buffer to sink.
+     */
     void toString(scope void delegate(const(char)[]) sink)
     {
         foreach (y; 0 .. lines.length)
@@ -360,6 +387,15 @@ private struct DispBuffer
             }
             sink("\n");
         }
+    }
+
+    /**
+     * Returns: Input range of buffer lines marked dirty.
+     */
+    auto byDirtyLines()
+    {
+        import std.algorithm : filter;
+        return filter!((Line l) => l.dirty)(lines);
     }
 }
 
