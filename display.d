@@ -631,7 +631,8 @@ unittest
             assert(!expected.empty);
             assert(cursor == vec(expected[0][0], expected[0][1]),
                    "Expecting cursor at (%d,%d), actual at (%d,%d)"
-                   .format(expected[0], expected[1], cursor.byComponent));
+                   .format(expected[0][0], expected[0][1],
+                           cursor.byComponent));
             assert(str == expected[0][2], "Expecting >%s<, got >%s<"
                                           .format(expected[0][2], str));
             expected.popFront();
@@ -674,6 +675,15 @@ unittest
     bufDisp.writef("他");
     bufDisp.disp.expected = [
         tuple(0, 3, "他 是大人"),
+    ];
+    bufDisp.flush();
+    assert(bufDisp.disp.expected.empty);
+    assert(bufDisp.buf.byDirtyLines.empty);
+
+    bufDisp.moveTo(4,3);
+    bufDisp.writef("x");
+    bufDisp.disp.expected = [
+        tuple(0, 3, "他  x大人"),
     ];
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
