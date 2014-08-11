@@ -640,6 +640,7 @@ unittest
     static assert(isGridDisplay!TestDisplay);
     BufferedDisplay!TestDisplay bufDisp;
 
+    // Test construction of lines piecemeal
     bufDisp.moveTo(1,1);
     bufDisp.writef("Раз");
     bufDisp.moveTo(5,3);
@@ -658,10 +659,21 @@ unittest
     assert(bufDisp.disp.expected.empty);
     assert(bufDisp.buf.byDirtyLines.empty);
 
+    // Test overwriting of existing content.
     bufDisp.moveTo(1,3);
     bufDisp.writef("他");
     bufDisp.disp.expected = [
         tuple(0, 3, " 他是大人"),
+    ];
+    bufDisp.flush();
+    assert(bufDisp.disp.expected.empty);
+    assert(bufDisp.buf.byDirtyLines.empty);
+
+    // Test stomping of wide characters
+    bufDisp.moveTo(0,3);
+    bufDisp.writef("他");
+    bufDisp.disp.expected = [
+        tuple(0, 3, "他 是大人"),
     ];
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
