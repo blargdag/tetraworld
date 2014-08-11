@@ -145,10 +145,11 @@ void main()
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
     term.clear();
-    auto screenRect = region(vec(term.width, term.height));
+    auto disp = bufferedDisplay(&term);
+    auto screenRect = region(vec(disp.width, disp.height));
     auto msgRect = region(screenRect.lowerBound,
                           vec(screenRect.upperBound[0], 1));
-    auto msgBox = subdisplay(&term, msgRect);
+    auto msgBox = subdisplay(&disp, msgRect);
 
     void message(A...)(string fmt, A args)
     {
@@ -167,16 +168,17 @@ void main()
     auto viewport = ViewPort!GameMap(&map, optVPSize,
                                      map.playerPos - vec(2,2,2,2));
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
-    auto mapview = subdisplay(&term, maprect);
+    auto mapview = subdisplay(&disp, maprect);
 
     mapview.renderMap(viewport.curView);
 
-    //drawBox(&term, region(maprect.lowerBound - vec(1,1),
+    //drawBox(&disp, region(maprect.lowerBound - vec(1,1),
     //                      maprect.upperBound + vec(1,1)));
 
     void refresh()
     {
         mapview.renderMap(viewport.curView);
+        disp.flush();
     }
 
     void movePlayer(Vec!(int,4) displacement)
@@ -213,7 +215,7 @@ void main()
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
     addListener(&inputHandler.handleGlobalEvent);
 
-    term.flush();
+    disp.flush();
     loop();
 
     term.clear();

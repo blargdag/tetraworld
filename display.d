@@ -560,6 +560,15 @@ struct BufferedDisplay(Display)
     static assert(isGridDisplay!(typeof(this)));
 }
 
+/**
+ * Convenience function for constructing a buffered display.
+ * Returns: BufferedDisplay wrapping the given display.
+ */
+auto bufferedDisplay(Disp)(Disp disp)
+{
+    return BufferedDisplay!Disp(disp);
+}
+
 unittest
 {
     struct TestDisplay
@@ -657,7 +666,7 @@ unittest
         tuple(0, 1, " Разцветал"),
         tuple(0, 3, " 你是大人"),
     ];
-    bufDisp.buf.dump();
+    //bufDisp.buf.dump();
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
     assert(bufDisp.buf.byDirtyLines.empty);
