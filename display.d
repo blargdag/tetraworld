@@ -428,10 +428,11 @@ private struct DispBuffer
      */
     auto byDirtyLines()
     {
-        import std.algorithm : filter;
+        import std.algorithm : filter, map;
         import std.range : zip, sequence;
 
-        return zip(sequence!"n", lines).filter!(a => a[1].dirty);
+        return zip(sequence!"n", lines.map!((ref a) => &a))
+              .filter!(a => a[1].dirty);
     }
 }
 
@@ -538,6 +539,7 @@ struct BufferedDisplay(Display)
             assert(linenum <= int.max);
             disp.moveTo(0, cast(int)linenum);
             disp.writef("%s", line.byChar());
+            line.dirty = false;
         }
     }
 
@@ -654,6 +656,7 @@ unittest
     bufDisp.buf.dump();
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
+    assert(bufDisp.buf.byDirtyLines.empty);
 }
 
 version(none)
