@@ -1,3 +1,4 @@
+- [bufdisp] Implement subline flushing.
 - Map underlying representation should be distinct from dchar.
    - The dchar view should be via a MapTile proxy object that maps underlying
      game objects into printable tiles.

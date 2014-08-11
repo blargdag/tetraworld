@@ -556,6 +556,8 @@ struct BufferedDisplay(Display)
             e.dirty = true;
         }
     }
+
+    static assert(isGridDisplay!(typeof(this)));
 }
 
 unittest
@@ -568,7 +570,7 @@ unittest
         void writef(A...)(string fmt, A args) {}
     }
     BufferedDisplay!TestDisplay bufDisp;
-    bufDisp.writef("Живу\n尓是");
+    bufDisp.writef("Живу\n你是");
 
     import std.algorithm : equal;
     assert(bufDisp.buf[0,0][].equal("Ж"));
@@ -576,8 +578,8 @@ unittest
     assert(bufDisp.buf[2,0][].equal("в"));
     assert(bufDisp.buf[3,0][].equal("у"));
     assert(bufDisp.buf[4,0][].equal(" "));
-    assert(bufDisp.buf[0,1][].equal("尓"));
-    assert(bufDisp.buf[1,1][].equal("尓"));
+    assert(bufDisp.buf[0,1][].equal("你"));
+    assert(bufDisp.buf[1,1][].equal("你"));
     assert(bufDisp.buf[2,1][].equal("是"));
     assert(bufDisp.buf[3,1][].equal("是"));
 
@@ -649,11 +651,11 @@ unittest
     bufDisp.moveTo(4,1);
     bufDisp.writef("цветали"); // note: last letter should be clipped
     bufDisp.moveTo(1,3);
-    bufDisp.writef("尓是");
+    bufDisp.writef("你是");
 
     bufDisp.disp.expected = [
         tuple(0, 1, " Разцветал"),
-        tuple(0, 3, " 尓是大人"),
+        tuple(0, 3, " 你是大人"),
     ];
     bufDisp.buf.dump();
     bufDisp.flush();
@@ -748,13 +750,12 @@ unittest
     term.clear();
 }
 
-
 version(none)
 unittest
 {
 	("龘\n\t龘1\u2060a\u0308Ш ж\u0301\u0325\u200Bи\u200DвI\u0334"~
 	 "\0D\u0338\u0321o\u0330\n\tu\u0313\u0338\u0330\n5\u035A\n"~
-	 "ΐ\u032E 尓１２３1\u033023")
+	 "ΐ\u032E 你１２３1\u033023")
 		.byGrapheme
 		.map!((g) {
 			string s;
