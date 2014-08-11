@@ -50,8 +50,8 @@ import vector;
  */
 enum isGridDisplay(T) = is(typeof(int.init < T.init.width)) &&
                         is(typeof(int.init < T.init.height)) &&
-                        is(typeof(T.moveTo(0,0))) &&
-                        is(typeof(T.writef("%s", "")));
+                        is(typeof(T.init.moveTo(0,0))) &&
+                        is(typeof(T.init.writef("%s", "")));
 
 unittest
 {
@@ -261,6 +261,17 @@ unittest
                format("Shouldn't be wide but is: %s (U+%04X)", ch, ch));
 }
 
+/* Lame hackery due to Grapheme slices being unable to survive past the
+ * lifetime of the Grapheme itself, and the fact that CTFE can't handle unions
+ * so we have to initialize this at runtime.
+ */
+private import std.uni : Grapheme;
+private Grapheme spaceGrapheme;
+static this()
+{
+    spaceGrapheme = Grapheme(" ");
+}
+
 private struct DispBuffer
 {
     import std.uni;
@@ -275,12 +286,33 @@ private struct DispBuffer
         Type type;
         bool dirty;
         Grapheme grapheme;
+
+        version(unittest)
+        void toString(scope void delegate(const(char)[]) sink)
+        {
+            import std.algorithm : copy;
+            copy(grapheme[], sink);
+        }
     }
 
     static struct Line
     {
         Cell[] contents;
         bool dirty;
+
+        /**
+         * Returns: Range of chars in this line.
+         */
+        auto byChar()
+        {
+            import std.array : array;
+            import std.algorithm : filter, map, joiner;
+
+            return contents.filter!((ref c) => c.type != Cell.Type.HalfRight)
+                           .map!((ref c) => (c == c.init) ? spaceGrapheme[]
+                                                          : c.grapheme[])
+                           .joiner;
+        }
     }
 
     private Line[] lines;
@@ -294,7 +326,7 @@ private struct DispBuffer
             x < 0 || x >= lines[y].contents.length)
         {
             // Unassigned areas default to empty space
-            return " ".byGrapheme().front;
+            return spaceGrapheme;
         }
 
         if (lines[y].contents[x].type == Cell.Type.HalfRight)
@@ -331,13 +363,13 @@ private struct DispBuffer
                 case Cell.Type.HalfLeft:
                     assert(lines[y].contents.length > x+1);
                     lines[y].contents[x+1].type = Cell.Type.Full;
-                    lines[y].contents[x+1].grapheme = Grapheme(" ");
+                    lines[y].contents[x+1].grapheme = spaceGrapheme;
                     return;
 
                 case Cell.Type.HalfRight:
                     assert(x > 0);
                     lines[y].contents[x-1].type = Cell.Type.Full;
-                    lines[y].contents[x-1].grapheme = Grapheme(" ");
+                    lines[y].contents[x-1].grapheme = spaceGrapheme;
                     return;
 
                 case Cell.Type.Full:
@@ -365,7 +397,7 @@ private struct DispBuffer
         {
             stomp(x+1, y);
             contents[x].type = Cell.Type.HalfLeft;
-            contents[x+1].grapheme = g;
+            contents[x+1].grapheme = Grapheme.init;
             contents[x+1].type = Cell.Type.HalfRight;
         }
         else
@@ -375,6 +407,7 @@ private struct DispBuffer
     /**
      * Dump contents of buffer to sink.
      */
+    version(unittest)
     void toString(scope void delegate(const(char)[]) sink)
     {
         foreach (y; 0 .. lines.length)
@@ -390,12 +423,25 @@ private struct DispBuffer
     }
 
     /**
-     * Returns: Input range of buffer lines marked dirty.
+     * Returns: Input range of tuples of line numbers and buffer lines marked
+     * dirty.
      */
     auto byDirtyLines()
     {
         import std.algorithm : filter;
-        return filter!((Line l) => l.dirty)(lines);
+        import std.range : zip, sequence;
+
+        return zip(sequence!"n", lines).filter!(a => a[1].dirty);
+    }
+}
+
+version(unittest)
+private void dump(DispBuffer buf)
+{
+    import std.stdio;
+    foreach (i, line; buf.lines)
+    {
+        writefln("%2d: >%s<", i, line.byChar());
     }
 }
 
@@ -482,7 +528,17 @@ struct BufferedDisplay(Display)
      */
     void flush()
     {
-        // TBD
+        foreach (e; buf.byDirtyLines)
+        {
+            // For now, just repaint the entire line
+            auto linenum = e[0];
+            auto line = e[1];
+
+            assert(line.dirty);
+            assert(linenum <= int.max);
+            disp.moveTo(0, cast(int)linenum);
+            disp.writef("%s", line.byChar());
+        }
     }
 
     /**
@@ -493,7 +549,10 @@ struct BufferedDisplay(Display)
      */
     void repaint()
     {
-        // TBD
+        foreach (e; buf.lines)
+        {
+            e.dirty = true;
+        }
     }
 }
 
@@ -536,6 +595,65 @@ unittest
     auto app = appender!string();
     app.formattedWrite("%s", bufDisp.buf);
     assert(app.data == "Живи\n 大 \n");
+
+    // Test byDirtyLines() and Line.byChar().
+    import std.algorithm : equal;
+    import std.typecons : tuple;
+    auto dirtyLines = bufDisp.buf.byDirtyLines;
+    auto expectedLines = [
+        tuple(0, "Живи"),
+        tuple(1, " 大 ")
+    ];
+    assert(equal!((a,b) => a[0]==b[0] && equal(a[1].byChar(), b[1]))
+                 (dirtyLines, expectedLines));
+}
+
+unittest
+{
+    import std.array;
+    import std.typecons;
+    import std.string : format;
+
+    struct TestDisplay
+    {
+        enum width = 10;
+        enum height = 4;
+        Vec!(int,2) cursor;
+        Tuple!(int,int,string) expected[];
+
+        void moveTo(int x, int y) { cursor = vec(x,y); }
+        void writef(A...)(string fmt, A args)
+        {
+            auto str = format(fmt, args);
+
+            assert(!expected.empty);
+            assert(cursor == vec(expected[0][0], expected[0][1]),
+                   "Expecting cursor at (%d,%d), actual at (%d,%d)"
+                   .format(expected[0], expected[1], cursor.byComponent));
+            assert(str == expected[0][2], "Expecting >%s<, got >%s<"
+                                          .format(expected[0][2], str));
+            expected.popFront();
+        }
+    }
+    static assert(isGridDisplay!TestDisplay);
+    BufferedDisplay!TestDisplay bufDisp;
+
+    bufDisp.moveTo(1,1);
+    bufDisp.writef("Раз");
+    bufDisp.moveTo(5,3);
+    bufDisp.writef("大人");
+    bufDisp.moveTo(4,1);
+    bufDisp.writef("цветали"); // note: last letter should be clipped
+    bufDisp.moveTo(1,3);
+    bufDisp.writef("尓是");
+
+    bufDisp.disp.expected = [
+        tuple(0, 1, " Разцветал"),
+        tuple(0, 3, " 尓是大人"),
+    ];
+    bufDisp.buf.dump();
+    bufDisp.flush();
+    assert(bufDisp.disp.expected.empty);
 }
 
 version(none)
