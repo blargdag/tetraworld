@@ -657,6 +657,15 @@ unittest
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
     assert(bufDisp.buf.byDirtyLines.empty);
+
+    bufDisp.moveTo(1,3);
+    bufDisp.writef("他");
+    bufDisp.disp.expected = [
+        tuple(0, 3, " 他是大人"),
+    ];
+    bufDisp.flush();
+    assert(bufDisp.disp.expected.empty);
+    assert(bufDisp.buf.byDirtyLines.empty);
 }
 
 version(none)
