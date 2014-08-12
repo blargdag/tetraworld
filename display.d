@@ -541,6 +541,9 @@ struct BufferedDisplay(Display)
             disp.writef("%s", line.byChar());
             line.dirty = false;
         }
+
+        // Update physical cursor position to latest virtual position.
+        disp.moveTo(cursor.byComponent);
     }
 
     /**

@@ -41,7 +41,7 @@ struct GameMap
 
     dchar opIndex(int w, int x, int y, int z)
     {
-        if (vec(w,y,x,z) == playerPos) return '&';
+        if (vec(w,x,y,z) == playerPos) return '&';
         if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
         if (vec(w,x,y,z) in region(vec(2,2,2,2), vec(5,5,5,5))) return '.';
         return '/';
@@ -170,14 +170,15 @@ void main()
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&disp, maprect);
 
-    mapview.renderMap(viewport.curView);
-
     //drawBox(&disp, region(maprect.lowerBound - vec(1,1),
     //                      maprect.upperBound + vec(1,1)));
 
     void refresh()
     {
-        mapview.renderMap(viewport.curView);
+        auto curview = viewport.curView;
+        mapview.renderMap(curview);
+        mapview.moveTo(renderingCoors(curview, map.playerPos - viewport.pos)
+                       .byComponent);
         disp.flush();
     }
 
@@ -199,10 +200,10 @@ void main()
     InputEventHandler inputHandler;
     inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
     inputHandler.bind('m', (dchar) { movePlayer(vec(1,0,0,0)); });
-    inputHandler.bind('o', (dchar) { movePlayer(vec(0,-1,0,0)); });
-    inputHandler.bind('n', (dchar) { movePlayer(vec(0,1,0,0)); });
-    inputHandler.bind('h', (dchar) { movePlayer(vec(0,0,-1,0)); });
-    inputHandler.bind('l', (dchar) { movePlayer(vec(0,0,1,0)); });
+    inputHandler.bind('h', (dchar) { movePlayer(vec(0,-1,0,0)); });
+    inputHandler.bind('l', (dchar) { movePlayer(vec(0,1,0,0)); });
+    inputHandler.bind('o', (dchar) { movePlayer(vec(0,0,-1,0)); });
+    inputHandler.bind('n', (dchar) { movePlayer(vec(0,0,1,0)); });
     inputHandler.bind('j', (dchar) { movePlayer(vec(0,0,0,-1)); });
     inputHandler.bind('k', (dchar) { movePlayer(vec(0,0,0,1)); });
     inputHandler.bind('I', (dchar) { moveView(vec(-1,0,0,0)); });
@@ -215,6 +216,7 @@ void main()
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
     addListener(&inputHandler.handleGlobalEvent);
 
+    refresh();
     disp.flush();
     loop();
 

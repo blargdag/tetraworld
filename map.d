@@ -156,6 +156,46 @@ unittest
 }
 
 /**
+ * Converts 4D map coordinates to 2D rendering coordinates.
+ * Params:
+ *  map = 4D viewport used for rendering.
+ *  coors = 4D coordinates relative to viewport.
+ * Returns:
+ *  2D coordinates where renderMap would draw a tile at the given 4D
+ *  coordinates.
+ */
+Vec!(int,2) renderingCoors(Map)(Map map, Vec!(int,4) coors)
+    if (is4DArray!Map)
+{
+    //auto wlen = map.opDollar!0;
+    //auto xlen = map.opDollar!1;
+    auto ylen = map.opDollar!2;
+    auto zlen = map.opDollar!3;
+
+    return vec(coors[1]*(ylen + zlen + interColSpace) +
+               (ylen - coors[2] - 1) + coors[3],
+               coors[0]*(ylen + interRowSpace) + coors[2]);
+}
+
+unittest
+{
+    struct Map
+    {
+        enum opDollar(int n) = 3;
+        dchar opIndex(int w, int x, int y, int z) { return '.'; }
+    }
+    Map m;
+
+    assert(m.renderingCoors(vec(0,0,0,0)) == vec(2,0));
+    assert(m.renderingCoors(vec(1,1,1,1)) == vec(8,5));
+    assert(m.renderingCoors(vec(2,2,2,2)) == vec(14,10));
+    assert(m.renderingCoors(vec(1,0,0,0)) == vec(2,4));
+    assert(m.renderingCoors(vec(0,1,0,0)) == vec(8,0));
+    assert(m.renderingCoors(vec(0,0,1,0)) == vec(1,1));
+    assert(m.renderingCoors(vec(0,0,0,1)) == vec(3,0));
+}
+
+/**
  * An adaptor that represents a rectangular subset of a 4D array.
  */
 struct SubMap(Map)
