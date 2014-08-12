@@ -82,10 +82,10 @@ struct SubDisplay(T)
     void writef(A...)(string fmt, A args) { parent.writef(fmt, args); }
 
     ///
-    @property auto width() { return rect.lowerBound[0]; }
+    @property auto width() { return rect.upperBound[0] - rect.lowerBound[0]; }
 
     ///
-    @property auto height() { return rect.lowerBound[1]; }
+    @property auto height() { return rect.upperBound[1] - rect.lowerBound[1]; }
 }
 
 unittest

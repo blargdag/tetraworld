@@ -177,8 +177,11 @@ void main()
     {
         auto curview = viewport.curView;
         mapview.renderMap(curview);
-        mapview.moveTo(renderingCoors(curview, map.playerPos - viewport.pos)
-                       .byComponent);
+
+        auto cursorPos = renderingCoors(curview, map.playerPos - viewport.pos);
+        if (cursorPos in region(vec(mapview.width, mapview.height)))
+            mapview.moveTo(cursorPos.byComponent);
+
         disp.flush();
     }
 
