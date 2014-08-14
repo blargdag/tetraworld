@@ -35,15 +35,19 @@ struct GameMap
     // system.
     Vec!(int,4) playerPos;
 
-    Vec!(int,4) dim = vec(7,7,7,7);
+    enum n = 9;
+    Vec!(int,4) dim = vec(n,n,n,n);
 
     @property int opDollar(int i)() { return dim[i]; }
 
     dchar opIndex(int w, int x, int y, int z)
     {
+        import std.math : abs;
+
         if (vec(w,x,y,z) == playerPos) return '&';
         if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
-        if (vec(w,x,y,z) in region(vec(2,2,2,2), vec(5,5,5,5))) return '.';
+        enum r = 3;
+        if (abs(w-r) + abs(x-r) + abs(y-r) + abs(z-r) < r) return '.';
         return '/';
     }
 }
@@ -178,9 +182,13 @@ void main()
         auto curview = viewport.curView;
         mapview.renderMap(curview);
 
-        auto cursorPos = renderingCoors(curview, map.playerPos - viewport.pos);
-        if (cursorPos in region(vec(mapview.width, mapview.height)))
-            mapview.moveTo(cursorPos.byComponent);
+        if (map.playerPos in curview.reg)
+        {
+            auto cursorPos = renderingCoors(curview,
+                                            map.playerPos - viewport.pos);
+            if (cursorPos in region(vec(mapview.width, mapview.height)))
+                mapview.moveTo(cursorPos.byComponent);
+        }
 
         disp.flush();
     }
