@@ -476,20 +476,8 @@ struct BufferedDisplay(Display)
         cursor = vec(x,y);
     }
 
-    /**
-     * Writes output to buffer at current internal cursor position.
-     *
-     * The internal cursor is updated to one past the last character output.
-     *
-     * Note: No output is written to the underlying display until .flush is
-     * called. If any of the characters output are the same as what's in the
-     * buffer, those characters will not be rewritten to the display by .flush.
-     */
-    void writef(A...)(string fmt, A args)
+    private void writefImpl(string data)
     {
-        import std.string : format;
-        string data = fmt.format(args);
-
         int x = cursor[0];
         int y = cursor[1];
         foreach (g; data.byGrapheme)
@@ -522,6 +510,21 @@ struct BufferedDisplay(Display)
 
             x += g[0].isWide() ? 2 : 1;
         }
+    }
+
+    /**
+     * Writes output to buffer at current internal cursor position.
+     *
+     * The internal cursor is updated to one past the last character output.
+     *
+     * Note: No output is written to the underlying display until .flush is
+     * called. If any of the characters output are the same as what's in the
+     * buffer, those characters will not be rewritten to the display by .flush.
+     */
+    void writef(A...)(string fmt, A args)
+    {
+        import std.format : format;
+        writefImpl(fmt.format(args));
     }
 
     /**
