@@ -635,7 +635,7 @@ unittest
         enum width = 10;
         enum height = 4;
         Vec!(int,2) cursor;
-        Tuple!(int,int,string) expected[];
+        Tuple!(int,int,string)[] expected;
 
         void moveTo(int x, int y) { cursor = vec(x,y); }
         void writef(A...)(string fmt, A args)

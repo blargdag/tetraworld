@@ -25,8 +25,8 @@ module vector;
  */
 template TypeVec(T, size_t n)
 {
-    import std.typecons : TypeTuple;
-    alias tuple = TypeTuple;
+    import std.typecons : AliasSeq;
+    alias tuple = AliasSeq;
 
     static if (n==0)
         alias TypeVec = tuple!();
