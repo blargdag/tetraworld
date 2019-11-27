@@ -25,7 +25,7 @@ module vector;
  */
 template TypeVec(T, size_t n)
 {
-    import std.typecons : AliasSeq;
+    import std.meta : AliasSeq;
     alias tuple = AliasSeq;
 
     static if (n==0)
@@ -200,7 +200,6 @@ struct Region(T, size_t n)
     if (is(typeof(T.init < T.init)))
 {
     import std.traits : CommonType;
-    import std.typecons : staticIota;
 
     /**
      * The bounds of the n-dimensional cube.
@@ -247,11 +246,10 @@ struct Region(T, size_t n)
     @property auto lengths()()
         if (is(typeof(T.init - T.init)))
     {
-        import std.typecons : staticIota;
         alias U = typeof(T.init - T.init);
 
         Vec!(U,n) result;
-        foreach (i; staticIota!(0, n))
+        static foreach (i; 0 .. n)
             result[i] = length!i;
         return result;
     }
@@ -262,7 +260,7 @@ struct Region(T, size_t n)
      */
     @property bool empty()
     {
-        foreach (i; staticIota!(0, n))
+        static foreach (i; 0 .. n)
             if (lowerBound[i] >= upperBound[i])
                 return true;
         return false;
@@ -277,7 +275,7 @@ struct Region(T, size_t n)
     bool opBinaryRight(string op, U)(Vec!(U,n) v)
         if (op == "in" && is(typeof(T.init < U.init)))
     {
-        foreach (i; staticIota!(0, n))
+        static foreach (i; 0 .. n)
             if (v[i] < lowerBound[i] || v[i] >= upperBound[i])
                 return false;
         return true;
@@ -292,7 +290,7 @@ struct Region(T, size_t n)
     bool opBinary(string op, U)(Region!(U,n) r)
         if (op == "in" && is(typeof(T.init < U.init)))
     {
-        foreach (i; staticIota!(0, n))
+        static foreach (i; 0 .. n)
         {
             // Empty regions never contain anything
             if (r.lowerBound[i] >= r.upperBound[i])
@@ -317,7 +315,7 @@ struct Region(T, size_t n)
         if (is(typeof(T.init < U.init)) && is(CommonType!(T,U)))
     {
         Region!(CommonType!(T,U),n) result;
-        foreach (i; staticIota!(0, n))
+        static foreach (i; 0 .. n)
         {
             import std.algorithm : max, min;
             result.lowerBound[i] = max(lowerBound[i], r.lowerBound[i]);
