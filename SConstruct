@@ -15,7 +15,7 @@ release = ARGUMENTS.get('release', 0)
 
 dmd = '/usr/src/d/bin/dmd'
 
-arsd_incdir = '../ext'
+arsd_incdir = '.'
 arsd_path = arsd_incdir + os.sep + 'arsd'
 arsd_flags = ['-version=with_eventloop']
 
