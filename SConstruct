@@ -13,7 +13,7 @@ release = ARGUMENTS.get('release', 0)
 # Static configuration parameters
 #
 
-dmd = '/usr/src/d/dmd/src/dmd'
+dmd = '/usr/src/d/bin/dmd'
 
 arsd_incdir = '../ext'
 arsd_path = arsd_incdir + os.sep + 'arsd'
