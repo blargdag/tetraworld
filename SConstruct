@@ -55,3 +55,9 @@ env.Command('uniwidth', Split("""
 	"""),
 	"$LDC $LDCFLAGS -of$TARGET $SOURCES"
 )
+
+# Cross-compiled Windows build
+winenv = env.Clone()
+winenv.Append(LDCFLAGS = [ '-mtriple=x86_64-windows-msvc' ])
+winenv.Command('tetraworld.exe', sources, "$LDC $LDCFLAGS -of$TARGET $SOURCES")
+
