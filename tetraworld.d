@@ -18,8 +18,8 @@
  * You should have received a copy of the GNU General Public License along with
  * Tetraworld.  If not, see <http://www.gnu.org/licenses/>.
  */
+module tetraworld;
 
-import arsd.eventloop;
 import arsd.terminal;
 
 import display;
@@ -98,6 +98,7 @@ struct ViewPort(Map)
 struct InputEventHandler
 {
     void delegate(dchar ch)[dchar] bindings;
+    bool wantQuit;
 
     /**
      * Binds a particular key to an action.
@@ -121,7 +122,7 @@ struct InputEventHandler
                     switch (ev.character)
                     {
                         case 'q':
-                            arsd.eventloop.exit();
+                            wantQuit = true;
                             break;
                         default:
                             if (auto handler = ev.character in bindings)
@@ -225,11 +226,13 @@ void main()
     inputHandler.bind('N', (dchar) { moveView(vec(0,0,1,0)); });
     inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
-    addListener(&inputHandler.handleGlobalEvent);
 
     refresh();
     disp.flush();
-    loop();
+    while (!inputHandler.wantQuit)
+    {
+        inputHandler.handleGlobalEvent(input.nextEvent());
+    }
 
     term.clear();
 }

@@ -17,7 +17,7 @@ dmd = '/usr/src/d/bin/dmd'
 
 arsd_incdir = '.'
 arsd_path = arsd_incdir + os.sep + 'arsd'
-arsd_flags = ['-version=with_eventloop']
+arsd_flags = []
 
 
 #
@@ -59,7 +59,6 @@ env.Command('tetraworld', Split("""
 		map.d
 		vector.d
 
-		eventloop.o
 		terminal.o
 	"""),
 	"$DMD $DFLAGS -of$TARGET $SOURCES"
@@ -67,9 +66,6 @@ env.Command('tetraworld', Split("""
 
 
 # arsd modules
-env.Command('eventloop.o', arsd_path + os.sep + 'eventloop.d',
-	"$ARSD_COM"
-)
 env.Command('terminal.o', arsd_path + os.sep + 'terminal.d',
 	"$ARSD_COM"
 )
