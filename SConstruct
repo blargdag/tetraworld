@@ -13,29 +13,18 @@ release = ARGUMENTS.get('release', 0)
 # Static configuration parameters
 #
 
-dmd = '/usr/src/d/bin/dmd'
+ldc = '/usr/src/d/ldc/ldc2-1.18.0-linux-x86_64/bin/ldc2'
+ldcflags = [ ]
 
-arsd_incdir = '.'
-arsd_path = arsd_incdir + os.sep + 'arsd'
-arsd_flags = []
-
-
-#
-# Environment setup
-#
-
-dflags = []
 if release:
-	dflags += ['-release']
+	ldcflags += ['-O3']
 else:
-	dflags += ['-unittest']
+	ldcflags += ['-unittest']
 
 if debug:
-	dflags += ['-g', '-debug']
+	ldcflags += ['-g', '-gc', '-d-debug']
 else:
-	dflags += ['-O']
-
-dflags = dflags + ['-I' + arsd_incdir]
+	ldcflags += ['-O']
 
 
 #
@@ -43,37 +32,26 @@ dflags = dflags + ['-I' + arsd_incdir]
 #
 
 env = Environment(
-	DMD = dmd,
-	DFLAGS = dflags,
-
-	DCOM = "$DMD $DFLAGS -of$TARGET $SOURCES",
-
-	ARSD_FLAGS = arsd_flags,
-	ARSD_COM = "$DMD $DFLAGS $ARSD_FLAGS -of$TARGET -c $SOURCE"
+	LDC = ldc,
+	LDCFLAGS = ldcflags,
 )
+
+sources = Split("""
+	tetraworld.d
+	display.d
+	map.d
+	vector.d
+
+	arsd/terminal.d
+""")
 
 # Tetraworld main program
-env.Command('tetraworld', Split("""
-		tetraworld.d
-		display.d
-		map.d
-		vector.d
-
-		terminal.o
-	"""),
-	"$DMD $DFLAGS -of$TARGET $SOURCES"
-)
-
-
-# arsd modules
-env.Command('terminal.o', arsd_path + os.sep + 'terminal.d',
-	"$ARSD_COM"
-)
+env.Command('tetraworld', sources, "$LDC $LDCFLAGS -of$TARGET $SOURCES")
 
 
 # Utilities
 env.Command('uniwidth', Split("""
 		uniwidth.d
 	"""),
-	"$DMD $DFLAGS -of$TARGET $SOURCES"
+	"$LDC $LDCFLAGS -of$TARGET $SOURCES"
 )
