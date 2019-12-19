@@ -60,6 +60,14 @@ unittest
 }
 
 /**
+ * true if T is a grid display that supports the .showCursor and .hideCursor
+ * methods.
+ */
+enum canShowHideCursor(T) = isGridDisplay!T &&
+                            is(typeof(T.init.showCursor())) &&
+                            is(typeof(T.init.hideCursor()));
+
+/**
  * A wrapper around an existing display that represents a rectangular subset of
  * it. The .moveTo primitive is wrapped to translate input coordinates into
  * actual coordinates on the display.
@@ -458,6 +466,8 @@ struct BufferedDisplay(Display)
     private DispBuffer buf;
 
     private Vec!(int,2) cursor;
+    static if (canShowHideCursor!Display)
+        private bool cursorHidden;
 
     /**
      * Dimensions of the underlying display.
@@ -532,6 +542,10 @@ struct BufferedDisplay(Display)
      */
     void flush()
     {
+        // Hide cursor during refresh, to avoid flickering artifacts.
+        static if (canShowHideCursor!Display)
+            disp.hideCursor();
+
         foreach (e; buf.byDirtyLines)
         {
             // For now, just repaint the entire line
@@ -546,7 +560,14 @@ struct BufferedDisplay(Display)
         }
 
         // Update physical cursor position to latest virtual position.
-        disp.moveTo(cursor.byComponent);
+        static if (canShowHideCursor!Display)
+        {
+            if (!cursorHidden)
+            {
+                disp.moveTo(cursor.byComponent);
+                disp.showCursor();
+            }
+        }
     }
 
     /**
@@ -561,6 +582,12 @@ struct BufferedDisplay(Display)
         {
             e.dirty = true;
         }
+    }
+
+    static if (canShowHideCursor!Display)
+    {
+        void showCursor() { cursorHidden = false; }
+        void hideCursor() { cursorHidden = true; }
     }
 
     static assert(isGridDisplay!(typeof(this)));

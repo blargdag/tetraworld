@@ -180,12 +180,16 @@ void play()
         auto curview = viewport.curView;
         mapview.renderMap(curview);
 
+        disp.hideCursor();
         if (map.playerPos in curview.reg)
         {
             auto cursorPos = renderingCoors(curview,
                                             map.playerPos - viewport.pos);
             if (cursorPos in region(vec(mapview.width, mapview.height)))
+            {
                 mapview.moveTo(cursorPos.byComponent);
+                disp.showCursor();
+            }
         }
 
         disp.flush();
