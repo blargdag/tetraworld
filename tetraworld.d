@@ -141,10 +141,7 @@ struct InputEventHandler
     }
 }
 
-/**
- * Main program.
- */
-void main()
+void play()
 {
     auto term = Terminal(ConsoleOutputType.cellular);
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
@@ -235,6 +232,14 @@ void main()
     }
 
     term.clear();
+}
+
+/**
+ * Main program.
+ */
+void main()
+{
+    play();
 }
 
 // vim:set ai sw=4 ts=4 et:
