@@ -117,6 +117,52 @@ unittest
     assert(rightRegion(r, 0, 3) == Region([ 3, 2, 2, 2 ], [ 5, 5, 5, 5 ]));
 }
 
+enum invalidAxis = -1;
+enum invalidPivot = int.min;
+
+/**
+ * Generate a BSP partitioning of the given region with the given splitting
+ * parameters.
+ *
+ * Params:
+ *  canSplitRegion = A delegate that returns true if the given region can be
+ *      further split, false otherwise.  Note that returning true does not
+ *      guarantee that the region will actually be split; if no suitable
+ *      splitting axis or pivot is found, it will not be split regardless.
+ *  findSplitAxis = A delegate that returns a splitting axis for the given
+ *      region. If no suitable axis is found, a return value of invalidAxis
+ *      will force the region not to be split.
+ *  findPivot = A delegate that computes a suitable pivot for splitting the
+ *      given region along the given axis. A return value of invalidPivot
+ *      indicates that no suitable pivot value can be found, and that the node
+ *      should not be split after all.
+ */
+BspNode* genBsp(Region region,
+                bool delegate(Region r) canSplitRegion,
+                int delegate(Region r) findSplitAxis,
+                int delegate(Region r, int axis) findPivot)
+{
+    auto node = new BspNode();
+    if (!canSplitRegion(region))
+        return node;
+
+    auto axis = findSplitAxis(region);
+    if (axis == invalidAxis)
+        return node;
+
+    auto pivot = findPivot(region, axis);
+    if (pivot == invalidPivot)
+        return node;
+
+    node.axis = axis;
+    node.pivot = pivot;
+    node.children[0] = genBsp(leftRegion(region, axis, pivot),
+                              canSplitRegion, findSplitAxis, findPivot);
+    node.children[1] = genBsp(rightRegion(region, axis, pivot),
+                              canSplitRegion, findSplitAxis, findPivot);
+    return node;
+}
+
 /**
  * Generate a BSP partitioning of the given region with the given minimum
  * region size.
@@ -127,22 +173,16 @@ BspNode* genBsp(Region region, int[4] minSize)
     import std.random : uniform;
     import std.range : iota;
 
-    auto node = new BspNode();
-
-    auto availIdx = iota(4)
-        .filter!(i => region.max[i] - region.min[i] >= 2*minSize[i] + 1);
-    if (availIdx.empty)
-        return node;
-
-    auto axis = availIdx.pickOne;
-    auto pivot = uniform(region.min[axis] + minSize[axis],
-                         region.max[axis] - minSize[axis]);
-
-    node.axis = axis;
-    node.pivot = pivot;
-    node.children[0] = genBsp(leftRegion(region, axis, pivot), minSize);
-    node.children[1] = genBsp(rightRegion(region, axis, pivot), minSize);
-    return node;
+    return genBsp(region,
+        (Region r) => true,
+        (Region r) {
+            auto axes = iota(4)
+                .filter!(i => r.max[i] - r.min[i] >= 2*minSize[i] + 1);
+            return axes.empty ? invalidAxis : axes.pickOne;
+        },
+        (Region r, int axis) => uniform(r.min[axis] + minSize[axis],
+                                        r.max[axis] - minSize[axis])
+    );
 }
 
 /**
