@@ -13,7 +13,7 @@ release = ARGUMENTS.get('release', 0)
 # Static configuration parameters
 #
 
-ldc = '/usr/src/d/ldc/ldc2-1.18.0-linux-x86_64/bin/ldc2'
+ldc = '/usr/src/d/ldc/latest/bin/ldc2'
 ldcflags = [ ]
 
 if release:
