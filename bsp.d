@@ -25,6 +25,22 @@ import std.range.primitives;
 struct Region
 {
     int[4] min, max;
+
+    long volume()
+    {
+        import std.algorithm : map, fold;
+        import std.range : iota;
+        return iota(4).map!(i => max[i] - min[i])
+                      .fold!((a, b) => a*b)(1);
+    }
+
+    ///
+    unittest
+    {
+        assert(Region([ 0, 0, 0, 0 ], [ 2, 3, 5, 7 ]).volume == 210);
+        assert(Region([ 0, 0, 0, 7 ], [ 2, 3, 5, 7 ]).volume == 0);
+        assert(Region([ 4, 3, 2, 1 ], [ 6, 6, 7, 8 ]).volume == 210);
+    }
 }
 
 /**
@@ -42,6 +58,12 @@ struct BspNode
 /**
  * Randomly picks a single element out of the given range with equal
  * probability for every element.
+ *
+ * Params:
+ *  range = The range to pick an element from. Must be non-empty if defElem is
+ *      not specified.
+ *  defElem = (Optional) default element to return if the range is empty. If
+ *      not specified, the range must not be empty.
  *
  * Complexity: O(n) where n is the length of the range.
  */
@@ -62,10 +84,20 @@ ElementType!R pickOne(R)(R range)
     return result;
 }
 
+/// ditto
+ElementType!R pickOne(R, E)(R range, E defElem)
+    if (isInputRange!R && is(E : ElementType!R))
+{
+    if (range.empty)
+        return defElem;
+    return range.pickOne();
+}
+
 ///
 unittest
 {
     assert([ 123 ].pickOne() == 123);
+    assert((cast(int[]) []).pickOne(-1) == -1);
 }
 
 unittest
@@ -233,7 +265,39 @@ unittest
     });
 
     import std.stdio, std.range : chunks;
-    writefln("%(%-(%s%)\n%)", result[].chunks(w));
+    writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
+}
+
+unittest
+{
+    enum w = 20, h = 20;
+    char[w*h] result;
+    foreach (ref ch; result) { ch = '#'; }
+
+    import std.algorithm : filter;
+    import std.random : uniform;
+    import std.range : iota;
+
+    auto region = Region([ 0, 0, 0, 0 ], [ w, h, 1, 1 ]);
+    auto tree = genBsp(region,
+        (Region r) => r.volume > 49 || uniform(0, 100) < 80,
+        (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 4)
+                             .pickOne(invalidAxis),
+        (Region r, int axis) => (r.max[axis] - r.min[axis] < 5) ?
+            invalidPivot : uniform(r.min[axis]+2, r.max[axis]-2)
+    );
+
+    char fl = '!';
+    tree.foreachRoom(region, (Region r) {
+        foreach (j; r.min[1] .. r.max[1])
+            foreach (i; r.min[0] .. r.max[0])
+                result[i + j*w] = fl;
+        fl++;
+        return 0;
+    });
+
+    import std.stdio, std.range : chunks;
+    writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
 }
 
 // vim:set ai sw=4 ts=4 et:
