@@ -304,21 +304,25 @@ unittest
 
 unittest
 {
-    enum w = 40, h = 25;
+    enum w = 30, h = 20;
     char[w*h] result;
     foreach (ref ch; result) { ch = '#'; }
 
-    import std.algorithm : filter;
+    import std.algorithm : filter, clamp;
     import std.random : uniform;
     import std.range : iota;
+    import gauss;
 
     auto region = Region([ 0, 0, 0, 0 ], [ w, h, 1, 1 ]);
     auto tree = genBsp(region,
-        (Region r) => r.maxWidth > 5 || r.volume > 49 || uniform(0, 100) < 80,
+        (Region r) => r.width(0) > 2 && r.width(1) > 2 &&
+            (r.maxWidth > 5 || r.volume > 49 || uniform(0, 100) < 75),
         (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 6)
                              .pickOne(invalidAxis),
         (Region r, int axis) => (r.max[axis] - r.min[axis] < 6) ?
             invalidPivot : uniform(r.min[axis]+3, r.max[axis]-2)
+            //gaussian(r.max[axis] - r.min[axis], 4)
+            //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
     );
 
     char fl = '!';
