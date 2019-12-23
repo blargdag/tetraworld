@@ -22,6 +22,9 @@ module bsp;
 
 import std.range.primitives;
 
+/**
+ * A 4D rectangular region.
+ */
 struct Region
 {
     int[4] min, max;
@@ -149,14 +152,14 @@ unittest
     }
 }
 
-Region leftRegion(Region r, int axis, int pivot)
+Region leftRegion()(Region r, int axis, int pivot)
 {
     auto result = r;
     result.max[axis] = pivot;
     return result;
 }
 
-Region rightRegion(Region r, int axis, int pivot)
+Region rightRegion()(Region r, int axis, int pivot)
 {
     auto result = r;
     result.min[axis] = pivot;
@@ -289,42 +292,6 @@ unittest
     auto region = Region([ 0, 0, 0, 0 ], [ w, h, 0, 0 ]);
     auto tree = genBsp(region, [ 3, 3, 0, 0 ]);
 
-    char fl = '0';
-    tree.foreachRoom(region, (Region r) {
-        foreach (j; r.min[1] .. r.max[1])
-            foreach (i; r.min[0] .. r.max[0])
-                result[i + j*w] = fl;
-        fl++;
-        return 0;
-    });
-
-    import std.stdio, std.range : chunks;
-    //writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
-}
-
-unittest
-{
-    enum w = 30, h = 20;
-    char[w*h] result;
-    foreach (ref ch; result) { ch = '#'; }
-
-    import std.algorithm : filter, clamp;
-    import std.random : uniform;
-    import std.range : iota;
-    import gauss;
-
-    auto region = Region([ 0, 0, 0, 0 ], [ w, h, 1, 1 ]);
-    auto tree = genBsp(region,
-        (Region r) => r.width(0) > 2 && r.width(1) > 2 &&
-            (r.maxWidth > 5 || r.volume > 49 || uniform(0, 100) < 75),
-        (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 6)
-                             .pickOne(invalidAxis),
-        (Region r, int axis) => (r.max[axis] - r.min[axis] < 6) ?
-            invalidPivot : uniform(r.min[axis]+3, r.max[axis]-2)
-            //gaussian(r.max[axis] - r.min[axis], 4)
-            //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
-    );
-
     char fl = '!';
     tree.foreachRoom(region, (Region r) {
         foreach (j; r.min[1] .. r.max[1])
@@ -336,6 +303,81 @@ unittest
 
     import std.stdio, std.range : chunks;
     writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
+}
+
+unittest
+{
+    enum w = 30, h = 24;
+    static struct Screen
+    {
+        dchar[w*h] impl;
+        static Screen opCall()
+        {
+            Screen result;
+            foreach (ref ch; result.impl) { ch = '#'; }
+            return result;
+        }
+        ref dchar opIndex(int i, int j)
+            in (0 <= i && i < w)
+            in (0 <= j && j < h)
+        {
+            return impl[i + w*j];
+        }
+        void dump()
+        {
+            import std.stdio, std.range : chunks;
+            writefln("\n%(%-(%s%)\n%)", impl[].chunks(w));
+        }
+    }
+    Screen result;
+
+    import std.algorithm : filter, clamp;
+    import std.random : uniform;
+    import std.range : iota;
+    import gauss;
+
+    auto region = Region([ 0, 0, 0, 0 ], [ w, h, 1, 1 ]);
+    auto tree = genBsp(region,
+        (Region r) => r.volume > 49 + uniform(0, 50),
+        (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+                             .pickOne(invalidAxis),
+        (Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+            invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
+            //gaussian(r.max[axis] - r.min[axis], 4)
+            //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
+    );
+
+    int id = 0;
+    tree.foreachRoom(region, (Region r) {
+        foreach (j; r.min[1] .. r.max[1])
+            foreach (i; r.min[0] .. r.max[0])
+            {
+                if (i == r.min[0] || i == r.max[0]-1)
+                    result[i, j] = '│';
+                else if (j == r.min[1] || j == r.max[1]-1)
+                    result[i, j] = '─';
+                else
+                    result[i, j] = '.';
+            }
+
+        result[r.min[0], r.min[1]] = '┌';
+        result[r.min[0], r.max[1]-1] = '└';
+        result[r.max[0]-1, r.min[1]] = '┐';
+        result[r.max[0]-1, r.max[1]-1] = '┘';
+
+        import std.format : format;
+        auto idstr = format("%d", id);
+        foreach (i; 0 .. idstr.length)
+        {
+            if (i < r.max[0] - r.min[0] - 2)
+                result[cast(int)(r.min[0] + i + 1), r.min[1]+1] = idstr[i];
+        }
+        id++;
+
+        return 0;
+    });
+
+    result.dump();
 }
 
 // vim:set ai sw=4 ts=4 et:
