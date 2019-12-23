@@ -41,6 +41,40 @@ struct Region
         assert(Region([ 0, 0, 0, 7 ], [ 2, 3, 5, 7 ]).volume == 0);
         assert(Region([ 4, 3, 2, 1 ], [ 6, 6, 7, 8 ]).volume == 210);
     }
+
+    int width(int dim)
+        in (0 <= dim && dim < 4)
+    {
+        return max[dim] - min[dim];
+    }
+
+    int minWidth()
+    {
+        import std.algorithm : map, minElement;
+        import std.range : iota;
+        return iota(4).map!(i => max[i] - min[i]).minElement;
+    }
+
+    ///
+    unittest
+    {
+        assert(Region([ 0, 0, 0, 0 ], [ 1, 5, 2, 3 ]).minWidth == 1);
+        assert(Region([ -4, 0, 0, 0 ], [ 1, 5, 2, 3 ]).minWidth == 2);
+    }
+
+    int maxWidth()
+    {
+        import std.algorithm : map, maxElement;
+        import std.range : iota;
+        return iota(4).map!(i => max[i] - min[i]).maxElement;
+    }
+
+    ///
+    unittest
+    {
+        assert(Region([ 0, 0, 0, 0 ], [ 1, 5, 2, 3 ]).maxWidth == 5);
+        assert(Region([ 0, 4, 0, 0 ], [ 1, 5, 2, 3 ]).maxWidth == 3);
+    }
 }
 
 /**
@@ -265,12 +299,12 @@ unittest
     });
 
     import std.stdio, std.range : chunks;
-    writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
+    //writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
 }
 
 unittest
 {
-    enum w = 20, h = 20;
+    enum w = 40, h = 25;
     char[w*h] result;
     foreach (ref ch; result) { ch = '#'; }
 
@@ -280,11 +314,11 @@ unittest
 
     auto region = Region([ 0, 0, 0, 0 ], [ w, h, 1, 1 ]);
     auto tree = genBsp(region,
-        (Region r) => r.volume > 49 || uniform(0, 100) < 80,
-        (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 4)
+        (Region r) => r.maxWidth > 5 || r.volume > 49 || uniform(0, 100) < 80,
+        (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 6)
                              .pickOne(invalidAxis),
-        (Region r, int axis) => (r.max[axis] - r.min[axis] < 5) ?
-            invalidPivot : uniform(r.min[axis]+2, r.max[axis]-2)
+        (Region r, int axis) => (r.max[axis] - r.min[axis] < 6) ?
+            invalidPivot : uniform(r.min[axis]+3, r.max[axis]-2)
     );
 
     char fl = '!';
