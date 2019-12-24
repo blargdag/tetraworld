@@ -313,6 +313,47 @@ unittest
     //writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
 }
 
+/**
+ * Generate corridors based on BSP tree structure.
+ */
+void genCorridors(BspNode root, Region region)
+{
+    if (root.isLeaf) return;
+
+    // For now, only work with parents of leaf nodes
+    if (root.children[0].isLeaf && root.children[1].isLeaf)
+    {
+        Door d;
+        d.axis = root.axis;
+
+        int[4] basePos;
+        foreach (i; 0 .. 4)
+        {
+            // Note: the following condition is just a hack for the 2D case
+            // where we have 1-tile-thick slabs. Shouldn't happen for the 4D
+            // case, in theory.
+            import std.random : uniform;
+            if (region.max[i] - region.min[i] >= 3)
+                basePos[i] = uniform(region.min[i]+1, region.max[i]-1);
+        }
+
+        d.pos = basePos;
+        d.pos[d.axis] = root.pivot-1;
+        root.children[0].doors ~= d;
+
+        d.pos = basePos;
+        d.pos[d.axis] = root.pivot;
+        root.children[1].doors ~= d;
+    }
+    else
+    {
+        genCorridors(root.children[0], leftRegion(region, root.axis,
+                                                  root.pivot));
+        genCorridors(root.children[1], rightRegion(region, root.axis,
+                                                   root.pivot));
+    }
+}
+
 unittest
 {
     enum w = 30, h = 24;
@@ -382,38 +423,6 @@ unittest
     );
 
     // Generate connecting corridors
-    static void genCorridors(BspNode root, Region region)
-    {
-        if (root.isLeaf) return;
-
-        // For now, only work with parents of leaf nodes
-        if (root.children[0].isLeaf && root.children[1].isLeaf)
-        {
-            Door d;
-            d.axis = root.axis;
-
-            int[4] basePos;
-            foreach (i; 0 .. 4)
-            {
-                basePos[i] = (region.min[i] + region.max[i]) / 2;
-            }
-
-            d.pos = basePos;
-            d.pos[d.axis] = root.pivot-1;
-            root.children[0].doors ~= d;
-
-            d.pos = basePos;
-            d.pos[d.axis] = root.pivot;
-            root.children[1].doors ~= d;
-        }
-        else
-        {
-            genCorridors(root.children[0], leftRegion(region, root.axis,
-                                                      root.pivot));
-            genCorridors(root.children[1], rightRegion(region, root.axis,
-                                                       root.pivot));
-        }
-    }
     genCorridors(tree, region);
 
     // Debug map dump 
