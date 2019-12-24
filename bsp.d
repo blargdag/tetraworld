@@ -21,6 +21,7 @@
 module bsp;
 
 import std.range.primitives;
+import std.traits : ReturnType;
 
 /**
  * A 4D rectangular region.
@@ -83,11 +84,11 @@ struct Region
 /**
  * A BSP tree node.
  */
-class BspNode
+class BaseBspNode
 {
     int axis;
     int pivot;
-    BspNode[2] children;
+    BaseBspNode[2] children;
 
     bool isLeaf() const { return children[0] is null && children[1] is null; }
 }
@@ -192,9 +193,9 @@ enum invalidPivot = int.min;
 /**
  * Default allocator for BSP nodes.
  */
-BspNode defAllocBspNode()
+BaseBspNode defAllocBspNode(Region r)
 {
-    return new BspNode();
+    return new BaseBspNode();
 }
 
 /**
@@ -214,12 +215,14 @@ BspNode defAllocBspNode()
  *      indicates that no suitable pivot value can be found, and that the node
  *      should not be split after all.
  */
-BspNode genBsp(alias allocNode = defAllocBspNode)(Region region,
-               bool delegate(Region r) canSplitRegion,
-               int delegate(Region r) findSplitAxis,
-               int delegate(Region r, int axis) findPivot)
+ReturnType!allocNode genBsp(alias allocNode = defAllocBspNode)
+                           (Region region,
+                            bool delegate(Region r) canSplitRegion,
+                            int delegate(Region r) findSplitAxis,
+                            int delegate(Region r, int axis) findPivot)
+    if (is(ReturnType!allocNode : BaseBspNode))
 {
-    auto node = allocNode();
+    auto node = allocNode(region);
     if (!canSplitRegion(region))
         return node;
 
@@ -244,13 +247,15 @@ BspNode genBsp(alias allocNode = defAllocBspNode)(Region region,
  * Generate a BSP partitioning of the given region with the given minimum
  * region size.
  */
-BspNode genBsp(Region region, int[4] minSize)
+ReturnType!allocNode genBsp(alias allocNode = defAllocBspNode)
+                           (Region region, int[4] minSize)
+    if (is(ReturnType!allocNode : BaseBspNode))
 {
     import std.algorithm : filter;
     import std.random : uniform;
     import std.range : iota;
 
-    return genBsp(region,
+    return genBsp!allocNode(region,
         (Region r) => true,
         (Region r) {
             auto axes = iota(4)
@@ -272,14 +277,15 @@ BspNode genBsp(Region region, int[4] minSize)
  *      non-zero return will abort the iteration and the value will be
  *      propagated to the return value of the entire iteration.
  */
-int foreachRoom(const(BspNode) root, Region region,
-                int delegate(Region r) dg)
+int foreachRoom(Node)(Node root, Region region,
+                      int delegate(Region r, Node n) dg)
+    if (is(Node : BaseBspNode))
 {
     if (root is null)
         return 0;
 
     if (root.isLeaf)
-        return dg(region);
+        return dg(region, root);
 
     int rc = foreachRoom(root.children[0],
                          leftRegion(region, root.axis, root.pivot),
@@ -301,7 +307,7 @@ unittest
     auto tree = genBsp(region, [ 3, 3, 0, 0 ]);
 
     char fl = '!';
-    tree.foreachRoom(region, (Region r) {
+    tree.foreachRoom(region, (Region r, BaseBspNode n) {
         foreach (j; r.min[1] .. r.max[1])
             foreach (i; r.min[0] .. r.max[0])
                 result[i + j*w] = fl;
@@ -356,7 +362,7 @@ unittest
     );
 
     int id = 0;
-    tree.foreachRoom(region, (Region r) {
+    tree.foreachRoom(region, (Region r, BaseBspNode n) {
         foreach (j; r.min[1] .. r.max[1])
             foreach (i; r.min[0] .. r.max[0])
             {
