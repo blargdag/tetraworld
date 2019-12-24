@@ -83,11 +83,11 @@ struct Region
 /**
  * A BSP tree node.
  */
-struct BspNode
+class BspNode
 {
     int axis;
     int pivot;
-    BspNode*[2] children;
+    BspNode[2] children;
 
     bool isLeaf() const { return children[0] is null && children[1] is null; }
 }
@@ -190,6 +190,14 @@ enum invalidAxis = -1;
 enum invalidPivot = int.min;
 
 /**
+ * Default allocator for BSP nodes.
+ */
+BspNode defAllocBspNode()
+{
+    return new BspNode();
+}
+
+/**
  * Generate a BSP partitioning of the given region with the given splitting
  * parameters.
  *
@@ -206,12 +214,12 @@ enum invalidPivot = int.min;
  *      indicates that no suitable pivot value can be found, and that the node
  *      should not be split after all.
  */
-BspNode* genBsp(Region region,
-                bool delegate(Region r) canSplitRegion,
-                int delegate(Region r) findSplitAxis,
-                int delegate(Region r, int axis) findPivot)
+BspNode genBsp(alias allocNode = defAllocBspNode)(Region region,
+               bool delegate(Region r) canSplitRegion,
+               int delegate(Region r) findSplitAxis,
+               int delegate(Region r, int axis) findPivot)
 {
-    auto node = new BspNode();
+    auto node = allocNode();
     if (!canSplitRegion(region))
         return node;
 
@@ -236,7 +244,7 @@ BspNode* genBsp(Region region,
  * Generate a BSP partitioning of the given region with the given minimum
  * region size.
  */
-BspNode* genBsp(Region region, int[4] minSize)
+BspNode genBsp(Region region, int[4] minSize)
 {
     import std.algorithm : filter;
     import std.random : uniform;
@@ -264,7 +272,7 @@ BspNode* genBsp(Region region, int[4] minSize)
  *      non-zero return will abort the iteration and the value will be
  *      propagated to the return value of the entire iteration.
  */
-int foreachRoom(const(BspNode)* root, Region region,
+int foreachRoom(const(BspNode) root, Region region,
                 int delegate(Region r) dg)
 {
     if (root is null)
@@ -302,7 +310,7 @@ unittest
     });
 
     import std.stdio, std.range : chunks;
-    writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
+    //writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
 }
 
 unittest
