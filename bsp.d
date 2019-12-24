@@ -81,6 +81,12 @@ struct Region
     }
 }
 
+struct Door
+{
+    int axis;
+    int[4] pos;
+}
+
 /**
  * A BSP tree node.
  */
@@ -89,6 +95,7 @@ class BspNode
     int axis;
     int pivot;
     BspNode[2] children;
+    Door[] doors;
 
     bool isLeaf() const { return children[0] is null && children[1] is null; }
 }
@@ -311,6 +318,7 @@ unittest
     enum w = 30, h = 24;
     static struct Screen
     {
+        import std.format : format;
         dchar[w*h] impl;
         static Screen opCall()
         {
@@ -319,8 +327,8 @@ unittest
             return result;
         }
         ref dchar opIndex(int i, int j)
-            in (0 <= i && i < w)
-            in (0 <= j && j < h)
+            in (0 <= i && i < w, format("(%d, %d)", i, j))
+            in (0 <= j && j < h, format("(%d, %d)", i, j))
         {
             return impl[i + w*j];
         }
@@ -349,6 +357,11 @@ unittest
         result[r.min[0], r.max[1]-1] = '└';
         result[r.max[0]-1, r.min[1]] = '┐';
         result[r.max[0]-1, r.max[1]-1] = '┘';
+
+        foreach (door; n.doors)
+        {
+            result[door.pos[0], door.pos[1]] = door.axis ? '|' : '-';
+        }
     }
 
     import std.algorithm : filter, clamp;
@@ -356,6 +369,7 @@ unittest
     import std.range : iota;
     import gauss;
 
+    // Generate base BSP tree
     auto region = Region([ 0, 0, 0, 0 ], [ w, h, 1, 1 ]);
     auto tree = genBsp(region,
         (Region r) => r.volume > 49 + uniform(0, 50),
@@ -367,6 +381,42 @@ unittest
             //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
     );
 
+    // Generate connecting corridors
+    static void genCorridors(BspNode root, Region region)
+    {
+        if (root.isLeaf) return;
+
+        // For now, only work with parents of leaf nodes
+        if (root.children[0].isLeaf && root.children[1].isLeaf)
+        {
+            Door d;
+            d.axis = root.axis;
+
+            int[4] basePos;
+            foreach (i; 0 .. 4)
+            {
+                basePos[i] = (region.min[i] + region.max[i]) / 2;
+            }
+
+            d.pos = basePos;
+            d.pos[d.axis] = root.pivot-1;
+            root.children[0].doors ~= d;
+
+            d.pos = basePos;
+            d.pos[d.axis] = root.pivot;
+            root.children[1].doors ~= d;
+        }
+        else
+        {
+            genCorridors(root.children[0], leftRegion(region, root.axis,
+                                                      root.pivot));
+            genCorridors(root.children[1], rightRegion(region, root.axis,
+                                                       root.pivot));
+        }
+    }
+    genCorridors(tree, region);
+
+    // Debug map dump 
     int id = 0;
     tree.foreachRoom(region, (Region r, BspNode n) {
         renderRoom(r, n);
