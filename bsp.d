@@ -84,11 +84,11 @@ struct Region
 /**
  * A BSP tree node.
  */
-class BaseBspNode
+class BspNode
 {
     int axis;
     int pivot;
-    BaseBspNode[2] children;
+    BspNode[2] children;
 
     bool isLeaf() const { return children[0] is null && children[1] is null; }
 }
@@ -191,14 +191,6 @@ enum invalidAxis = -1;
 enum invalidPivot = int.min;
 
 /**
- * Default allocator for BSP nodes.
- */
-BaseBspNode defAllocBspNode(Region r)
-{
-    return new BaseBspNode();
-}
-
-/**
  * Generate a BSP partitioning of the given region with the given splitting
  * parameters.
  *
@@ -215,14 +207,12 @@ BaseBspNode defAllocBspNode(Region r)
  *      indicates that no suitable pivot value can be found, and that the node
  *      should not be split after all.
  */
-ReturnType!allocNode genBsp(alias allocNode = defAllocBspNode)
-                           (Region region,
-                            bool delegate(Region r) canSplitRegion,
-                            int delegate(Region r) findSplitAxis,
-                            int delegate(Region r, int axis) findPivot)
-    if (is(ReturnType!allocNode : BaseBspNode))
+BspNode genBsp(Region region,
+               bool delegate(Region r) canSplitRegion,
+               int delegate(Region r) findSplitAxis,
+               int delegate(Region r, int axis) findPivot)
 {
-    auto node = allocNode(region);
+    auto node = new BspNode();
     if (!canSplitRegion(region))
         return node;
 
@@ -247,15 +237,13 @@ ReturnType!allocNode genBsp(alias allocNode = defAllocBspNode)
  * Generate a BSP partitioning of the given region with the given minimum
  * region size.
  */
-ReturnType!allocNode genBsp(alias allocNode = defAllocBspNode)
-                           (Region region, int[4] minSize)
-    if (is(ReturnType!allocNode : BaseBspNode))
+BspNode genBsp(Region region, int[4] minSize)
 {
     import std.algorithm : filter;
     import std.random : uniform;
     import std.range : iota;
 
-    return genBsp!allocNode(region,
+    return genBsp(region,
         (Region r) => true,
         (Region r) {
             auto axes = iota(4)
@@ -277,9 +265,8 @@ ReturnType!allocNode genBsp(alias allocNode = defAllocBspNode)
  *      non-zero return will abort the iteration and the value will be
  *      propagated to the return value of the entire iteration.
  */
-int foreachRoom(Node)(Node root, Region region,
-                      int delegate(Region r, Node n) dg)
-    if (is(Node : BaseBspNode))
+int foreachRoom(BspNode root, Region region,
+                int delegate(Region r, BspNode n) dg)
 {
     if (root is null)
         return 0;
@@ -307,7 +294,7 @@ unittest
     auto tree = genBsp(region, [ 3, 3, 0, 0 ]);
 
     char fl = '!';
-    tree.foreachRoom(region, (Region r, BaseBspNode n) {
+    tree.foreachRoom(region, (Region r, BspNode n) {
         foreach (j; r.min[1] .. r.max[1])
             foreach (i; r.min[0] .. r.max[0])
                 result[i + j*w] = fl;
@@ -345,6 +332,25 @@ unittest
     }
     Screen result;
 
+    void renderRoom(Region r, BspNode n)
+    {
+        foreach (j; r.min[1] .. r.max[1])
+            foreach (i; r.min[0] .. r.max[0])
+            {
+                if (i == r.min[0] || i == r.max[0]-1)
+                    result[i, j] = '│';
+                else if (j == r.min[1] || j == r.max[1]-1)
+                    result[i, j] = '─';
+                else
+                    result[i, j] = '.';
+            }
+
+        result[r.min[0], r.min[1]] = '┌';
+        result[r.min[0], r.max[1]-1] = '└';
+        result[r.max[0]-1, r.min[1]] = '┐';
+        result[r.max[0]-1, r.max[1]-1] = '┘';
+    }
+
     import std.algorithm : filter, clamp;
     import std.random : uniform;
     import std.range : iota;
@@ -362,22 +368,8 @@ unittest
     );
 
     int id = 0;
-    tree.foreachRoom(region, (Region r, BaseBspNode n) {
-        foreach (j; r.min[1] .. r.max[1])
-            foreach (i; r.min[0] .. r.max[0])
-            {
-                if (i == r.min[0] || i == r.max[0]-1)
-                    result[i, j] = '│';
-                else if (j == r.min[1] || j == r.max[1]-1)
-                    result[i, j] = '─';
-                else
-                    result[i, j] = '.';
-            }
-
-        result[r.min[0], r.min[1]] = '┌';
-        result[r.min[0], r.max[1]-1] = '└';
-        result[r.max[0]-1, r.min[1]] = '┐';
-        result[r.max[0]-1, r.max[1]-1] = '┘';
+    tree.foreachRoom(region, (Region r, BspNode n) {
+        renderRoom(r, n);
 
         import std.format : format;
         auto idstr = format("%d", id);
