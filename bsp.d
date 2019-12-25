@@ -79,6 +79,43 @@ struct Region
         assert(Region([ 0, 0, 0, 0 ], [ 1, 5, 2, 3 ]).maxWidth == 5);
         assert(Region([ 0, 4, 0, 0 ], [ 1, 5, 2, 3 ]).maxWidth == 3);
     }
+
+    bool intersects(Region r)
+    {
+        // Cases:
+        // 1. |---|
+        //          |---|   (no)
+        //
+        // 2. |---|
+        //      |---|       (yes)
+        //
+        // 3. |----|
+        //     |--|         (yes)
+        //
+        // 4.  |--|
+        //    |----|        (yes)
+        //
+        // 5.   |---|
+        //    |---|         (yes)
+        //
+        // 6.       |---|
+        //    |---|         (no)
+        foreach (i; 0 .. 4)
+        {
+            if (r.max[i] < this.min[i] || r.min[i] > this.max[i])
+                return 0;
+        }
+        return 1;
+    }
+
+    ///
+    unittest
+    {
+        assert( Region([0,0,0,0], [2,2,2,2]).intersects(
+                Region([1,1,1,1], [3,3,3,3])));
+        assert(!Region([0,0,0,0], [1,1,1,1]).intersects(
+                Region([2,2,2,2], [3,3,3,3])));
+    }
 }
 
 struct Door
