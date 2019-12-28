@@ -350,6 +350,170 @@ unittest
     //writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
 }
 
+version(unittest)
+{
+    struct Screen(int w, int h)
+    {
+        import std.format : format;
+        dchar[w*h] impl;
+        static Screen opCall()
+        {
+            Screen result;
+            foreach (ref ch; result.impl) { ch = '#'; }
+            return result;
+        }
+        ref dchar opIndex(int i, int j)
+            in (0 <= i && i < w, format("(%d, %d)", i, j))
+            in (0 <= j && j < h, format("(%d, %d)", i, j))
+        {
+            return impl[i + w*j];
+        }
+        void dump()
+        {
+            import std.stdio, std.range : chunks;
+            writefln("\n%(%-(%s%)\n%)", impl[].chunks(w));
+        }
+    }
+
+    void renderRoom(S)(ref S screen, Region r, BspNode n)
+    {
+        //dstring walls = "│─.┌└┐┘"d;
+        dstring walls = "|-:,`.'"d;
+        foreach (j; r.min[1] .. r.max[1])
+            foreach (i; r.min[0] .. r.max[0])
+            {
+                if (i == r.min[0] || i == r.max[0]-1)
+                    screen[i, j] = walls[0];
+                else if (j == r.min[1] || j == r.max[1]-1)
+                    screen[i, j] = walls[1];
+                else
+                    screen[i, j] = walls[2];
+            }
+
+        screen[r.min[0], r.min[1]] = walls[3];
+        screen[r.min[0], r.max[1]-1] = walls[4];
+        screen[r.max[0]-1, r.min[1]] = walls[5];
+        screen[r.max[0]-1, r.max[1]-1] = walls[6];
+
+        foreach (door; n.doors)
+        {
+            screen[door.pos[0], door.pos[1]] = door.axis ? '|' : '-';
+        }
+    }
+
+    void dumpBsp(S)(ref S result, BspNode tree, Region region)
+    {
+        // Debug map dump 
+        int id = 0;
+        tree.foreachRoom(region, (Region r, BspNode n) {
+            result.renderRoom(r, n);
+
+            import std.format : format;
+            auto idstr = format("%d", id);
+            foreach (i; 0 .. idstr.length)
+            {
+                if (i < r.max[0] - r.min[0] - 2)
+                    result[cast(int)(r.min[0] + i + 1), r.min[1]+1] = idstr[i];
+            }
+            id++;
+
+            return 0;
+        });
+
+        result.dump();
+    }
+}
+
+/**
+ * Invokes the given delegate on every child node that intersects with the
+ * given filter region.
+ *
+ * Params:
+ *  root = Root of the BSP tree.
+ *  region = Initial bounding region for the BSP tree.
+ *  filter = The region to filter by. Nodes that do not intersect the region
+ *      are excluded, nodes that intersect it are included.
+ *  dg = Delegate to invoke per leaf node that intersects with the filter
+ *      region. Should normally return 0; returning non-zero aborts the search.
+ */
+int foreachIntersectingRoom(BspNode root, Region region, Region filter,
+                            int delegate(BspNode, Region) dg)
+{
+    if (root.isLeaf)
+    {
+        if (region.intersects(filter))
+            return dg(root, region);
+        else return 0;
+    }
+
+    auto lr = leftRegion(region, root.axis, root.pivot);
+    if (lr.intersects(filter))
+    {
+        auto rc = foreachIntersectingRoom(root.children[0], lr, filter, dg);
+        if (rc != 0)
+            return rc;
+    }
+
+    auto rr = rightRegion(region, root.axis, root.pivot);
+    if (rr.intersects(filter))
+        return foreachIntersectingRoom(root.children[1], rr, filter, dg);
+
+    return 0;
+}
+
+unittest
+{
+    auto root = new BspNode;
+    root.axis = 0;
+    root.pivot = 4;
+
+    root.children[0] = new BspNode;
+    root.children[0].axis = 1;
+    root.children[0].pivot = 5;
+
+    root.children[0].children[0] = new BspNode;
+    root.children[0].children[1] = new BspNode;
+
+    root.children[1] = new BspNode;
+    root.children[1].axis = 1;
+    root.children[1].pivot = 7;
+
+    root.children[1].children[0] = new BspNode;
+    root.children[1].children[0].axis = 1;
+    root.children[1].children[0].pivot = 3;
+
+    root.children[1].children[0].children[0] = new BspNode;
+
+    root.children[1].children[0].children[1] = new BspNode;
+    root.children[1].children[0].children[1].axis = 0;
+    root.children[1].children[0].children[1].pivot = 8;
+
+    root.children[1].children[0].children[1].children[0] = new BspNode;
+    root.children[1].children[0].children[1].children[1] = new BspNode;
+
+    root.children[1].children[1] = new BspNode;
+
+    auto region = Region([0, 0, 0, 0], [12, 10, 1, 1]);
+    auto filter = Region([4, 0, 0, 0], [5, 3, 1, 1]);
+
+    //Screen!(12,10) scrn;
+    //dumpBsp(scrn, root, region);
+
+    Region[] regions;
+    auto r = foreachIntersectingRoom(root, region, filter,
+    (BspNode node, Region r)
+    {
+        regions ~= r;
+        return 0;
+    });
+
+    assert(regions == [
+        Region([0, 0, 0, 0], [4, 5, 1, 1]),
+        Region([4, 0, 0, 0], [12, 3, 1, 1]),
+        Region([4, 3, 0, 0], [8, 7, 1, 1]),
+    ]);
+}
+
 /**
  * Generate corridors based on BSP tree structure.
  */
@@ -394,53 +558,7 @@ void genCorridors(BspNode root, Region region)
 unittest
 {
     enum w = 30, h = 24;
-    static struct Screen
-    {
-        import std.format : format;
-        dchar[w*h] impl;
-        static Screen opCall()
-        {
-            Screen result;
-            foreach (ref ch; result.impl) { ch = '#'; }
-            return result;
-        }
-        ref dchar opIndex(int i, int j)
-            in (0 <= i && i < w, format("(%d, %d)", i, j))
-            in (0 <= j && j < h, format("(%d, %d)", i, j))
-        {
-            return impl[i + w*j];
-        }
-        void dump()
-        {
-            import std.stdio, std.range : chunks;
-            writefln("\n%(%-(%s%)\n%)", impl[].chunks(w));
-        }
-    }
-    Screen result;
-
-    void renderRoom(Region r, BspNode n)
-    {
-        foreach (j; r.min[1] .. r.max[1])
-            foreach (i; r.min[0] .. r.max[0])
-            {
-                if (i == r.min[0] || i == r.max[0]-1)
-                    result[i, j] = '│';
-                else if (j == r.min[1] || j == r.max[1]-1)
-                    result[i, j] = '─';
-                else
-                    result[i, j] = '.';
-            }
-
-        result[r.min[0], r.min[1]] = '┌';
-        result[r.min[0], r.max[1]-1] = '└';
-        result[r.max[0]-1, r.min[1]] = '┐';
-        result[r.max[0]-1, r.max[1]-1] = '┘';
-
-        foreach (door; n.doors)
-        {
-            result[door.pos[0], door.pos[1]] = door.axis ? '|' : '-';
-        }
-    }
+    Screen!(w,h) result;
 
     import std.algorithm : filter, clamp;
     import std.random : uniform;
@@ -462,24 +580,7 @@ unittest
     // Generate connecting corridors
     genCorridors(tree, region);
 
-    // Debug map dump 
-    int id = 0;
-    tree.foreachRoom(region, (Region r, BspNode n) {
-        renderRoom(r, n);
-
-        import std.format : format;
-        auto idstr = format("%d", id);
-        foreach (i; 0 .. idstr.length)
-        {
-            if (i < r.max[0] - r.min[0] - 2)
-                result[cast(int)(r.min[0] + i + 1), r.min[1]+1] = idstr[i];
-        }
-        id++;
-
-        return 0;
-    });
-
-    result.dump();
+    dumpBsp(result, tree, region);
 }
 
 // vim:set ai sw=4 ts=4 et:
