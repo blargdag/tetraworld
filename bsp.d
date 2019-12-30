@@ -624,47 +624,58 @@ void genCorridors(BspNode root, Region region)
     genCorridors(root.children[0], leftRegion(region, root.axis, root.pivot));
     genCorridors(root.children[1], rightRegion(region, root.axis, root.pivot));
 
+    static struct S
+    {
+        BspNode node;
+        Region region;
+    }
+
+    S[] leftRooms;
     root.children[0].foreachFiltRoom(region,
         (Region r) => r.max[root.axis] >= root.pivot,
         (BspNode node1, Region r1) {
-            Region wallFilt = r1;
-            wallFilt.min[root.axis] = root.pivot;
-            wallFilt.max[root.axis] = root.pivot;
+            leftRooms ~= S(node1, r1);
+            return 0;
+        });
 
-            root.children[1].foreachFiltRoom(region, wallFilt,
-                (BspNode node2, Region r2) {
-                    auto d = Door(root.axis);
-                    auto ir = r1.intersection(r2);
+    auto leftRoom = leftRooms.pickOne;
+    Region wallFilt = leftRoom.region;
+    wallFilt.min[root.axis] = root.pivot;
+    wallFilt.max[root.axis] = root.pivot;
 
-                    int[4] basePos;
-                    foreach (i; 0 .. 4)
-                    {
-                        import std.random : uniform;
-                        if (ir.max[i] - ir.min[i] >= 3)
-                            basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
-                        else
-                            basePos[i] = (ir.max[i] + ir.min[i]) / 2;
-                    }
+    S[] rightRooms;
+    root.children[1].foreachFiltRoom(region, wallFilt,
+        (BspNode node2, Region r2) {
+            rightRooms ~= S(node2, r2);
+            return 0;
+        });
 
-                    d.pos = basePos;
-                    d.pos[d.axis] = root.pivot-1;
-                    node1.doors ~= d;
+    auto rightRoom = rightRooms.pickOne;
+    auto d = Door(root.axis);
+    auto ir = leftRoom.region.intersection(rightRoom.region);
 
-                    d.pos = basePos;
-                    d.pos[d.axis] = root.pivot;
-                    node2.doors ~= d;
+    int[4] basePos;
+    foreach (i; 0 .. 4)
+    {
+        import std.random : uniform;
+        if (ir.max[i] - ir.min[i] >= 3)
+            basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+        else
+            basePos[i] = (ir.max[i] + ir.min[i]) / 2;
+    }
 
-                    return 1;
-                }
-            );
-            return 1;
-        }
-    );
+    d.pos = basePos;
+    d.pos[d.axis] = root.pivot-1;
+    leftRoom.node.doors ~= d;
+
+    d.pos = basePos;
+    d.pos[d.axis] = root.pivot;
+    rightRoom.node.doors ~= d;
 }
 
 unittest
 {
-    enum w = 30, h = 24;
+    enum w = 48, h = 24;
     Screen!(w,h) result;
 
     import std.algorithm : filter, clamp;
