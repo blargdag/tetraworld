@@ -425,40 +425,53 @@ version(unittest)
 }
 
 /**
- * Invokes the given delegate on every child node that intersects with the
- * given filter region.
+ * Invokes the given delegate on every child node that passes the specified
+ * region filter and whose parent nodes also pass the filter.
  *
  * Params:
  *  root = Root of the BSP tree.
  *  region = Initial bounding region for the BSP tree.
- *  filter = The region to filter by. Nodes that do not intersect the region
- *      are excluded, nodes that intersect it are included.
- *  dg = Delegate to invoke per leaf node that intersects with the filter
- *      region. Should normally return 0; returning non-zero aborts the search.
+ *  filter = A delegate that returns true if the given region passes the
+ *      filter, or a Region with which child nodes must intersect. Note that
+ *      the filter delegate must also pass the regions of ancestor nodes if
+ *      descendent nodes are to be accepted, since subtrees are pruned early
+ *      based on the filter applied to ancestor nodes. (This requirement is
+ *      automatically met if a Region is passed as filter.)
+ *  dg = Delegate to invoke per leaf node that passes the filter. Should
+ *      normally return 0; returning non-zero aborts the search.
  */
-int foreachIntersectingRoom(BspNode root, Region region, Region filter,
-                            int delegate(BspNode, Region) dg)
+int foreachFiltRoom(BspNode root, Region region,
+                    bool delegate(Region) filter,
+                    int delegate(BspNode, Region) dg)
 {
     if (root.isLeaf)
     {
-        if (region.intersects(filter))
+        if (filter(region))
             return dg(root, region);
         else return 0;
     }
 
     auto lr = leftRegion(region, root.axis, root.pivot);
-    if (lr.intersects(filter))
+    if (filter(lr))
     {
-        auto rc = foreachIntersectingRoom(root.children[0], lr, filter, dg);
+        auto rc = foreachFiltRoom(root.children[0], lr, filter, dg);
         if (rc != 0)
             return rc;
     }
 
     auto rr = rightRegion(region, root.axis, root.pivot);
-    if (rr.intersects(filter))
-        return foreachIntersectingRoom(root.children[1], rr, filter, dg);
+    if (filter(rr))
+        return foreachFiltRoom(root.children[1], rr, filter, dg);
 
     return 0;
+}
+
+/// ditto
+int foreachFiltRoom(BspNode root, Region region, Region filter,
+                            int delegate(BspNode, Region) dg)
+{
+    return foreachFiltRoom(root, region,
+                                   (Region r) => r.intersects(filter), dg);
 }
 
 unittest
@@ -500,7 +513,7 @@ unittest
     //dumpBsp(scrn, root, region);
 
     Region[] regions;
-    auto r = foreachIntersectingRoom(root, region, filter,
+    auto r = foreachFiltRoom(root, region, filter,
     (BspNode node, Region r)
     {
         regions ~= r;
@@ -550,7 +563,7 @@ unittest
     auto filter = Region([5, 2, 2, 0], [5, 5, 5, 1]);
 
     Region[] regions;
-    auto r = foreachIntersectingRoom(root, region, filter,
+    auto r = foreachFiltRoom(root, region, filter,
     (BspNode node, Region r)
     {
         regions ~= r;
