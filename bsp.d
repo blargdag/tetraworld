@@ -30,6 +30,21 @@ struct Region
 {
     int[4] min, max;
 
+    /**
+     * Returns: true if the region is empty.
+     * NOTE: this is NOT the same as having zero volume; an empty Region is an
+     * "invalid" Region that has negative volume, resulting from the
+     * intersection of disjoint Regions.
+     */
+    bool empty()
+    {
+        foreach (i; 0 .. 4)
+        {
+            if (min[i] > max[i]) return true;
+        }
+        return false;
+    }
+
     long volume()
     {
         import std.algorithm : map, fold;
@@ -115,6 +130,30 @@ struct Region
                 Region([1,1,1,1], [3,3,3,3])));
         assert(!Region([0,0,0,0], [1,1,1,1]).intersects(
                 Region([2,2,2,2], [3,3,3,3])));
+    }
+
+    Region intersection(Region r)
+    {
+        Region result;
+        foreach (i; 0 .. 4)
+        {
+            import std.algorithm : min, max;
+            result.min[i] = max(this.min[i], r.min[i]);
+            result.max[i] = min(this.max[i], r.max[i]);
+        }
+        return result;
+    }
+
+    ///
+    unittest
+    {
+        auto r = Region([0,0,0,0], [5,5,5,5]).intersection(
+                 Region([3,3,3,3], [7,7,7,7]));
+        assert(r == Region([3,3,3,3], [5,5,5,5]));
+        assert(!r.empty);
+
+        assert(Region([0,0,0,0], [3,3,3,3]).intersection(
+               Region([4,4,4,4], [5,5,5,5])).empty);
     }
 }
 
@@ -582,38 +621,45 @@ void genCorridors(BspNode root, Region region)
 {
     if (root.isLeaf) return;
 
-    // For now, only work with parents of leaf nodes
-    if (root.children[0].isLeaf && root.children[1].isLeaf)
-    {
-        Door d;
-        d.axis = root.axis;
+    genCorridors(root.children[0], leftRegion(region, root.axis, root.pivot));
+    genCorridors(root.children[1], rightRegion(region, root.axis, root.pivot));
 
-        int[4] basePos;
-        foreach (i; 0 .. 4)
-        {
-            // Note: the following condition is just a hack for the 2D case
-            // where we have 1-tile-thick slabs. Shouldn't happen for the 4D
-            // case, in theory.
-            import std.random : uniform;
-            if (region.max[i] - region.min[i] >= 3)
-                basePos[i] = uniform(region.min[i]+1, region.max[i]-1);
+    root.children[0].foreachFiltRoom(region,
+        (Region r) => r.max[root.axis] >= root.pivot,
+        (BspNode node1, Region r1) {
+            Region wallFilt = r1;
+            wallFilt.min[root.axis] = root.pivot;
+            wallFilt.max[root.axis] = root.pivot;
+
+            root.children[1].foreachFiltRoom(region, wallFilt,
+                (BspNode node2, Region r2) {
+                    auto d = Door(root.axis);
+                    auto ir = r1.intersection(r2);
+
+                    int[4] basePos;
+                    foreach (i; 0 .. 4)
+                    {
+                        import std.random : uniform;
+                        if (ir.max[i] - ir.min[i] >= 3)
+                            basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+                        else
+                            basePos[i] = (ir.max[i] + ir.min[i]) / 2;
+                    }
+
+                    d.pos = basePos;
+                    d.pos[d.axis] = root.pivot-1;
+                    node1.doors ~= d;
+
+                    d.pos = basePos;
+                    d.pos[d.axis] = root.pivot;
+                    node2.doors ~= d;
+
+                    return 1;
+                }
+            );
+            return 1;
         }
-
-        d.pos = basePos;
-        d.pos[d.axis] = root.pivot-1;
-        root.children[0].doors ~= d;
-
-        d.pos = basePos;
-        d.pos[d.axis] = root.pivot;
-        root.children[1].doors ~= d;
-    }
-    else
-    {
-        genCorridors(root.children[0], leftRegion(region, root.axis,
-                                                  root.pivot));
-        genCorridors(root.children[1], rightRegion(region, root.axis,
-                                                   root.pivot));
-    }
+    );
 }
 
 unittest
