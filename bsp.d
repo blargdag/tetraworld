@@ -102,7 +102,7 @@ struct Region
         //    |---|         (no)
         foreach (i; 0 .. 4)
         {
-            if (r.max[i] < this.min[i] || r.min[i] > this.max[i])
+            if (r.max[i] < this.min[i] || r.min[i] >= this.max[i])
                 return 0;
         }
         return 1;
@@ -377,8 +377,8 @@ version(unittest)
 
     void renderRoom(S)(ref S screen, Region r, BspNode n)
     {
-        //dstring walls = "│─.┌└┐┘"d;
-        dstring walls = "|-:,`.'"d;
+        dstring walls = "│─.┌└┐┘"d;
+        //dstring walls = "|-:,`.'"d;
         foreach (j; r.min[1] .. r.max[1])
             foreach (i; r.min[0] .. r.max[0])
             {
@@ -494,7 +494,7 @@ unittest
     root.children[1].children[1] = new BspNode;
 
     auto region = Region([0, 0, 0, 0], [12, 10, 1, 1]);
-    auto filter = Region([4, 0, 0, 0], [5, 3, 1, 1]);
+    auto filter = Region([3, 0, 0, 0], [4, 3, 1, 1]);
 
     //Screen!(12,10) scrn;
     //dumpBsp(scrn, root, region);
@@ -511,6 +511,54 @@ unittest
         Region([0, 0, 0, 0], [4, 5, 1, 1]),
         Region([4, 0, 0, 0], [12, 3, 1, 1]),
         Region([4, 3, 0, 0], [8, 7, 1, 1]),
+    ]);
+}
+
+unittest
+{
+    auto root = new BspNode;
+    root.axis = 0;
+    root.pivot = 5;
+
+    root.children[0] = new BspNode;
+    root.children[0].axis = 1;
+    root.children[0].pivot = 5;
+
+    root.children[0].children[0] = new BspNode;
+    root.children[0].children[0].axis = 2;
+    root.children[0].children[0].pivot = 5;
+
+    root.children[0].children[0].children[0] = new BspNode;
+    root.children[0].children[0].children[1] = new BspNode;
+
+    root.children[0].children[1] = new BspNode;
+
+    root.children[1] = new BspNode;
+    root.children[1].axis = 2;
+    root.children[1].pivot = 2;
+
+    root.children[1].children[0] = new BspNode;
+
+    root.children[1].children[1] = new BspNode;
+    root.children[1].children[1].axis = 1;
+    root.children[1].children[1].pivot = 2;
+
+    root.children[1].children[1].children[0] = new BspNode;
+    root.children[1].children[1].children[1] = new BspNode;
+
+    auto region = Region([0, 0, 0, 0], [10, 10, 10, 1]);
+    auto filter = Region([5, 2, 2, 0], [5, 5, 5, 1]);
+
+    Region[] regions;
+    auto r = foreachIntersectingRoom(root, region, filter,
+    (BspNode node, Region r)
+    {
+        regions ~= r;
+        return 0;
+    });
+
+    assert(regions == [
+        Region([5, 2, 2, 0], [10, 10, 10, 1]),
     ]);
 }
 
