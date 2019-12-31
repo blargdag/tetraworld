@@ -624,53 +624,81 @@ void genCorridors(BspNode root, Region region)
     genCorridors(root.children[0], leftRegion(region, root.axis, root.pivot));
     genCorridors(root.children[1], rightRegion(region, root.axis, root.pivot));
 
-    static struct S
+    static struct LeftRoom
     {
         BspNode node;
         Region region;
     }
 
-    S[] leftRooms;
+    LeftRoom[] leftRooms;
     root.children[0].foreachFiltRoom(region,
         (Region r) => r.max[root.axis] >= root.pivot,
         (BspNode node1, Region r1) {
-            leftRooms ~= S(node1, r1);
+            leftRooms ~= LeftRoom(node1, r1);
             return 0;
         });
 
-    auto leftRoom = leftRooms.pickOne;
-    Region wallFilt = leftRoom.region;
-    wallFilt.min[root.axis] = root.pivot;
-    wallFilt.max[root.axis] = root.pivot;
-
-    S[] rightRooms;
-    root.children[1].foreachFiltRoom(region, wallFilt,
-        (BspNode node2, Region r2) {
-            rightRooms ~= S(node2, r2);
-            return 0;
-        });
-
-    auto rightRoom = rightRooms.pickOne;
-    auto d = Door(root.axis);
-    auto ir = leftRoom.region.intersection(rightRoom.region);
-
-    int[4] basePos;
-    foreach (i; 0 .. 4)
+    int ntries=0;
+    while (ntries++ < 2*leftRooms.length)
     {
-        import std.random : uniform;
-        if (ir.max[i] - ir.min[i] >= 3)
-            basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
-        else
-            basePos[i] = (ir.max[i] + ir.min[i]) / 2;
+        auto leftRoom = leftRooms.pickOne;
+        Region wallFilt = leftRoom.region;
+        wallFilt.min[root.axis] = root.pivot;
+        wallFilt.max[root.axis] = root.pivot;
+
+        static struct RightRoom
+        {
+            BspNode node;
+            Region region;
+            int[4] basePos;
+        }
+
+        RightRoom[] rightRooms;
+        root.children[1].foreachFiltRoom(region, wallFilt,
+            (BspNode node2, Region r2) {
+                auto ir = leftRoom.region.intersection(r2);
+
+                int[4] basePos;
+                foreach (i; 0 .. 4)
+                {
+                    import std.random : uniform;
+                    if (ir.max[i] - ir.min[i] >= 3)
+                        basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+                    else
+                    {
+                        // Overlap is too small to place a door, skip.
+//import std.stdio;writefln("left=%s right=%s TOO NARROW, SKIPPING", leftRoom.region, r2);
+                        return 0;
+                    }
+                }
+
+                rightRooms ~= RightRoom(node2, r2, basePos);
+                return 0;
+            });
+
+        // If can't find a suitable door placement, try picking a different
+        // left room.
+        if (rightRooms.empty)
+        {
+//import std.stdio;writefln("left=%s NO MATCH, SKIPPING", leftRoom.region);
+            continue;
+        }
+
+        auto rightRoom = rightRooms.pickOne;
+        auto d = Door(root.axis);
+
+        d.pos = rightRoom.basePos;
+        d.pos[d.axis] = root.pivot-1;
+        leftRoom.node.doors ~= d;
+
+        d.pos = rightRoom.basePos;
+        d.pos[d.axis] = root.pivot;
+        rightRoom.node.doors ~= d;
+        return;
     }
 
-    d.pos = basePos;
-    d.pos[d.axis] = root.pivot-1;
-    leftRoom.node.doors ~= d;
-
-    d.pos = basePos;
-    d.pos[d.axis] = root.pivot;
-    rightRoom.node.doors ~= d;
+    // If we got here, it means we're in trouble.
+    throw new Exception("No matching door placement found, give up");
 }
 
 unittest
@@ -684,9 +712,9 @@ unittest
     import gauss;
 
     // Generate base BSP tree
-    auto region = Region([ 0, 0, 0, 0 ], [ w, h, 1, 1 ]);
+    auto region = Region([ 0, 0, 0, 0 ], [ w, h, 3, 3 ]);
     auto tree = genBsp(region,
-        (Region r) => r.volume > 49 + uniform(0, 50),
+        (Region r) => r.width(0)*r.width(1) > 49 + uniform(0, 50),
         (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                              .pickOne(invalidAxis),
         (Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
