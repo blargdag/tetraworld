@@ -140,6 +140,15 @@ struct ViewPort(Map)
     {
         pos += displacement;
     }
+
+    /**
+     * Translate the view so that the given point lies at the center of the
+     * viewing volume.
+     */
+    void centerOn(Vec!(int,4) pt)
+    {
+        pos = pt - dim/2;
+    }
 }
 
 /**
@@ -221,8 +230,10 @@ void play()
 
     auto optVPSize = optimalViewportSize(
         (screenRect.upperBound - vec(0,2)).byComponent);
-    auto viewport = ViewPort!GameMap(&map, optVPSize,
-                                     map.playerPos - vec(2,2,2,2));
+
+    auto viewport = ViewPort!GameMap(&map, optVPSize, vec(0,0,0,0));
+    viewport.centerOn(map.playerPos);
+
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&disp, maprect);
 
@@ -255,6 +266,8 @@ void play()
         if (map[newPos.byComponent] == '/')
             return; // movement blocked
         map.playerPos = newPos;
+
+        viewport.centerOn(map.playerPos);
         refresh();
     }
 
