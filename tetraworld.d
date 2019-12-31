@@ -41,18 +41,19 @@ struct GameMap
     private Vec!(int,4) playerPos;
 
     private BspNode tree;
-    private bsp.Region bounds;
+    private alias R = Region!(int,4);
+    private R bounds;
 
     this(int[4] _dim)
     {
-        bounds.min = [ 0, 0, 0, 0 ];
+        bounds.min = vec(0, 0, 0, 0);
         bounds.max = _dim;
 
         tree = genBsp(bounds,
-            (bsp.Region r) => r.volume > 24 + uniform(0, 80),
-            (bsp.Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
-                                 .pickOne(invalidAxis),
-            (bsp.Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+            (R r) => r.volume > 24 + uniform(0, 80),
+            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+                            .pickOne(invalidAxis),
+            (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
                 invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
         );
         genCorridors(tree, bounds);
@@ -68,8 +69,8 @@ struct GameMap
 
         // FIXME: should be a more efficient way to do this
         dchar ch = '/';
-        foreachFiltRoom(tree, bounds, (bsp.Region r) => r.contains(pos),
-            (BspNode node, bsp.Region r) {
+        foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
+            (BspNode node, R r) {
                 if (iota(4).fold!((b, i) => b &&
                                   r.min[i] < pos[i] &&
                                   pos[i] + 1 < r.max[i])(true))

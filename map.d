@@ -219,7 +219,7 @@ struct SubMap(Map)
     @property int opDollar(size_t n)()
         if (n < 4)
     {
-        return reg.length!n;
+        return reg.length(n);
     }
 
     /// Array dereference

@@ -183,10 +183,15 @@ unittest
  * equivalently, the upper and lower bounds of the n components of an
  * n-dimensional vector.
  */
-struct Region(T, size_t n)
+struct Region(T, size_t _n)
     if (is(typeof(T.init < T.init)))
 {
     import std.traits : CommonType;
+
+    /**
+     * The dimensionality of this region.
+     */
+    enum n = _n;
 
     /**
      * The bounds of the n-dimensional cube.
@@ -218,7 +223,7 @@ struct Region(T, size_t n)
     /**
      * Returns: The length of the Region along the i'th dimension.
      */
-    @property auto length(uint i)()
+    @property auto length()(uint i)
         if (is(typeof(T.init - T.init)))
     {
         return max[i] - min[i];
@@ -235,9 +240,31 @@ struct Region(T, size_t n)
         alias U = typeof(T.init - T.init);
 
         Vec!(U,n) result;
-        static foreach (i; 0 .. n)
-            result[i] = length!i;
+        foreach (i; 0 .. cast(uint) n)
+            result[i] = length(i);
         return result;
+    }
+
+    static if (is(typeof(T.init*T.init*T.init)))
+    {
+        /**
+         * Returns: The volume of this region.
+         */
+        auto volume()() const
+        {
+            import std.algorithm : map, fold;
+            import std.range : iota;
+            return iota(4).map!(i => max[i] - min[i])
+                          .fold!((a, b) => a*b)(1);
+        }
+
+        ///
+        unittest
+        {
+            assert(region(vec(0, 0, 0, 0), vec(2, 3, 5, 7)).volume == 210);
+            assert(region(vec(0, 0, 0, 7), vec(2, 3, 5, 7)).volume == 0);
+            assert(region(vec(4, 3, 2, 1), vec(6, 6, 7, 8)).volume == 210);
+        }
     }
 
     /**
@@ -290,6 +317,47 @@ struct Region(T, size_t n)
                 return false;
         }
         return true;
+    }
+
+    /**
+     * Returns: true if this region intersects with the given region.
+     */
+    bool intersects(U)(Region!(U,n) r)
+        if (is(typeof(T.init < U.init)) && is(CommonType!(T,U)))
+    {
+        // Cases:
+        // 1. |---|
+        //          |---|   (no)
+        //
+        // 2. |---|
+        //      |---|       (yes)
+        //
+        // 3. |----|
+        //     |--|         (yes)
+        //
+        // 4.  |--|
+        //    |----|        (yes)
+        //
+        // 5.   |---|
+        //    |---|         (yes)
+        //
+        // 6.       |---|
+        //    |---|         (no)
+        foreach (i; 0 .. n)
+        {
+            if (r.max[i] < this.min[i] || r.min[i] >= this.max[i])
+                return 0;
+        }
+        return 1;
+    }
+
+    ///
+    unittest
+    {
+        assert( region(vec(0,0,0,0), vec(2,2,2,2)).intersects(
+                region(vec(1,1,1,1), vec(3,3,3,3))));
+        assert(!region(vec(0,0,0,0), vec(1,1,1,1)).intersects(
+                region(vec(2,2,2,2), vec(3,3,3,3))));
     }
 
     /**
@@ -386,6 +454,17 @@ unittest
     // Intersection with empty region
     auto r4 = region(vec(2,0,0), vec(2,4,4));
     assert(r1.intersect(r4).empty);
+}
+
+unittest
+{
+    auto r = region(vec(0,0,0,0), vec(5,5,5,5)).intersect(
+             region(vec(3,3,3,3), vec(7,7,7,7)));
+    assert(r == region(vec(3,3,3,3), vec(5,5,5,5)));
+    assert(!r.empty);
+
+    assert(region(vec(0,0,0,0), vec(3,3,3,3)).intersect(
+           region(vec(4,4,4,4), vec(5,5,5,5))).empty);
 }
 
 unittest
