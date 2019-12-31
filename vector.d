@@ -182,28 +182,27 @@ struct Region(T, size_t n)
      * The bounds of the n-dimensional cube.
      *
      * The lowerbound is inclusive, whereas the upperbound is exclusive; hence,
-     * when any element of lowerBound is equal to the corresponding element of
-     * upperBound, the region is empty.
+     * when any element of min is equal to the corresponding element of max,
+     * the region is empty.
      */
-    Vec!(T,n) lowerBound;
-    Vec!(T,n) upperBound; /// ditto
+    Vec!(T,n) min;
+    Vec!(T,n) max; /// ditto
 
     /**
      * Constructor.
      *
-     * The single-argument case defaults the lowerBound to (T.init, T.init,
-     * ...).
+     * The single-argument case defaults the min to (T.init, T.init, ...).
      */
     this(Vec!(T,n) _upperBound)
     {
-        upperBound = _upperBound;
+        max = _upperBound;
     }
 
     /// ditto
     this(Vec!(T,n) _lowerBound, Vec!(T,n) _upperBound)
     {
-        lowerBound = _lowerBound;
-        upperBound = _upperBound;
+        min = _lowerBound;
+        max = _upperBound;
     }
 
     /**
@@ -212,7 +211,7 @@ struct Region(T, size_t n)
     @property auto length(uint i)()
         if (is(typeof(T.init - T.init)))
     {
-        return upperBound[i] - lowerBound[i];
+        return max[i] - min[i];
     }
 
     /**
@@ -232,13 +231,13 @@ struct Region(T, size_t n)
     }
 
     /**
-     * Returns: false if every element of lowerBound is strictly less than the
-     * corresponding element of upperBound; true otherwise.
+     * Returns: false if every element of min is strictly less than the
+     * corresponding element of max; true otherwise.
      */
     @property bool empty()
     {
         static foreach (i; 0 .. n)
-            if (lowerBound[i] >= upperBound[i])
+            if (min[i] >= max[i])
                 return true;
         return false;
     }
@@ -246,14 +245,14 @@ struct Region(T, size_t n)
     /**
      * Returns: true if the given vector lies within the region; false
      * otherwise. Lying within means each component c of the vector satisfies l
-     * <= c < h, where l and h are the corresponding components from lowerBound
-     * and upperBound, respectively.
+     * <= c < h, where l and h are the corresponding components from min and
+     * max, respectively.
      */
     bool opBinaryRight(string op, U)(Vec!(U,n) v)
         if (op == "in" && is(typeof(T.init < U.init)))
     {
         static foreach (i; 0 .. n)
-            if (v[i] < lowerBound[i] || v[i] >= upperBound[i])
+            if (v[i] < min[i] || v[i] >= max[i])
                 return false;
         return true;
     }
@@ -270,17 +269,13 @@ struct Region(T, size_t n)
         static foreach (i; 0 .. n)
         {
             // Empty regions never contain anything
-            if (r.lowerBound[i] >= r.upperBound[i])
+            if (r.min[i] >= r.max[i])
                 return false;
 
             // Empty regions are always contained in non-empty regions.
-            assert(r.lowerBound[i] < r.upperBound[i]);
-            if (lowerBound[i] < upperBound[i] &&
-                (lowerBound[i] < r.lowerBound[i] ||
-                 upperBound[i] > r.upperBound[i]))
-            {
+            assert(r.min[i] < r.max[i]);
+            if (min[i] < max[i] && (min[i] < r.min[i] || max[i] > r.max[i]))
                 return false;
-            }
         }
         return true;
     }
@@ -295,8 +290,8 @@ struct Region(T, size_t n)
         static foreach (i; 0 .. n)
         {
             import std.algorithm : max, min;
-            result.lowerBound[i] = max(lowerBound[i], r.lowerBound[i]);
-            result.upperBound[i] = min(upperBound[i], r.upperBound[i]);
+            result.min[i] = max(this.min[i], r.min[i]);
+            result.max[i] = min(this.max[i], r.max[i]);
         }
         return result;
     }
@@ -306,21 +301,21 @@ struct Region(T, size_t n)
      */
     Region centeredRegion(Vec!(T,n) size)
     {
-        auto lb = lowerBound + (upperBound - lowerBound - size)/2;
+        auto lb = min + (max - min - size)/2;
         return Region(lb, lb + size);
     }
 }
 
 /// ditto
-auto region(T, size_t n)(Vec!(T,n) upperBound)
+auto region(T, size_t n)(Vec!(T,n) max)
 {
-    return Region!(T,n)(upperBound);
+    return Region!(T,n)(max);
 }
 
 /// ditto
-auto region(T, size_t n)(Vec!(T,n) lowerBound, Vec!(T,n) upperBound)
+auto region(T, size_t n)(Vec!(T,n) min, Vec!(T,n) max)
 {
-    return Region!(T,n)(lowerBound, upperBound);
+    return Region!(T,n)(min, max);
 }
 
 unittest
@@ -330,11 +325,11 @@ unittest
 
     // Test ctors & .empty
     auto r1 = region(vec(2,2,2,2));
-    assert(r1.lowerBound == vec(0,0,0,0) && r1.upperBound == vec(2,2,2,2));
+    assert(r1.min == vec(0,0,0,0) && r1.max == vec(2,2,2,2));
     assert(!r1.empty);
 
     auto r2 = region(vec(1,1,1,1), vec(2,2,2,2));
-    assert(r2.lowerBound == vec(1,1,1,1) && r2.upperBound == vec(2,2,2,2));
+    assert(r2.min == vec(1,1,1,1) && r2.max == vec(2,2,2,2));
     assert(!r2.empty);
 
     // Test .empty

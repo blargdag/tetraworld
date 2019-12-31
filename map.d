@@ -142,8 +142,8 @@ unittest
             assert(x >= 0 && x < rsize[0]);
             assert(y >= 0 && y < rsize[1]);
 
-            if (x > writtenArea.upperBound[0]) writtenArea.upperBound[0] = x+1;
-            if (y > writtenArea.upperBound[1]) writtenArea.upperBound[1] = y+1;
+            if (x > writtenArea.max[0]) writtenArea.max[0] = x+1;
+            if (y > writtenArea.max[1]) writtenArea.max[1] = y+1;
         }
         void writef(A...)(string fmt, A args) {}
         @property auto width() { return rsize[0]; }
@@ -152,7 +152,7 @@ unittest
     auto disp = TestDisplay();
 
     disp.renderMap(map); // This will assert if output exceeds stated bounds.
-    assert(writtenArea.upperBound == rsize);
+    assert(writtenArea.max == rsize);
 }
 
 /**
@@ -230,11 +230,11 @@ struct SubMap(Map)
             import core.exception : RangeError;
             import std.exception : enforce;
 
-            enforce((Vec!(int,4)(coors) + reg.lowerBound) in reg,
+            enforce((Vec!(int,4)(coors) + reg.min) in reg,
                     new RangeError);
         }
 
-        return impl.opIndex(Vec!(int,4)(coors) + reg.lowerBound);
+        return impl.opIndex(Vec!(int,4)(coors) + reg.min);
     }
 
     static assert(is4DArray!(typeof(this)));

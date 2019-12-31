@@ -80,9 +80,9 @@ struct SubDisplay(T)
 
     ///
     void moveTo(int x, int y)
-        in ((vec(x,y) + rect.lowerBound) in rect)
+        in ((vec(x,y) + rect.min) in rect)
     {
-        auto target = vec(x,y) + rect.lowerBound;
+        auto target = vec(x,y) + rect.min;
         parent.moveTo(target[0], target[1]);
     }
 
@@ -90,10 +90,10 @@ struct SubDisplay(T)
     void writef(A...)(string fmt, A args) { parent.writef(fmt, args); }
 
     ///
-    @property auto width() { return rect.upperBound[0] - rect.lowerBound[0]; }
+    @property auto width() { return rect.max[0] - rect.min[0]; }
 
     ///
-    @property auto height() { return rect.upperBound[1] - rect.lowerBound[1]; }
+    @property auto height() { return rect.max[1] - rect.min[1]; }
 }
 
 unittest
@@ -139,13 +139,13 @@ void drawBox(T)(T display, Region!(int,2) box)
 
     alias boxChars = thinBoxChars; // for now
 
-    auto bx = box.lowerBound[0];
-    auto by = box.lowerBound[1];
+    auto bx = box.min[0];
+    auto by = box.min[1];
     auto width = box.length!0;
     auto height = box.length!1;
 
     // Top row
-    display.moveTo(box.lowerBound[0], box.lowerBound[1]);
+    display.moveTo(box.min[0], box.min[1]);
     display.writef("%s", chain(
         boxChars[UpperLeft].repeat(1),
         boxChars[Horiz].repeat(width-2),

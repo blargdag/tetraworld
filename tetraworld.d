@@ -29,6 +29,7 @@ import std.range;
 import bsp;
 import display;
 import map;
+import vector;
 
 /**
  * Map representation.
@@ -37,20 +38,10 @@ struct GameMap
 {
     // For initial testing only; this should be replaced with a proper object
     // system.
-    private int[4] plpos;
-    auto playerPos()
-    {
-        import vector; // FIXME
-        return vec(plpos[0], plpos[1], plpos[2], plpos[3]);
-    }
-    void playerPos(V)(V v)
-    {
-        import vector; // FIXME
-        plpos = v;
-    }
+    private Vec!(int,4) playerPos;
 
     private BspNode tree;
-    private Region bounds;
+    private bsp.Region bounds;
 
     this(int[4] _dim)
     {
@@ -58,10 +49,10 @@ struct GameMap
         bounds.max = _dim;
 
         tree = genBsp(bounds,
-            (Region r) => r.volume > 24 + uniform(0, 80),
-            (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+            (bsp.Region r) => r.volume > 24 + uniform(0, 80),
+            (bsp.Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                                  .pickOne(invalidAxis),
-            (Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+            (bsp.Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
                 invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
         );
         genCorridors(tree, bounds);
@@ -73,12 +64,12 @@ struct GameMap
     {
         import std.math : abs;
 
-        if (pos == plpos) return '&';
+        if (Vec!(int,4)(pos) == playerPos) return '&';
 
         // FIXME: should be a more efficient way to do this
         dchar ch = '/';
-        foreachFiltRoom(tree, bounds, (Region r) => r.contains(pos),
-            (BspNode node, Region r) {
+        foreachFiltRoom(tree, bounds, (bsp.Region r) => r.contains(pos),
+            (BspNode node, bsp.Region r) {
                 if (iota(4).fold!((b, i) => b &&
                                   r.min[i] < pos[i] &&
                                   pos[i] + 1 < r.max[i])(true))
@@ -89,7 +80,7 @@ struct GameMap
 
                 foreach (d; node.doors)
                 {
-                    if (pos == d.pos)
+                    if (pos[] == d.pos)
                     {
                         ch = '#';
                         return 1;
@@ -212,8 +203,8 @@ void play()
     term.clear();
     auto disp = bufferedDisplay(&term);
     auto screenRect = region(vec(disp.width, disp.height));
-    auto msgRect = region(screenRect.lowerBound,
-                          vec(screenRect.upperBound[0], 1));
+    auto msgRect = region(screenRect.min,
+                          vec(screenRect.max[0], 1));
     auto msgBox = subdisplay(&disp, msgRect);
 
     void message(A...)(string fmt, A args)
@@ -228,7 +219,7 @@ void play()
     auto map = GameMap([ 15, 15, 15, 15 ]);
     map.playerPos = vec(1,1,1,1); // FIXME
 
-    auto optVPSize = optimalViewportSize(screenRect.upperBound - vec(0,2));
+    auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
 
     auto viewport = ViewPort!GameMap(&map, optVPSize, vec(0,0,0,0));
     viewport.centerOn(map.playerPos);
@@ -236,8 +227,8 @@ void play()
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&disp, maprect);
 
-    //drawBox(&disp, region(maprect.lowerBound - vec(1,1),
-    //                      maprect.upperBound + vec(1,1)));
+    //drawBox(&disp, region(maprect.min - vec(1,1),
+    //                      maprect.max + vec(1,1)));
 
     void refresh()
     {
