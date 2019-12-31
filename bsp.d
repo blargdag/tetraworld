@@ -45,6 +45,31 @@ struct Region
         return false;
     }
 
+    /**
+     * Returns: true if the given point lies within this region; false
+     * otherwise.
+     */
+    bool contains(int[4] point)
+    {
+        foreach (i; 0 .. 4)
+        {
+            if (point[i] < min[i] || point[i] >= max[i])
+                return false;
+        }
+        return true;
+    }
+
+    unittest
+    {
+        auto r = Region([3,3,3,3], [6,6,6,6]);
+        assert( r.contains([3,3,3,3]));
+        assert( r.contains([5,5,5,5]));
+
+        assert(!r.contains([0,0,0,0]));
+        assert(!r.contains([6,6,6,6]));
+        assert(!r.contains([7,7,7,7]));
+    }
+
     long volume()
     {
         import std.algorithm : map, fold;

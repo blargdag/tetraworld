@@ -22,9 +22,13 @@ module tetraworld;
 
 import arsd.terminal;
 
+import std.algorithm;
+import std.random;
+import std.range;
+
+import bsp;
 import display;
 import map;
-import vector;
 
 /**
  * Map representation.
@@ -33,25 +37,74 @@ struct GameMap
 {
     // For initial testing only; this should be replaced with a proper object
     // system.
-    Vec!(int,4) playerPos;
+    private int[4] plpos;
+    auto playerPos()
+    {
+        import vector; // FIXME
+        return vec(plpos[0], plpos[1], plpos[2], plpos[3]);
+    }
+    void playerPos(V)(V v)
+    {
+        import vector; // FIXME
+        plpos = [ v.byComponent ];
+    }
 
-    enum n = 9;
-    Vec!(int,4) dim = vec(n,n,n,n);
+    private BspNode tree;
+    private Region bounds;
 
-    @property int opDollar(int i)() { return dim[i]; }
+    this(int[4] _dim)
+    {
+        bounds.min = [ 0, 0, 0, 0 ];
+        bounds.max = _dim;
 
-    dchar opIndex(int w, int x, int y, int z)
+        tree = genBsp(bounds,
+            (Region r) => r.width(0)*r.width(1) > 49 + uniform(0, 50),
+            (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+                                 .pickOne(invalidAxis),
+            (Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+                invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
+        );
+        genCorridors(tree, bounds);
+    }
+
+    @property int opDollar(int i)() { return bounds.max[i]; }
+
+    dchar opIndex(int[4] pos...)
     {
         import std.math : abs;
 
-        if (vec(w,x,y,z) == playerPos) return '&';
-        if (vec(w,x,y,z) == vec(3,3,3,3)) return '@';
-        enum r = 3;
-        if (abs(w-r) + abs(x-r) + abs(y-r) + abs(z-r) < r) return '.';
-        return '/';
+        if (pos == plpos) return '&';
+
+        // FIXME: should be a more efficient way to do this
+        auto reg = Region(pos);
+        dchar ch = '/';
+        foreachFiltRoom(tree, bounds, (Region r) => r.contains(pos),
+            (BspNode node, Region r) {
+                if (iota(4).fold!((b, i) => b &&
+                                  r.min[i] < pos[i] &&
+                                  pos[i] + 1 < r.max[i])(true))
+                {
+                    ch = '.';
+                    return 1;
+                }
+
+                foreach (d; node.doors)
+                {
+                    if (pos == d.pos)
+                    {
+                        ch = '#';
+                        return 1;
+                    }
+                }
+
+                ch = '/';
+                return 1;
+            }
+        );
+        return ch;
     }
 }
-static assert(is4DArray!GameMap && is(ElementType!GameMap == dchar));
+//static assert(is4DArray!GameMap && is(ElementType!GameMap == dchar));
 
 /**
  * Viewport representation.
@@ -59,6 +112,7 @@ static assert(is4DArray!GameMap && is(ElementType!GameMap == dchar));
 struct ViewPort(Map)
     if (is4DArray!Map)
 {
+    import vector; //FIXME
     Map*        map;
     Vec!(int,4) dim;
     Vec!(int,4) pos;
@@ -143,6 +197,7 @@ struct InputEventHandler
 
 void play()
 {
+    import vector;
     auto term = Terminal(ConsoleOutputType.cellular);
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
@@ -162,8 +217,8 @@ void play()
     message("Welcome to Tetraworld!");
 
     // Map test
-    auto map = GameMap();
-    map.playerPos = vec(3,3,3,2);
+    auto map = GameMap([ 10, 10, 10, 10 ]);
+    map.playerPos = vec(1,1,1,1); // FIXME
 
     auto optVPSize = optimalViewportSize(
         (screenRect.upperBound - vec(0,2)).byComponent);
