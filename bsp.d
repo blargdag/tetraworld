@@ -33,14 +33,28 @@ struct Door
 /**
  * A BSP tree node.
  */
-class BspNode
+class BspNode(Derived)
 {
     int axis;
     int pivot;
-    BspNode left, right;
-    Door[] doors;
+    Derived left, right;
 
-    bool isLeaf() const { return left is null && right is null; }
+    final bool isLeaf() const { return left is null && right is null; }
+}
+
+/**
+ * Plain BSP node with no additional data. Mainly just for testing purposes.
+ */
+class Node : BspNode!Node
+{
+}
+
+/**
+ * A map node.
+ */
+class MapNode : BspNode!(MapNode)
+{
+    Door[] doors;
 }
 
 /**
@@ -159,13 +173,13 @@ enum invalidPivot = int.min;
  *      indicates that no suitable pivot value can be found, and that the node
  *      should not be split after all.
  */
-BspNode genBsp(R)(R region,
-                  bool delegate(R r) canSplitRegion,
-                  int delegate(R r) findSplitAxis,
-                  int delegate(R r, int axis) findPivot)
-    if (is(R == Region!(int,n), size_t n))
+Node genBsp(Node,R)(R region,
+                    bool delegate(R r) canSplitRegion,
+                    int delegate(R r) findSplitAxis,
+                    int delegate(R r, int axis) findPivot)
+    if (is(Node : BspNode!D, D) && is(R == Region!(int,n), size_t n))
 {
-    auto node = new BspNode();
+    auto node = new Node();
     if (!canSplitRegion(region))
         return node;
 
@@ -179,10 +193,10 @@ BspNode genBsp(R)(R region,
 
     node.axis = axis;
     node.pivot = pivot;
-    node.left = genBsp(leftRegion(region, axis, pivot), canSplitRegion,
-                       findSplitAxis, findPivot);
-    node.right = genBsp(rightRegion(region, axis, pivot), canSplitRegion,
-                        findSplitAxis, findPivot);
+    node.left = genBsp!Node(leftRegion(region, axis, pivot), canSplitRegion,
+                            findSplitAxis, findPivot);
+    node.right = genBsp!Node(rightRegion(region, axis, pivot), canSplitRegion,
+                             findSplitAxis, findPivot);
     return node;
 }
 
@@ -190,14 +204,14 @@ BspNode genBsp(R)(R region,
  * Generate a BSP partitioning of the given region with the given minimum
  * region size.
  */
-BspNode genBsp(R)(R region, int[4] minSize)
-    if (is(R == Region!(int,n), size_t n))
+Node genBsp(Node,R)(R region, int[4] minSize)
+    if (is(Node : BspNode!D, D) && is(R == Region!(int,n), size_t n))
 {
     import std.algorithm : filter;
     import std.random : uniform;
     import std.range : iota;
 
-    return genBsp(region,
+    return genBsp!Node(region,
         (R r) => true,
         (R r) {
             auto axes = iota(4)
@@ -219,9 +233,8 @@ BspNode genBsp(R)(R region, int[4] minSize)
  *      non-zero return will abort the iteration and the value will be
  *      propagated to the return value of the entire iteration.
  */
-int foreachRoom(R)(BspNode root, R region,
-                   int delegate(R r, BspNode n) dg)
-    if (is(R == Region!(int,n), size_t n))
+int foreachRoom(Node,R)(Node root, R region, int delegate(R r, Node n) dg)
+    if (is(Node : BspNode!D, D) && is(R == Region!(int,n), size_t n))
 {
     if (root is null)
         return 0;
@@ -244,10 +257,10 @@ unittest
     foreach (ref ch; result) { ch = '#'; }
 
     auto reg = region(vec(0, 0, 0, 0), vec(w, h, 0, 0));
-    auto tree = genBsp(reg, [ 3, 3, 0, 0 ]);
+    auto tree = genBsp!Node(reg, [ 3, 3, 0, 0 ]);
 
     char fl = '!';
-    tree.foreachRoom(reg, (Region!(int,4) r, BspNode n) {
+    tree.foreachRoom(reg, (Region!(int,4) r, Node n) {
         foreach (j; r.min[1] .. r.max[1])
             foreach (i; r.min[0] .. r.max[0])
                 result[i + j*w] = fl;
@@ -284,7 +297,7 @@ version(unittest)
         }
     }
 
-    void renderRoom(S)(ref S screen, Region r, BspNode n)
+    void renderRoom(S)(ref S screen, Region r, MapNode n)
     {
         dstring walls = "│─.┌└┐┘"d;
         //dstring walls = "|-:,`.'"d;
@@ -310,11 +323,11 @@ version(unittest)
         }
     }
 
-    void dumpBsp(S)(ref S result, BspNode tree, Region region)
+    void dumpBsp(S)(ref S result, MapNode tree, Region region)
     {
         // Debug map dump 
         int id = 0;
-        tree.foreachRoom(region, (Region r, BspNode n) {
+        tree.foreachRoom(region, (Region r, MapNode n) {
             result.renderRoom(r, n);
 
             import std.format : format;
@@ -349,8 +362,8 @@ version(unittest)
  *  dg = Delegate to invoke per leaf node that passes the filter. Should
  *      normally return 0; returning non-zero aborts the search.
  */
-int foreachFiltRoom(R)(BspNode root, R region,
-                       bool delegate(R) filter, int delegate(BspNode, R) dg)
+int foreachFiltRoom(Node,R)(Node root, R region,
+                            bool delegate(R) filter, int delegate(Node, R) dg)
     if (is(R == Region!(int,n), size_t n))
 {
     if (root.isLeaf)
@@ -376,8 +389,8 @@ int foreachFiltRoom(R)(BspNode root, R region,
 }
 
 /// ditto
-int foreachFiltRoom(R)(BspNode root, R region, R filter,
-                       int delegate(BspNode, R) dg)
+int foreachFiltRoom(Node,R)(Node root, R region, R filter,
+                            int delegate(Node, R) dg)
     if (is(R == Region!(int,n), size_t n))
 {
     return foreachFiltRoom(root, region, (R r) => r.intersects(filter), dg);
@@ -385,35 +398,35 @@ int foreachFiltRoom(R)(BspNode root, R region, R filter,
 
 unittest
 {
-    auto root = new BspNode;
+    auto root = new Node;
     root.axis = 0;
     root.pivot = 4;
 
-    root.left = new BspNode;
+    root.left = new Node;
     root.left.axis = 1;
     root.left.pivot = 5;
 
-    root.left.left = new BspNode;
-    root.left.right = new BspNode;
+    root.left.left = new Node;
+    root.left.right = new Node;
 
-    root.right = new BspNode;
+    root.right = new Node;
     root.right.axis = 1;
     root.right.pivot = 7;
 
-    root.right.left = new BspNode;
+    root.right.left = new Node;
     root.right.left.axis = 1;
     root.right.left.pivot = 3;
 
-    root.right.left.left = new BspNode;
+    root.right.left.left = new Node;
 
-    root.right.left.right = new BspNode;
+    root.right.left.right = new Node;
     root.right.left.right.axis = 0;
     root.right.left.right.pivot = 8;
 
-    root.right.left.right.left = new BspNode;
-    root.right.left.right.right = new BspNode;
+    root.right.left.right.left = new Node;
+    root.right.left.right.right = new Node;
 
-    root.right.right = new BspNode;
+    root.right.right = new Node;
 
     auto bounds = region(vec(0, 0, 0, 0), vec(12, 10, 1, 1));
     auto filter = region(vec(3, 0, 0, 0), vec(4, 3, 1, 1));
@@ -423,7 +436,7 @@ unittest
 
     Region!(int,4)[] regions;
     auto r = foreachFiltRoom(root, bounds, filter,
-        (BspNode node, Region!(int,4) r)
+        (Node node, Region!(int,4) r)
         {
             regions ~= r;
             return 0;
@@ -439,42 +452,42 @@ unittest
 
 unittest
 {
-    auto root = new BspNode;
+    auto root = new Node;
     root.axis = 0;
     root.pivot = 5;
 
-    root.left = new BspNode;
+    root.left = new Node;
     root.left.axis = 1;
     root.left.pivot = 5;
 
-    root.left.left = new BspNode;
+    root.left.left = new Node;
     root.left.left.axis = 2;
     root.left.left.pivot = 5;
 
-    root.left.left.left = new BspNode;
-    root.left.left.right = new BspNode;
+    root.left.left.left = new Node;
+    root.left.left.right = new Node;
 
-    root.left.right = new BspNode;
+    root.left.right = new Node;
 
-    root.right = new BspNode;
+    root.right = new Node;
     root.right.axis = 2;
     root.right.pivot = 2;
 
-    root.right.left = new BspNode;
+    root.right.left = new Node;
 
-    root.right.right = new BspNode;
+    root.right.right = new Node;
     root.right.right.axis = 1;
     root.right.right.pivot = 2;
 
-    root.right.right.left = new BspNode;
-    root.right.right.right = new BspNode;
+    root.right.right.left = new Node;
+    root.right.right.right = new Node;
 
     auto bounds = region(vec(0, 0, 0, 0), vec(10, 10, 10, 1));
     auto filter = region(vec(5, 2, 2, 0), vec(5, 5, 5, 1));
 
     Region!(int,4)[] regions;
     auto r = foreachFiltRoom(root, bounds, filter,
-        (BspNode node, Region!(int,4) r)
+        (Node node, Region!(int,4) r)
         {
             regions ~= r;
             return 0;
@@ -489,7 +502,7 @@ unittest
 /**
  * Generate corridors based on BSP tree structure.
  */
-void genCorridors(R)(BspNode root, R region)
+void genCorridors(R)(MapNode root, R region)
     if (is(R == Region!(int,n), size_t n))
 {
     if (root.isLeaf) return;
@@ -499,14 +512,14 @@ void genCorridors(R)(BspNode root, R region)
 
     static struct LeftRoom
     {
-        BspNode node;
+        MapNode node;
         R region;
     }
 
     LeftRoom[] leftRooms;
     root.left.foreachFiltRoom(region,
         (R r) => r.max[root.axis] >= root.pivot,
-        (BspNode node1, R r1) {
+        (MapNode node1, R r1) {
             leftRooms ~= LeftRoom(node1, r1);
             return 0;
         });
@@ -521,14 +534,14 @@ void genCorridors(R)(BspNode root, R region)
 
         static struct RightRoom
         {
-            BspNode node;
+            MapNode node;
             R region;
             int[4] basePos;
         }
 
         RightRoom[] rightRooms;
         root.right.foreachFiltRoom(region, wallFilt,
-            (BspNode node2, R r2) {
+            (MapNode node2, R r2) {
                 auto ir = leftRoom.region.intersect(r2);
 
                 int[4] basePos;
@@ -588,7 +601,7 @@ unittest
     auto bounds = region(vec(0, 0, 0, 0), vec(w, h, 3, 3));
     alias R = typeof(bounds);
 
-    auto tree = genBsp(bounds,
+    auto tree = genBsp!MapNode(bounds,
         (R r) => r.length(0)*r.length(1) > 49 + uniform(0, 50),
         (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                         .pickOne(invalidAxis),
