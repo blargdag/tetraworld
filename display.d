@@ -80,20 +80,20 @@ struct SubDisplay(T)
 
     ///
     void moveTo(int x, int y)
-    in { assert((vec(x,y) + rect.lowerBound) in rect); }
-    body
+        in (rect.contains(vec(x,y) + rect.min))
     {
-        parent.moveTo((vec(x,y) + rect.lowerBound).byComponent);
+        auto target = vec(x,y) + rect.min;
+        parent.moveTo(target[0], target[1]);
     }
 
     ///
     void writef(A...)(string fmt, A args) { parent.writef(fmt, args); }
 
     ///
-    @property auto width() { return rect.upperBound[0] - rect.lowerBound[0]; }
+    @property auto width() { return rect.max[0] - rect.min[0]; }
 
     ///
-    @property auto height() { return rect.upperBound[1] - rect.lowerBound[1]; }
+    @property auto height() { return rect.max[1] - rect.min[1]; }
 }
 
 unittest
@@ -118,8 +118,7 @@ auto subdisplay(T)(T display, Region!(int,2) rect)
  */
 void drawBox(T)(T display, Region!(int,2) box)
     if (isGridDisplay!T)
-in { assert(box.length!0 >= 2 && box.length!1 >= 2); }
-body
+    in (box.length!0 >= 2 && box.length!1 >= 2)
 {
     enum
     {
@@ -140,13 +139,13 @@ body
 
     alias boxChars = thinBoxChars; // for now
 
-    auto bx = box.lowerBound[0];
-    auto by = box.lowerBound[1];
+    auto bx = box.min[0];
+    auto by = box.min[1];
     auto width = box.length!0;
     auto height = box.length!1;
 
     // Top row
-    display.moveTo(box.lowerBound.byComponent);
+    display.moveTo(box.min[0], box.min[1]);
     display.writef("%s", chain(
         boxChars[UpperLeft].repeat(1),
         boxChars[Horiz].repeat(width-2),
@@ -350,8 +349,7 @@ private struct DispBuffer
      * Write a single grapheme into the buffer.
      */
     void opIndexAssign(ref Grapheme g, int x, int y)
-    in { assert(isGraphical(g[0])); }
-    body
+        in (isGraphical(g[0]))
     {
         if (y < 0 || x < 0) return;
         if (y >= lines.length)
@@ -564,7 +562,7 @@ struct BufferedDisplay(Display)
         {
             if (!cursorHidden)
             {
-                disp.moveTo(cursor.byComponent);
+                disp.moveTo(cursor[0], cursor[1]);
                 disp.showCursor();
             }
         }
@@ -676,7 +674,7 @@ unittest
             assert(cursor == vec(expected[0][0], expected[0][1]),
                    "Expecting cursor at (%d,%d), actual at (%d,%d)"
                    .format(expected[0][0], expected[0][1],
-                           cursor.byComponent));
+                           cursor[0], cursor[1]));
             assert(str == expected[0][2], "Expecting >%s<, got >%s<"
                                           .format(expected[0][2], str));
             expected.popFront();

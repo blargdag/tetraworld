@@ -22,168 +22,7 @@ module bsp;
 
 import std.range.primitives;
 import std.traits : ReturnType;
-
-/**
- * A 4D rectangular region.
- */
-struct Region
-{
-    int[4] min, max;
-
-    /**
-     * Returns: true if the region is empty.
-     * NOTE: this is NOT the same as having zero volume; an empty Region is an
-     * "invalid" Region that has negative volume, resulting from the
-     * intersection of disjoint Regions.
-     */
-    bool empty()
-    {
-        foreach (i; 0 .. 4)
-        {
-            if (min[i] > max[i]) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Returns: true if the given point lies within this region; false
-     * otherwise.
-     */
-    bool contains(int[4] point)
-    {
-        foreach (i; 0 .. 4)
-        {
-            if (point[i] < min[i] || point[i] >= max[i])
-                return false;
-        }
-        return true;
-    }
-
-    unittest
-    {
-        auto r = Region([3,3,3,3], [6,6,6,6]);
-        assert( r.contains([3,3,3,3]));
-        assert( r.contains([5,5,5,5]));
-
-        assert(!r.contains([0,0,0,0]));
-        assert(!r.contains([6,6,6,6]));
-        assert(!r.contains([7,7,7,7]));
-    }
-
-    /**
-     * Returns: The volume of this region.
-     */
-    long volume() const
-    {
-        import std.algorithm : map, fold;
-        import std.range : iota;
-        return iota(4).map!(i => max[i] - min[i])
-                      .fold!((a, b) => a*b)(1);
-    }
-
-    ///
-    unittest
-    {
-        assert(Region([ 0, 0, 0, 0 ], [ 2, 3, 5, 7 ]).volume == 210);
-        assert(Region([ 0, 0, 0, 7 ], [ 2, 3, 5, 7 ]).volume == 0);
-        assert(Region([ 4, 3, 2, 1 ], [ 6, 6, 7, 8 ]).volume == 210);
-    }
-
-    int width(int dim)
-        in (0 <= dim && dim < 4)
-    {
-        return max[dim] - min[dim];
-    }
-
-    int minWidth()
-    {
-        import std.algorithm : map, minElement;
-        import std.range : iota;
-        return iota(4).map!(i => max[i] - min[i]).minElement;
-    }
-
-    ///
-    unittest
-    {
-        assert(Region([ 0, 0, 0, 0 ], [ 1, 5, 2, 3 ]).minWidth == 1);
-        assert(Region([ -4, 0, 0, 0 ], [ 1, 5, 2, 3 ]).minWidth == 2);
-    }
-
-    int maxWidth()
-    {
-        import std.algorithm : map, maxElement;
-        import std.range : iota;
-        return iota(4).map!(i => max[i] - min[i]).maxElement;
-    }
-
-    ///
-    unittest
-    {
-        assert(Region([ 0, 0, 0, 0 ], [ 1, 5, 2, 3 ]).maxWidth == 5);
-        assert(Region([ 0, 4, 0, 0 ], [ 1, 5, 2, 3 ]).maxWidth == 3);
-    }
-
-    bool intersects(Region r)
-    {
-        // Cases:
-        // 1. |---|
-        //          |---|   (no)
-        //
-        // 2. |---|
-        //      |---|       (yes)
-        //
-        // 3. |----|
-        //     |--|         (yes)
-        //
-        // 4.  |--|
-        //    |----|        (yes)
-        //
-        // 5.   |---|
-        //    |---|         (yes)
-        //
-        // 6.       |---|
-        //    |---|         (no)
-        foreach (i; 0 .. 4)
-        {
-            if (r.max[i] < this.min[i] || r.min[i] >= this.max[i])
-                return 0;
-        }
-        return 1;
-    }
-
-    ///
-    unittest
-    {
-        assert( Region([0,0,0,0], [2,2,2,2]).intersects(
-                Region([1,1,1,1], [3,3,3,3])));
-        assert(!Region([0,0,0,0], [1,1,1,1]).intersects(
-                Region([2,2,2,2], [3,3,3,3])));
-    }
-
-    Region intersection(Region r)
-    {
-        Region result;
-        foreach (i; 0 .. 4)
-        {
-            import std.algorithm : min, max;
-            result.min[i] = max(this.min[i], r.min[i]);
-            result.max[i] = min(this.max[i], r.max[i]);
-        }
-        return result;
-    }
-
-    ///
-    unittest
-    {
-        auto r = Region([0,0,0,0], [5,5,5,5]).intersection(
-                 Region([3,3,3,3], [7,7,7,7]));
-        assert(r == Region([3,3,3,3], [5,5,5,5]));
-        assert(!r.empty);
-
-        assert(Region([0,0,0,0], [3,3,3,3]).intersection(
-               Region([4,4,4,4], [5,5,5,5])).empty);
-    }
-}
+import vector;
 
 struct Door
 {
@@ -264,14 +103,16 @@ unittest
     }
 }
 
-Region leftRegion()(Region r, int axis, int pivot)
+R leftRegion(R)(R r, int axis, int pivot)
+    in (axis < r.n)
 {
     auto result = r;
     result.max[axis] = pivot;
     return result;
 }
 
-Region rightRegion()(Region r, int axis, int pivot)
+R rightRegion(R)(R r, int axis, int pivot)
+    in (axis < r.n)
 {
     auto result = r;
     result.min[axis] = pivot;
@@ -280,22 +121,22 @@ Region rightRegion()(Region r, int axis, int pivot)
 
 unittest
 {
-    auto r = Region([0, 0, 0, 0], [ 5, 5, 5, 5 ]);
-    assert(leftRegion(r, 0, 3) == Region([ 0, 0, 0, 0 ], [ 3, 5, 5, 5 ]));
-    assert(rightRegion(r, 0, 3) == Region([ 3, 0, 0, 0 ], [ 5, 5, 5, 5 ]));
+    auto r = region(vec(0, 0, 0, 0), vec(5, 5, 5, 5));
+    assert(leftRegion(r, 0, 3) == region(vec(0, 0, 0, 0), vec(3, 5, 5, 5)));
+    assert(rightRegion(r, 0, 3) == region(vec(3, 0, 0, 0), vec(5, 5, 5, 5)));
 
-    assert(leftRegion(r, 1, 3) == Region([ 0, 0, 0, 0 ], [ 5, 3, 5, 5 ]));
-    assert(rightRegion(r, 1, 3) == Region([ 0, 3, 0, 0 ], [ 5, 5, 5, 5 ]));
+    assert(leftRegion(r, 1, 3) == region(vec(0, 0, 0, 0), vec(5, 3, 5, 5)));
+    assert(rightRegion(r, 1, 3) == region(vec(0, 3, 0, 0), vec(5, 5, 5, 5)));
 
-    assert(leftRegion(r, 2, 4) == Region([ 0, 0, 0, 0 ], [ 5, 5, 4, 5 ]));
-    assert(rightRegion(r, 2, 4) == Region([ 0, 0, 4, 0 ], [ 5, 5, 5, 5 ]));
+    assert(leftRegion(r, 2, 4) == region(vec(0, 0, 0, 0), vec(5, 5, 4, 5)));
+    assert(rightRegion(r, 2, 4) == region(vec(0, 0, 4, 0), vec(5, 5, 5, 5)));
 }
 
 unittest
 {
-    auto r = Region([2, 2, 2, 2], [ 5, 5, 5, 5 ]);
-    assert(leftRegion(r, 0, 3) == Region([ 2, 2, 2, 2 ], [ 3, 5, 5, 5 ]));
-    assert(rightRegion(r, 0, 3) == Region([ 3, 2, 2, 2 ], [ 5, 5, 5, 5 ]));
+    auto r = region(vec(2, 2, 2, 2), vec(5, 5, 5, 5));
+    assert(leftRegion(r, 0, 3) == region(vec(2, 2, 2, 2), vec(3, 5, 5, 5)));
+    assert(rightRegion(r, 0, 3) == region(vec(3, 2, 2, 2), vec(5, 5, 5, 5)));
 }
 
 enum invalidAxis = -1;
@@ -318,10 +159,11 @@ enum invalidPivot = int.min;
  *      indicates that no suitable pivot value can be found, and that the node
  *      should not be split after all.
  */
-BspNode genBsp(Region region,
-               bool delegate(Region r) canSplitRegion,
-               int delegate(Region r) findSplitAxis,
-               int delegate(Region r, int axis) findPivot)
+BspNode genBsp(R)(R region,
+                  bool delegate(R r) canSplitRegion,
+                  int delegate(R r) findSplitAxis,
+                  int delegate(R r, int axis) findPivot)
+    if (is(R == Region!(int,n), size_t n))
 {
     auto node = new BspNode();
     if (!canSplitRegion(region))
@@ -348,20 +190,21 @@ BspNode genBsp(Region region,
  * Generate a BSP partitioning of the given region with the given minimum
  * region size.
  */
-BspNode genBsp(Region region, int[4] minSize)
+BspNode genBsp(R)(R region, int[4] minSize)
+    if (is(R == Region!(int,n), size_t n))
 {
     import std.algorithm : filter;
     import std.random : uniform;
     import std.range : iota;
 
     return genBsp(region,
-        (Region r) => true,
-        (Region r) {
+        (R r) => true,
+        (R r) {
             auto axes = iota(4)
                 .filter!(i => r.max[i] - r.min[i] >= 2*minSize[i] + 1);
             return axes.empty ? invalidAxis : axes.pickOne;
         },
-        (Region r, int axis) => uniform(r.min[axis] + minSize[axis],
+        (R r, int axis) => uniform(r.min[axis] + minSize[axis],
                                         r.max[axis] - minSize[axis])
     );
 }
@@ -376,8 +219,9 @@ BspNode genBsp(Region region, int[4] minSize)
  *      non-zero return will abort the iteration and the value will be
  *      propagated to the return value of the entire iteration.
  */
-int foreachRoom(BspNode root, Region region,
-                int delegate(Region r, BspNode n) dg)
+int foreachRoom(R)(BspNode root, R region,
+                   int delegate(R r, BspNode n) dg)
+    if (is(R == Region!(int,n), size_t n))
 {
     if (root is null)
         return 0;
@@ -401,11 +245,11 @@ unittest
     char[w*h] result;
     foreach (ref ch; result) { ch = '#'; }
 
-    auto region = Region([ 0, 0, 0, 0 ], [ w, h, 0, 0 ]);
-    auto tree = genBsp(region, [ 3, 3, 0, 0 ]);
+    auto reg = region(vec(0, 0, 0, 0), vec(w, h, 0, 0));
+    auto tree = genBsp(reg, [ 3, 3, 0, 0 ]);
 
     char fl = '!';
-    tree.foreachRoom(region, (Region r, BspNode n) {
+    tree.foreachRoom(reg, (Region!(int,4) r, BspNode n) {
         foreach (j; r.min[1] .. r.max[1])
             foreach (i; r.min[0] .. r.max[0])
                 result[i + j*w] = fl;
@@ -507,9 +351,9 @@ version(unittest)
  *  dg = Delegate to invoke per leaf node that passes the filter. Should
  *      normally return 0; returning non-zero aborts the search.
  */
-int foreachFiltRoom(BspNode root, Region region,
-                    bool delegate(Region) filter,
-                    int delegate(BspNode, Region) dg)
+int foreachFiltRoom(R)(BspNode root, R region,
+                       bool delegate(R) filter, int delegate(BspNode, R) dg)
+    if (is(R == Region!(int,n), size_t n))
 {
     if (root.isLeaf)
     {
@@ -534,11 +378,11 @@ int foreachFiltRoom(BspNode root, Region region,
 }
 
 /// ditto
-int foreachFiltRoom(BspNode root, Region region, Region filter,
-                            int delegate(BspNode, Region) dg)
+int foreachFiltRoom(R)(BspNode root, R region, R filter,
+                       int delegate(BspNode, R) dg)
+    if (is(R == Region!(int,n), size_t n))
 {
-    return foreachFiltRoom(root, region,
-                                   (Region r) => r.intersects(filter), dg);
+    return foreachFiltRoom(root, region, (R r) => r.intersects(filter), dg);
 }
 
 unittest
@@ -573,24 +417,25 @@ unittest
 
     root.children[1].children[1] = new BspNode;
 
-    auto region = Region([0, 0, 0, 0], [12, 10, 1, 1]);
-    auto filter = Region([3, 0, 0, 0], [4, 3, 1, 1]);
+    auto bounds = region(vec(0, 0, 0, 0), vec(12, 10, 1, 1));
+    auto filter = region(vec(3, 0, 0, 0), vec(4, 3, 1, 1));
 
     //Screen!(12,10) scrn;
-    //dumpBsp(scrn, root, region);
+    //dumpBsp(scrn, root, bounds);
 
-    Region[] regions;
-    auto r = foreachFiltRoom(root, region, filter,
-    (BspNode node, Region r)
-    {
-        regions ~= r;
-        return 0;
-    });
+    Region!(int,4)[] regions;
+    auto r = foreachFiltRoom(root, bounds, filter,
+        (BspNode node, Region!(int,4) r)
+        {
+            regions ~= r;
+            return 0;
+        }
+    );
 
     assert(regions == [
-        Region([0, 0, 0, 0], [4, 5, 1, 1]),
-        Region([4, 0, 0, 0], [12, 3, 1, 1]),
-        Region([4, 3, 0, 0], [8, 7, 1, 1]),
+        region(vec(0, 0, 0, 0), vec(4, 5, 1, 1)),
+        region(vec(4, 0, 0, 0), vec(12, 3, 1, 1)),
+        region(vec(4, 3, 0, 0), vec(8, 7, 1, 1)),
     ]);
 }
 
@@ -626,26 +471,28 @@ unittest
     root.children[1].children[1].children[0] = new BspNode;
     root.children[1].children[1].children[1] = new BspNode;
 
-    auto region = Region([0, 0, 0, 0], [10, 10, 10, 1]);
-    auto filter = Region([5, 2, 2, 0], [5, 5, 5, 1]);
+    auto bounds = region(vec(0, 0, 0, 0), vec(10, 10, 10, 1));
+    auto filter = region(vec(5, 2, 2, 0), vec(5, 5, 5, 1));
 
-    Region[] regions;
-    auto r = foreachFiltRoom(root, region, filter,
-    (BspNode node, Region r)
-    {
-        regions ~= r;
-        return 0;
-    });
+    Region!(int,4)[] regions;
+    auto r = foreachFiltRoom(root, bounds, filter,
+        (BspNode node, Region!(int,4) r)
+        {
+            regions ~= r;
+            return 0;
+        }
+    );
 
     assert(regions == [
-        Region([5, 2, 2, 0], [10, 10, 10, 1]),
+        region(vec(5, 2, 2, 0), vec(10, 10, 10, 1)),
     ]);
 }
 
 /**
  * Generate corridors based on BSP tree structure.
  */
-void genCorridors(BspNode root, Region region)
+void genCorridors(R)(BspNode root, R region)
+    if (is(R == Region!(int,n), size_t n))
 {
     if (root.isLeaf) return;
 
@@ -655,13 +502,13 @@ void genCorridors(BspNode root, Region region)
     static struct LeftRoom
     {
         BspNode node;
-        Region region;
+        R region;
     }
 
     LeftRoom[] leftRooms;
     root.children[0].foreachFiltRoom(region,
-        (Region r) => r.max[root.axis] >= root.pivot,
-        (BspNode node1, Region r1) {
+        (R r) => r.max[root.axis] >= root.pivot,
+        (BspNode node1, R r1) {
             leftRooms ~= LeftRoom(node1, r1);
             return 0;
         });
@@ -670,21 +517,21 @@ void genCorridors(BspNode root, Region region)
     while (ntries++ < 2*leftRooms.length)
     {
         auto leftRoom = leftRooms.pickOne;
-        Region wallFilt = leftRoom.region;
+        R wallFilt = leftRoom.region;
         wallFilt.min[root.axis] = root.pivot;
         wallFilt.max[root.axis] = root.pivot;
 
         static struct RightRoom
         {
             BspNode node;
-            Region region;
+            R region;
             int[4] basePos;
         }
 
         RightRoom[] rightRooms;
         root.children[1].foreachFiltRoom(region, wallFilt,
-            (BspNode node2, Region r2) {
-                auto ir = leftRoom.region.intersection(r2);
+            (BspNode node2, R r2) {
+                auto ir = leftRoom.region.intersect(r2);
 
                 int[4] basePos;
                 foreach (i; 0 .. 4)
@@ -740,21 +587,23 @@ unittest
     import gauss;
 
     // Generate base BSP tree
-    auto region = Region([ 0, 0, 0, 0 ], [ w, h, 3, 3 ]);
-    auto tree = genBsp(region,
-        (Region r) => r.width(0)*r.width(1) > 49 + uniform(0, 50),
-        (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
-                             .pickOne(invalidAxis),
-        (Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+    auto bounds = region(vec(0, 0, 0, 0), vec(w, h, 3, 3));
+    alias R = typeof(bounds);
+
+    auto tree = genBsp(bounds,
+        (R r) => r.length(0)*r.length(1) > 49 + uniform(0, 50),
+        (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+                        .pickOne(invalidAxis),
+        (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
             invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
             //gaussian(r.max[axis] - r.min[axis], 4)
             //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
     );
 
     // Generate connecting corridors
-    genCorridors(tree, region);
+    genCorridors(tree, bounds);
 
-    dumpBsp(result, tree, region);
+    //dumpBsp(result, tree, bounds);
 }
 
 // vim:set ai sw=4 ts=4 et:
