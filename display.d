@@ -80,7 +80,7 @@ struct SubDisplay(T)
 
     ///
     void moveTo(int x, int y)
-        in ((vec(x,y) + rect.min) in rect)
+        in (rect.contains(vec(x,y) + rect.min))
     {
         auto target = vec(x,y) + rect.min;
         parent.moveTo(target[0], target[1]);

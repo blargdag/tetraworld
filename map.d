@@ -208,8 +208,8 @@ struct SubMap(Map)
 
     /// Constructor.
     this(Map map, Region!(int,4) _reg)
-    in (reg in region(vec(map.opDollar!0, map.opDollar!1, map.opDollar!2,
-                          map.opDollar!3)))
+        in (region(vec(map.opDollar!0, map.opDollar!1, map.opDollar!2,
+                       map.opDollar!3)).contains(reg))
     {
         impl = map;
         reg = _reg;
@@ -230,7 +230,7 @@ struct SubMap(Map)
             import core.exception : RangeError;
             import std.exception : enforce;
 
-            enforce((vec(coors) + reg.min) in reg, new RangeError);
+            enforce(reg.contains(vec(coors) + reg.min), new RangeError);
         }
 
         return impl.opIndex(vec(coors) + reg.min);

@@ -258,12 +258,14 @@ struct Region(T, size_t n)
      * <= c < h, where l and h are the corresponding components from min and
      * max, respectively.
      */
-    bool opBinaryRight(string op, U)(Vec!(U,n) v)
-        if (op == "in" && is(typeof(T.init < U.init)))
+    bool contains(U)(Vec!(U,n) v)
+        if (is(typeof(T.init < U.init)))
     {
         static foreach (i; 0 .. n)
+        {
             if (v[i] < min[i] || v[i] >= max[i])
                 return false;
+        }
         return true;
     }
 
@@ -273,18 +275,18 @@ struct Region(T, size_t n)
      * or a narrowing of the corresponding bounds in this region. Empty regions
      * never contain anything, but are contained by all non-empty regions.
      */
-    bool opBinary(string op, U)(Region!(U,n) r)
-        if (op == "in" && is(typeof(T.init < U.init)))
+    bool contains(U)(Region!(U,n) r)
+        if (is(typeof(T.init < U.init)))
     {
         static foreach (i; 0 .. n)
         {
             // Empty regions never contain anything
-            if (r.min[i] >= r.max[i])
+            if (min[i] >= max[i])
                 return false;
 
             // Empty regions are always contained in non-empty regions.
-            assert(r.min[i] < r.max[i]);
-            if (min[i] < max[i] && (min[i] < r.min[i] || max[i] > r.max[i]))
+            assert(min[i] < max[i]);
+            if (r.min[i] < r.max[i] && (r.min[i] < min[i] || r.max[i] > max[i]))
                 return false;
         }
         return true;
@@ -350,24 +352,24 @@ unittest
     assert(region(vec(1,1,1,1), vec(2,0,2,2)).empty);
 
     // Test vector containment
-    assert(vec(1,1,1,1) in r2);
-    assert(vec(1,1,1,0) !in r2);
-    assert(vec(1,1,1,2) !in r2);
-    assert(vec(1,1,0,1) !in r2);
-    assert(vec(1,1,2,1) !in r2);
+    assert(r2.contains(vec(1,1,1,1)));
+    assert(!r2.contains(vec(1,1,1,0)));
+    assert(!r2.contains(vec(1,1,1,2)));
+    assert(!r2.contains(vec(1,1,0,1)));
+    assert(!r2.contains(vec(1,1,2,1)));
 
     // Test region containment
-    assert(r2 in r2);   // reflexivity
-    assert(r2 in region(vec(0,0,0,0), vec(2,2,2,2)));
-    assert(r2 in region(vec(1,0,1,1), vec(2,2,2,2)));
-    assert(r2 in region(vec(1,1,1,1), vec(3,3,3,3)));
-    assert(r2 in region(vec(1,1,1,1), vec(3,2,2,2)));
+    assert(r2.contains(r2));   // reflexivity
+    assert(region(vec(0,0,0,0), vec(2,2,2,2)).contains(r2));
+    assert(region(vec(1,0,1,1), vec(2,2,2,2)).contains(r2));
+    assert(region(vec(1,1,1,1), vec(3,3,3,3)).contains(r2));
+    assert(region(vec(1,1,1,1), vec(3,2,2,2)).contains(r2));
 
     // Empty regions containment
-    assert(region(vec(0,0)) in region(vec(-1,-1), vec(2,2)));
-    assert(region(vec(0,0)) in region(vec(1,1), vec(2,2)));
-    assert(region(vec(0,0)) !in region(vec(0,0)));
-    assert(region(vec(-1,-1), vec(1,1)) !in region(vec(0,0)));
+    assert(region(vec(-1,-1), vec(2,2)).contains(region(vec(0,0))));
+    assert(region(vec(1,1), vec(2,2)).contains(region(vec(0,0))));
+    assert(!region(vec(0,0)).contains(region(vec(0,0))));
+    assert(!region(vec(0,0)).contains(region(vec(-1,-1), vec(1,1))));
 }
 
 unittest

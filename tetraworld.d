@@ -236,11 +236,11 @@ void play()
         mapview.renderMap(curview);
 
         disp.hideCursor();
-        if (map.playerPos in curview.reg)
+        if (curview.reg.contains(map.playerPos))
         {
             auto cursorPos = renderingCoors(curview,
                                             map.playerPos - viewport.pos);
-            if (cursorPos in region(vec(mapview.width, mapview.height)))
+            if (region(vec(mapview.width, mapview.height)).contains(cursorPos))
             {
                 mapview.moveTo(cursorPos[0], cursorPos[1]);
                 disp.showCursor();
