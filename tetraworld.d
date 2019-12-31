@@ -71,9 +71,8 @@ struct GameMap
         dchar ch = '/';
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
             (BspNode node, R r) {
-                if (iota(4).fold!((b, i) => b &&
-                                  r.min[i] < pos[i] &&
-                                  pos[i] + 1 < r.max[i])(true))
+                if (iota(4).fold!((b, i) => b && r.min[i] < pos[i] &&
+                                            pos[i] + 1 < r.max[i])(true))
                 {
                     ch = '.';
                     return 1;
@@ -95,7 +94,7 @@ struct GameMap
         return ch;
     }
 }
-//static assert(is4DArray!GameMap && is(ElementType!GameMap == dchar));
+static assert(is4DArray!GameMap && is(CellType!GameMap == dchar));
 
 /**
  * Viewport representation.
@@ -103,7 +102,6 @@ struct GameMap
 struct ViewPort(Map)
     if (is4DArray!Map)
 {
-    import vector; //FIXME
     Map*        map;
     Vec!(int,4) dim;
     Vec!(int,4) pos;

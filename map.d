@@ -36,10 +36,10 @@ enum is4DArray(T) = is(typeof(T.init[0,0,0,0])) &&
 /**
  * Returns: The element type of the given 4D array.
  */
-template ElementType(T)
+template CellType(T)
     if (is4DArray!T)
 {
-    alias ElementType = typeof(T.init[0,0,0,0]);
+    alias CellType = typeof(T.init[0,0,0,0]);
 }
 
 /**
@@ -58,8 +58,8 @@ unittest
         enum opDollar(size_t i) = 3;
         T opIndex(int,int,int,int) { return T.init; }
     }
-    static assert(is(ElementType!(Map1!int) == int));
-    static assert(is(ElementType!(Map1!dchar) == dchar));
+    static assert(is(CellType!(Map1!int) == int));
+    static assert(is(CellType!(Map1!dchar) == dchar));
 
     assert(Map1!int.init.dimensions == vec(3,3,3,3));
 }
@@ -76,7 +76,7 @@ enum interRowSpace = 1;
  *      coordinates.
  */
 void renderMap(T, Map)(T display, Map map)
-    if (isGridDisplay!T && is4DArray!Map && is(ElementType!Map == dchar))
+    if (isGridDisplay!T && is4DArray!Map && is(CellType!Map == dchar))
 {
     auto wlen = map.opDollar!0;
     auto xlen = map.opDollar!1;
@@ -201,7 +201,7 @@ unittest
 struct SubMap(Map)
     if (is4DArray!Map)
 {
-    alias Elem = ElementType!Map;
+    alias Elem = CellType!Map;
 
     private Map impl;
     Region!(int,4) reg;
