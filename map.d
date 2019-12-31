@@ -230,11 +230,10 @@ struct SubMap(Map)
             import core.exception : RangeError;
             import std.exception : enforce;
 
-            enforce((Vec!(int,4)(coors) + reg.min) in reg,
-                    new RangeError);
+            enforce((vec(coors) + reg.min) in reg, new RangeError);
         }
 
-        return impl.opIndex(Vec!(int,4)(coors) + reg.min);
+        return impl.opIndex(vec(coors) + reg.min);
     }
 
     static assert(is4DArray!(typeof(this)));

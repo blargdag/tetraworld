@@ -64,7 +64,7 @@ struct GameMap
     {
         import std.math : abs;
 
-        if (Vec!(int,4)(pos) == playerPos) return '&';
+        if (vec(pos) == playerPos) return '&';
 
         // FIXME: should be a more efficient way to do this
         dchar ch = '/';

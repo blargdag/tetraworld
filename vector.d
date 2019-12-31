@@ -113,7 +113,9 @@ struct Vec(T, size_t n)
  */
 auto vec(T...)(T args)
 {
-    static if (is(typeof([args]) : U[], U))
+    static if (args.length == 1 && is(T[0] == U[n], U, size_t n))
+        return Vec!(U, n)(args);
+    else static if (is(typeof([args]) : U[], U))
         return Vec!(U, args.length)([ args ]);
     else
         static assert(false, "No common type for " ~ T.stringof);
@@ -166,6 +168,14 @@ unittest
     auto w = vec(4,5,6);
     v += w;
     assert(v == vec(5,7,9));
+}
+
+unittest
+{
+    int[4] z = [ 1, 2, 3, 4 ];
+    auto v = vec(z);
+    static assert(is(typeof(v) == Vec!(int,4)));
+    assert(v == vec(1, 2, 3, 4));
 }
 
 /**
