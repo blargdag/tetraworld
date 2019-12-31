@@ -46,7 +46,7 @@ struct GameMap
     void playerPos(V)(V v)
     {
         import vector; // FIXME
-        plpos = [ v.byComponent ];
+        plpos = v;
     }
 
     private BspNode tree;
@@ -228,8 +228,7 @@ void play()
     auto map = GameMap([ 15, 15, 15, 15 ]);
     map.playerPos = vec(1,1,1,1); // FIXME
 
-    auto optVPSize = optimalViewportSize(
-        (screenRect.upperBound - vec(0,2)).byComponent);
+    auto optVPSize = optimalViewportSize(screenRect.upperBound - vec(0,2));
 
     auto viewport = ViewPort!GameMap(&map, optVPSize, vec(0,0,0,0));
     viewport.centerOn(map.playerPos);
@@ -252,7 +251,7 @@ void play()
                                             map.playerPos - viewport.pos);
             if (cursorPos in region(vec(mapview.width, mapview.height)))
             {
-                mapview.moveTo(cursorPos.byComponent);
+                mapview.moveTo(cursorPos[0], cursorPos[1]);
                 disp.showCursor();
             }
         }
@@ -263,7 +262,7 @@ void play()
     void movePlayer(Vec!(int,4) displacement)
     {
         auto newPos = map.playerPos + displacement;
-        if (map[newPos.byComponent] == '/')
+        if (map[newPos] == '/')
             return; // movement blocked
         map.playerPos = newPos;
 

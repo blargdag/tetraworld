@@ -108,17 +108,17 @@ void renderMap(T, Map)(T display, Map map)
  * dimensions that would be rendered by renderMap, as a vector of width and
  * height, respectively.
  */
-Vec!(int,2) renderSize(int wlen, int xlen, int ylen, int zlen)
+Vec!(int,2) renderSize(Vec!(int,4) dim)
 {
-    return vec(xlen*(ylen + zlen + interColSpace) - 1,
-               wlen*(ylen + interRowSpace) - 1);
+    return vec(dim[1]*(dim[2] + dim[3] + interColSpace) - 1,
+               dim[0]*(dim[2] + interRowSpace) - 1);
 }
 
 /// ditto
 Vec!(int,2) renderSize(Map)(Map map)
     if (is4DArray!Map)
 {
-    return renderSize(map.dimensions.byComponent);
+    return renderSize(map.dimensions);
 }
 
 unittest
@@ -208,12 +208,8 @@ struct SubMap(Map)
 
     /// Constructor.
     this(Map map, Region!(int,4) _reg)
-    in
-    {
-        assert(reg in region(vec(map.opDollar!0, map.opDollar!1,
-                                 map.opDollar!2, map.opDollar!3)));
-    }
-    body
+    in (reg in region(vec(map.opDollar!0, map.opDollar!1, map.opDollar!2,
+                          map.opDollar!3)))
     {
         impl = map;
         reg = _reg;
@@ -227,17 +223,18 @@ struct SubMap(Map)
     }
 
     /// Array dereference
-    auto ref Elem opIndex(TypeVec!(int, 4) coors)
+    auto ref Elem opIndex(int[4] coors...)
     {
         version(D_NoBoundsChecks) {} else
         {
             import core.exception : RangeError;
             import std.exception : enforce;
 
-            enforce((vec(coors) + reg.lowerBound) in reg, new RangeError);
+            enforce((Vec!(int,4)(coors) + reg.lowerBound) in reg,
+                    new RangeError);
         }
 
-        return impl.opIndex((vec(coors) + reg.lowerBound).byComponent);
+        return impl.opIndex(Vec!(int,4)(coors) + reg.lowerBound);
     }
 
     static assert(is4DArray!(typeof(this)));
@@ -260,8 +257,13 @@ unittest
     struct Map
     {
         enum opDollar(int n) = 5;
-        dchar opIndex(int w, int x, int y, int z)
+        dchar opIndex(int[4] v...)
         {
+            auto w = v[0];
+            auto x = v[1];
+            auto y = v[2];
+            auto z = v[3];
+
             if (w*x*y*z == 0 || w==4 || x==4 || y==4 || z==4)
                 return '/';
             else
@@ -278,7 +280,7 @@ unittest
     assert(submap[2,2,2,2] == '.');
 }
 
-enum minDisplaySize = renderSize(3,3,3,3);
+enum minDisplaySize = renderSize(vec(3,3,3,3));
 
 /**
  * Finds the optimal map dimensions whose rendering will fit within the given
@@ -290,19 +292,22 @@ enum minDisplaySize = renderSize(3,3,3,3);
  *
  * Returns: The 4D dimensions as a Vec.
  */
-Vec!(int,4) optimalViewportSize(int width, int height)
+Vec!(int,4) optimalViewportSize(int[2] dim)
 out(r)
 {
-    auto rs = renderSize(r.byComponent);
-    assert(rs[0] > 0 && rs[0] <= width &&
-           rs[1] > 0 && rs[1] <= height);
+    auto rs = renderSize(r);
+    assert(rs[0] > 0 && rs[0] <= dim[0] &&
+           rs[1] > 0 && rs[1] <= dim[1]);
 }
-body
+do
 {
     import std.algorithm : min;
     static import std.math;
 
     static int sqrt(int x) { return cast(int)std.math.sqrt(cast(double)x); }
+
+    immutable width = dim[0];
+    immutable height = dim[1];
 
     if (width < minDisplaySize[0] || height < minDisplaySize[1])
     {
@@ -398,8 +403,8 @@ body
 
 unittest
 {
-    assert(optimalViewportSize(minDisplaySize.byComponent) == vec(3,3,3,3));
-    assert(optimalViewportSize(80,24) == vec(3,5,5,11));
+    assert(optimalViewportSize(minDisplaySize) == vec(3,3,3,3));
+    assert(optimalViewportSize([80, 24]) == vec(3,5,5,11));
 }
 
 // vim:set ai sw=4 ts=4 et:

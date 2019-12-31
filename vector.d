@@ -21,21 +21,6 @@
 module vector;
 
 /**
- * Template for constructing an n-tuple of a given type T.
- */
-template TypeVec(T, size_t n)
-{
-    import std.meta : AliasSeq;
-    alias tuple = AliasSeq;
-
-    static if (n==0)
-        alias TypeVec = tuple!();
-    else
-        alias TypeVec = tuple!(T, TypeVec!(T, n-1));
-}
-
-
-/**
  * Checks if a given type is a scalar type or an instance of Vec!(T,n).
  */
 enum isScalar(T) = !is(T : Vec!(U,n), U, size_t n);
@@ -47,14 +32,21 @@ static assert(!isScalar!(Vec!(int,2)));
  */
 struct Vec(T, size_t n)
 {
-    /// The dimension of this vector.
-    enum dim = n;
+    T[n] impl;
+    alias impl this;
 
     /**
-     * Retrieve this vector's contents as a tuple of n integers.
+     * Compares two vectors.
      */
-    TypeVec!(T,n) byComponent;
-    alias byComponent this;
+    bool opEquals()(auto ref const Vec v) const
+    {
+        foreach (i; 0 .. n)
+        {
+            if (impl[i] != v[i])
+                return false;
+        }
+        return true;
+    }
 
     /**
      * Per-element unary operations.
@@ -63,10 +55,8 @@ struct Vec(T, size_t n)
         if (is(typeof((T t) => mixin(op ~ "t"))))
     {
         Vec result;
-        foreach (i, ref x; result.byComponent)
-        {
+        foreach (i, ref x; result.impl)
             x = mixin(op ~ "this[i]");
-        }
         return result;
     }
 
@@ -77,10 +67,8 @@ struct Vec(T, size_t n)
         if (is(typeof(mixin("T.init" ~ op ~ "U.init"))))
     {
         Vec result;
-        foreach (i, ref x; result.byComponent)
-        {
+        foreach (i, ref x; result.impl)
             x = mixin("this[i]" ~ op ~ "v[i]");
-        }
         return result;
     }
 
@@ -90,10 +78,8 @@ struct Vec(T, size_t n)
             is(typeof(mixin("T.init" ~ op ~ "U.init"))))
     {
         Vec result;
-        foreach (i, ref x; result.byComponent)
-        {
+        foreach (i, ref x; result.impl)
             x = mixin("this[i]" ~ op ~ "y");
-        }
         return result;
     }
 
@@ -103,10 +89,8 @@ struct Vec(T, size_t n)
             is(typeof(mixin("U.init" ~ op ~ "T.init"))))
     {
         Vec result;
-        foreach (i, ref x; result.byComponent)
-        {
+        foreach (i, ref x; result.impl)
             x = mixin("y" ~ op ~ "this[i]");
-        }
         return result;
     }
 
@@ -116,10 +100,8 @@ struct Vec(T, size_t n)
     void opOpAssign(string op, U)(Vec!(U,n) v)
         if (is(typeof({ T t; mixin("t " ~ op ~ "= U.init;"); })))
     {
-        foreach (i, ref x; byComponent)
-        {
+        foreach (i, ref x; impl)
             mixin("x " ~ op ~ "= v[i];");
-        }
     }
 }
 
@@ -132,7 +114,7 @@ struct Vec(T, size_t n)
 auto vec(T...)(T args)
 {
     static if (is(typeof([args]) : U[], U))
-        return Vec!(U, args.length)(args);
+        return Vec!(U, args.length)([ args ]);
     else
         static assert(false, "No common type for " ~ T.stringof);
 }
@@ -144,11 +126,6 @@ unittest
     auto v1 = vec(1,2,3);
     static assert(is(typeof(v1) == Vec!(int,3)));
     assert(v1[0] == 1 && v1[1] == 2 && v1[2] == 3);
-
-    // Vector components can be individually passed to functions via
-    // .byComponent:
-    void func(int x, int y, int z) { }
-    func(v1.byComponent);
 
     // Vector comparison
     auto v2 = vec(1,2,3);
@@ -185,8 +162,8 @@ unittest
 unittest
 {
     // Test opOpAssign.
-    auto v = Vec!(int,3)(1,2,3);
-    auto w = Vec!(int,3)(4,5,6);
+    auto v = vec(1,2,3);
+    auto w = vec(4,5,6);
     v += w;
     assert(v == vec(5,7,9));
 }
