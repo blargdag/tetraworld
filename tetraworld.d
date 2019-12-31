@@ -58,7 +58,7 @@ struct GameMap
         bounds.max = _dim;
 
         tree = genBsp(bounds,
-            (Region r) => r.volume > 36 + uniform(0, 50),
+            (Region r) => r.volume > 24 + uniform(0, 80),
             (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                                  .pickOne(invalidAxis),
             (Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
@@ -225,7 +225,7 @@ void play()
     message("Welcome to Tetraworld!");
 
     // Map test
-    auto map = GameMap([ 10, 10, 10, 10 ]);
+    auto map = GameMap([ 15, 15, 15, 15 ]);
     map.playerPos = vec(1,1,1,1); // FIXME
 
     auto optVPSize = optimalViewportSize(
