@@ -37,10 +37,10 @@ class BspNode
 {
     int axis;
     int pivot;
-    BspNode[2] children;
+    BspNode left, right;
     Door[] doors;
 
-    bool isLeaf() const { return children[0] is null && children[1] is null; }
+    bool isLeaf() const { return left is null && right is null; }
 }
 
 /**
@@ -179,10 +179,10 @@ BspNode genBsp(R)(R region,
 
     node.axis = axis;
     node.pivot = pivot;
-    node.children[0] = genBsp(leftRegion(region, axis, pivot),
-                              canSplitRegion, findSplitAxis, findPivot);
-    node.children[1] = genBsp(rightRegion(region, axis, pivot),
-                              canSplitRegion, findSplitAxis, findPivot);
+    node.left = genBsp(leftRegion(region, axis, pivot), canSplitRegion,
+                       findSplitAxis, findPivot);
+    node.right = genBsp(rightRegion(region, axis, pivot), canSplitRegion,
+                        findSplitAxis, findPivot);
     return node;
 }
 
@@ -229,13 +229,11 @@ int foreachRoom(R)(BspNode root, R region,
     if (root.isLeaf)
         return dg(region, root);
 
-    int rc = foreachRoom(root.children[0],
-                         leftRegion(region, root.axis, root.pivot),
+    int rc = foreachRoom(root.left, leftRegion(region, root.axis, root.pivot),
                          dg);
     if (rc != 0) return rc;
 
-    return foreachRoom(root.children[1],
-                       rightRegion(region, root.axis, root.pivot),
+    return foreachRoom(root.right, rightRegion(region, root.axis, root.pivot),
                        dg);
 }
 
@@ -365,14 +363,14 @@ int foreachFiltRoom(R)(BspNode root, R region,
     auto lr = leftRegion(region, root.axis, root.pivot);
     if (filter(lr))
     {
-        auto rc = foreachFiltRoom(root.children[0], lr, filter, dg);
+        auto rc = foreachFiltRoom(root.left, lr, filter, dg);
         if (rc != 0)
             return rc;
     }
 
     auto rr = rightRegion(region, root.axis, root.pivot);
     if (filter(rr))
-        return foreachFiltRoom(root.children[1], rr, filter, dg);
+        return foreachFiltRoom(root.right, rr, filter, dg);
 
     return 0;
 }
@@ -391,31 +389,31 @@ unittest
     root.axis = 0;
     root.pivot = 4;
 
-    root.children[0] = new BspNode;
-    root.children[0].axis = 1;
-    root.children[0].pivot = 5;
+    root.left = new BspNode;
+    root.left.axis = 1;
+    root.left.pivot = 5;
 
-    root.children[0].children[0] = new BspNode;
-    root.children[0].children[1] = new BspNode;
+    root.left.left = new BspNode;
+    root.left.right = new BspNode;
 
-    root.children[1] = new BspNode;
-    root.children[1].axis = 1;
-    root.children[1].pivot = 7;
+    root.right = new BspNode;
+    root.right.axis = 1;
+    root.right.pivot = 7;
 
-    root.children[1].children[0] = new BspNode;
-    root.children[1].children[0].axis = 1;
-    root.children[1].children[0].pivot = 3;
+    root.right.left = new BspNode;
+    root.right.left.axis = 1;
+    root.right.left.pivot = 3;
 
-    root.children[1].children[0].children[0] = new BspNode;
+    root.right.left.left = new BspNode;
 
-    root.children[1].children[0].children[1] = new BspNode;
-    root.children[1].children[0].children[1].axis = 0;
-    root.children[1].children[0].children[1].pivot = 8;
+    root.right.left.right = new BspNode;
+    root.right.left.right.axis = 0;
+    root.right.left.right.pivot = 8;
 
-    root.children[1].children[0].children[1].children[0] = new BspNode;
-    root.children[1].children[0].children[1].children[1] = new BspNode;
+    root.right.left.right.left = new BspNode;
+    root.right.left.right.right = new BspNode;
 
-    root.children[1].children[1] = new BspNode;
+    root.right.right = new BspNode;
 
     auto bounds = region(vec(0, 0, 0, 0), vec(12, 10, 1, 1));
     auto filter = region(vec(3, 0, 0, 0), vec(4, 3, 1, 1));
@@ -445,31 +443,31 @@ unittest
     root.axis = 0;
     root.pivot = 5;
 
-    root.children[0] = new BspNode;
-    root.children[0].axis = 1;
-    root.children[0].pivot = 5;
+    root.left = new BspNode;
+    root.left.axis = 1;
+    root.left.pivot = 5;
 
-    root.children[0].children[0] = new BspNode;
-    root.children[0].children[0].axis = 2;
-    root.children[0].children[0].pivot = 5;
+    root.left.left = new BspNode;
+    root.left.left.axis = 2;
+    root.left.left.pivot = 5;
 
-    root.children[0].children[0].children[0] = new BspNode;
-    root.children[0].children[0].children[1] = new BspNode;
+    root.left.left.left = new BspNode;
+    root.left.left.right = new BspNode;
 
-    root.children[0].children[1] = new BspNode;
+    root.left.right = new BspNode;
 
-    root.children[1] = new BspNode;
-    root.children[1].axis = 2;
-    root.children[1].pivot = 2;
+    root.right = new BspNode;
+    root.right.axis = 2;
+    root.right.pivot = 2;
 
-    root.children[1].children[0] = new BspNode;
+    root.right.left = new BspNode;
 
-    root.children[1].children[1] = new BspNode;
-    root.children[1].children[1].axis = 1;
-    root.children[1].children[1].pivot = 2;
+    root.right.right = new BspNode;
+    root.right.right.axis = 1;
+    root.right.right.pivot = 2;
 
-    root.children[1].children[1].children[0] = new BspNode;
-    root.children[1].children[1].children[1] = new BspNode;
+    root.right.right.left = new BspNode;
+    root.right.right.right = new BspNode;
 
     auto bounds = region(vec(0, 0, 0, 0), vec(10, 10, 10, 1));
     auto filter = region(vec(5, 2, 2, 0), vec(5, 5, 5, 1));
@@ -496,8 +494,8 @@ void genCorridors(R)(BspNode root, R region)
 {
     if (root.isLeaf) return;
 
-    genCorridors(root.children[0], leftRegion(region, root.axis, root.pivot));
-    genCorridors(root.children[1], rightRegion(region, root.axis, root.pivot));
+    genCorridors(root.left, leftRegion(region, root.axis, root.pivot));
+    genCorridors(root.right, rightRegion(region, root.axis, root.pivot));
 
     static struct LeftRoom
     {
@@ -506,7 +504,7 @@ void genCorridors(R)(BspNode root, R region)
     }
 
     LeftRoom[] leftRooms;
-    root.children[0].foreachFiltRoom(region,
+    root.left.foreachFiltRoom(region,
         (R r) => r.max[root.axis] >= root.pivot,
         (BspNode node1, R r1) {
             leftRooms ~= LeftRoom(node1, r1);
@@ -529,7 +527,7 @@ void genCorridors(R)(BspNode root, R region)
         }
 
         RightRoom[] rightRooms;
-        root.children[1].foreachFiltRoom(region, wallFilt,
+        root.right.foreachFiltRoom(region, wallFilt,
             (BspNode node2, R r2) {
                 auto ir = leftRoom.region.intersect(r2);
 
