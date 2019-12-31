@@ -58,7 +58,7 @@ struct GameMap
         bounds.max = _dim;
 
         tree = genBsp(bounds,
-            (Region r) => r.width(0)*r.width(1) > 49 + uniform(0, 50),
+            (Region r) => r.volume > 36 + uniform(0, 50),
             (Region r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                                  .pickOne(invalidAxis),
             (Region r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
@@ -76,7 +76,6 @@ struct GameMap
         if (pos == plpos) return '&';
 
         // FIXME: should be a more efficient way to do this
-        auto reg = Region(pos);
         dchar ch = '/';
         foreachFiltRoom(tree, bounds, (Region r) => r.contains(pos),
             (BspNode node, Region r) {

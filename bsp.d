@@ -70,7 +70,10 @@ struct Region
         assert(!r.contains([7,7,7,7]));
     }
 
-    long volume()
+    /**
+     * Returns: The volume of this region.
+     */
+    long volume() const
     {
         import std.algorithm : map, fold;
         import std.range : iota;
