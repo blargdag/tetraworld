@@ -59,6 +59,8 @@ struct GameMap
         );
         genCorridors(tree, bounds);
         resizeRooms(tree, bounds);
+        setRoomFloors(tree, bounds);
+
         playerPos = randomLocation(tree, bounds);
         exitPos = randomLocation(tree, bounds);
     }
@@ -80,7 +82,7 @@ struct GameMap
                 if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
                                             pos[i] + 1 < rr.max[i])(true))
                 {
-                    ch = '.';
+                    ch = node.style;
                     return 1;
                 }
 

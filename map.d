@@ -441,8 +441,8 @@ version(unittest)
             foreach (i; r.min[0] .. r.max[0])
                 screen[i, j] = '#';
 
-        dstring walls = "│─.┌└┐┘"d;
-        //dstring walls = "|-:,`.'"d;
+        enum walls = "│─.┌└┐┘"d;
+        //enum walls = "|-:,`.'"d;
         auto interior = node.interior;
         foreach (j; interior.min[1] .. interior.max[1])
             foreach (i; interior.min[0] .. interior.max[0])
@@ -452,7 +452,7 @@ version(unittest)
                 else if (j == interior.min[1] || j == interior.max[1]-1)
                     screen[i, j] = walls[1];
                 else
-                    screen[i, j] = walls[2];
+                    screen[i, j] = node.style;
             }
 
         screen[interior.min[0], interior.min[1]] = walls[3];
@@ -476,6 +476,14 @@ struct Door
     int[4] pos;
 }
 
+// TBD: should become a themed room type instead.
+enum FloorStyle : dchar
+{
+    bare = '.',
+    grassy = ':',
+    muddy = ';',
+}
+
 /**
  * A map node.
  */
@@ -483,6 +491,7 @@ class MapNode : BspNode!(MapNode)
 {
     Door[] doors;
     Region!(int,4) interior;
+    FloorStyle style;
 }
 
 /**
@@ -641,6 +650,19 @@ void resizeRooms(R)(MapNode root, R region)
     });
 }
 
+void setRoomFloors(R)(MapNode root, R bounds)
+    if (is(R == Region!(int,n), size_t n))
+{
+    foreachRoom(root, bounds, (R r, MapNode node) {
+        import std.random : uniform;
+        auto x = uniform(0, 100);
+        node.style = (x < 50) ? FloorStyle.bare :
+                     (x < 80) ? FloorStyle.grassy :
+                                FloorStyle.muddy;
+        return 0;
+    });
+}
+
 unittest
 {
     import testutil;
@@ -669,6 +691,7 @@ unittest
     // Generate connecting corridors
     genCorridors(tree, bounds);
     resizeRooms(tree, bounds);
+    setRoomFloors(tree, bounds);
 
     version(none)
     {
