@@ -20,6 +20,8 @@
  */
 module vector;
 
+import std.range.primitives;
+
 /**
  * Checks if a given type is a scalar type or an instance of Vec!(T,n).
  */
@@ -103,6 +105,13 @@ struct Vec(T, size_t n)
         foreach (i, ref x; impl)
             mixin("x " ~ op ~ "= v[i];");
     }
+
+    void toString(W)(W sink)
+        if (isOutputRange!(W, char))
+    {
+        import std.format : formattedWrite;
+        formattedWrite(sink, "(%-(%s,%))", impl[]);
+    }
 }
 
 /**
@@ -176,6 +185,13 @@ unittest
     auto v = vec(z);
     static assert(is(typeof(v) == Vec!(int,4)));
     assert(v == vec(1, 2, 3, 4));
+}
+
+unittest
+{
+    import std.format : format;
+    auto v = vec(1,2,3,4);
+    assert(format("%s", v) == "(1,2,3,4)");
 }
 
 /**
@@ -384,6 +400,20 @@ struct Region(T, size_t _n)
         auto lb = min + (max - min - size)/2;
         return Region(lb, lb + size);
     }
+
+    void toString(W)(W sink)
+        if (isOutputRange!(W, char))
+    {
+        import std.format : formattedWrite;
+        formattedWrite(sink, "%sx%s", min, max);
+    }
+}
+
+unittest
+{
+    import std.format : format;
+    auto r = region(vec(1,2,3,4), vec(5,6,7,8));
+    assert(format("%s", r) == "(1,2,3,4)x(5,6,7,8)");
 }
 
 /// ditto

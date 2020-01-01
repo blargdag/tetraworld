@@ -41,6 +41,7 @@ sources = Split("""
 	bsp.d
 	display.d
 	map.d
+	testutil.d
 	vector.d
 
 	arsd/terminal.d

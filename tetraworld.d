@@ -40,7 +40,7 @@ struct GameMap
     // system.
     private Vec!(int,4) playerPos;
 
-    private BspNode tree;
+    private MapNode tree;
     private alias R = Region!(int,4);
     private R bounds;
 
@@ -49,7 +49,7 @@ struct GameMap
         bounds.min = vec(0, 0, 0, 0);
         bounds.max = _dim;
 
-        tree = genBsp(bounds,
+        tree = genBsp!MapNode(bounds,
             (R r) => r.volume > 24 + uniform(0, 80),
             (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                             .pickOne(invalidAxis),
@@ -70,7 +70,7 @@ struct GameMap
         // FIXME: should be a more efficient way to do this
         dchar ch = '/';
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
-            (BspNode node, R r) {
+            (MapNode node, R r) {
                 if (iota(4).fold!((b, i) => b && r.min[i] < pos[i] &&
                                             pos[i] + 1 < r.max[i])(true))
                 {

@@ -20,6 +20,9 @@
  */
 module map;
 
+import std.range.primitives;
+
+import bsp;
 import display;
 import vector;
 
@@ -404,6 +407,271 @@ unittest
 {
     assert(optimalViewportSize(minDisplaySize) == vec(3,3,3,3));
     assert(optimalViewportSize([80, 24]) == vec(3,5,5,11));
+}
+
+version(unittest)
+{
+    void dumpBsp(S,R)(ref S result, MapNode tree, R region)
+        if (is(R == Region!(int,n), size_t n))
+    {
+        // Debug map dump 
+        int id = 0;
+        tree.foreachRoom(region, (R r, MapNode n) {
+            result.renderRoom(r, n);
+
+            import std.format : format;
+            auto idstr = format("%d", id);
+            foreach (i; 0 .. idstr.length)
+            {
+                if (i < r.max[0] - r.min[0] - 2)
+                    result[cast(int)(r.min[0] + i + 1), r.min[1]+1] = idstr[i];
+            }
+            id++;
+
+            return 0;
+        });
+
+        result.dump();
+    }
+
+    void renderRoom(S,R)(ref S screen, R r, MapNode node)
+        if (is(R == Region!(int,n), size_t n))
+    {
+        foreach (j; r.min[1] .. r.max[1])
+            foreach (i; r.min[0] .. r.max[0])
+                screen[i, j] = '#';
+
+        dstring walls = "│─.┌└┐┘"d;
+        //dstring walls = "|-:,`.'"d;
+        auto interior = node.interior;
+        foreach (j; interior.min[1] .. interior.max[1])
+            foreach (i; interior.min[0] .. interior.max[0])
+            {
+                if (i == interior.min[0] || i == interior.max[0]-1)
+                    screen[i, j] = walls[0];
+                else if (j == interior.min[1] || j == interior.max[1]-1)
+                    screen[i, j] = walls[1];
+                else
+                    screen[i, j] = walls[2];
+            }
+
+        screen[interior.min[0], interior.min[1]] = walls[3];
+        screen[interior.min[0], interior.max[1]-1] = walls[4];
+        screen[interior.max[0]-1, interior.min[1]] = walls[5];
+        screen[interior.max[0]-1, interior.max[1]-1] = walls[6];
+
+        foreach (door; node.doors)
+        {
+            screen[door.pos[0], door.pos[1]] = door.axis ? '|' : '-';
+        }
+    }
+}
+
+/**
+ * A room door.
+ */
+struct Door
+{
+    int axis;
+    int[4] pos;
+}
+
+/**
+ * A map node.
+ */
+class MapNode : BspNode!(MapNode)
+{
+    Door[] doors;
+    Region!(int,4) interior;
+}
+
+/**
+ * Generate corridors based on BSP tree structure.
+ */
+void genCorridors(R)(MapNode root, R region)
+    if (is(R == Region!(int,n), size_t n))
+{
+    if (root.isLeaf) return;
+
+    genCorridors(root.left, leftRegion(region, root.axis, root.pivot));
+    genCorridors(root.right, rightRegion(region, root.axis, root.pivot));
+
+    static struct LeftRoom
+    {
+        MapNode node;
+        R region;
+    }
+
+    LeftRoom[] leftRooms;
+    root.left.foreachFiltRoom(region,
+        (R r) => r.max[root.axis] >= root.pivot,
+        (MapNode node1, R r1) {
+            leftRooms ~= LeftRoom(node1, r1);
+            return 0;
+        });
+
+    int ntries=0;
+    while (ntries++ < 2*leftRooms.length)
+    {
+        auto leftRoom = leftRooms.pickOne;
+        R wallFilt = leftRoom.region;
+        wallFilt.min[root.axis] = root.pivot;
+        wallFilt.max[root.axis] = root.pivot;
+
+        static struct RightRoom
+        {
+            MapNode node;
+            R region;
+            int[4] basePos;
+        }
+
+        RightRoom[] rightRooms;
+        root.right.foreachFiltRoom(region, wallFilt,
+            (MapNode node2, R r2) {
+                auto ir = leftRoom.region.intersect(r2);
+
+                int[4] basePos;
+                foreach (i; 0 .. 4)
+                {
+                    import std.random : uniform;
+                    if (ir.max[i] - ir.min[i] >= 3)
+                        basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+                    else
+                    {
+                        // Overlap is too small to place a door, skip.
+//import std.stdio;writefln("left=%s right=%s TOO NARROW, SKIPPING", leftRoom.region, r2);
+                        return 0;
+                    }
+                }
+
+                rightRooms ~= RightRoom(node2, r2, basePos);
+                return 0;
+            });
+
+        // If can't find a suitable door placement, try picking a different
+        // left room.
+        if (rightRooms.empty)
+        {
+//import std.stdio;writefln("left=%s NO MATCH, SKIPPING", leftRoom.region);
+            continue;
+        }
+
+        auto rightRoom = rightRooms.pickOne;
+        auto d = Door(root.axis);
+
+        d.pos = rightRoom.basePos;
+        d.pos[d.axis] = root.pivot-1;
+        leftRoom.node.doors ~= d;
+
+        d.pos = rightRoom.basePos;
+        d.pos[d.axis] = root.pivot;
+        rightRoom.node.doors ~= d;
+        return;
+    }
+
+    // If we got here, it means we're in trouble.
+    throw new Exception("No matching door placement found, give up");
+}
+
+/**
+ * Iterate over leaf nodes in the given BSP tree and assign room interiors with
+ * random sizes.
+ *
+ * Prerequisites: Doors must have already been computed, since minimum room
+ * interior regions are computed based on the position of doors.
+ */
+void resizeRooms(R)(MapNode root, R region)
+    if (is(R == Region!(int,n), size_t n))
+{
+    foreachRoom(root, region, (R bounds, MapNode node) {
+        import std.random : uniform;
+
+        // Find minimum region room must cover in order for exits to connect.
+        auto core = R(bounds.max, bounds.min);
+        foreach (d; node.doors)
+        {
+            foreach (i; 0 .. 4)
+            {
+                if (i == d.axis)
+                {
+                    if (core.min[i] > d.pos[i])
+                        core.min[i] = d.pos[i];
+                    if (core.max[i] < d.pos[i] + 1)
+                        core.max[i] = d.pos[i] + 1;
+                }
+                else
+                {
+                    if (core.min[i] > d.pos[i] - 1)
+                        core.min[i] = d.pos[i] - 1;
+                    if (core.max[i] < d.pos[i] + 2)
+                        core.max[i] = d.pos[i] + 2;
+                }
+            }
+        }
+
+        // Expand minimum region to be at least 4 tiles wide in each direction.
+        foreach (i; 0 .. 4)
+        {
+            if (bounds.length(i) < 4)
+                continue;   // FIXME: should be an error
+
+            while (core.length(i) < 4)
+            {
+                if (uniform(0, 2) == 0)
+                {
+                    if (bounds.min[i] < core.min[i])
+                        core.min[i]--;
+                }
+                else
+                {
+                    if (core.max[i] < bounds.max[i])
+                        core.max[i]++;
+                }
+            }
+        }
+
+        // Select random size between bounding region and minimum region.
+        foreach (i; 0 .. 4)
+        {
+            node.interior.min[i] = uniform!"[]"(bounds.min[i], core.min[i]);
+            node.interior.max[i] = uniform!"[]"(core.max[i], bounds.max[i]);
+        }
+
+        return 0;
+    });
+}
+
+unittest
+{
+    import testutil;
+    enum w = 48, h = 24;
+    TestScreen!(w,h) result;
+
+    import std.algorithm : filter, clamp;
+    import std.random : uniform;
+    import std.range : iota;
+    import gauss;
+
+    // Generate base BSP tree
+    auto bounds = region(vec(0, 0, 0, 0), vec(w, h, 3, 3));
+    alias R = typeof(bounds);
+
+    auto tree = genBsp!MapNode(bounds,
+        (R r) => r.length(0)*r.length(1) > 49 + uniform(0, 50),
+        (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+                        .pickOne(invalidAxis),
+        (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+            invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
+            //gaussian(r.max[axis] - r.min[axis], 4)
+            //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
+    );
+
+    // Generate connecting corridors
+    genCorridors(tree, bounds);
+    resizeRooms(tree, bounds);
+
+    dumpBsp(result, tree, bounds);
+    assert(0);
 }
 
 // vim:set ai sw=4 ts=4 et:
