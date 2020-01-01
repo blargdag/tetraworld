@@ -58,29 +58,7 @@ struct GameMap
         );
         genCorridors(tree, bounds);
         resizeRooms(tree, bounds);
-        placePlayer(tree, bounds);
-    }
-
-    /**
-     * Randomly select a map location to place player.
-     */
-    private void placePlayer(MapNode node, R bounds)
-    {
-        if (node.isLeaf)
-        {
-            foreach (i; 0 .. 4)
-            {
-                assert(node.interior.length(i) >= 3);
-                playerPos[i] = uniform(node.interior.min[i] + 1,
-                                       node.interior.max[i] - 1);
-            }
-            return;
-        }
-        if (uniform(0, 2) == 0)
-            placePlayer(node.left, leftRegion(bounds, node.axis, node.pivot));
-        else
-            placePlayer(node.right, rightRegion(bounds, node.axis,
-                                                node.pivot));
+        playerPos = randomLocation(tree, bounds);
     }
 
     @property int opDollar(int i)() { return bounds.max[i]; }

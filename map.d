@@ -673,4 +673,32 @@ unittest
     //dumpBsp(result, tree, bounds);
 }
 
+/**
+ * Randomly select a map location that isn't a wall.
+ */
+Vec!(int,4) randomLocation(MapNode node, Region!(int,4) bounds)
+{
+    import std.random : uniform;
+    Vec!(int,4) result;
+
+    if (node.isLeaf)
+    {
+        foreach (i; 0 .. 4)
+        {
+            assert(node.interior.length(i) >= 3);
+
+            result[i] = uniform(node.interior.min[i] + 1,
+                                node.interior.max[i] - 1);
+        }
+        return result;
+    }
+
+    if (uniform(0, 2) == 0)
+        return randomLocation(node.left, leftRegion(bounds, node.axis,
+                                                    node.pivot));
+    else
+        return randomLocation(node.right, rightRegion(bounds, node.axis,
+                                                      node.pivot));
+}
+
 // vim:set ai sw=4 ts=4 et:
