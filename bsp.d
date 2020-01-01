@@ -24,12 +24,6 @@ import std.range.primitives;
 import std.traits : ReturnType;
 import vector;
 
-struct Door
-{
-    int axis;
-    int[4] pos;
-}
-
 /**
  * A BSP tree node.
  */
@@ -45,17 +39,7 @@ class BspNode(Derived)
 /**
  * Plain BSP node with no additional data. Mainly just for testing purposes.
  */
-class Node : BspNode!Node
-{
-}
-
-/**
- * A map node.
- */
-class MapNode : BspNode!(MapNode)
-{
-    Door[] doors;
-}
+class Node : BspNode!Node { }
 
 /**
  * Randomly picks a single element out of the given range with equal
@@ -117,6 +101,10 @@ unittest
     }
 }
 
+/**
+ * Returns: The subregion to the "left" of the given region along the given
+ * axis and splitting pivot.
+ */
 R leftRegion(R)(R r, int axis, int pivot)
     in (axis < r.n)
 {
@@ -125,6 +113,10 @@ R leftRegion(R)(R r, int axis, int pivot)
     return result;
 }
 
+/**
+ * Returns: The subregion to the "right" of the given region along the given
+ * axis and splitting pivot.
+ */
 R rightRegion(R)(R r, int axis, int pivot)
     in (axis < r.n)
 {
@@ -272,80 +264,6 @@ unittest
     //writefln("\n%(%-(%s%)\n%)", result[].chunks(w));
 }
 
-version(unittest)
-{
-    struct Screen(int w, int h)
-    {
-        import std.format : format;
-        dchar[w*h] impl;
-        static Screen opCall()
-        {
-            Screen result;
-            foreach (ref ch; result.impl) { ch = '#'; }
-            return result;
-        }
-        ref dchar opIndex(int i, int j)
-            in (0 <= i && i < w, format("(%d, %d)", i, j))
-            in (0 <= j && j < h, format("(%d, %d)", i, j))
-        {
-            return impl[i + w*j];
-        }
-        void dump()
-        {
-            import std.stdio, std.range : chunks;
-            writefln("\n%(%-(%s%)\n%)", impl[].chunks(w));
-        }
-    }
-
-    void renderRoom(S)(ref S screen, Region r, MapNode n)
-    {
-        dstring walls = "│─.┌└┐┘"d;
-        //dstring walls = "|-:,`.'"d;
-        foreach (j; r.min[1] .. r.max[1])
-            foreach (i; r.min[0] .. r.max[0])
-            {
-                if (i == r.min[0] || i == r.max[0]-1)
-                    screen[i, j] = walls[0];
-                else if (j == r.min[1] || j == r.max[1]-1)
-                    screen[i, j] = walls[1];
-                else
-                    screen[i, j] = walls[2];
-            }
-
-        screen[r.min[0], r.min[1]] = walls[3];
-        screen[r.min[0], r.max[1]-1] = walls[4];
-        screen[r.max[0]-1, r.min[1]] = walls[5];
-        screen[r.max[0]-1, r.max[1]-1] = walls[6];
-
-        foreach (door; n.doors)
-        {
-            screen[door.pos[0], door.pos[1]] = door.axis ? '|' : '-';
-        }
-    }
-
-    void dumpBsp(S)(ref S result, MapNode tree, Region region)
-    {
-        // Debug map dump 
-        int id = 0;
-        tree.foreachRoom(region, (Region r, MapNode n) {
-            result.renderRoom(r, n);
-
-            import std.format : format;
-            auto idstr = format("%d", id);
-            foreach (i; 0 .. idstr.length)
-            {
-                if (i < r.max[0] - r.min[0] - 2)
-                    result[cast(int)(r.min[0] + i + 1), r.min[1]+1] = idstr[i];
-            }
-            id++;
-
-            return 0;
-        });
-
-        result.dump();
-    }
-}
-
 /**
  * Invokes the given delegate on every child node that passes the specified
  * region filter and whose parent nodes also pass the filter.
@@ -431,7 +349,8 @@ unittest
     auto bounds = region(vec(0, 0, 0, 0), vec(12, 10, 1, 1));
     auto filter = region(vec(3, 0, 0, 0), vec(4, 3, 1, 1));
 
-    //Screen!(12,10) scrn;
+    //import testutil;
+    //TestScreen!(12,10) scrn;
     //dumpBsp(scrn, root, bounds);
 
     Region!(int,4)[] regions;
@@ -497,124 +416,6 @@ unittest
     assert(regions == [
         region(vec(5, 2, 2, 0), vec(10, 10, 10, 1)),
     ]);
-}
-
-/**
- * Generate corridors based on BSP tree structure.
- */
-void genCorridors(R)(MapNode root, R region)
-    if (is(R == Region!(int,n), size_t n))
-{
-    if (root.isLeaf) return;
-
-    genCorridors(root.left, leftRegion(region, root.axis, root.pivot));
-    genCorridors(root.right, rightRegion(region, root.axis, root.pivot));
-
-    static struct LeftRoom
-    {
-        MapNode node;
-        R region;
-    }
-
-    LeftRoom[] leftRooms;
-    root.left.foreachFiltRoom(region,
-        (R r) => r.max[root.axis] >= root.pivot,
-        (MapNode node1, R r1) {
-            leftRooms ~= LeftRoom(node1, r1);
-            return 0;
-        });
-
-    int ntries=0;
-    while (ntries++ < 2*leftRooms.length)
-    {
-        auto leftRoom = leftRooms.pickOne;
-        R wallFilt = leftRoom.region;
-        wallFilt.min[root.axis] = root.pivot;
-        wallFilt.max[root.axis] = root.pivot;
-
-        static struct RightRoom
-        {
-            MapNode node;
-            R region;
-            int[4] basePos;
-        }
-
-        RightRoom[] rightRooms;
-        root.right.foreachFiltRoom(region, wallFilt,
-            (MapNode node2, R r2) {
-                auto ir = leftRoom.region.intersect(r2);
-
-                int[4] basePos;
-                foreach (i; 0 .. 4)
-                {
-                    import std.random : uniform;
-                    if (ir.max[i] - ir.min[i] >= 3)
-                        basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
-                    else
-                    {
-                        // Overlap is too small to place a door, skip.
-//import std.stdio;writefln("left=%s right=%s TOO NARROW, SKIPPING", leftRoom.region, r2);
-                        return 0;
-                    }
-                }
-
-                rightRooms ~= RightRoom(node2, r2, basePos);
-                return 0;
-            });
-
-        // If can't find a suitable door placement, try picking a different
-        // left room.
-        if (rightRooms.empty)
-        {
-//import std.stdio;writefln("left=%s NO MATCH, SKIPPING", leftRoom.region);
-            continue;
-        }
-
-        auto rightRoom = rightRooms.pickOne;
-        auto d = Door(root.axis);
-
-        d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot-1;
-        leftRoom.node.doors ~= d;
-
-        d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot;
-        rightRoom.node.doors ~= d;
-        return;
-    }
-
-    // If we got here, it means we're in trouble.
-    throw new Exception("No matching door placement found, give up");
-}
-
-unittest
-{
-    enum w = 48, h = 24;
-    Screen!(w,h) result;
-
-    import std.algorithm : filter, clamp;
-    import std.random : uniform;
-    import std.range : iota;
-    import gauss;
-
-    // Generate base BSP tree
-    auto bounds = region(vec(0, 0, 0, 0), vec(w, h, 3, 3));
-    alias R = typeof(bounds);
-
-    auto tree = genBsp!MapNode(bounds,
-        (R r) => r.length(0)*r.length(1) > 49 + uniform(0, 50),
-        (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
-                        .pickOne(invalidAxis),
-        (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
-            invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
-            //gaussian(r.max[axis] - r.min[axis], 4)
-            //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
-    );
-
-    // Generate connecting corridors
-    genCorridors(tree, bounds);
-
-    //dumpBsp(result, tree, bounds);
 }
 
 // vim:set ai sw=4 ts=4 et:
