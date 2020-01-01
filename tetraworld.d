@@ -39,6 +39,7 @@ struct GameMap
     // For initial testing only; this should be replaced with a proper object
     // system.
     private Vec!(int,4) playerPos;
+    private Vec!(int,4) exitPos;
 
     private MapNode tree;
     private alias R = Region!(int,4);
@@ -59,6 +60,7 @@ struct GameMap
         genCorridors(tree, bounds);
         resizeRooms(tree, bounds);
         playerPos = randomLocation(tree, bounds);
+        exitPos = randomLocation(tree, bounds);
     }
 
     @property int opDollar(int i)() { return bounds.max[i]; }
@@ -68,6 +70,7 @@ struct GameMap
         import std.math : abs;
 
         if (vec(pos) == playerPos) return '&';
+        if (vec(pos) == exitPos) return '@';
 
         // FIXME: should be a more efficient way to do this
         dchar ch = '/';
@@ -251,11 +254,20 @@ void play()
         disp.flush();
     }
 
+    InputEventHandler inputHandler;
+
     void movePlayer(Vec!(int,4) displacement)
     {
         auto newPos = map.playerPos + displacement;
         if (map[newPos] == '/')
             return; // movement blocked
+
+        if (map[newPos] == '@')
+        {
+            //message("You see the exit portal here.");
+            inputHandler.wantQuit = true;
+        }
+
         map.playerPos = newPos;
 
         viewport.centerOn(map.playerPos);
@@ -268,7 +280,6 @@ void play()
         refresh();
     }
 
-    InputEventHandler inputHandler;
     inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
     inputHandler.bind('m', (dchar) { movePlayer(vec(1,0,0,0)); });
     inputHandler.bind('h', (dchar) { movePlayer(vec(0,-1,0,0)); });
@@ -287,7 +298,6 @@ void play()
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
 
     refresh();
-    disp.flush();
     while (!inputHandler.wantQuit)
     {
         inputHandler.handleGlobalEvent(input.nextEvent());
