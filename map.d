@@ -437,23 +437,28 @@ version(unittest)
     void renderRoom(S,R)(ref S screen, R r, MapNode node)
         if (is(R == Region!(int,n), size_t n))
     {
-        dstring walls = "│─.┌└┐┘"d;
-        //dstring walls = "|-:,`.'"d;
         foreach (j; r.min[1] .. r.max[1])
             foreach (i; r.min[0] .. r.max[0])
+                screen[i, j] = '#';
+
+        dstring walls = "│─.┌└┐┘"d;
+        //dstring walls = "|-:,`.'"d;
+        auto interior = node.interior;
+        foreach (j; interior.min[1] .. interior.max[1])
+            foreach (i; interior.min[0] .. interior.max[0])
             {
-                if (i == r.min[0] || i == r.max[0]-1)
+                if (i == interior.min[0] || i == interior.max[0]-1)
                     screen[i, j] = walls[0];
-                else if (j == r.min[1] || j == r.max[1]-1)
+                else if (j == interior.min[1] || j == interior.max[1]-1)
                     screen[i, j] = walls[1];
                 else
                     screen[i, j] = walls[2];
             }
 
-        screen[r.min[0], r.min[1]] = walls[3];
-        screen[r.min[0], r.max[1]-1] = walls[4];
-        screen[r.max[0]-1, r.min[1]] = walls[5];
-        screen[r.max[0]-1, r.max[1]-1] = walls[6];
+        screen[interior.min[0], interior.min[1]] = walls[3];
+        screen[interior.min[0], interior.max[1]-1] = walls[4];
+        screen[interior.max[0]-1, interior.min[1]] = walls[5];
+        screen[interior.max[0]-1, interior.max[1]-1] = walls[6];
 
         foreach (door; node.doors)
         {
@@ -462,6 +467,9 @@ version(unittest)
     }
 }
 
+/**
+ * A room door.
+ */
 struct Door
 {
     int axis;
@@ -474,6 +482,7 @@ struct Door
 class MapNode : BspNode!(MapNode)
 {
     Door[] doors;
+    Region!(int,4) interior;
 }
 
 /**
@@ -564,6 +573,74 @@ void genCorridors(R)(MapNode root, R region)
     throw new Exception("No matching door placement found, give up");
 }
 
+/**
+ * Iterate over leaf nodes in the given BSP tree and assign room interiors with
+ * random sizes.
+ *
+ * Prerequisites: Doors must have already been computed, since minimum room
+ * interior regions are computed based on the position of doors.
+ */
+void resizeRooms(R)(MapNode root, R region)
+    if (is(R == Region!(int,n), size_t n))
+{
+    foreachRoom(root, region, (R bounds, MapNode node) {
+        import std.random : uniform;
+
+        // Find minimum region room must cover in order for exits to connect.
+        auto core = R(bounds.max, bounds.min);
+        foreach (d; node.doors)
+        {
+            foreach (i; 0 .. 4)
+            {
+                if (i == d.axis)
+                {
+                    if (core.min[i] > d.pos[i])
+                        core.min[i] = d.pos[i];
+                    if (core.max[i] < d.pos[i] + 1)
+                        core.max[i] = d.pos[i] + 1;
+                }
+                else
+                {
+                    if (core.min[i] > d.pos[i] - 1)
+                        core.min[i] = d.pos[i] - 1;
+                    if (core.max[i] < d.pos[i] + 2)
+                        core.max[i] = d.pos[i] + 2;
+                }
+            }
+        }
+
+        // Expand minimum region to be at least 4 tiles wide in each direction.
+        foreach (i; 0 .. 4)
+        {
+            if (bounds.length(i) < 4)
+                continue;   // FIXME: should be an error
+
+            while (core.length(i) < 4)
+            {
+                if (uniform(0, 2) == 0)
+                {
+                    if (bounds.min[i] < core.min[i])
+                        core.min[i]--;
+                }
+                else
+                {
+                    if (core.max[i] < bounds.max[i])
+                        core.max[i]++;
+                }
+            }
+        }
+
+        // Select random size between bounding region and minimum region.
+        foreach (i; 0 .. 4)
+        {
+            node.interior.min[i] = uniform!"[]"(bounds.min[i], core.min[i]);
+            node.interior.max[i] = uniform!"[]"(core.max[i], bounds.max[i]);
+        }
+
+        return 0;
+    });
+}
+
 unittest
 {
     import testutil;
@@ -591,8 +668,10 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
+    resizeRooms(tree, bounds);
 
     dumpBsp(result, tree, bounds);
+    assert(0);
 }
 
 // vim:set ai sw=4 ts=4 et:
