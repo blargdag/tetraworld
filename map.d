@@ -670,19 +670,23 @@ unittest
     genCorridors(tree, bounds);
     resizeRooms(tree, bounds);
 
-    //dumpBsp(result, tree, bounds);
+    version(none)
+    {
+        dumpBsp(result, tree, bounds);
+        assert(0);
+    }
 }
 
 /**
  * Randomly select a map location that isn't a wall.
  */
-Vec!(int,4) randomLocation(MapNode node, Region!(int,4) bounds)
+Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds)
 {
-    import std.random : uniform;
-    Vec!(int,4) result;
-
-    if (node.isLeaf)
+    return randomRoom(tree, initialBounds, (MapNode node, Region!(int,4) bounds)
     {
+        import std.random : uniform;
+        Vec!(int,4) result;
+
         foreach (i; 0 .. 4)
         {
             assert(node.interior.length(i) >= 3);
@@ -691,14 +695,7 @@ Vec!(int,4) randomLocation(MapNode node, Region!(int,4) bounds)
                                 node.interior.max[i] - 1);
         }
         return result;
-    }
-
-    if (uniform(0, 2) == 0)
-        return randomLocation(node.left, leftRegion(bounds, node.axis,
-                                                    node.pivot));
-    else
-        return randomLocation(node.right, rightRegion(bounds, node.axis,
-                                                      node.pivot));
+    });
 }
 
 // vim:set ai sw=4 ts=4 et:

@@ -418,4 +418,32 @@ unittest
     ]);
 }
 
+/**
+ * Invoke the given delegate on a randomly chosen node in the given BSP tree.
+ *
+ * Params:
+ *  node = The BSP tree.
+ *  bounds = The initial bounds of the BSP tree.
+ *  dg = The delegate to invoke. It will be passed the BSP node and the
+ *        corresponding bounds object. Any return value will be propagated to
+ *        the return value of randomRoom itself.
+ */
+Ret randomRoom(Node,R,Ret)(Node node, R bounds, Ret delegate(Node,R) dg)
+    if (is(R == Region!(int,n), size_t n))
+{
+    if (!node.isLeaf)
+    {
+        import std.random : uniform;
+        if (uniform(0, 2) == 0)
+            return randomRoom(node.left, leftRegion(bounds, node.axis,
+                                                    node.pivot),
+                              dg);
+        else
+            return randomRoom(node.right, rightRegion(bounds, node.axis,
+                                                      node.pivot),
+                              dg);
+    }
+    return dg(node, bounds);
+}
+
 // vim:set ai sw=4 ts=4 et:
