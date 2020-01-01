@@ -57,6 +57,30 @@ struct GameMap
                 invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
         );
         genCorridors(tree, bounds);
+        resizeRooms(tree, bounds);
+        placePlayer(tree, bounds);
+    }
+
+    /**
+     * Randomly select a map location to place player.
+     */
+    private void placePlayer(MapNode node, R bounds)
+    {
+        if (node.isLeaf)
+        {
+            foreach (i; 0 .. 4)
+            {
+                assert(node.interior.length(i) >= 3);
+                playerPos[i] = uniform(node.interior.min[i] + 1,
+                                       node.interior.max[i] - 1);
+            }
+            return;
+        }
+        if (uniform(0, 2) == 0)
+            placePlayer(node.left, leftRegion(bounds, node.axis, node.pivot));
+        else
+            placePlayer(node.right, rightRegion(bounds, node.axis,
+                                                node.pivot));
     }
 
     @property int opDollar(int i)() { return bounds.max[i]; }
@@ -71,8 +95,9 @@ struct GameMap
         dchar ch = '/';
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
             (MapNode node, R r) {
-                if (iota(4).fold!((b, i) => b && r.min[i] < pos[i] &&
-                                            pos[i] + 1 < r.max[i])(true))
+                auto rr = node.interior;
+                if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
+                                            pos[i] + 1 < rr.max[i])(true))
                 {
                     ch = '.';
                     return 1;
@@ -216,7 +241,6 @@ void play()
 
     // Map test
     auto map = GameMap([ 15, 15, 15, 15 ]);
-    map.playerPos = vec(1,1,1,1); // FIXME
 
     auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
 

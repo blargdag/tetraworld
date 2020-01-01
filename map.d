@@ -670,8 +670,7 @@ unittest
     genCorridors(tree, bounds);
     resizeRooms(tree, bounds);
 
-    dumpBsp(result, tree, bounds);
-    assert(0);
+    //dumpBsp(result, tree, bounds);
 }
 
 // vim:set ai sw=4 ts=4 et:
