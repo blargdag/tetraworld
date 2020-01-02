@@ -437,10 +437,6 @@ version(unittest)
     void renderRoom(S,R)(ref S screen, R r, MapNode node)
         if (is(R == Region!(int,n), size_t n))
     {
-        foreach (j; r.min[1] .. r.max[1])
-            foreach (i; r.min[0] .. r.max[0])
-                screen[i, j] = '#';
-
         enum walls = "│─.┌└┐┘"d;
         //enum walls = "|-:,`.'"d;
         auto interior = node.interior;
@@ -667,7 +663,7 @@ unittest
 {
     import testutil;
     enum w = 48, h = 24;
-    TestScreen!(w,h) result;
+    auto result = TestScreen!(w,h)();
 
     import std.algorithm : filter, clamp;
     import std.random : uniform;
@@ -675,7 +671,7 @@ unittest
     import gauss;
 
     // Generate base BSP tree
-    auto bounds = region(vec(0, 0, 0, 0), vec(w, h, 3, 3));
+    auto bounds = region(vec(0, 0, 0, 0), vec(w-1, h-1, 3, 3));
     alias R = typeof(bounds);
 
     auto tree = genBsp!MapNode(bounds,
@@ -693,7 +689,7 @@ unittest
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
-    version(none)
+    //version(none)
     {
         dumpBsp(result, tree, bounds);
         assert(0);
