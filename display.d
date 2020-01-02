@@ -32,6 +32,7 @@
  */
 module display;
 
+import std.range.primitives;
 import vector;
 
 /**
@@ -346,31 +347,41 @@ private struct DispBuffer(ColorType colorType)
         uint dirtyStart = uint.max, dirtyEnd;
 
         /**
-         * Returns: Range of chars on this line.
+         * Returns: Range of Glyphs on this line.
+         *
+         * Bugs: Due to std.uni.Grapheme's bogonity, we have to return Glyph*'s
+         * as elements instead of Glyph, so that no Grapheme copying is done.
+         * So you may have to explicitly dereference elements if you expect
+         * Glyph's.
          */
-        auto byChar()()
+        auto byGlyph()()
         {
-            return byCharImpl(0, cast(uint) contents.length);
+            return byGlyphImpl(0, cast(uint) contents.length);
         }
 
         /**
-         * Returns: Range of dirty chars on this line.
+         * Returns: Range of dirty Glyphs on this line.
+         *
+         * Bugs: Due to std.uni.Grapheme's bogonity, we have to return Glyph*'s
+         * as elements instead of Glyph, so that no Grapheme copying is done.
+         * So you may have to explicitly dereference elements if you expect
+         * Glyph's.
          */
-        auto byDirtyChar()()
+        auto byDirtyGlyph()()
         {
-            return byCharImpl(dirtyStart, dirtyEnd);
+            return byGlyphImpl(dirtyStart, dirtyEnd);
         }
 
-        private auto byCharImpl(uint start, uint end)
+        private auto byGlyphImpl(uint start, uint end)
         {
             import std.array : array;
-            import std.algorithm : filter, map, joiner;
+            import std.algorithm : filter, map;
 
             return contents[start .. end]
                 .filter!((ref c) => c.type != Cell.Type.HalfRight)
-                .map!((ref c) => (c == c.init) ? spaceGrapheme[]
-                                               : c.glyph.g[])
-                .joiner;
+                .map!((ref c) => &c.glyph);
+
+            static assert(is(ElementType!(typeof(return)) == Glyph*));
         }
 
         /**
@@ -544,10 +555,12 @@ version(unittest)
 private void dump(Disp)(Disp buf)
     if (is(Disp == DispBuffer!c, ColorType c))
 {
+    import std.algorithm : map;
+    import std.conv : to;
     import std.stdio;
     foreach (i, line; buf.lines)
     {
-        writefln("%2d: >%s<", i, line.byChar());
+        writefln("%2d: >%s<", i, line.byGlyph().map!(gl => gl.g[].to!string));
     }
 }
 
@@ -657,8 +670,17 @@ struct BufferedDisplay(Display)
 
             assert(line.dirtyStart < line.dirtyEnd);
             assert(linenum <= int.max);
+
             disp.moveTo(line.dirtyStart, cast(int)linenum);
-            disp.writef("%s", line.byDirtyChar());
+
+            import std.algorithm : joiner, map;
+            static if (hasColor!Display)
+                disp.writef("%s", line.byDirtyGlyph());
+            else
+                disp.writef("%s", line.byDirtyGlyph()
+                                      .map!(gl => gl.g[])
+                                      .joiner);
+
             line.markAllClean();
         }
 
@@ -794,7 +816,7 @@ unittest
     app.formattedWrite("%s", bufDisp.buf);
     assert(app.data == "Живи\n 大 \n");
 
-    // Test byDirtyLines() and Line.byChar().
+    // Test byDirtyLines() and Line.byGlyph().
     import std.algorithm : equal;
     import std.typecons : tuple;
     auto dirtyLines = bufDisp.buf.byDirtyLines;
@@ -802,7 +824,12 @@ unittest
         tuple(0, "Живи"),
         tuple(1, " 大 ")
     ];
-    assert(equal!((a,b) => a[0]==b[0] && equal(a[1].byChar(), b[1]))
+
+    import std.algorithm : map;
+    import std.uni : byGrapheme;
+    assert(equal!((a,b) => a[0]==b[0] &&
+                  equal(a[1].byGlyph().map!(gl => *gl),
+                        b[1].byGrapheme.map!(ch => bufDisp.buf.Glyph(ch))))
                  (dirtyLines, expectedLines));
 }
 
@@ -851,7 +878,6 @@ unittest
         tuple(1, 1, "Разцветал"),
         tuple(1, 3, "你是大人"),
     ];
-    //bufDisp.buf.dump();
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
     assert(bufDisp.buf.byDirtyLines.empty);
