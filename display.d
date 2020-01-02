@@ -592,6 +592,7 @@ struct BufferedDisplay(Display)
 
             assert(line.dirtyStart < line.dirtyEnd);
             assert(linenum <= int.max);
+import std.range,std.stdio;writefln("flush: %d dirty=%d..%d dirtyChars=%s", linenum, line.dirtyStart, line.dirtyEnd, line.byDirtyChar());
             disp.moveTo(line.dirtyStart, cast(int)linenum);
             disp.writef("%s", line.byDirtyChar());
             line.markAllClean();
@@ -626,6 +627,38 @@ struct BufferedDisplay(Display)
     {
         void showCursor() { cursorHidden = false; }
         void hideCursor() { cursorHidden = true; }
+    }
+
+    /**
+     * Clears the buffer and also the underlying display.
+     *
+     * Bugs: This takes effect immediately, rather than at the next call to
+     * .flush.
+     */
+    void clear()
+    {
+        buf.lines.length = disp.height;
+        foreach (j; 0 .. disp.height)
+        {
+            buf.lines[j].contents.length = disp.width;
+            foreach (i; 0 .. disp.width)
+            {
+                buf[i, j] = spaceGrapheme;
+            }
+        }
+
+        static if (is(typeof(disp.clear())))
+        {
+            disp.clear();
+            foreach (ref e; buf.lines)
+            {
+                e.markAllClean();
+            }
+        }
+        else
+        {
+            flush();
+        }
     }
 
     static assert(isGridDisplay!(typeof(this)));
@@ -895,6 +928,7 @@ unittest
 
     // Test per-line cache: lines should not be written until .flush is called.
     auto bufDisp = bufferedDisplay(disp);
+    bufDisp.clear();
     bufDisp.moveTo(0, 0);
     bufDisp.writef("abcdefgh");
     assert(disp.impl == "        "~ // not updated until .flush is called
@@ -938,9 +972,15 @@ unittest
     bufDisp.moveTo(1, 1);
     bufDisp.writef("Ойойой");
     bufDisp.flush();
-    assert(disp.impl == "Xbcdefgh"~ // canaries
+    assert(disp.impl == "Xbcdefgh"~ // buffer unaware of canaries
                         "YОйойойZ"~
                         "W       ");
+
+    bufDisp.repaint();
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~ // canaries gone
+                        "0Ойойой7"~
+                        "        ");
 }
 
 // vim:set ai sw=4 ts=4 et:
