@@ -291,7 +291,6 @@ private struct DispBuffer
         enum Type : ubyte { Full, HalfLeft, HalfRight }
 
         Type type;
-        bool dirty;
         Grapheme grapheme;
 
         version(unittest)
@@ -305,20 +304,62 @@ private struct DispBuffer
     static struct Line
     {
         Cell[] contents;
-        bool dirty;
+        uint dirtyStart = uint.max, dirtyEnd;
 
         /**
-         * Returns: Range of chars in this line.
+         * Returns: Range of chars on this line.
          */
-        auto byChar()
+        auto byChar()()
+        {
+            return byCharImpl(0, cast(uint) contents.length);
+        }
+
+        /**
+         * Returns: Range of dirty chars on this line.
+         */
+        auto byDirtyChar()()
+        {
+            return byCharImpl(dirtyStart, dirtyEnd);
+        }
+
+        private auto byCharImpl(uint start, uint end)
         {
             import std.array : array;
             import std.algorithm : filter, map, joiner;
 
-            return contents.filter!((ref c) => c.type != Cell.Type.HalfRight)
-                           .map!((ref c) => (c == c.init) ? spaceGrapheme[]
-                                                          : c.grapheme[])
-                           .joiner;
+            return contents[start .. end]
+                .filter!((ref c) => c.type != Cell.Type.HalfRight)
+                .map!((ref c) => (c == c.init) ? spaceGrapheme[]
+                                               : c.grapheme[])
+                .joiner;
+        }
+
+        /**
+         * Mark a column as dirty.
+         *
+         * Note that since we only track a single dirty segment, this may cause
+         * more than one column to be marked dirty.
+         */
+        void markDirty(int x)
+        {
+            import std.algorithm : min, max;
+            dirtyStart = min(x, dirtyStart);
+            dirtyEnd = max(x+1, dirtyEnd);
+        }
+
+        /**
+         * Mark entire line as dirty.
+         */
+        void markAllDirty()
+        {
+            dirtyStart = 0;
+            dirtyEnd = cast(uint) contents.length;
+        }
+
+        void markAllClean()
+        {
+            dirtyStart = uint.max;
+            dirtyEnd = 0;
         }
     }
 
@@ -364,16 +405,19 @@ private struct DispBuffer
             assert(y >= 0 && y < lines.length &&
                    x >= 0 && x < lines[y].contents.length);
 
+            lines[y].markDirty(x);
             final switch (lines[y].contents[x].type)
             {
                 case Cell.Type.HalfLeft:
                     assert(lines[y].contents.length > x+1);
+                    lines[y].markDirty(x+1);
                     lines[y].contents[x+1].type = Cell.Type.Full;
                     lines[y].contents[x+1].grapheme = spaceGrapheme;
                     return;
 
                 case Cell.Type.HalfRight:
                     assert(x > 0);
+                    lines[y].markDirty(x-1);
                     lines[y].contents[x-1].type = Cell.Type.Full;
                     lines[y].contents[x-1].grapheme = spaceGrapheme;
                     return;
@@ -392,9 +436,6 @@ private struct DispBuffer
             // Written character identical to what's in buffer; nothing to do.
             return;
         }
-
-        lines[y].dirty = true;
-        contents[x].dirty = true;
 
         stomp(x, y);
         contents[x].grapheme = g;
@@ -438,7 +479,7 @@ private struct DispBuffer
         import std.range : zip, sequence;
 
         return zip(sequence!"n", lines.map!((ref a) => &a))
-              .filter!(a => a[1].dirty);
+              .filter!(a => a[1].dirtyStart < a[1].dirtyEnd);
     }
 }
 
@@ -546,15 +587,15 @@ struct BufferedDisplay(Display)
 
         foreach (e; buf.byDirtyLines)
         {
-            // For now, just repaint the entire line
             auto linenum = e[0];
             auto line = e[1];
 
-            assert(line.dirty);
+            assert(line.dirtyStart < line.dirtyEnd);
             assert(linenum <= int.max);
-            disp.moveTo(0, cast(int)linenum);
-            disp.writef("%s", line.byChar());
-            line.dirty = false;
+import std.range,std.stdio;writefln("flush: %d dirty=%d..%d dirtyChars=%s", linenum, line.dirtyStart, line.dirtyEnd, line.byDirtyChar());
+            disp.moveTo(line.dirtyStart, cast(int)linenum);
+            disp.writef("%s", line.byDirtyChar());
+            line.markAllClean();
         }
 
         // Update physical cursor position to latest virtual position.
@@ -576,9 +617,9 @@ struct BufferedDisplay(Display)
      */
     void repaint()
     {
-        foreach (e; buf.lines)
+        foreach (ref e; buf.lines)
         {
-            e.dirty = true;
+            e.markAllDirty();
         }
     }
 
@@ -586,6 +627,38 @@ struct BufferedDisplay(Display)
     {
         void showCursor() { cursorHidden = false; }
         void hideCursor() { cursorHidden = true; }
+    }
+
+    /**
+     * Clears the buffer and also the underlying display.
+     *
+     * Bugs: This takes effect immediately, rather than at the next call to
+     * .flush.
+     */
+    void clear()
+    {
+        buf.lines.length = disp.height;
+        foreach (j; 0 .. disp.height)
+        {
+            buf.lines[j].contents.length = disp.width;
+            foreach (i; 0 .. disp.width)
+            {
+                buf[i, j] = spaceGrapheme;
+            }
+        }
+
+        static if (is(typeof(disp.clear())))
+        {
+            disp.clear();
+            foreach (ref e; buf.lines)
+            {
+                e.markAllClean();
+            }
+        }
+        else
+        {
+            flush();
+        }
     }
 
     static assert(isGridDisplay!(typeof(this)));
@@ -694,8 +767,8 @@ unittest
     bufDisp.writef("你是");
 
     bufDisp.disp.expected = [
-        tuple(0, 1, " Разцветал"),
-        tuple(0, 3, " 你是大人"),
+        tuple(1, 1, "Разцветал"),
+        tuple(1, 3, "你是大人"),
     ];
     //bufDisp.buf.dump();
     bufDisp.flush();
@@ -706,7 +779,7 @@ unittest
     bufDisp.moveTo(1,3);
     bufDisp.writef("他");
     bufDisp.disp.expected = [
-        tuple(0, 3, " 他是大人"),
+        tuple(1, 3, "他"),
     ];
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
@@ -716,7 +789,7 @@ unittest
     bufDisp.moveTo(0,3);
     bufDisp.writef("他");
     bufDisp.disp.expected = [
-        tuple(0, 3, "他 是大人"),
+        tuple(0, 3, "他 "),
     ];
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
@@ -725,7 +798,7 @@ unittest
     bufDisp.moveTo(4,3);
     bufDisp.writef("x");
     bufDisp.disp.expected = [
-        tuple(0, 3, "他  x大人"),
+        tuple(3, 3, " x"),
     ];
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
@@ -737,7 +810,6 @@ unittest
 {
     // Test code for what happens when double-width characters are stricken
     // over.
-    import arsd.eventloop;
     import arsd.terminal;
 
     auto term = Terminal(ConsoleOutputType.cellular);
@@ -749,13 +821,19 @@ unittest
 
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
-    addListener((InputEvent event) {
-        if (event.type != InputEvent.Type.CharacterEvent) return;
+    term.flush();
+
+    bool quit;
+    while (!quit)
+    {
+        auto event = input.nextEvent();
+        if (event.type != InputEvent.Type.CharacterEvent) continue;
+
         auto ev = event.get!(InputEvent.Type.CharacterEvent);
         switch (ev.character)
         {
             case 'q':
-                arsd.eventloop.exit();
+                quit = true;
                 break;
             case '0':
                 term.moveTo(0,11);
@@ -782,10 +860,7 @@ unittest
             default:
                 break;
         }
-    });
-
-    term.flush();
-    loop();
+    }
 
     term.clear();
 }
@@ -793,25 +868,119 @@ unittest
 version(none)
 unittest
 {
-	("龘\n\t龘1\u2060a\u0308Ш ж\u0301\u0325\u200Bи\u200DвI\u0334"~
-	 "\0D\u0338\u0321o\u0330\n\tu\u0313\u0338\u0330\n5\u035A\n"~
-	 "ΐ\u032E 你１２３1\u033023")
-		.byGrapheme
-		.map!((g) {
-			string s;
-			if (isGraphical(g[0]))
-				s ~= "graph[%d]: %s".format(g.length, g[]);
-			else
-				s ~= "nongrph[%d]:".format(g.length);
-			s ~= "(%(U+%04X %))".format(g[]);
+    import std.algorithm, std.format, std.stdio, std.uni;
 
-			if (isGraphical(g[0]))
-				s ~= " %s".format(g[0].isWide ?
-							"wide" : "narrow");
-			return s;
-		})
-		.joiner("\n")
-		.writeln;
+    ("龘\n\t龘1\u2060a\u0308Ш ж\u0301\u0325\u200Bи\u200DвI\u0334"~
+     "\0D\u0338\u0321o\u0330\n\tu\u0313\u0338\u0330\n5\u035A\n"~
+     "ΐ\u032E 你１２３1\u033023")
+        .byGrapheme
+        .map!((g) {
+            string s;
+            if (isGraphical(g[0]))
+                s ~= "graph[%d]: %s".format(g.length, g[]);
+            else
+                s ~= "nongrph[%d]:".format(g.length);
+            s ~= "(%(U+%04X %))".format(g[]);
+
+            if (isGraphical(g[0]))
+                s ~= " %s".format(g[0].isWide ?
+                            "wide" : "narrow");
+            return s;
+        })
+        .joiner("\n")
+        .writeln;
+}
+
+// Cache tester
+unittest
+{
+    class TestDisplay
+    {
+        enum width = 8;
+        enum height = 3;
+
+        dchar[width*height] impl;
+        Vec!(int,2) cursor;
+
+        this()
+        {
+            foreach (ref ch; impl) { ch = ' '; }
+        }
+        void moveTo(int x, int y) { cursor = vec(x,y); }
+        void writef(A...)(string fmt, A args)
+        {
+            import std.format : format;
+            auto str = format(fmt, args);
+            foreach (dchar ch; str)
+            {
+                assert(cursor[0] < width && cursor[1] < height);
+                impl[cursor[0] + width*cursor[1]] = ch;
+                cursor[0]++;
+            }
+        }
+    }
+    static assert(isGridDisplay!TestDisplay);
+
+    auto disp = new TestDisplay;
+    assert(disp.impl == "        "~
+                        "        "~
+                        "        ");
+
+    // Test per-line cache: lines should not be written until .flush is called.
+    auto bufDisp = bufferedDisplay(disp);
+    bufDisp.clear();
+    bufDisp.moveTo(0, 0);
+    bufDisp.writef("abcdefgh");
+    assert(disp.impl == "        "~ // not updated until .flush is called
+                        "        "~
+                        "        ");
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~
+                        "        "~
+                        "        ");
+
+    // Untouched lines should not be updated.
+    bufDisp.moveTo(0, 1);
+    bufDisp.writef("01234567");
+    disp.impl[0] = 'X';     // canary
+    assert(disp.impl == "Xbcdefgh"~
+                        "        "~
+                        "        ");
+    bufDisp.flush();
+    assert(disp.impl == "Xbcdefgh"~ // buffer unaware of canary
+                        "01234567"~
+                        "        ");
+
+    // .repaint forces update of all lines
+    bufDisp.repaint();
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~ // .repaint overwrites canary
+                        "01234567"~
+                        "        ");
+
+    // Test partial line caching: if only middle of line updated, only dirty
+    // segment should be updated.  For efficiency, we only track a single
+    // segment; the overhead of jumping between segments on a single line seems
+    // not worthwhile.
+    disp.impl[0] = 'X';
+    disp.impl[8] = 'Y';
+    disp.impl[15] = 'Z';
+    disp.impl[16] = 'W';
+    assert(disp.impl == "Xbcdefgh"~ // canaries
+                        "Y123456Z"~
+                        "W       ");
+    bufDisp.moveTo(1, 1);
+    bufDisp.writef("Ойойой");
+    bufDisp.flush();
+    assert(disp.impl == "Xbcdefgh"~ // buffer unaware of canaries
+                        "YОйойойZ"~
+                        "W       ");
+
+    bufDisp.repaint();
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~ // canaries gone
+                        "0Ойойой7"~
+                        "        ");
 }
 
 // vim:set ai sw=4 ts=4 et:
