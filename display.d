@@ -1001,6 +1001,19 @@ unittest
     assert(disp.impl == "abcdefgh"~ // canaries gone
                         "0Ойойой7"~
                         "        ");
+
+    // Test matching of existing characters
+    disp.impl[16] = '^';
+    disp.impl[23] = '$';
+    assert(disp.impl == "abcdefgh"~
+                        "0Ойойой7"~
+                        "^      $");
+    bufDisp.moveTo(0, 2);
+    bufDisp.writef("   ha   ");
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~
+                        "0Ойойой7"~
+                        "^  ha  $"); // buffer unaware of canaries
 }
 
 // vim:set ai sw=4 ts=4 et:
