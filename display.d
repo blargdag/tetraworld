@@ -300,9 +300,27 @@ static this()
     spaceGrapheme = Grapheme(" ");
 }
 
-private struct DispBuffer
+enum ColorType
 {
+    none, basic16, truecolor
+}
+
+private struct DispBuffer(ColorType colorType)
+{
+    static assert(colorType != ColorType.truecolor,
+                  "Truecolor not implemented yet");
+
     import std.uni;
+
+    /**
+     * A colored grapheme.
+     */
+    struct Glyph
+    {
+        Grapheme g;
+        static if (colorType == ColorType.basic16)
+            ushort fg, bg;
+    }
 
     struct Cell
     {
@@ -312,13 +330,13 @@ private struct DispBuffer
         enum Type : ubyte { Full, HalfLeft, HalfRight }
 
         Type type;
-        Grapheme grapheme;
+        Glyph glyph;
 
         version(unittest)
         void toString(scope void delegate(const(char)[]) sink)
         {
             import std.algorithm : copy;
-            copy(grapheme[], sink);
+            copy(glyph.g[], sink);
         }
     }
 
@@ -351,7 +369,7 @@ private struct DispBuffer
             return contents[start .. end]
                 .filter!((ref c) => c.type != Cell.Type.HalfRight)
                 .map!((ref c) => (c == c.init) ? spaceGrapheme[]
-                                               : c.grapheme[])
+                                               : c.glyph.g[])
                 .joiner;
         }
 
@@ -389,29 +407,32 @@ private struct DispBuffer
     /**
      * Lookup a grapheme in the buffer.
      */
-    Grapheme opIndex(int x, int y)
+    Glyph opIndex(int x, int y)
     {
         if (y < 0 || y >= lines.length ||
             x < 0 || x >= lines[y].contents.length)
         {
             // Unassigned areas default to empty space
-            return spaceGrapheme;
+            static if (colorType == ColorType.basic16)
+                return Glyph(spaceGrapheme, 0, 0);
+            else
+                return Glyph(spaceGrapheme);
         }
 
         if (lines[y].contents[x].type == Cell.Type.HalfRight)
         {
             assert(x > 0);
-            return lines[y].contents[x-1].grapheme;
+            return lines[y].contents[x-1].glyph;
         }
         else
-            return lines[y].contents[x].grapheme;
+            return lines[y].contents[x].glyph;
     }
 
     /**
      * Write a single grapheme into the buffer.
      */
-    void opIndexAssign(ref Grapheme g, int x, int y)
-        in (isGraphical(g[0]))
+    void opIndexAssign(Glyph gl, int x, int y)
+        in (isGraphical(gl.g[0]))
     {
         if (y < 0 || x < 0) return;
         if (y >= lines.length)
@@ -419,7 +440,7 @@ private struct DispBuffer
 
         assert(y < lines.length);
         if (x >= lines[y].contents.length)
-            lines[y].contents.length = g[0].isWide() ? x+2 : x+1;
+            lines[y].contents.length = gl.g[0].isWide() ? x+2 : x+1;
 
         void stomp(int x, int y)
         {
@@ -433,14 +454,24 @@ private struct DispBuffer
                     assert(lines[y].contents.length > x+1);
                     lines[y].markDirty(x+1);
                     lines[y].contents[x+1].type = Cell.Type.Full;
-                    lines[y].contents[x+1].grapheme = spaceGrapheme;
+                    lines[y].contents[x+1].glyph.g = spaceGrapheme;
+                    static if (colorType == ColorType.basic16)
+                    {
+                        lines[y].contents[x+1].glyph.fg = gl.fg;
+                        lines[y].contents[x+1].glyph.bg = gl.bg;
+                    }
                     return;
 
                 case Cell.Type.HalfRight:
                     assert(x > 0);
                     lines[y].markDirty(x-1);
                     lines[y].contents[x-1].type = Cell.Type.Full;
-                    lines[y].contents[x-1].grapheme = spaceGrapheme;
+                    lines[y].contents[x-1].glyph.g = spaceGrapheme;
+                    static if (colorType == ColorType.basic16)
+                    {
+                        lines[y].contents[x-1].glyph.fg = gl.fg;
+                        lines[y].contents[x-1].glyph.bg = gl.bf;
+                    }
                     return;
 
                 case Cell.Type.Full:
@@ -451,7 +482,7 @@ private struct DispBuffer
         }
 
         auto contents = lines[y].contents;
-        if (contents[x].grapheme == g &&
+        if (contents[x].glyph == gl &&
             contents[x].type != Cell.Type.HalfRight)
         {
             // Written character identical to what's in buffer; nothing to do.
@@ -459,13 +490,18 @@ private struct DispBuffer
         }
 
         stomp(x, y);
-        contents[x].grapheme = g;
+        contents[x].glyph = gl;
 
-        if (g[0].isWide())
+        if (gl.g[0].isWide())
         {
             stomp(x+1, y);
             contents[x].type = Cell.Type.HalfLeft;
-            contents[x+1].grapheme = Grapheme.init;
+            contents[x+1].glyph.g = Grapheme.init;
+            static if (colorType == ColorType.basic16)
+            {
+                contents[x+1].glyph.fg = gl.fg;
+                contents[x+1].glyph.bg = gl.bg;
+            }
             contents[x+1].type = Cell.Type.HalfRight;
         }
         else
@@ -484,7 +520,7 @@ private struct DispBuffer
             {
                 import std.algorithm : copy;
                 if (lines[y].contents[x].type != Cell.Type.HalfRight)
-                    lines[y].contents[x].grapheme[].copy(sink);
+                    lines[y].contents[x].glyph.g[].copy(sink);
             }
             sink("\n");
         }
@@ -505,7 +541,8 @@ private struct DispBuffer
 }
 
 version(unittest)
-private void dump(DispBuffer buf)
+private void dump(Disp)(Disp buf)
+    if (is(Disp == DispBuffer!c, ColorType c))
 {
     import std.stdio;
     foreach (i, line; buf.lines)
@@ -522,8 +559,12 @@ struct BufferedDisplay(Display)
 {
     import std.uni;
 
-    private Display    disp;
-    private DispBuffer buf;
+    private Display disp;
+
+    static if (hasColor!Display)
+        private DispBuffer!(ColorType.basic16) buf;
+    else
+        private DispBuffer!(ColorType.none) buf;
 
     private Vec!(int,2) cursor;
     static if (canShowHideCursor!Display)
@@ -576,7 +617,10 @@ struct BufferedDisplay(Display)
             if (x < 0 || x >= disp.width || y < 0 || y >= disp.height)
                 continue;
 
-            buf[x,y] = g;
+            static if (hasColor!Display)
+                buf[x,y] = buf.Glyph(g, curFg, curBg);
+            else
+                buf[x,y] = buf.Glyph(g);
 
             x += g[0].isWide() ? 2 : 1;
         }
@@ -663,7 +707,10 @@ struct BufferedDisplay(Display)
             buf.lines[j].contents.length = disp.width;
             foreach (i; 0 .. disp.width)
             {
-                buf[i, j] = spaceGrapheme;
+                static if (hasColor!Display)
+                    buf[i, j] = buf.Glyph(spaceGrapheme, curFg, curBg);
+                else
+                    buf[i, j] = buf.Glyph(spaceGrapheme);
             }
         }
 
@@ -678,6 +725,20 @@ struct BufferedDisplay(Display)
         else
         {
             flush();
+        }
+    }
+
+    static if (hasColor!Display)
+    {
+        private ushort curFg, curBg;
+
+        /**
+         * Set current foreground/background color for grapheme assignments.
+         */
+        void color(ushort fg, ushort bg)
+        {
+            curFg = fg;
+            curBg = bg;
         }
     }
 
@@ -706,26 +767,26 @@ unittest
     bufDisp.writef("Живу\n你是");
 
     import std.algorithm : equal;
-    assert(bufDisp.buf[0,0][].equal("Ж"));
-    assert(bufDisp.buf[1,0][].equal("и"));
-    assert(bufDisp.buf[2,0][].equal("в"));
-    assert(bufDisp.buf[3,0][].equal("у"));
-    assert(bufDisp.buf[4,0][].equal(" "));
-    assert(bufDisp.buf[0,1][].equal("你"));
-    assert(bufDisp.buf[1,1][].equal("你"));
-    assert(bufDisp.buf[2,1][].equal("是"));
-    assert(bufDisp.buf[3,1][].equal("是"));
+    assert(bufDisp.buf[0,0].g[].equal("Ж"));
+    assert(bufDisp.buf[1,0].g[].equal("и"));
+    assert(bufDisp.buf[2,0].g[].equal("в"));
+    assert(bufDisp.buf[3,0].g[].equal("у"));
+    assert(bufDisp.buf[4,0].g[].equal(" "));
+    assert(bufDisp.buf[0,1].g[].equal("你"));
+    assert(bufDisp.buf[1,1].g[].equal("你"));
+    assert(bufDisp.buf[2,1].g[].equal("是"));
+    assert(bufDisp.buf[3,1].g[].equal("是"));
 
     bufDisp.moveTo(1,1);
     bufDisp.writef("大");
-    assert(bufDisp.buf[0,1][].equal(" "));
-    assert(bufDisp.buf[1,1][].equal("大"));
-    assert(bufDisp.buf[2,1][].equal("大"));
-    assert(bufDisp.buf[3,1][].equal(" "));
+    assert(bufDisp.buf[0,1].g[].equal(" "));
+    assert(bufDisp.buf[1,1].g[].equal("大"));
+    assert(bufDisp.buf[2,1].g[].equal("大"));
+    assert(bufDisp.buf[3,1].g[].equal(" "));
 
     bufDisp.moveTo(3,0);
     bufDisp.writef("и");
-    assert(bufDisp.buf[3,0][].equal("и"));
+    assert(bufDisp.buf[3,0].g[].equal("и"));
 
     import std.array : appender;
     import std.format : formattedWrite;
