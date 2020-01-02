@@ -737,7 +737,6 @@ unittest
 {
     // Test code for what happens when double-width characters are stricken
     // over.
-    import arsd.eventloop;
     import arsd.terminal;
 
     auto term = Terminal(ConsoleOutputType.cellular);
@@ -749,13 +748,19 @@ unittest
 
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
-    addListener((InputEvent event) {
-        if (event.type != InputEvent.Type.CharacterEvent) return;
+    term.flush();
+
+    bool quit;
+    while (!quit)
+    {
+        auto event = input.nextEvent();
+        if (event.type != InputEvent.Type.CharacterEvent) continue;
+
         auto ev = event.get!(InputEvent.Type.CharacterEvent);
         switch (ev.character)
         {
             case 'q':
-                arsd.eventloop.exit();
+                quit = true;
                 break;
             case '0':
                 term.moveTo(0,11);
@@ -782,10 +787,7 @@ unittest
             default:
                 break;
         }
-    });
-
-    term.flush();
-    loop();
+    }
 
     term.clear();
 }
@@ -793,25 +795,27 @@ unittest
 version(none)
 unittest
 {
-	("龘\n\t龘1\u2060a\u0308Ш ж\u0301\u0325\u200Bи\u200DвI\u0334"~
-	 "\0D\u0338\u0321o\u0330\n\tu\u0313\u0338\u0330\n5\u035A\n"~
-	 "ΐ\u032E 你１２３1\u033023")
-		.byGrapheme
-		.map!((g) {
-			string s;
-			if (isGraphical(g[0]))
-				s ~= "graph[%d]: %s".format(g.length, g[]);
-			else
-				s ~= "nongrph[%d]:".format(g.length);
-			s ~= "(%(U+%04X %))".format(g[]);
+    import std.algorithm, std.format, std.stdio, std.uni;
 
-			if (isGraphical(g[0]))
-				s ~= " %s".format(g[0].isWide ?
-							"wide" : "narrow");
-			return s;
-		})
-		.joiner("\n")
-		.writeln;
+    ("龘\n\t龘1\u2060a\u0308Ш ж\u0301\u0325\u200Bи\u200DвI\u0334"~
+     "\0D\u0338\u0321o\u0330\n\tu\u0313\u0338\u0330\n5\u035A\n"~
+     "ΐ\u032E 你１２３1\u033023")
+        .byGrapheme
+        .map!((g) {
+            string s;
+            if (isGraphical(g[0]))
+                s ~= "graph[%d]: %s".format(g.length, g[]);
+            else
+                s ~= "nongrph[%d]:".format(g.length);
+            s ~= "(%(U+%04X %))".format(g[]);
+
+            if (isGraphical(g[0]))
+                s ~= " %s".format(g[0].isWide ?
+                            "wide" : "narrow");
+            return s;
+        })
+        .joiner("\n")
+        .writeln;
 }
 
 // vim:set ai sw=4 ts=4 et:
