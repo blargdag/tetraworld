@@ -68,6 +68,27 @@ enum canShowHideCursor(T) = isGridDisplay!T &&
                             is(typeof(T.init.hideCursor()));
 
 /**
+ * true if T is a grid-based display that supports color.
+ *
+ * A display that supports color is one that has a .color method that accepts
+ * two ushort parameters, corresponding to foreground and background colors.
+ */
+template hasColor(T)
+    if (isGridDisplay!T)
+{
+    enum hasColor = is(typeof(T.init.color(ushort.init, ushort.init)));
+}
+
+/**
+ * true if T is a grid-based display that supports the .clear operation.
+ */
+template canClear(T)
+    if (isGridDisplay!T)
+{
+    enum canClear = is(typeof(T.init.clear()));
+}
+
+/**
  * A wrapper around an existing display that represents a rectangular subset of
  * it. The .moveTo primitive is wrapped to translate input coordinates into
  * actual coordinates on the display.
@@ -592,7 +613,6 @@ struct BufferedDisplay(Display)
 
             assert(line.dirtyStart < line.dirtyEnd);
             assert(linenum <= int.max);
-import std.range,std.stdio;writefln("flush: %d dirty=%d..%d dirtyChars=%s", linenum, line.dirtyStart, line.dirtyEnd, line.byDirtyChar());
             disp.moveTo(line.dirtyStart, cast(int)linenum);
             disp.writef("%s", line.byDirtyChar());
             line.markAllClean();
@@ -647,7 +667,7 @@ import std.range,std.stdio;writefln("flush: %d dirty=%d..%d dirtyChars=%s", line
             }
         }
 
-        static if (is(typeof(disp.clear())))
+        static if (canClear!Display)
         {
             disp.clear();
             foreach (ref e; buf.lines)
