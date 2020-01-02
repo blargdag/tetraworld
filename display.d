@@ -1179,17 +1179,19 @@ unittest
     bufDisp.writef("abcd");
     bufDisp.color(1, 2);
     bufDisp.writef("efgh");
+    bufDisp.moveTo(2, 2);
+    bufDisp.writef("bleh");
     bufDisp.color(3, 4); // should not affect .flush
     bufDisp.flush();
     assert(disp.text == "abcdefgh"~
                         "        "~
-                        "        ");
+                        "  bleh  ");
     assert(disp.fgs == [ 0,0,0,0,1,1,1,1,
                          0,0,0,0,0,0,0,0,
-                         0,0,0,0,0,0,0,0 ]);
+                         0,0,1,1,1,1,0,0 ]);
     assert(disp.bgs == [ 0,0,0,0,2,2,2,2,
                          0,0,0,0,0,0,0,0,
-                         0,0,0,0,0,0,0,0 ]);
+                         0,0,2,2,2,2,0,0 ]);
 
     // Color overwrite test
     bufDisp.moveTo(2, 0);
@@ -1197,14 +1199,85 @@ unittest
     bufDisp.flush();
     assert(disp.text == "abHAHAgh"~
                         "        "~
-                        "        ");
+                        "  bleh  ");
     assert(disp.fgs == [ 0,0,3,3,3,3,1,1,
                          0,0,0,0,0,0,0,0,
-                         0,0,0,0,0,0,0,0 ]);
+                         0,0,1,1,1,1,0,0 ]);
     assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
+                         0,0,0,0,0,0,0,0,
+                         0,0,2,2,2,2,0,0 ]);
+
+    // Same text, different colors overwrite test
+    bufDisp.color(5, 6);
+    bufDisp.moveTo(0, 1);
+    bufDisp.writef("  ");
+    bufDisp.moveTo(1, 2);
+    bufDisp.writef(" ble");
+    bufDisp.flush();
+    assert(disp.text == "abHAHAgh"~
+                        "        "~
+                        "  bleh  ");
+    assert(disp.fgs == [ 0,0,3,3,3,3,1,1,
+                         5,5,0,0,0,0,0,0,
+                         0,5,5,5,5,1,0,0 ]);
+    assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
+                         6,6,0,0,0,0,0,0,
+                         0,6,6,6,6,2,0,0 ]);
+
+    // Identical write test
+    disp.text[] = 'X';    // canaries
+    disp.fgs[] = 0;
+    disp.bgs[] = 0;
+    assert(disp.text == "XXXXXXXX"~
+                        "XXXXXXXX"~
+                        "XXXXXXXX");
+    assert(disp.fgs == [ 0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0 ]);
+    assert(disp.bgs == [ 0,0,0,0,0,0,0,0,
                          0,0,0,0,0,0,0,0,
                          0,0,0,0,0,0,0,0 ]);
 
+    bufDisp.moveTo(4, 0);
+    bufDisp.color(3, 4);
+    bufDisp.writef("HA");
+    bufDisp.color(1, 2);
+    bufDisp.writef("gh");
+
+    bufDisp.moveTo(1, 1);
+    bufDisp.color(5, 6);
+    bufDisp.writef(" ");
+
+    bufDisp.moveTo(3, 2);
+    bufDisp.writef("l");
+
+    bufDisp.moveTo(7, 2); // non-identical write
+    bufDisp.color(7, 8);
+    bufDisp.writef("O");
+
+    bufDisp.flush();
+
+    assert(disp.text == "XXXXXXXX"~ // buffer unaware of canaries
+                        "XXXXXXXX"~
+                        "XXXXXXXO");
+    assert(disp.fgs == [ 0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,7 ]);
+    assert(disp.bgs == [ 0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,8 ]);
+
+    bufDisp.repaint();
+    bufDisp.flush();
+    assert(disp.text == "abHAHAgh"~ // state now resynced
+                        "        "~
+                        "  bleh O");
+    assert(disp.fgs == [ 0,0,3,3,3,3,1,1,
+                         5,5,0,0,0,0,0,0,
+                         0,5,5,5,5,1,0,7 ]);
+    assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
+                         6,6,0,0,0,0,0,0,
+                         0,6,6,6,6,2,0,8 ]);
 }
 
 // vim:set ai sw=4 ts=4 et:
