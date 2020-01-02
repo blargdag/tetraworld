@@ -576,7 +576,7 @@ struct BufferedDisplay(Display)
      */
     void repaint()
     {
-        foreach (e; buf.lines)
+        foreach (ref e; buf.lines)
         {
             e.dirty = true;
         }
@@ -853,6 +853,7 @@ unittest
                         "        "~
                         "        ");
 
+    // Test per-line cache: lines should not be written until .flush is called.
     auto bufDisp = bufferedDisplay(disp);
     bufDisp.moveTo(0, 0);
     bufDisp.writef("abcdefgh");
@@ -862,6 +863,25 @@ unittest
     bufDisp.flush();
     assert(disp.impl == "abcdefgh"~
                         "        "~
+                        "        ");
+
+    // Untouched lines should not be updated.
+    bufDisp.moveTo(0, 1);
+    bufDisp.writef("01234567");
+    disp.impl[0] = 'X';     // canary
+    assert(disp.impl == "Xbcdefgh"~
+                        "        "~
+                        "        ");
+    bufDisp.flush();
+    assert(disp.impl == "Xbcdefgh"~ // buffer unaware of canary
+                        "01234567"~
+                        "        ");
+
+    // .repaint forces update of all lines
+    bufDisp.repaint();
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~ // .repaint overwrites canary
+                        "01234567"~
                         "        ");
 }
 
