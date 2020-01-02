@@ -319,8 +319,13 @@ private struct DispBuffer(ColorType colorType)
     struct Glyph
     {
         Grapheme g;
+
         static if (colorType == ColorType.basic16)
-            ushort fg, bg;
+        {
+            // 256 is arsd.terminal's default (Color.DEFAULT). We copy that
+            // here for transparent compatibility.
+            ushort fg = 256, bg = 256;
+        }
     }
 
     struct Cell
@@ -414,6 +419,22 @@ private struct DispBuffer(ColorType colorType)
     }
 
     private Line[] lines;
+
+    void clear(uint width, uint height, ushort fg=256, ushort bg=256)
+    {
+        lines.length = height;
+        foreach (j; 0 .. height)
+        {
+            lines[j].contents.length = width;
+            foreach (i; 0 .. width)
+            {
+                static if (colorType == ColorType.basic16)
+                    this[i, j] = Glyph(spaceGrapheme, fg, bg);
+                else
+                    this[i, j] = Glyph(spaceGrapheme);
+            }
+        }
+    }
 
     /**
      * Lookup a grapheme in the buffer.
@@ -583,6 +604,12 @@ struct BufferedDisplay(Display)
     static if (canShowHideCursor!Display)
         private bool cursorHidden;
 
+    this(Display _disp)
+    {
+        disp = _disp;
+        clear();
+    }
+
     /**
      * Dimensions of the underlying display.
      */
@@ -744,21 +771,16 @@ struct BufferedDisplay(Display)
      */
     void clear()
     {
-        buf.lines.length = disp.height;
-        foreach (j; 0 .. disp.height)
-        {
-            buf.lines[j].contents.length = disp.width;
-            foreach (i; 0 .. disp.width)
-            {
-                static if (hasColor!Display)
-                    buf[i, j] = buf.Glyph(spaceGrapheme, curFg, curBg);
-                else
-                    buf[i, j] = buf.Glyph(spaceGrapheme);
-            }
-        }
+        static if (hasColor!Display)
+            buf.clear(disp.width, disp.height, curFg, curBg);
+        else
+            buf.clear(disp.width, disp.height);
 
         static if (canClear!Display)
         {
+            static if (hasColor!Display)
+                disp.color(curFg, curBg);
+
             disp.clear();
             foreach (ref e; buf.lines)
             {
@@ -773,7 +795,9 @@ struct BufferedDisplay(Display)
 
     static if (hasColor!Display)
     {
-        private ushort curFg, curBg;
+        // 256 is arsd.terminal's default (Color.DEFAULT). We copy that here
+        // for transparent compatibility.
+        private ushort curFg = 256, curBg = 256;
 
         /**
          * Set current foreground/background color for grapheme assignments.
@@ -1172,6 +1196,20 @@ unittest
                         "        ");
 
     auto bufDisp = bufferedDisplay(disp);
+
+    // Verify arsd.terminal default colors for compatibility.
+    bufDisp.flush();
+    assert(disp.text == "        "~
+                        "        "~
+                        "        ");
+    assert(disp.fgs == [ 256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256 ]);
+    assert(disp.bgs == [ 256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256 ]);
+
+    bufDisp.color(0, 0);
     bufDisp.clear();
 
     // Basic color test
