@@ -738,7 +738,7 @@ unittest
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
-    //version(none)
+    version(none)
     {
         dumpBsp(result, tree, bounds);
         assert(0);

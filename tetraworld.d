@@ -80,7 +80,7 @@ struct GameMap
             (MapNode node, R r) {
                 auto rr = node.interior;
                 if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
-                                            pos[i] + 1 < rr.max[i])(true))
+                                            pos[i] < rr.max[i])(true))
                 {
                     ch = node.style;
                     return 1;
