@@ -437,28 +437,73 @@ version(unittest)
     void renderRoom(S,R)(ref S screen, R r, MapNode node)
         if (is(R == Region!(int,n), size_t n))
     {
-        foreach (j; r.min[1] .. r.max[1])
-            foreach (i; r.min[0] .. r.max[0])
-                screen[i, j] = '#';
+        static uint wall2bits(dchar ch)
+        {
+            switch (ch)
+            {
+                case '\u250c': return 0b0011;
+                case '\u2502': return 0b0101;
+                case '\u2514': return 0b0110;
+                case '\u251c': return 0b0111;
+                case '\u2510': return 0b1001;
+                case '\u2500': return 0b1010;
+                case '\u252c': return 0b1011;
+                case '\u2518': return 0b1100;
+                case '\u2524': return 0b1101;
+                case '\u2534': return 0b1110;
+                case '\u253c': return 0b1111;
+                default:       return 0;
+            }
+        }
 
-        enum walls = "│─.┌└┐┘"d;
+        static dchar bits2wall(uint bits, dchar defChar)
+        {
+            switch (bits)
+            {
+                case 0b0011: return '\u250c';
+                case 0b0101: return '\u2502';
+                case 0b0110: return '\u2514';
+                case 0b0111: return '\u251c';
+                case 0b1001: return '\u2510';
+                case 0b1010: return '\u2500';
+                case 0b1011: return '\u252c';
+                case 0b1100: return '\u2518';
+                case 0b1101: return '\u2524';
+                case 0b1110: return '\u2534';
+                case 0b1111: return '\u253c';
+                default:     return defChar;
+            }
+        }
+
+        void combineWall(int i, int j, uint bits)
+        {
+            screen[i, j] = bits2wall(wall2bits(screen[i, j]) | bits,
+                                     dchar.init);
+        }
+
+        //enum walls = "│─.┌└┐┘"d;
         //enum walls = "|-:,`.'"d;
         auto interior = node.interior;
-        foreach (j; interior.min[1] .. interior.max[1])
-            foreach (i; interior.min[0] .. interior.max[0])
+        foreach (j; interior.min[1] .. interior.max[1]+1)
+        {
+            foreach (i; interior.min[0] .. interior.max[0]+1)
             {
-                if (i == interior.min[0] || i == interior.max[0]-1)
-                    screen[i, j] = walls[0];
-                else if (j == interior.min[1] || j == interior.max[1]-1)
-                    screen[i, j] = walls[1];
+                if (i == interior.min[0] && j == interior.min[1])
+                    combineWall(i, j, 0b0011);
+                else if (i == interior.max[0] && j == interior.min[1])
+                    combineWall(i, j, 0b1001);
+                else if (i == interior.min[0] && j == interior.max[1])
+                    combineWall(i, j, 0b0110);
+                else if (i == interior.max[0] && j == interior.max[1])
+                    combineWall(i, j, 0b1100);
+                else if (i == interior.min[0] || i == interior.max[0])
+                    combineWall(i, j, 0b0101);
+                else if (j == interior.min[1] || j == interior.max[1])
+                    combineWall(i, j, 0b1010);
                 else
                     screen[i, j] = node.style;
             }
-
-        screen[interior.min[0], interior.min[1]] = walls[3];
-        screen[interior.min[0], interior.max[1]-1] = walls[4];
-        screen[interior.max[0]-1, interior.min[1]] = walls[5];
-        screen[interior.max[0]-1, interior.max[1]-1] = walls[6];
+        }
 
         foreach (door; node.doors)
         {
@@ -569,11 +614,11 @@ void genCorridors(R)(MapNode root, R region)
         auto d = Door(root.axis);
 
         d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot-1;
+        d.pos[d.axis] = root.pivot;
         leftRoom.node.doors ~= d;
 
-        d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot;
+        //d.pos = rightRoom.basePos;
+        //d.pos[d.axis] = root.pivot;
         rightRoom.node.doors ~= d;
         return;
     }
@@ -605,26 +650,26 @@ void resizeRooms(R)(MapNode root, R region)
                 {
                     if (core.min[i] > d.pos[i])
                         core.min[i] = d.pos[i];
-                    if (core.max[i] < d.pos[i] + 1)
-                        core.max[i] = d.pos[i] + 1;
+                    if (core.max[i] < d.pos[i])
+                        core.max[i] = d.pos[i];
                 }
                 else
                 {
                     if (core.min[i] > d.pos[i] - 1)
                         core.min[i] = d.pos[i] - 1;
-                    if (core.max[i] < d.pos[i] + 2)
-                        core.max[i] = d.pos[i] + 2;
+                    if (core.max[i] < d.pos[i] + 1)
+                        core.max[i] = d.pos[i] + 1;
                 }
             }
         }
 
-        // Expand minimum region to be at least 4 tiles wide in each direction.
+        // Expand minimum region to be at least 3 tiles wide in each direction.
         foreach (i; 0 .. 4)
         {
-            if (bounds.length(i) < 4)
+            if (bounds.length(i) < 3)
                 continue;   // FIXME: should be an error
 
-            while (core.length(i) < 4)
+            while (core.length(i) < 3)
             {
                 if (uniform(0, 2) == 0)
                 {
@@ -667,7 +712,7 @@ unittest
 {
     import testutil;
     enum w = 48, h = 24;
-    TestScreen!(w,h) result;
+    auto result = TestScreen!(w,h)();
 
     import std.algorithm : filter, clamp;
     import std.random : uniform;
@@ -675,7 +720,7 @@ unittest
     import gauss;
 
     // Generate base BSP tree
-    auto bounds = region(vec(0, 0, 0, 0), vec(w, h, 3, 3));
+    auto bounds = region(vec(0, 0, 0, 0), vec(w-1, h-1, 3, 3));
     alias R = typeof(bounds);
 
     auto tree = genBsp!MapNode(bounds,
