@@ -481,7 +481,7 @@ private struct DispBuffer(ColorType colorType)
                     static if (colorType == ColorType.basic16)
                     {
                         lines[y].contents[x-1].glyph.fg = gl.fg;
-                        lines[y].contents[x-1].glyph.bg = gl.bf;
+                        lines[y].contents[x-1].glyph.bg = gl.bg;
                     }
                     return;
 
@@ -637,6 +637,10 @@ struct BufferedDisplay(Display)
 
             x += g[0].isWide() ? 2 : 1;
         }
+
+        // Update cursor position
+        cursor[0] = x;
+        cursor[1] = y;
     }
 
     /**
@@ -663,6 +667,12 @@ struct BufferedDisplay(Display)
         static if (canShowHideCursor!Display)
             disp.hideCursor();
 
+        static if (hasColor!Display)
+        {
+            ushort fg = curFg, bg = curBg;
+            disp.color(fg, bg);
+        }
+
         foreach (e; buf.byDirtyLines)
         {
             auto linenum = e[0];
@@ -675,7 +685,18 @@ struct BufferedDisplay(Display)
 
             import std.algorithm : joiner, map;
             static if (hasColor!Display)
-                disp.writef("%s", line.byDirtyGlyph());
+            {
+                foreach (gl; line.byDirtyGlyph())
+                {
+                    if (fg != gl.fg || bg != gl.bg)
+                    {
+                        fg = gl.fg;
+                        bg = gl.bg;
+                        disp.color(fg, bg);
+                    }
+                    disp.writef("%s", gl.g[]);
+                }
+            }
             else
                 disp.writef("%s", line.byDirtyGlyph()
                                       .map!(gl => gl.g[])
@@ -1101,6 +1122,89 @@ unittest
     assert(disp.impl == "abcdefgh"~
                         "0Ойойой7"~
                         "^  ha  $"); // buffer unaware of canaries
+}
+
+// Color tester
+unittest
+{
+    class ColorDisp
+    {
+        enum width = 8;
+        enum height = 3;
+
+        dchar[width*height] text;
+        ushort[width*height] fgs;
+        ushort[width*height] bgs;
+
+        Vec!(int,2) cursor;
+        ushort fg, bg;
+
+        this()
+        {
+            text[] = ' ';
+        }
+        void moveTo(int x, int y) { cursor = vec(x,y); }
+        void writef(A...)(string fmt, A args)
+        {
+            import std.format : format;
+            auto str = format(fmt, args);
+            foreach (dchar ch; str)
+            {
+                assert(cursor[0] < width && cursor[1] < height);
+                text[cursor[0] + width*cursor[1]] = ch;
+                fgs[cursor[0] + width*cursor[1]] = fg;
+                bgs[cursor[0] + width*cursor[1]] = bg;
+                cursor[0]++;
+            }
+        }
+        void color(ushort _fg, ushort _bg)
+        {
+            fg = _fg;
+            bg = _bg;
+        }
+    }
+    static assert(isGridDisplay!ColorDisp);
+    static assert(hasColor!ColorDisp);
+
+    auto disp = new ColorDisp;
+    assert(disp.text == "        "~
+                        "        "~
+                        "        ");
+
+    auto bufDisp = bufferedDisplay(disp);
+    bufDisp.clear();
+
+    // Basic color test
+    bufDisp.moveTo(0, 0);
+    bufDisp.writef("abcd");
+    bufDisp.color(1, 2);
+    bufDisp.writef("efgh");
+    bufDisp.color(3, 4); // should not affect .flush
+    bufDisp.flush();
+    assert(disp.text == "abcdefgh"~
+                        "        "~
+                        "        ");
+    assert(disp.fgs == [ 0,0,0,0,1,1,1,1,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0 ]);
+    assert(disp.bgs == [ 0,0,0,0,2,2,2,2,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0 ]);
+
+    // Color overwrite test
+    bufDisp.moveTo(2, 0);
+    bufDisp.writef("HAHA");
+    bufDisp.flush();
+    assert(disp.text == "abHAHAgh"~
+                        "        "~
+                        "        ");
+    assert(disp.fgs == [ 0,0,3,3,3,3,1,1,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0 ]);
+    assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0 ]);
+
 }
 
 // vim:set ai sw=4 ts=4 et:
