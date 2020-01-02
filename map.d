@@ -440,21 +440,21 @@ version(unittest)
         enum walls = "│─.┌└┐┘"d;
         //enum walls = "|-:,`.'"d;
         auto interior = node.interior;
-        foreach (j; interior.min[1] .. interior.max[1])
-            foreach (i; interior.min[0] .. interior.max[0])
+        foreach (j; interior.min[1] .. interior.max[1]+1)
+            foreach (i; interior.min[0] .. interior.max[0]+1)
             {
-                if (i == interior.min[0] || i == interior.max[0]-1)
+                if (i == interior.min[0] || i == interior.max[0])
                     screen[i, j] = walls[0];
-                else if (j == interior.min[1] || j == interior.max[1]-1)
+                else if (j == interior.min[1] || j == interior.max[1])
                     screen[i, j] = walls[1];
                 else
                     screen[i, j] = node.style;
             }
 
         screen[interior.min[0], interior.min[1]] = walls[3];
-        screen[interior.min[0], interior.max[1]-1] = walls[4];
-        screen[interior.max[0]-1, interior.min[1]] = walls[5];
-        screen[interior.max[0]-1, interior.max[1]-1] = walls[6];
+        screen[interior.min[0], interior.max[1]] = walls[4];
+        screen[interior.max[0], interior.min[1]] = walls[5];
+        screen[interior.max[0], interior.max[1]] = walls[6];
 
         foreach (door; node.doors)
         {
@@ -565,11 +565,11 @@ void genCorridors(R)(MapNode root, R region)
         auto d = Door(root.axis);
 
         d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot-1;
+        d.pos[d.axis] = root.pivot;
         leftRoom.node.doors ~= d;
 
-        d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot;
+        //d.pos = rightRoom.basePos;
+        //d.pos[d.axis] = root.pivot;
         rightRoom.node.doors ~= d;
         return;
     }
@@ -601,26 +601,26 @@ void resizeRooms(R)(MapNode root, R region)
                 {
                     if (core.min[i] > d.pos[i])
                         core.min[i] = d.pos[i];
-                    if (core.max[i] < d.pos[i] + 1)
-                        core.max[i] = d.pos[i] + 1;
+                    if (core.max[i] < d.pos[i])
+                        core.max[i] = d.pos[i];
                 }
                 else
                 {
                     if (core.min[i] > d.pos[i] - 1)
                         core.min[i] = d.pos[i] - 1;
-                    if (core.max[i] < d.pos[i] + 2)
-                        core.max[i] = d.pos[i] + 2;
+                    if (core.max[i] < d.pos[i] + 1)
+                        core.max[i] = d.pos[i] + 1;
                 }
             }
         }
 
-        // Expand minimum region to be at least 4 tiles wide in each direction.
+        // Expand minimum region to be at least 3 tiles wide in each direction.
         foreach (i; 0 .. 4)
         {
-            if (bounds.length(i) < 4)
+            if (bounds.length(i) < 3)
                 continue;   // FIXME: should be an error
 
-            while (core.length(i) < 4)
+            while (core.length(i) < 3)
             {
                 if (uniform(0, 2) == 0)
                 {
