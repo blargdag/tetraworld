@@ -818,4 +818,51 @@ unittest
         .writeln;
 }
 
+// Cache tester
+unittest
+{
+    class TestDisplay
+    {
+        enum width = 8;
+        enum height = 3;
+
+        dchar[width*height] impl;
+        Vec!(int,2) cursor;
+
+        this()
+        {
+            foreach (ref ch; impl) { ch = ' '; }
+        }
+        void moveTo(int x, int y) { cursor = vec(x,y); }
+        void writef(A...)(string fmt, A args)
+        {
+            import std.format : format;
+            auto str = format(fmt, args);
+            foreach (dchar ch; str)
+            {
+                assert(cursor[0] < width && cursor[1] < height);
+                impl[cursor[0] + width*cursor[1]] = ch;
+                cursor[0]++;
+            }
+        }
+    }
+    static assert(isGridDisplay!TestDisplay);
+
+    auto disp = new TestDisplay;
+    assert(disp.impl == "        "~
+                        "        "~
+                        "        ");
+
+    auto bufDisp = bufferedDisplay(disp);
+    bufDisp.moveTo(0, 0);
+    bufDisp.writef("abcdefgh");
+    assert(disp.impl == "        "~ // not updated until .flush is called
+                        "        "~
+                        "        ");
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~
+                        "        "~
+                        "        ");
+}
+
 // vim:set ai sw=4 ts=4 et:
