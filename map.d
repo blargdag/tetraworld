@@ -308,7 +308,9 @@ unittest
  * function.
  */
 struct FMap(alias fun, Map)
-    if (is4DArray!Map && is(typeof(fun(Map.init[0,0,0,0]))))
+    if (is4DArray!Map && (is(typeof(fun(Map.init[0,0,0,0]))) ||
+                          is(typeof(fun(Vec!(int,4).init,
+                                        Map.init[0,0,0,0])))))
 {
     private Map impl;
 
@@ -317,7 +319,12 @@ struct FMap(alias fun, Map)
 
     auto ref opIndex(int[4] coors...)
     {
-        return fun(impl[coors[0], coors[1], coors[2], coors[3]]);
+        static if (is4DArray!Map && is(typeof(fun(Map.init[0,0,0,0]))))
+            return fun(impl[coors[0], coors[1], coors[2], coors[3]]);
+        else static if (is(typeof(fun(Vec!(int,4).init, Map.init[0,0,0,0]))))
+            return fun(vec(coors),
+                       impl[coors[0], coors[1], coors[2], coors[3]]);
+        else static assert(0);
     }
 
     static assert(is4DArray!FMap);
@@ -330,11 +337,14 @@ struct FMap(alias fun, Map)
  * elements of the given map.
  */
 auto fmap(alias fun, Map)(Map map)
-    if (is4DArray!Map && is(typeof(fun(Map.init[0,0,0,0]))))
+    if (is4DArray!Map && (is(typeof(fun(Map.init[0,0,0,0]))) ||
+                          is(typeof(fun(Vec!(int,4).init,
+                                        Map.init[0,0,0,0])))))
 {
     return FMap!(fun,Map)(map);
 }
 
+///
 unittest
 {
     struct Map
@@ -356,7 +366,14 @@ unittest
     static assert(is4DArray!(typeof(map2)));
     static assert(is(CellType!(typeof(map2)) == char));
     assert(map2[0,0,0,0] == '/');
+    assert(map2[1,1,1,1] == '/');
     assert(map2[1,2,0,1] == '/');
+    assert(map2[0,1,2,3] == '.');
+
+    auto map3 = map2.fmap!((v, e) => (v == vec(1,1,1,1)) ? 'X' : e);
+    assert(map3[0,0,0,0] == '/');
+    assert(map3[1,1,1,1] == 'X');
+    assert(map3[1,2,0,1] == '/');
     assert(map2[0,1,2,3] == '.');
 }
 
