@@ -125,9 +125,10 @@ World newGame(int[4] dim)
     resizeRooms(w.map.tree, w.map.bounds);
     setRoomFloors(w.map.tree, w.map.bounds);
 
-    w.playerPos = randomLocation(w.map.tree, w.map.bounds);
-
     import arsd.terminal : Color;
+    w.playerPos = randomLocation(w.map.tree, w.map.bounds);
+    w.objects[w.playerPos] = ColorTile('&', Color.DEFAULT, Color.DEFAULT);
+
     auto exitPos = randomLocation(w.map.tree, w.map.bounds);
     w.objects[exitPos] = ColorTile('@', Color.DEFAULT, Color.DEFAULT);
 

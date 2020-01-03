@@ -213,7 +213,11 @@ void play()
             inputHandler.wantQuit = true;
         }
 
+        // FIXME: this needs to be done in a consistent way
+        auto pl = world.objects[world.playerPos];
+        world.objects.remove(world.playerPos);
         world.playerPos = newPos;
+        world.objects[world.playerPos] = pl;
 
         viewport.centerOn(world.playerPos);
         refresh();
