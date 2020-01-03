@@ -60,13 +60,13 @@ struct ViewPort(Map)
     {
         import std.algorithm : map;
         return w.map
-            .submap(region(pos, pos + dim))
             .fmap!((pos, floor) {
                 auto objs = w.store.getAllBy!Pos(Pos(pos))
                                    .map!(id => w.store.get!Tiled(id))
                                    .filter!(tilep => tilep !is null);
                 return (!objs.empty) ? objs.front.tile : floor;
-            });
+            })
+            .submap(region(pos, pos + dim));
     }
 
     /**
@@ -189,9 +189,9 @@ void play()
 
     void refresh()
     {
-        auto plpos = playerPos;
         auto curview = viewport.curView.fmap!((pos, tile) {
             // Highlight tiles along axial directions from player.
+            auto plpos = playerPos - viewport.pos;
             if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) >= 3)
             {
                 tile.fg = cast(Color)(Color.blue | Bright);
