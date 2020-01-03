@@ -27,8 +27,10 @@ import std.random;
 import std.range;
 
 import bsp;
+import components;
 import display;
 import map;
+import store;
 import vector;
 import world;
 
@@ -56,22 +58,15 @@ struct ViewPort(Map)
      */
     @property auto curView()
     {
+        import std.algorithm : map;
         return w.map
-            .fmap!((pos, tile) {
-                // Objects replace floor tiles
-                auto p = pos in w.objects;
-                if (p !is null)
-                    tile = *p;
-
-                // Highlight tiles along axial directions from player.
-                if (iota(4).fold!((c,i) => c + !!(pos[i] == w.playerPos[i]))(0)
-                    >= 3)
-                {
-                    tile.fg = cast(Color)(Color.blue | Bright);
-                }
-                return tile;
-            })
-            .submap(region(pos, pos + dim));
+            .submap(region(pos, pos + dim))
+            .fmap!((pos, floor) {
+                auto objs = w.store.getAllBy!Pos(Pos(pos))
+                                   .map!(id => w.store.get!Tiled(id))
+                                   .filter!(tilep => tilep !is null);
+                return (!objs.empty) ? objs.front.tile : floor;
+            });
     }
 
     /**
@@ -89,6 +84,14 @@ struct ViewPort(Map)
     void centerOn(Vec!(int,4) pt)
     {
         pos = pt - dim/2;
+    }
+
+    /**
+     * Returns: true if this viewport contains the given 4D location.
+     */
+    bool contains(Vec!(int,4) pt)
+    {
+        return region(pos, pos+dim).contains(pt);
     }
 }
 
@@ -166,11 +169,16 @@ void play()
     message("Welcome to Tetraworld!");
 
     World world = newGame([ 13, 13, 13, 13 ]);
+    Thing* player = world.store.createObj(
+        Pos(world.map.randomLocation()),
+        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT))
+    );
+    Vec!(int,4) playerPos() { return world.store.get!Pos(player.id).coors; }
 
     auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
 
     auto viewport = ViewPort!GameMap(world, optVPSize, vec(0,0,0,0));
-    viewport.centerOn(world.playerPos);
+    viewport.centerOn(playerPos);
 
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&disp, maprect);
@@ -181,14 +189,22 @@ void play()
 
     void refresh()
     {
-        auto curview = viewport.curView;
+        auto plpos = playerPos;
+        auto curview = viewport.curView.fmap!((pos, tile) {
+            // Highlight tiles along axial directions from player.
+            if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) >= 3)
+            {
+                tile.fg = cast(Color)(Color.blue | Bright);
+            }
+            return tile;
+        });
         mapview.renderMap(curview);
 
         disp.hideCursor();
-        if (curview.reg.contains(world.playerPos))
+        if (viewport.contains(playerPos))
         {
             auto cursorPos = renderingCoors(curview,
-                                            world.playerPos - viewport.pos);
+                                            playerPos - viewport.pos);
             if (region(vec(mapview.width, mapview.height)).contains(cursorPos))
             {
                 mapview.moveTo(cursorPos[0], cursorPos[1]);
@@ -203,10 +219,12 @@ void play()
 
     void movePlayer(Vec!(int,4) displacement)
     {
-        auto newPos = world.playerPos + displacement;
+        auto newPos = playerPos + displacement;
+
         if (world.map[newPos].ch == '/')
             return; // movement blocked
 
+        version(none)
         if (world.map[newPos].ch == '@')
         {
             //message("You see the exit portal here.");
@@ -214,12 +232,10 @@ void play()
         }
 
         // FIXME: this needs to be done in a consistent way
-        auto pl = world.objects[world.playerPos];
-        world.objects.remove(world.playerPos);
-        world.playerPos = newPos;
-        world.objects[world.playerPos] = pl;
+        world.store.remove!Pos(player);
+        world.store.add!Pos(player, Pos(newPos));
 
-        viewport.centerOn(world.playerPos);
+        viewport.centerOn(playerPos);
         refresh();
     }
 

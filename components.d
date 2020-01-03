@@ -22,10 +22,13 @@ module components;
 
 import store_traits;
 
+/**
+ * Component of all objects that have a map position.
+ */
 @Indexed @Component
 struct Pos
 {
-    import vector;
+    import vector : Vec, vec;
     Vec!(int,4) coors;
     alias coors this;
 
@@ -36,6 +39,18 @@ struct Pos
     {
         coors[] = loadfile.parse!(int[])("coors")[];
     }
+}
+
+/**
+ * Component of any object that has a ColorTile representation.
+ */
+@Component
+struct Tiled
+{
+    // FIXME: this should be instead an abstract tile that's mapped to a
+    // visible tile by a separate module.
+    import map : ColorTile;
+    ColorTile tile;
 }
 
 // vim:set ai sw=4 ts=4 et:

@@ -53,9 +53,10 @@ enum terrainMaxId = 256;
  */
 enum specialMaxId = 1024;
 
+/**
+ * List of all Components.
+ */
 alias AllComponents = getSymbolsByUDA!(components, Component);
-pragma(msg, getSymbolsByUDA!(components, Component));
-
 static assert(AllComponents.length <= 32, "Need to expand systems width");
 
 private string genSysMask()

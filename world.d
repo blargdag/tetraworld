@@ -26,6 +26,7 @@ import std.range;
 
 import bsp;
 import map;
+import store;
 import vector;
 
 /**
@@ -102,12 +103,10 @@ static assert(is4DArray!GameMap && is(CellType!GameMap == ColorTile));
 class World
 {
     GameMap map;
-    ColorTile[int[4]] objects; // TBD: should use actual object representation
-
-    // TBD: should be outside of world model proper
-    Vec!(int,4) playerPos;
+    Store store;
 }
 
+// FIXME: this should go into its own mapgen module.
 World newGame(int[4] dim)
 {
     auto w = new World;
@@ -126,11 +125,9 @@ World newGame(int[4] dim)
     setRoomFloors(w.map.tree, w.map.bounds);
 
     import arsd.terminal : Color;
-    w.playerPos = randomLocation(w.map.tree, w.map.bounds);
-    w.objects[w.playerPos] = ColorTile('&', Color.DEFAULT, Color.DEFAULT);
-
-    auto exitPos = randomLocation(w.map.tree, w.map.bounds);
-    w.objects[exitPos] = ColorTile('@', Color.DEFAULT, Color.DEFAULT);
+    import components;
+    w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+                      Tiled(ColorTile('@', Color.DEFAULT, Color.DEFAULT)));
 
     return w;
 }

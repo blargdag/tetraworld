@@ -39,8 +39,12 @@ env = Environment(
 sources = Split("""
 	tetraworld.d
 	bsp.d
+	components.d
 	display.d
+	loadsave.d
 	map.d
+	store.d
+	store_traits.d
 	testutil.d
 	vector.d
 	world.d
