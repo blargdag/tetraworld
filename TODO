@@ -1,5 +1,5 @@
-- [bufdisp] Support color.
-- [bufdisp] Implement subline flushing.
+- Should probably implement gravity now rather than later, since it changes a
+  LOT of things.
 - Map underlying representation should be distinct from dchar.
    - The dchar view should be via a MapTile proxy object that maps underlying
      game objects into printable tiles.
@@ -8,3 +8,5 @@
 - Subdisplay .writef method should perform clipping(?).
 X Implement .dim and .pos for Rectangle.
 + Unify Rectangle with Vec?
++ [bufdisp] Implement subline flushing.
++ [bufdisp] Support color.
