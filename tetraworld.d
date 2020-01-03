@@ -224,16 +224,21 @@ void play()
         if (world.map[newPos].ch == '/')
             return; // movement blocked
 
-        version(none)
-        if (world.map[newPos].ch == '@')
-        {
-            //message("You see the exit portal here.");
-            inputHandler.wantQuit = true;
-        }
-
         // FIXME: this needs to be done in a consistent way
         world.store.remove!Pos(player);
         world.store.add!Pos(player, Pos(newPos));
+
+        {
+            import std.algorithm : map;
+            if (!world.store.getAllBy!Pos(Pos(newPos))
+                            .map!(id => world.store.get!Tiled(id))
+                            .filter!(tp => tp !is null && tp.tile.ch == '@')
+                            .empty)
+            {
+                message("You see the exit portal here.");
+                //inputHandler.wantQuit = true;
+            }
+        }
 
         viewport.centerOn(playerPos);
         refresh();
