@@ -43,6 +43,7 @@ sources = Split("""
 	map.d
 	testutil.d
 	vector.d
+	world.d
 
 	arsd/terminal.d
 """)

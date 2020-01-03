@@ -30,87 +30,7 @@ import bsp;
 import display;
 import map;
 import vector;
-
-/**
- * Map representation.
- */
-struct GameMap
-{
-    // For initial testing only; this should be replaced with a proper object
-    // system.
-    private Vec!(int,4) playerPos;
-    private Vec!(int,4) exitPos;
-
-    private MapNode tree;
-    private alias R = Region!(int,4);
-    private R bounds;
-
-    this(int[4] _dim)
-    {
-        bounds.min = vec(0, 0, 0, 0);
-        bounds.max = _dim;
-
-        tree = genBsp!MapNode(bounds,
-            (R r) => r.volume > 24 + uniform(0, 80),
-            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
-                            .pickOne(invalidAxis),
-            (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
-                invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
-        );
-        genCorridors(tree, bounds);
-        resizeRooms(tree, bounds);
-        setRoomFloors(tree, bounds);
-
-        playerPos = randomLocation(tree, bounds);
-        exitPos = randomLocation(tree, bounds);
-    }
-
-    @property int opDollar(int i)() { return bounds.max[i]; }
-
-    ColorTile opIndex(int[4] pos...)
-    {
-        import std.math : abs;
-
-        // Highlight tiles along axial directions from player.
-        auto fg = Color.DEFAULT;
-        auto bg = Color.DEFAULT;
-        if (iota(4).fold!((c,i) => c + !!(pos[i] == playerPos[i]))(0) >= 3)
-        {
-            fg = cast(Color)(Color.blue | Bright);
-        }
-
-        if (vec(pos) == playerPos) return ColorTile('&', fg, bg);
-        if (vec(pos) == exitPos) return ColorTile('@', fg, bg);
-
-        // FIXME: should be a more efficient way to do this
-        auto result = ColorTile('/', fg, bg);
-        foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
-            (MapNode node, R r) {
-                auto rr = node.interior;
-                if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
-                                            pos[i] < rr.max[i])(true))
-                {
-                    result.ch = node.style;
-                    return 1;
-                }
-
-                foreach (d; node.doors)
-                {
-                    if (pos[] == d.pos)
-                    {
-                        result.ch = '#';
-                        return 1;
-                    }
-                }
-
-                result.ch = '/';
-                return 1;
-            }
-        );
-        return result;
-    }
-}
-static assert(is4DArray!GameMap && is(CellType!GameMap == ColorTile));
+import world;
 
 /**
  * Viewport representation.
@@ -118,14 +38,14 @@ static assert(is4DArray!GameMap && is(CellType!GameMap == ColorTile));
 struct ViewPort(Map)
     if (is4DArray!Map)
 {
-    Map*        map;
+    World       w;
     Vec!(int,4) dim;
     Vec!(int,4) pos;
 
     /// Constructor.
-    this(Map* _map, Vec!(int,4) _dim, Vec!(int,4) _pos)
+    this(World _w, Vec!(int,4) _dim, Vec!(int,4) _pos)
     {
-        map = _map;
+        w = _w;
         dim = _dim;
         pos = _pos;
     }
@@ -136,7 +56,22 @@ struct ViewPort(Map)
      */
     @property auto curView()
     {
-        return submap(*map, region(pos, pos + dim));
+        return w.map
+            .fmap!((pos, tile) {
+                // Objects replace floor tiles
+                auto p = pos in w.objects;
+                if (p !is null)
+                    tile = *p;
+
+                // Highlight tiles along axial directions from player.
+                if (iota(4).fold!((c,i) => c + !!(pos[i] == w.playerPos[i]))(0)
+                    >= 3)
+                {
+                    tile.fg = cast(Color)(Color.blue | Bright);
+                }
+                return tile;
+            })
+            .submap(region(pos, pos + dim));
     }
 
     /**
@@ -230,13 +165,12 @@ void play()
 
     message("Welcome to Tetraworld!");
 
-    // Map test
-    auto map = GameMap([ 13, 13, 13, 13 ]);
+    World world = newGame([ 13, 13, 13, 13 ]);
 
     auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
 
-    auto viewport = ViewPort!GameMap(&map, optVPSize, vec(0,0,0,0));
-    viewport.centerOn(map.playerPos);
+    auto viewport = ViewPort!GameMap(world, optVPSize, vec(0,0,0,0));
+    viewport.centerOn(world.playerPos);
 
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&disp, maprect);
@@ -251,10 +185,10 @@ void play()
         mapview.renderMap(curview);
 
         disp.hideCursor();
-        if (curview.reg.contains(map.playerPos))
+        if (curview.reg.contains(world.playerPos))
         {
             auto cursorPos = renderingCoors(curview,
-                                            map.playerPos - viewport.pos);
+                                            world.playerPos - viewport.pos);
             if (region(vec(mapview.width, mapview.height)).contains(cursorPos))
             {
                 mapview.moveTo(cursorPos[0], cursorPos[1]);
@@ -269,19 +203,19 @@ void play()
 
     void movePlayer(Vec!(int,4) displacement)
     {
-        auto newPos = map.playerPos + displacement;
-        if (map[newPos].ch == '/')
+        auto newPos = world.playerPos + displacement;
+        if (world.map[newPos].ch == '/')
             return; // movement blocked
 
-        if (map[newPos].ch == '@')
+        if (world.map[newPos].ch == '@')
         {
             //message("You see the exit portal here.");
             inputHandler.wantQuit = true;
         }
 
-        map.playerPos = newPos;
+        world.playerPos = newPos;
 
-        viewport.centerOn(map.playerPos);
+        viewport.centerOn(world.playerPos);
         refresh();
     }
 
