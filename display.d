@@ -116,6 +116,9 @@ struct SubDisplay(T)
 
     ///
     @property auto height() { return rect.max[1] - rect.min[1]; }
+
+    static if (hasColor!T)
+        void color(ushort fg, ushort bg) { parent.color(fg, bg); }
 }
 
 unittest
