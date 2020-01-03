@@ -303,6 +303,63 @@ unittest
     assert(submap[2,2,2,2] == '.');
 }
 
+/**
+ * An adaptor that represents a 4D array with its elements remapped by a
+ * function.
+ */
+struct FMap(alias fun, Map)
+    if (is4DArray!Map && is(typeof(fun(Map.init[0,0,0,0]))))
+{
+    private Map impl;
+
+    /// Array dimensions.
+    @property int opDollar(size_t n)() { return impl.opDollar!n; }
+
+    auto ref opIndex(int[4] coors...)
+    {
+        return fun(impl[coors[0], coors[1], coors[2], coors[3]]);
+    }
+
+    static assert(is4DArray!FMap);
+}
+
+/**
+ * Remap elements of the given Map according to the given function.
+ *
+ * Returns: A 4D array whose elements are the given function applied to
+ * elements of the given map.
+ */
+auto fmap(alias fun, Map)(Map map)
+    if (is4DArray!Map && is(typeof(fun(Map.init[0,0,0,0]))))
+{
+    return FMap!(fun,Map)(map);
+}
+
+unittest
+{
+    struct Map
+    {
+        enum opDollar(int n) = 3;
+        int opIndex(int[4] v...)
+        {
+            return v[0] + v[1] + v[2] + v[3];
+        }
+        static assert(is4DArray!(typeof(this)));
+    }
+
+    Map map;
+    assert(map[0,0,0,0] == 0);
+    assert(map[0,1,2,3] == 6);
+
+    auto map2 = map.fmap!(e => (e > 5) ? '.' : '/');
+
+    static assert(is4DArray!(typeof(map2)));
+    static assert(is(CellType!(typeof(map2)) == char));
+    assert(map2[0,0,0,0] == '/');
+    assert(map2[1,2,0,1] == '/');
+    assert(map2[0,1,2,3] == '.');
+}
+
 enum minDisplaySize = renderSize(vec(3,3,3,3));
 
 /**
