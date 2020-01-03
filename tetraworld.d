@@ -231,7 +231,7 @@ void play()
     message("Welcome to Tetraworld!");
 
     // Map test
-    auto map = GameMap([ 15, 15, 15, 15 ]);
+    auto map = GameMap([ 13, 13, 13, 13 ]);
 
     auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
 
