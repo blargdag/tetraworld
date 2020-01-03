@@ -71,15 +71,25 @@ enum interColSpace = 0;
 enum interRowSpace = 1;
 
 /**
+ * Colored tile to render to display.
+ */
+struct ColorTile
+{
+    dchar ch;
+    ushort fg, bg;
+}
+
+/**
  * Renders a 4D map to the given grid-based display.
  *
  * Params:
  *  display = A grid-based output display satisfying isGridDisplay.
- *  map = An object which returns a printable character given a set of 4D
- *      coordinates.
+ *  map = An object which returns a printable character or a ColorTile, given a
+ *      set of 4D coordinates.
  */
 void renderMap(T, Map)(T display, Map map)
-    if (isGridDisplay!T && is4DArray!Map && is(CellType!Map == dchar))
+    if (isGridDisplay!T && is4DArray!Map &&
+        (is(CellType!Map == dchar) || is(CellType!Map == ColorTile)))
 {
     auto wlen = map.opDollar!0;
     auto xlen = map.opDollar!1;
@@ -99,7 +109,18 @@ void renderMap(T, Map)(T display, Map map)
                 foreach (z; 0 .. zlen)
                 {
                     display.moveTo(outx++, outy);
-                    display.writef("%s", map[w,x,y,z]);
+                    static if (is(CellType!Map == ColorTile))
+                    {
+                        static if (hasColor!T)
+                            display.color(map[w,x,y,z].fg, map[w,x,y,z].bg);
+                        display.writef("%s", map[w,x,y,z].ch);
+                    }
+                    else static if (is(CellType!Map == dchar))
+                    {
+                        display.writef("%s", map[w,x,y,z]);
+                    }
+                    else static assert(0, "Unsupported tile type: " ~
+                                          CellType!Map.stringof);
                 }
             }
         }

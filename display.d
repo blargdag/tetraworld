@@ -32,6 +32,7 @@
  */
 module display;
 
+import std.range.primitives;
 import vector;
 
 /**
@@ -68,6 +69,27 @@ enum canShowHideCursor(T) = isGridDisplay!T &&
                             is(typeof(T.init.hideCursor()));
 
 /**
+ * true if T is a grid-based display that supports color.
+ *
+ * A display that supports color is one that has a .color method that accepts
+ * two ushort parameters, corresponding to foreground and background colors.
+ */
+template hasColor(T)
+    if (isGridDisplay!T)
+{
+    enum hasColor = is(typeof(T.init.color(ushort.init, ushort.init)));
+}
+
+/**
+ * true if T is a grid-based display that supports the .clear operation.
+ */
+template canClear(T)
+    if (isGridDisplay!T)
+{
+    enum canClear = is(typeof(T.init.clear()));
+}
+
+/**
  * A wrapper around an existing display that represents a rectangular subset of
  * it. The .moveTo primitive is wrapped to translate input coordinates into
  * actual coordinates on the display.
@@ -94,6 +116,9 @@ struct SubDisplay(T)
 
     ///
     @property auto height() { return rect.max[1] - rect.min[1]; }
+
+    static if (hasColor!T)
+        void color(ushort fg, ushort bg) { parent.color(fg, bg); }
 }
 
 unittest
@@ -279,9 +304,32 @@ static this()
     spaceGrapheme = Grapheme(" ");
 }
 
-private struct DispBuffer
+enum ColorType
 {
+    none, basic16, truecolor
+}
+
+private struct DispBuffer(ColorType colorType)
+{
+    static assert(colorType != ColorType.truecolor,
+                  "Truecolor not implemented yet");
+
     import std.uni;
+
+    /**
+     * A colored grapheme.
+     */
+    struct Glyph
+    {
+        Grapheme g;
+
+        static if (colorType == ColorType.basic16)
+        {
+            // 256 is arsd.terminal's default (Color.DEFAULT). We copy that
+            // here for transparent compatibility.
+            ushort fg = 256, bg = 256;
+        }
+    }
 
     struct Cell
     {
@@ -291,13 +339,13 @@ private struct DispBuffer
         enum Type : ubyte { Full, HalfLeft, HalfRight }
 
         Type type;
-        Grapheme grapheme;
+        Glyph glyph;
 
         version(unittest)
         void toString(scope void delegate(const(char)[]) sink)
         {
             import std.algorithm : copy;
-            copy(grapheme[], sink);
+            copy(glyph.g[], sink);
         }
     }
 
@@ -307,31 +355,41 @@ private struct DispBuffer
         uint dirtyStart = uint.max, dirtyEnd;
 
         /**
-         * Returns: Range of chars on this line.
+         * Returns: Range of Glyphs on this line.
+         *
+         * Bugs: Due to std.uni.Grapheme's bogonity, we have to return Glyph*'s
+         * as elements instead of Glyph, so that no Grapheme copying is done.
+         * So you may have to explicitly dereference elements if you expect
+         * Glyph's.
          */
-        auto byChar()()
+        auto byGlyph()()
         {
-            return byCharImpl(0, cast(uint) contents.length);
+            return byGlyphImpl(0, cast(uint) contents.length);
         }
 
         /**
-         * Returns: Range of dirty chars on this line.
+         * Returns: Range of dirty Glyphs on this line.
+         *
+         * Bugs: Due to std.uni.Grapheme's bogonity, we have to return Glyph*'s
+         * as elements instead of Glyph, so that no Grapheme copying is done.
+         * So you may have to explicitly dereference elements if you expect
+         * Glyph's.
          */
-        auto byDirtyChar()()
+        auto byDirtyGlyph()()
         {
-            return byCharImpl(dirtyStart, dirtyEnd);
+            return byGlyphImpl(dirtyStart, dirtyEnd);
         }
 
-        private auto byCharImpl(uint start, uint end)
+        private auto byGlyphImpl(uint start, uint end)
         {
             import std.array : array;
-            import std.algorithm : filter, map, joiner;
+            import std.algorithm : filter, map;
 
             return contents[start .. end]
                 .filter!((ref c) => c.type != Cell.Type.HalfRight)
-                .map!((ref c) => (c == c.init) ? spaceGrapheme[]
-                                               : c.grapheme[])
-                .joiner;
+                .map!((ref c) => &c.glyph);
+
+            static assert(is(ElementType!(typeof(return)) == Glyph*));
         }
 
         /**
@@ -365,32 +423,51 @@ private struct DispBuffer
 
     private Line[] lines;
 
+    void clear(uint width, uint height, ushort fg=256, ushort bg=256)
+    {
+        lines.length = height;
+        foreach (j; 0 .. height)
+        {
+            lines[j].contents.length = width;
+            foreach (i; 0 .. width)
+            {
+                static if (colorType == ColorType.basic16)
+                    this[i, j] = Glyph(spaceGrapheme, fg, bg);
+                else
+                    this[i, j] = Glyph(spaceGrapheme);
+            }
+        }
+    }
+
     /**
      * Lookup a grapheme in the buffer.
      */
-    Grapheme opIndex(int x, int y)
+    Glyph opIndex(int x, int y)
     {
         if (y < 0 || y >= lines.length ||
             x < 0 || x >= lines[y].contents.length)
         {
             // Unassigned areas default to empty space
-            return spaceGrapheme;
+            static if (colorType == ColorType.basic16)
+                return Glyph(spaceGrapheme, 0, 0);
+            else
+                return Glyph(spaceGrapheme);
         }
 
         if (lines[y].contents[x].type == Cell.Type.HalfRight)
         {
             assert(x > 0);
-            return lines[y].contents[x-1].grapheme;
+            return lines[y].contents[x-1].glyph;
         }
         else
-            return lines[y].contents[x].grapheme;
+            return lines[y].contents[x].glyph;
     }
 
     /**
      * Write a single grapheme into the buffer.
      */
-    void opIndexAssign(ref Grapheme g, int x, int y)
-        in (isGraphical(g[0]))
+    void opIndexAssign(Glyph gl, int x, int y)
+        in (isGraphical(gl.g[0]))
     {
         if (y < 0 || x < 0) return;
         if (y >= lines.length)
@@ -398,7 +475,7 @@ private struct DispBuffer
 
         assert(y < lines.length);
         if (x >= lines[y].contents.length)
-            lines[y].contents.length = g[0].isWide() ? x+2 : x+1;
+            lines[y].contents.length = gl.g[0].isWide() ? x+2 : x+1;
 
         void stomp(int x, int y)
         {
@@ -412,14 +489,24 @@ private struct DispBuffer
                     assert(lines[y].contents.length > x+1);
                     lines[y].markDirty(x+1);
                     lines[y].contents[x+1].type = Cell.Type.Full;
-                    lines[y].contents[x+1].grapheme = spaceGrapheme;
+                    lines[y].contents[x+1].glyph.g = spaceGrapheme;
+                    static if (colorType == ColorType.basic16)
+                    {
+                        lines[y].contents[x+1].glyph.fg = gl.fg;
+                        lines[y].contents[x+1].glyph.bg = gl.bg;
+                    }
                     return;
 
                 case Cell.Type.HalfRight:
                     assert(x > 0);
                     lines[y].markDirty(x-1);
                     lines[y].contents[x-1].type = Cell.Type.Full;
-                    lines[y].contents[x-1].grapheme = spaceGrapheme;
+                    lines[y].contents[x-1].glyph.g = spaceGrapheme;
+                    static if (colorType == ColorType.basic16)
+                    {
+                        lines[y].contents[x-1].glyph.fg = gl.fg;
+                        lines[y].contents[x-1].glyph.bg = gl.bg;
+                    }
                     return;
 
                 case Cell.Type.Full:
@@ -430,7 +517,7 @@ private struct DispBuffer
         }
 
         auto contents = lines[y].contents;
-        if (contents[x].grapheme == g &&
+        if (contents[x].glyph == gl &&
             contents[x].type != Cell.Type.HalfRight)
         {
             // Written character identical to what's in buffer; nothing to do.
@@ -438,13 +525,18 @@ private struct DispBuffer
         }
 
         stomp(x, y);
-        contents[x].grapheme = g;
+        contents[x].glyph = gl;
 
-        if (g[0].isWide())
+        if (gl.g[0].isWide())
         {
             stomp(x+1, y);
             contents[x].type = Cell.Type.HalfLeft;
-            contents[x+1].grapheme = Grapheme.init;
+            contents[x+1].glyph.g = Grapheme.init;
+            static if (colorType == ColorType.basic16)
+            {
+                contents[x+1].glyph.fg = gl.fg;
+                contents[x+1].glyph.bg = gl.bg;
+            }
             contents[x+1].type = Cell.Type.HalfRight;
         }
         else
@@ -463,7 +555,7 @@ private struct DispBuffer
             {
                 import std.algorithm : copy;
                 if (lines[y].contents[x].type != Cell.Type.HalfRight)
-                    lines[y].contents[x].grapheme[].copy(sink);
+                    lines[y].contents[x].glyph.g[].copy(sink);
             }
             sink("\n");
         }
@@ -484,12 +576,15 @@ private struct DispBuffer
 }
 
 version(unittest)
-private void dump(DispBuffer buf)
+private void dump(Disp)(Disp buf)
+    if (is(Disp == DispBuffer!c, ColorType c))
 {
+    import std.algorithm : map;
+    import std.conv : to;
     import std.stdio;
     foreach (i, line; buf.lines)
     {
-        writefln("%2d: >%s<", i, line.byChar());
+        writefln("%2d: >%s<", i, line.byGlyph().map!(gl => gl.g[].to!string));
     }
 }
 
@@ -501,12 +596,22 @@ struct BufferedDisplay(Display)
 {
     import std.uni;
 
-    private Display    disp;
-    private DispBuffer buf;
+    private Display disp;
+
+    static if (hasColor!Display)
+        private DispBuffer!(ColorType.basic16) buf;
+    else
+        private DispBuffer!(ColorType.none) buf;
 
     private Vec!(int,2) cursor;
     static if (canShowHideCursor!Display)
         private bool cursorHidden;
+
+    this(Display _disp)
+    {
+        disp = _disp;
+        clear();
+    }
 
     /**
      * Dimensions of the underlying display.
@@ -555,10 +660,17 @@ struct BufferedDisplay(Display)
             if (x < 0 || x >= disp.width || y < 0 || y >= disp.height)
                 continue;
 
-            buf[x,y] = g;
+            static if (hasColor!Display)
+                buf[x,y] = buf.Glyph(g, curFg, curBg);
+            else
+                buf[x,y] = buf.Glyph(g);
 
             x += g[0].isWide() ? 2 : 1;
         }
+
+        // Update cursor position
+        cursor[0] = x;
+        cursor[1] = y;
     }
 
     /**
@@ -585,6 +697,12 @@ struct BufferedDisplay(Display)
         static if (canShowHideCursor!Display)
             disp.hideCursor();
 
+        static if (hasColor!Display)
+        {
+            ushort fg = curFg, bg = curBg;
+            disp.color(fg, bg);
+        }
+
         foreach (e; buf.byDirtyLines)
         {
             auto linenum = e[0];
@@ -592,9 +710,28 @@ struct BufferedDisplay(Display)
 
             assert(line.dirtyStart < line.dirtyEnd);
             assert(linenum <= int.max);
-import std.range,std.stdio;writefln("flush: %d dirty=%d..%d dirtyChars=%s", linenum, line.dirtyStart, line.dirtyEnd, line.byDirtyChar());
+
             disp.moveTo(line.dirtyStart, cast(int)linenum);
-            disp.writef("%s", line.byDirtyChar());
+
+            import std.algorithm : joiner, map;
+            static if (hasColor!Display)
+            {
+                foreach (gl; line.byDirtyGlyph())
+                {
+                    if (fg != gl.fg || bg != gl.bg)
+                    {
+                        fg = gl.fg;
+                        bg = gl.bg;
+                        disp.color(fg, bg);
+                    }
+                    disp.writef("%s", gl.g[]);
+                }
+            }
+            else
+                disp.writef("%s", line.byDirtyGlyph()
+                                      .map!(gl => gl.g[])
+                                      .joiner);
+
             line.markAllClean();
         }
 
@@ -637,18 +774,16 @@ import std.range,std.stdio;writefln("flush: %d dirty=%d..%d dirtyChars=%s", line
      */
     void clear()
     {
-        buf.lines.length = disp.height;
-        foreach (j; 0 .. disp.height)
-        {
-            buf.lines[j].contents.length = disp.width;
-            foreach (i; 0 .. disp.width)
-            {
-                buf[i, j] = spaceGrapheme;
-            }
-        }
+        static if (hasColor!Display)
+            buf.clear(disp.width, disp.height, curFg, curBg);
+        else
+            buf.clear(disp.width, disp.height);
 
-        static if (is(typeof(disp.clear())))
+        static if (canClear!Display)
         {
+            static if (hasColor!Display)
+                disp.color(curFg, curBg);
+
             disp.clear();
             foreach (ref e; buf.lines)
             {
@@ -658,6 +793,22 @@ import std.range,std.stdio;writefln("flush: %d dirty=%d..%d dirtyChars=%s", line
         else
         {
             flush();
+        }
+    }
+
+    static if (hasColor!Display)
+    {
+        // 256 is arsd.terminal's default (Color.DEFAULT). We copy that here
+        // for transparent compatibility.
+        private ushort curFg = 256, curBg = 256;
+
+        /**
+         * Set current foreground/background color for grapheme assignments.
+         */
+        void color(ushort fg, ushort bg)
+        {
+            curFg = fg;
+            curBg = bg;
         }
     }
 
@@ -686,26 +837,26 @@ unittest
     bufDisp.writef("Живу\n你是");
 
     import std.algorithm : equal;
-    assert(bufDisp.buf[0,0][].equal("Ж"));
-    assert(bufDisp.buf[1,0][].equal("и"));
-    assert(bufDisp.buf[2,0][].equal("в"));
-    assert(bufDisp.buf[3,0][].equal("у"));
-    assert(bufDisp.buf[4,0][].equal(" "));
-    assert(bufDisp.buf[0,1][].equal("你"));
-    assert(bufDisp.buf[1,1][].equal("你"));
-    assert(bufDisp.buf[2,1][].equal("是"));
-    assert(bufDisp.buf[3,1][].equal("是"));
+    assert(bufDisp.buf[0,0].g[].equal("Ж"));
+    assert(bufDisp.buf[1,0].g[].equal("и"));
+    assert(bufDisp.buf[2,0].g[].equal("в"));
+    assert(bufDisp.buf[3,0].g[].equal("у"));
+    assert(bufDisp.buf[4,0].g[].equal(" "));
+    assert(bufDisp.buf[0,1].g[].equal("你"));
+    assert(bufDisp.buf[1,1].g[].equal("你"));
+    assert(bufDisp.buf[2,1].g[].equal("是"));
+    assert(bufDisp.buf[3,1].g[].equal("是"));
 
     bufDisp.moveTo(1,1);
     bufDisp.writef("大");
-    assert(bufDisp.buf[0,1][].equal(" "));
-    assert(bufDisp.buf[1,1][].equal("大"));
-    assert(bufDisp.buf[2,1][].equal("大"));
-    assert(bufDisp.buf[3,1][].equal(" "));
+    assert(bufDisp.buf[0,1].g[].equal(" "));
+    assert(bufDisp.buf[1,1].g[].equal("大"));
+    assert(bufDisp.buf[2,1].g[].equal("大"));
+    assert(bufDisp.buf[3,1].g[].equal(" "));
 
     bufDisp.moveTo(3,0);
     bufDisp.writef("и");
-    assert(bufDisp.buf[3,0][].equal("и"));
+    assert(bufDisp.buf[3,0].g[].equal("и"));
 
     import std.array : appender;
     import std.format : formattedWrite;
@@ -713,7 +864,7 @@ unittest
     app.formattedWrite("%s", bufDisp.buf);
     assert(app.data == "Живи\n 大 \n");
 
-    // Test byDirtyLines() and Line.byChar().
+    // Test byDirtyLines() and Line.byGlyph().
     import std.algorithm : equal;
     import std.typecons : tuple;
     auto dirtyLines = bufDisp.buf.byDirtyLines;
@@ -721,7 +872,12 @@ unittest
         tuple(0, "Живи"),
         tuple(1, " 大 ")
     ];
-    assert(equal!((a,b) => a[0]==b[0] && equal(a[1].byChar(), b[1]))
+
+    import std.algorithm : map;
+    import std.uni : byGrapheme;
+    assert(equal!((a,b) => a[0]==b[0] &&
+                  equal(a[1].byGlyph().map!(gl => *gl),
+                        b[1].byGrapheme.map!(ch => bufDisp.buf.Glyph(ch))))
                  (dirtyLines, expectedLines));
 }
 
@@ -770,7 +926,6 @@ unittest
         tuple(1, 1, "Разцветал"),
         tuple(1, 3, "你是大人"),
     ];
-    //bufDisp.buf.dump();
     bufDisp.flush();
     assert(bufDisp.disp.expected.empty);
     assert(bufDisp.buf.byDirtyLines.empty);
@@ -981,6 +1136,189 @@ unittest
     assert(disp.impl == "abcdefgh"~ // canaries gone
                         "0Ойойой7"~
                         "        ");
+
+    // Test matching of existing characters
+    disp.impl[16] = '^';
+    disp.impl[23] = '$';
+    assert(disp.impl == "abcdefgh"~
+                        "0Ойойой7"~
+                        "^      $");
+    bufDisp.moveTo(0, 2);
+    bufDisp.writef("   ha   ");
+    bufDisp.flush();
+    assert(disp.impl == "abcdefgh"~
+                        "0Ойойой7"~
+                        "^  ha  $"); // buffer unaware of canaries
+}
+
+// Color tester
+unittest
+{
+    class ColorDisp
+    {
+        enum width = 8;
+        enum height = 3;
+
+        dchar[width*height] text;
+        ushort[width*height] fgs;
+        ushort[width*height] bgs;
+
+        Vec!(int,2) cursor;
+        ushort fg, bg;
+
+        this()
+        {
+            text[] = ' ';
+        }
+        void moveTo(int x, int y) { cursor = vec(x,y); }
+        void writef(A...)(string fmt, A args)
+        {
+            import std.format : format;
+            auto str = format(fmt, args);
+            foreach (dchar ch; str)
+            {
+                assert(cursor[0] < width && cursor[1] < height);
+                text[cursor[0] + width*cursor[1]] = ch;
+                fgs[cursor[0] + width*cursor[1]] = fg;
+                bgs[cursor[0] + width*cursor[1]] = bg;
+                cursor[0]++;
+            }
+        }
+        void color(ushort _fg, ushort _bg)
+        {
+            fg = _fg;
+            bg = _bg;
+        }
+    }
+    static assert(isGridDisplay!ColorDisp);
+    static assert(hasColor!ColorDisp);
+
+    auto disp = new ColorDisp;
+    assert(disp.text == "        "~
+                        "        "~
+                        "        ");
+
+    auto bufDisp = bufferedDisplay(disp);
+
+    // Verify arsd.terminal default colors for compatibility.
+    bufDisp.flush();
+    assert(disp.text == "        "~
+                        "        "~
+                        "        ");
+    assert(disp.fgs == [ 256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256 ]);
+    assert(disp.bgs == [ 256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256,
+                         256,256,256,256,256,256,256,256 ]);
+
+    bufDisp.color(0, 0);
+    bufDisp.clear();
+
+    // Basic color test
+    bufDisp.moveTo(0, 0);
+    bufDisp.writef("abcd");
+    bufDisp.color(1, 2);
+    bufDisp.writef("efgh");
+    bufDisp.moveTo(2, 2);
+    bufDisp.writef("bleh");
+    bufDisp.color(3, 4); // should not affect .flush
+    bufDisp.flush();
+    assert(disp.text == "abcdefgh"~
+                        "        "~
+                        "  bleh  ");
+    assert(disp.fgs == [ 0,0,0,0,1,1,1,1,
+                         0,0,0,0,0,0,0,0,
+                         0,0,1,1,1,1,0,0 ]);
+    assert(disp.bgs == [ 0,0,0,0,2,2,2,2,
+                         0,0,0,0,0,0,0,0,
+                         0,0,2,2,2,2,0,0 ]);
+
+    // Color overwrite test
+    bufDisp.moveTo(2, 0);
+    bufDisp.writef("HAHA");
+    bufDisp.flush();
+    assert(disp.text == "abHAHAgh"~
+                        "        "~
+                        "  bleh  ");
+    assert(disp.fgs == [ 0,0,3,3,3,3,1,1,
+                         0,0,0,0,0,0,0,0,
+                         0,0,1,1,1,1,0,0 ]);
+    assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
+                         0,0,0,0,0,0,0,0,
+                         0,0,2,2,2,2,0,0 ]);
+
+    // Same text, different colors overwrite test
+    bufDisp.color(5, 6);
+    bufDisp.moveTo(0, 1);
+    bufDisp.writef("  ");
+    bufDisp.moveTo(1, 2);
+    bufDisp.writef(" ble");
+    bufDisp.flush();
+    assert(disp.text == "abHAHAgh"~
+                        "        "~
+                        "  bleh  ");
+    assert(disp.fgs == [ 0,0,3,3,3,3,1,1,
+                         5,5,0,0,0,0,0,0,
+                         0,5,5,5,5,1,0,0 ]);
+    assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
+                         6,6,0,0,0,0,0,0,
+                         0,6,6,6,6,2,0,0 ]);
+
+    // Identical write test
+    disp.text[] = 'X';    // canaries
+    disp.fgs[] = 0;
+    disp.bgs[] = 0;
+    assert(disp.text == "XXXXXXXX"~
+                        "XXXXXXXX"~
+                        "XXXXXXXX");
+    assert(disp.fgs == [ 0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0 ]);
+    assert(disp.bgs == [ 0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0 ]);
+
+    bufDisp.moveTo(4, 0);
+    bufDisp.color(3, 4);
+    bufDisp.writef("HA");
+    bufDisp.color(1, 2);
+    bufDisp.writef("gh");
+
+    bufDisp.moveTo(1, 1);
+    bufDisp.color(5, 6);
+    bufDisp.writef(" ");
+
+    bufDisp.moveTo(3, 2);
+    bufDisp.writef("l");
+
+    bufDisp.moveTo(7, 2); // non-identical write
+    bufDisp.color(7, 8);
+    bufDisp.writef("O");
+
+    bufDisp.flush();
+
+    assert(disp.text == "XXXXXXXX"~ // buffer unaware of canaries
+                        "XXXXXXXX"~
+                        "XXXXXXXO");
+    assert(disp.fgs == [ 0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,7 ]);
+    assert(disp.bgs == [ 0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,0,
+                         0,0,0,0,0,0,0,8 ]);
+
+    bufDisp.repaint();
+    bufDisp.flush();
+    assert(disp.text == "abHAHAgh"~ // state now resynced
+                        "        "~
+                        "  bleh O");
+    assert(disp.fgs == [ 0,0,3,3,3,3,1,1,
+                         5,5,0,0,0,0,0,0,
+                         0,5,5,5,5,1,0,7 ]);
+    assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
+                         6,6,0,0,0,0,0,0,
+                         0,6,6,6,6,2,0,8 ]);
 }
 
 // vim:set ai sw=4 ts=4 et:

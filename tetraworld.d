@@ -67,22 +67,30 @@ struct GameMap
 
     @property int opDollar(int i)() { return bounds.max[i]; }
 
-    dchar opIndex(int[4] pos...)
+    ColorTile opIndex(int[4] pos...)
     {
         import std.math : abs;
 
-        if (vec(pos) == playerPos) return '&';
-        if (vec(pos) == exitPos) return '@';
+        // Highlight tiles along axial directions from player.
+        auto fg = Color.DEFAULT;
+        auto bg = Color.DEFAULT;
+        if (iota(4).fold!((c,i) => c + !!(pos[i] == playerPos[i]))(0) >= 3)
+        {
+            fg = cast(Color)(Color.blue | Bright);
+        }
+
+        if (vec(pos) == playerPos) return ColorTile('&', fg, bg);
+        if (vec(pos) == exitPos) return ColorTile('@', fg, bg);
 
         // FIXME: should be a more efficient way to do this
-        dchar ch = '/';
+        auto result = ColorTile('/', fg, bg);
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
             (MapNode node, R r) {
                 auto rr = node.interior;
                 if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
                                             pos[i] < rr.max[i])(true))
                 {
-                    ch = node.style;
+                    result.ch = node.style;
                     return 1;
                 }
 
@@ -90,19 +98,19 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        ch = '#';
+                        result.ch = '#';
                         return 1;
                     }
                 }
 
-                ch = '/';
+                result.ch = '/';
                 return 1;
             }
         );
-        return ch;
+        return result;
     }
 }
-static assert(is4DArray!GameMap && is(CellType!GameMap == dchar));
+static assert(is4DArray!GameMap && is(CellType!GameMap == ColorTile));
 
 /**
  * Viewport representation.
@@ -232,6 +240,7 @@ void play()
 
     auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
     auto mapview = subdisplay(&disp, maprect);
+    static assert(hasColor!(typeof(mapview)));
 
     //drawBox(&disp, region(maprect.min - vec(1,1),
     //                      maprect.max + vec(1,1)));
@@ -261,10 +270,10 @@ void play()
     void movePlayer(Vec!(int,4) displacement)
     {
         auto newPos = map.playerPos + displacement;
-        if (map[newPos] == '/')
+        if (map[newPos].ch == '/')
             return; // movement blocked
 
-        if (map[newPos] == '@')
+        if (map[newPos].ch == '@')
         {
             //message("You see the exit portal here.");
             inputHandler.wantQuit = true;
