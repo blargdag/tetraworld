@@ -1,3 +1,7 @@
+- Implement save/load.
+   - Should probably turn Vec and Region into mixins instead of isolated types,
+     so that we can unify Vec with Pos and make Region more nicely
+     serializable.
 - Should probably implement gravity now rather than later, since it changes a
   LOT of things.
 - Map underlying representation should be distinct from dchar.
