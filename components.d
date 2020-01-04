@@ -53,4 +53,18 @@ struct Tiled
     ColorTile tile;
 }
 
+enum UseEffect
+{
+    portal
+}
+
+/**
+ * Component of any object that can be used or applied by the apply action.
+ */
+@Component
+struct Usable
+{
+    UseEffect effect;
+}
+
 // vim:set ai sw=4 ts=4 et:

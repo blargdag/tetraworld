@@ -236,7 +236,6 @@ void play()
                             .empty)
             {
                 message("You see the exit portal here.");
-                //inputHandler.wantQuit = true;
             }
         }
 
@@ -248,6 +247,27 @@ void play()
     {
         viewport.move(displacement);
         refresh();
+    }
+
+    void applyFloorObj()
+    {
+        import std.algorithm : map;
+        auto r = world.store.getAllBy!Pos(Pos(playerPos))
+                            .map!(id => world.store.get!Usable(id))
+                            .filter!(u => u !is null);
+        if (r.empty)
+        {
+            message("There's nothing to apply here.");
+            refresh();
+            return;
+        }
+
+        final switch (r.front.effect)
+        {
+            case UseEffect.portal:
+                inputHandler.wantQuit = true;
+                break;
+        }
     }
 
     inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
@@ -266,6 +286,7 @@ void play()
     inputHandler.bind('N', (dchar) { moveView(vec(0,0,1,0)); });
     inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
+    inputHandler.bind(' ', (dchar) { applyFloorObj(); });
 
     refresh();
     while (!inputHandler.wantQuit)

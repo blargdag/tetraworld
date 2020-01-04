@@ -127,7 +127,8 @@ World newGame(int[4] dim)
     import arsd.terminal : Color;
     import components;
     w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                      Tiled(ColorTile('@', Color.DEFAULT, Color.DEFAULT)));
+                      Tiled(ColorTile('@', Color.DEFAULT, Color.DEFAULT)),
+                      Usable(UseEffect.portal));
 
     return w;
 }
