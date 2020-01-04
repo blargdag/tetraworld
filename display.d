@@ -49,22 +49,22 @@ import vector;
  * }
  *------
  */
-enum isGridDisplay(T) = is(typeof(int.init < T.init.width)) &&
-                        is(typeof(int.init < T.init.height)) &&
-                        is(typeof(T.init.moveTo(0,0))) &&
-                        is(typeof(T.init.writef("%s", "")));
+enum isDisplay(T) = is(typeof(int.init < T.init.width)) &&
+                    is(typeof(int.init < T.init.height)) &&
+                    is(typeof(T.init.moveTo(0,0))) &&
+                    is(typeof(T.init.writef("%s", "")));
 
 unittest
 {
     import arsd.terminal;
-    static assert(isGridDisplay!(arsd.terminal.Terminal));
+    static assert(isDisplay!(arsd.terminal.Terminal));
 }
 
 /**
  * true if T is a grid display that supports the .showCursor and .hideCursor
  * methods.
  */
-enum canShowHideCursor(T) = isGridDisplay!T &&
+enum canShowHideCursor(T) = isDisplay!T &&
                             is(typeof(T.init.showCursor())) &&
                             is(typeof(T.init.hideCursor()));
 
@@ -75,7 +75,7 @@ enum canShowHideCursor(T) = isGridDisplay!T &&
  * two ushort parameters, corresponding to foreground and background colors.
  */
 template hasColor(T)
-    if (isGridDisplay!T)
+    if (isDisplay!T)
 {
     enum hasColor = is(typeof(T.init.color(ushort.init, ushort.init)));
 }
@@ -84,9 +84,19 @@ template hasColor(T)
  * true if T is a grid-based display that supports the .clear operation.
  */
 template canClear(T)
-    if (isGridDisplay!T)
+    if (isDisplay!T)
 {
     enum canClear = is(typeof(T.init.clear()));
+}
+
+/**
+ * true if T is a grid-based display that has .cursorX and cursorY.
+ */
+template hasCursorXY(T)
+    if (isDisplay!T)
+{
+    enum hasCursorXY = is(typeof(T.init.cursorX) : int) &&
+                       is(typeof(T.init.cursorY) : int);
 }
 
 /**
@@ -95,7 +105,7 @@ template canClear(T)
  * actual coordinates on the display.
  */
 struct SubDisplay(T)
-    if (isGridDisplay!T)
+    if (isDisplay!T)
 {
     T parent;
     Region!(int,2) rect;
@@ -119,30 +129,66 @@ struct SubDisplay(T)
 
     static if (hasColor!T)
         void color(ushort fg, ushort bg) { parent.color(fg, bg); }
+
+    static if (hasCursorXY!T)
+    {
+        @property int cursorX() { return parent.cursorX - rect.min[0]; }
+        @property int cursorY() { return parent.cursorY - rect.min[1]; }
+    }
 }
 
 unittest
 {
     import arsd.terminal;
-    static assert(isGridDisplay!(SubDisplay!(arsd.terminal.Terminal)));
+    static assert(isDisplay!(SubDisplay!(arsd.terminal.Terminal)));
 }
 
 /// Convenience method for constructing a SubDisplay.
 auto subdisplay(T)(T display, Region!(int,2) rect)
-    if (isGridDisplay!T)
+    if (isDisplay!T)
 {
     return SubDisplay!T(display, rect);
 }
 
 /**
+ * Writes spaces to the current display from the current cursor position until
+ * the end of the line.
+ */
+void clearToEol(T)(auto ref T display)
+    if (isDisplay!T && hasCursorXY!T)
+{
+    foreach (i; display.cursorX .. display.width)
+    {
+        display.writef(" ");
+    }
+}
+
+/**
+ * Fills the current display with spaces starting from the current cursor
+ * position until the bottom right corner of the display.
+ */
+void clearToEos(T)(auto ref T display)
+    if (isDisplay!T && hasCursorXY!T)
+{
+    int startY = display.cursorY;
+
+    display.clearToEol();
+    foreach (i; startY .. display.height)
+    {
+        display.moveTo(0, i);
+        display.clearToEol();
+    }
+}
+
+/**
  * Draws a box of the specified position and dimensions to the given display.
  * Params:
- *  display = A grid-based output display satisfying isGridDisplay.
+ *  display = A grid-based output display satisfying isDisplay.
  *  box = a Rectangle specifying the position and dimensions of the box to be
  *  drawn.
  */
 void drawBox(T)(T display, Region!(int,2) box)
-    if (isGridDisplay!T)
+    if (isDisplay!T)
     in (box.length!0 >= 2 && box.length!1 >= 2)
 {
     enum
@@ -592,7 +638,7 @@ private void dump(Disp)(Disp buf)
  * A buffered wrapper around a grid-based display.
  */
 struct BufferedDisplay(Display)
-    if (isGridDisplay!Display)
+    if (isDisplay!Display)
 {
     import std.uni;
 
@@ -812,7 +858,13 @@ struct BufferedDisplay(Display)
         }
     }
 
-    static assert(isGridDisplay!(typeof(this)));
+    static if (hasCursorXY!Display)
+    {
+        @property int cursorX() { return disp.cursorX; }
+        @property int cursorY() { return disp.cursorY; }
+    }
+
+    static assert(isDisplay!(typeof(this)));
 }
 
 /**
@@ -909,7 +961,7 @@ unittest
             expected.popFront();
         }
     }
-    static assert(isGridDisplay!TestDisplay);
+    static assert(isDisplay!TestDisplay);
     BufferedDisplay!TestDisplay bufDisp;
 
     // Test construction of lines piecemeal
@@ -1074,7 +1126,7 @@ unittest
             }
         }
     }
-    static assert(isGridDisplay!TestDisplay);
+    static assert(isDisplay!TestDisplay);
 
     auto disp = new TestDisplay;
     assert(disp.impl == "        "~
@@ -1190,7 +1242,7 @@ unittest
             bg = _bg;
         }
     }
-    static assert(isGridDisplay!ColorDisp);
+    static assert(isDisplay!ColorDisp);
     static assert(hasColor!ColorDisp);
 
     auto disp = new ColorDisp;

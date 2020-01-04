@@ -83,12 +83,12 @@ struct ColorTile
  * Renders a 4D map to the given grid-based display.
  *
  * Params:
- *  display = A grid-based output display satisfying isGridDisplay.
+ *  display = A grid-based output display satisfying isDisplay.
  *  map = An object which returns a printable character or a ColorTile, given a
  *      set of 4D coordinates.
  */
 void renderMap(T, Map)(T display, Map map)
-    if (isGridDisplay!T && is4DArray!Map &&
+    if (isDisplay!T && is4DArray!Map &&
         (is(CellType!Map == dchar) || is(CellType!Map == ColorTile)))
 {
     auto wlen = map.opDollar!0;

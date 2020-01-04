@@ -165,6 +165,7 @@ void play()
     {
         msgBox.moveTo(0,0);
         msgBox.writef(fmt, args);
+        msgBox.clearToEol();
     }
 
     message("Welcome to Tetraworld!");
