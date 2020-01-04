@@ -53,6 +53,16 @@ struct Tiled
     ColorTile tile;
 }
 
+/**
+ * Component of any object that has a name.
+ */
+@Component
+struct Name
+{
+    // TBD: should make this i18n-able.
+    string name;
+}
+
 enum UseEffect
 {
     portal

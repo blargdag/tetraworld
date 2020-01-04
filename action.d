@@ -57,6 +57,13 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         {
             w.store.remove!Pos(t);
             inven.contents ~= t.id;
+
+            auto subjName = w.store.get!Name(subj.id);
+            auto objName = w.store.get!Name(t.id);
+            if (subjName !is null && objName !is null)
+                w.events.add(Event(newPos, subj.id,
+                                   subjName.name ~ " pick up " ~ objName.name ~
+                                   "."));
         }
     }
 
