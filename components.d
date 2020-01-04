@@ -73,4 +73,19 @@ struct Usable
 @Component
 struct UsePortal { }
 
+/**
+ * Inventory component
+ */
+@Component
+struct Inventory
+{
+    ThingId[] contents;
+}
+
+/**
+ * Component for objects that can be picked up.
+ */
+@Component
+struct Pickable { }
+
 // vim:set ai sw=4 ts=4 et:

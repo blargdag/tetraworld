@@ -173,7 +173,8 @@ void play()
     World world = newGame([ 13, 13, 13, 13 ]);
     Thing* player = world.store.createObj(
         Pos(world.map.randomLocation()),
-        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT))
+        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT)),
+        Inventory()
     );
     Vec!(int,4) playerPos() { return world.store.get!Pos(player.id).coors; }
 

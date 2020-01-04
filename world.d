@@ -130,6 +130,13 @@ World newGame(int[4] dim)
                       Tiled(ColorTile('@', Color.DEFAULT, Color.DEFAULT)),
                       Usable(UseEffect.portal));
 
+    foreach (i; 0 .. 25)
+    {
+        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+                          Tiled(ColorTile('$', Color.yellow, Color.DEFAULT)),
+                          Pickable());
+    }
+
     return w;
 }
 
