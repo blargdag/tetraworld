@@ -198,7 +198,9 @@ void play()
             auto plpos = playerPos - viewport.pos;
             if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) >= 3)
             {
-                tile.fg = cast(Color)(Color.blue | Bright);
+                if (tile.fg == Color.DEFAULT)
+                    tile.fg = Color.blue;
+                tile.fg |= Bright;
             }
             return tile;
         });
