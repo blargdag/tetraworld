@@ -53,6 +53,16 @@ struct Tiled
     ColorTile tile;
 }
 
+/**
+ * Component of any object that has a name.
+ */
+@Component
+struct Name
+{
+    // TBD: should make this i18n-able.
+    string name;
+}
+
 enum UseEffect
 {
     portal
@@ -72,5 +82,20 @@ struct Usable
  */
 @Component
 struct UsePortal { }
+
+/**
+ * Inventory component
+ */
+@Component
+struct Inventory
+{
+    ThingId[] contents;
+}
+
+/**
+ * Component for objects that can be picked up.
+ */
+@Component
+struct Pickable { }
 
 // vim:set ai sw=4 ts=4 et:

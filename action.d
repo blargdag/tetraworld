@@ -20,6 +20,7 @@
  */
 module action;
 
+import std.algorithm;
 import components;
 import store;
 import world;
@@ -39,13 +40,32 @@ struct ActionResult
 ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
 {
     auto oldPos = w.store.get!Pos(subj.id);
-    auto newPos = oldPos.coors + displacement;
+    auto newPos = Pos(oldPos.coors + displacement);
 
     if (w.map[newPos].ch == '/')
         return ActionResult(false, "Your way is blocked.");
 
     w.store.remove!Pos(subj);
-    w.store.add!Pos(subj, Pos(newPos));
+    w.store.add!Pos(subj, newPos);
+
+    auto inven = w.store.get!Inventory(subj.id);
+    if (inven != null)
+    {
+        foreach (t; w.store.getAllBy!Pos(newPos)
+                           .map!(id => w.store.getObj(id))
+                           .filter!(t => w.store.get!Pickable(t.id) !is null))
+        {
+            w.store.remove!Pos(t);
+            inven.contents ~= t.id;
+
+            auto subjName = w.store.get!Name(subj.id);
+            auto objName = w.store.get!Name(t.id);
+            if (subjName !is null && objName !is null)
+                w.events.add(Event(newPos, subj.id,
+                                   subjName.name ~ " pick up " ~ objName.name ~
+                                   "."));
+        }
+    }
 
     return ActionResult(true);
 }

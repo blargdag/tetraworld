@@ -28,32 +28,6 @@ import loadsave;
 import store_traits;
 
 /**
- * Unique global ID for game objects.
- */
-alias ThingId = ulong;
-
-/**
- * Indicates invalid or missing global ID.
- */
-enum invalidId = 0;
-
-/**
- * The number of ThingId's reserved for terrain objects.
- *
- * All terrains will have fixed IDs between 1 and this number (inclusive), and
- * all non-terrain objects will have IDs above this number.
- */
-enum terrainMaxId = 256;
-
-/**
- * First ThingId not reserved for special purposes.
- *
- * IDs below this one serve a special purpose, such as IDs shared by terrain
- * tiles, built-in objects with hard-coded IDs, etc..
- */
-enum specialMaxId = 1024;
-
-/**
  * List of all Components.
  */
 alias AllComponents = getSymbolsByUDA!(components, Component);

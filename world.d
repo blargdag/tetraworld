@@ -27,6 +27,7 @@ import std.range;
 import bsp;
 import map;
 import store;
+import store_traits;
 import vector;
 
 /**
@@ -100,10 +101,89 @@ struct GameMap
 }
 static assert(is4DArray!GameMap && is(CellType!GameMap == ColorTile));
 
+struct Event
+{
+    version(none)
+    @BitFlags
+    enum Type
+    {
+        visual, sound, smell
+    }
+
+    ulong seq;
+    //Type type;
+    Vec!(int,4) origin;
+    //int range;
+    ThingId subj;
+    string msg;
+
+    this(Vec!(int,4) _origin, ThingId _subj, string _msg)
+    {
+        origin = _origin;
+        subj = _subj;
+        msg = _msg;
+    }
+
+    bool opEquals(const Event ev)
+    {
+        // We disregard sequence number when comparing events.
+        return origin == ev.origin &&
+               subj == ev.subj &&
+               msg == ev.msg;
+    }
+}
+
+struct Sensorium
+{
+    ulong seq;
+    Event[] events;
+
+    /**
+     * Add an event.
+     */
+    void add(Event ev)
+    {
+        ev.seq = seq++;
+        events ~= ev;
+    }
+
+    /**
+     * Retrieve events registered since the given sequence number.
+     */
+    auto get(ulong startSeq /*, Vec!(int,4) refPoint, int range */)
+    {
+        return events.find!((ev, seq) => ev.seq >= seq)(startSeq);
+    }
+
+    unittest
+    {
+        Sensorium s;
+        auto lastChecked = s.seq;
+        s.add(Event(vec(1,2,3,4), 1024, "blah"));
+        s.add(Event(vec(2,3,4,5), 1025, "kaboom"));
+
+        assert(s.get(lastChecked) == [
+            Event(vec(1,2,3,4), 1024, "blah"),
+            Event(vec(2,3,4,5), 1025, "kaboom")
+        ]);
+
+        lastChecked = s.seq;
+
+        s.add(Event(vec(4,3,2,1), 1026, "pssst"));
+        s.add(Event(vec(2,8,3,0), 1024, "zap!"));
+
+        assert(s.get(lastChecked) == [
+            Event(vec(4,3,2,1), 1026, "pssst"),
+            Event(vec(2,8,3,0), 1024, "zap!")
+        ]);
+    }
+}
+
 class World
 {
     GameMap map;
     Store store;
+    Sensorium events;
 }
 
 // FIXME: this should go into its own mapgen module.
@@ -128,7 +208,14 @@ World newGame(int[4] dim)
     import components;
     w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
                       Tiled(ColorTile('@', Color.DEFAULT, Color.DEFAULT)),
-                      Usable(UseEffect.portal));
+                      Name("exit portal"), Usable(UseEffect.portal));
+
+    foreach (i; 0 .. 25)
+    {
+        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+                          Tiled(ColorTile('$', Color.yellow, Color.DEFAULT)),
+                          Name("gold"), Pickable());
+    }
 
     return w;
 }

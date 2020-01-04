@@ -173,7 +173,9 @@ void play()
     World world = newGame([ 13, 13, 13, 13 ]);
     Thing* player = world.store.createObj(
         Pos(world.map.randomLocation()),
-        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT))
+        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT)),
+        Name("You"),
+        Inventory()
     );
     Vec!(int,4) playerPos() { return world.store.get!Pos(player.id).coors; }
 
@@ -196,7 +198,9 @@ void play()
             auto plpos = playerPos - viewport.pos;
             if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) >= 3)
             {
-                tile.fg = cast(Color)(Color.blue | Bright);
+                if (tile.fg == Color.DEFAULT)
+                    tile.fg = Color.blue;
+                tile.fg |= Bright;
             }
             return tile;
         });
@@ -219,15 +223,28 @@ void play()
 
     InputEventHandler inputHandler;
 
-    void movePlayer(Vec!(int,4) displacement)
+    ulong lastEventId = world.events.seq;
+    void doAction(alias act, Args...)(Args args)
     {
-        auto res = move(world, player, displacement);
+        ActionResult res = act(args);
         if (!res)
         {
             message(res.failureMsg);
-            refresh();
-            return;
         }
+        else
+        {
+            foreach (ev; world.events.get(lastEventId))
+            {
+                message(ev.msg);
+            }
+            lastEventId = world.events.seq;
+        }
+        refresh();
+    }
+
+    void movePlayer(Vec!(int,4) displacement)
+    {
+        doAction!move(world, player, displacement);
 
         // TBD: this is a hack that should be replaced by a System, probably.
         {
@@ -253,13 +270,7 @@ void play()
 
     void applyFloorObj()
     {
-        auto res = applyFloor(world, player);
-        if (!res)
-        {
-            message(res.failureMsg);
-            refresh();
-            return;
-        }
+        doAction!applyFloor(world, player);
     }
 
     inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
