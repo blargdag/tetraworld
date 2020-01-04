@@ -224,6 +224,7 @@ void play()
         if (!res)
         {
             message(res.failureMsg);
+            refresh();
             return;
         }
 
@@ -251,22 +252,12 @@ void play()
 
     void applyFloorObj()
     {
-        import std.algorithm : map;
-        auto r = world.store.getAllBy!Pos(Pos(playerPos))
-                            .map!(id => world.store.get!Usable(id))
-                            .filter!(u => u !is null);
-        if (r.empty)
+        auto res = applyFloor(world, player);
+        if (!res)
         {
-            message("There's nothing to apply here.");
+            message(res.failureMsg);
             refresh();
             return;
-        }
-
-        final switch (r.front.effect)
-        {
-            case UseEffect.portal:
-                inputHandler.wantQuit = true;
-                break;
         }
     }
 
@@ -292,6 +283,10 @@ void play()
     while (!inputHandler.wantQuit)
     {
         inputHandler.handleGlobalEvent(input.nextEvent());
+
+        // FIXME: this is a hack. What's the better way of doing this??
+        if (world.store.get!UsePortal(player.id) !is null)
+            inputHandler.wantQuit = true;
     }
 
     term.clear();

@@ -50,4 +50,27 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
     return ActionResult(true);
 }
 
+/**
+ * Activate an object on the floor.
+ */
+ActionResult applyFloor(World w, Thing* subj)
+{
+    import std.algorithm : map, filter;
+
+    auto pos = *w.store.get!Pos(subj.id);
+    auto r = w.store.getAllBy!Pos(pos)
+                    .map!(id => w.store.get!Usable(id))
+                    .filter!(u => u !is null);
+    if (r.empty)
+        return ActionResult(false, "Nothing to apply here.");
+
+    final switch (r.front.effect)
+    {
+        case UseEffect.portal:
+            // Experimental
+            w.store.add!UsePortal(subj, UsePortal());
+            return ActionResult(true);
+    }
+}
+
 // vim:set ai sw=4 ts=4 et:

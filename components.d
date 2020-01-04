@@ -67,4 +67,10 @@ struct Usable
     UseEffect effect;
 }
 
+/**
+ * Component to indicate an agent has stepped into an exit portal.
+ */
+@Component
+struct UsePortal { }
+
 // vim:set ai sw=4 ts=4 et:
