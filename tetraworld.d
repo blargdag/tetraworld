@@ -231,7 +231,7 @@ void play()
         // TBD: this is a hack that should be replaced by a System, probably.
         {
             import std.algorithm : map;
-            if (!world.store.getAllBy!Pos(Pos(playerPos + displacement))
+            if (!world.store.getAllBy!Pos(Pos(playerPos))
                             .map!(id => world.store.get!Tiled(id))
                             .filter!(tp => tp !is null && tp.tile.ch == '@')
                             .empty)
