@@ -26,6 +26,7 @@ import std.algorithm;
 import std.random;
 import std.range;
 
+import action;
 import bsp;
 import components;
 import display;
@@ -219,18 +220,17 @@ void play()
 
     void movePlayer(Vec!(int,4) displacement)
     {
-        auto newPos = playerPos + displacement;
+        auto res = move(world, player, displacement);
+        if (!res)
+        {
+            message(res.failureMsg);
+            return;
+        }
 
-        if (world.map[newPos].ch == '/')
-            return; // movement blocked
-
-        // FIXME: this needs to be done in a consistent way
-        world.store.remove!Pos(player);
-        world.store.add!Pos(player, Pos(newPos));
-
+        // TBD: this is a hack that should be replaced by a System, probably.
         {
             import std.algorithm : map;
-            if (!world.store.getAllBy!Pos(Pos(newPos))
+            if (!world.store.getAllBy!Pos(Pos(playerPos + displacement))
                             .map!(id => world.store.get!Tiled(id))
                             .filter!(tp => tp !is null && tp.tile.ch == '@')
                             .empty)
