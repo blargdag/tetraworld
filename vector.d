@@ -39,6 +39,10 @@ struct Vec(T, size_t n)
 
     /**
      * Compares two vectors.
+     *
+     * FIXME: this function is only necessary because of dmd bug #20475. It can
+     * be deleted once the fix for #20475 is merged into an official LDC
+     * release.
      */
     bool opEquals()(auto ref const Vec v) const
     {
