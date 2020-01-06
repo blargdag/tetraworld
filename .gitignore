@@ -1,9 +1,9 @@
 .*.swp
 .scons*
-.*.save
 *.exe
 *.o
 *.obj
 *.pdb
+*.save
 tetraworld
 uniwidth
