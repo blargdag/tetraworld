@@ -188,10 +188,14 @@ void play()
     auto mapview = subdisplay(&disp, maprect);
     static assert(hasColor!(typeof(mapview)));
 
+    auto statusrect = region(vec(screenRect.min[0], screenRect.max[1]-1),
+                             screenRect.max);
+    auto statusview = subdisplay(&disp, statusrect);
+
     //drawBox(&disp, region(maprect.min - vec(1,1),
     //                      maprect.max + vec(1,1)));
 
-    void refresh()
+    void refreshMap()
     {
         auto curview = viewport.curView.fmap!((pos, tile) {
             // Highlight tiles along axial directions from player.
@@ -219,6 +223,32 @@ void play()
         }
 
         disp.flush();
+    }
+
+    void refreshStatus()
+    {
+        // TBD: this should be done elsewhere
+        import std.algorithm : map;
+        auto inv = world.store.get!Inventory(player.id);
+        auto ngold = inv.contents
+                        .map!(id => world.store.get!Tiled(id))
+                        .filter!(tp => tp !is null && tp.tile.ch == '$')
+                        .count;
+        auto maxgold = world.store.getAll!Tiled
+                        .map!(id => world.store.get!Tiled(id))
+                        .filter!(tp => tp.tile.ch == '$')
+                        .count;
+
+        statusview.moveTo(0, 0);
+        statusview.writef("$: %d/%d", ngold, maxgold);
+        statusview.clearToEol();
+    }
+
+
+    void refresh()
+    {
+        refreshStatus();
+        refreshMap(); // should be last
     }
 
     InputEventHandler inputHandler;
