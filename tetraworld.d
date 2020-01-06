@@ -25,12 +25,14 @@ import arsd.terminal;
 import std.algorithm;
 import std.random;
 import std.range;
+import std.stdio;
 
 import action;
 import bsp;
 import components;
 import display;
 import gamemap;
+import loadsave;
 import store;
 import vector;
 import world;
@@ -104,7 +106,6 @@ struct ViewPort(Map)
 struct InputEventHandler
 {
     void delegate(dchar ch)[dchar] bindings;
-    bool wantQuit;
 
     /**
      * Binds a particular key to an action.
@@ -125,18 +126,10 @@ struct InputEventHandler
                 auto ev = event.get!(InputEvent.Type.CharacterEvent);
                 if (ev.eventType == CharacterEvent.Type.Pressed)
                 {
-                    switch (ev.character)
+                    if (auto handler = ev.character in bindings)
                     {
-                        case 'q':
-                            wantQuit = true;
-                            break;
-                        default:
-                            if (auto handler = ev.character in bindings)
-                            {
-                                // Invoke user-defined action.
-                                (*handler)(ev.character);
-                            }
-                            break;
+                        // Invoke user-defined action.
+                        (*handler)(ev.character);
                     }
                 }
                 break;
@@ -300,6 +293,8 @@ void play()
         doAction!applyFloor(world, player);
     }
 
+    bool quit;
+
     inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
     inputHandler.bind('m', (dchar) { movePlayer(vec(1,0,0,0)); });
     inputHandler.bind('h', (dchar) { movePlayer(vec(0,-1,0,0)); });
@@ -317,15 +312,28 @@ void play()
     inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
     inputHandler.bind(' ', (dchar) { applyFloorObj(); });
+    inputHandler.bind('q', (dchar) {
+        auto fp = File("tetraworld.save", "w");
+        auto sf = fp.lockingTextWriter.saveFile;
+
+        sf.put("player", player.id);
+        sf.put("world", world);
+
+        quit = true;
+    });
+    inputHandler.bind('Q', (dchar) {
+        // TBD: confirm abandon game
+        quit = true;
+    });
 
     refresh();
-    while (!inputHandler.wantQuit)
+    while (!quit)
     {
         inputHandler.handleGlobalEvent(input.nextEvent());
 
         // FIXME: this is a hack. What's the better way of doing this??
         if (world.store.get!UsePortal(player.id) !is null)
-            inputHandler.wantQuit = true;
+            quit = true;
     }
 
     term.clear();

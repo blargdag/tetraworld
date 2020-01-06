@@ -96,10 +96,17 @@ struct SaveFile(R)
 
     /**
      * Store a key-value pair in the save file.
+     *
+     * Warning: Only classes with default ctors are supported. For recursive
+     * class types, be sure that there are no cyclic references (e.g., N
+     * classes that refer to each other in a cycle), otherwise this function
+     * will get stuck in an infinite loop. Use @NoSave and a custom .save
+     * function instead to handle such cases.
      */
     void put(T)(string key, T value)
     {
-        import std.traits : hasUDA, getUDAs;
+        import std.traits : hasMember, hasUDA, getUDAs;
+
         static if (isInputRange!T && !is(ElementType!T == dchar))
         {
             import std.traits : isAggregateType;
@@ -124,7 +131,6 @@ struct SaveFile(R)
         {
             this.push(key);
 
-            import std.traits : hasMember;
             static if (hasMember!(T, "save"))
             {
                 value.save(this);
@@ -143,6 +149,50 @@ struct SaveFile(R)
                             __traits(getMember, defVal, field))
                         {
                             this.put(field, __traits(getMember, value, field));
+                        }
+                    }
+                }
+            }
+
+            this.pop();
+        }
+        else static if (is(T == class))
+        {
+            // Classes need extra care, because we need to extract base class
+            // fields, and also need to skip nulls for recursive classes like
+            // tree nodes. Since there is currently no way to extract the
+            // default value of class fields, unlike structs we resort to the
+            // default value for the field type instead.
+            this.push(key);
+
+            static if (hasMember!(T, "save"))
+            {
+                value.save(this);
+            }
+            else
+            {
+                import std.meta : AliasSeq;
+                import std.traits : BaseClassesTuple, FieldNameTuple;
+
+                static foreach (B; AliasSeq!(BaseClassesTuple!T, T))
+                {
+                    foreach (field; FieldNameTuple!B)
+                    {
+                        static if (!hasUDA!(__traits(getMember, value, field),
+                                            NoSave))
+                        {
+                            alias F = typeof(__traits(getMember, value,
+                                                      field));
+                            static if (is(F == class))
+                                bool cond = __traits(getMember, value, field)
+                                            !is null;
+                            else
+                                bool cond = __traits(getMember, value, field)
+                                            != F.init;
+
+                            if (cond)
+                                this.put(field, __traits(getMember, value,
+                                                         field));
                         }
                     }
                 }
@@ -321,7 +371,8 @@ struct LoadFile(R)
         if (curKey != key)
             throw new LoadException("Expecting '%s', got '%s'", key, curKey);
 
-        import std.traits : hasUDA;
+        import std.traits : hasMember, hasUDA;
+
         static if (is(T == U[], U) && !is(ElementType!T == dchar))
         {
             if (checkAndEnterBlock(key))
@@ -371,7 +422,6 @@ struct LoadFile(R)
 
             T result;
 
-            import std.traits : hasMember;
             static if (hasMember!(T, "load"))
             {
                 result.load(this);
@@ -750,6 +800,49 @@ unittest
         " 10 {\n"~
         "  str abc\n"~
         " }\n"~
+        "}\n"
+    );
+}
+
+unittest
+{
+    static class Base(D)
+    {
+        int x;
+        float y;
+        D next;
+    }
+    static class Derived : Base!Derived
+    {
+        string str;
+    }
+
+    auto d = new Derived;
+    d.x = 1;
+    d.y = 2.0;
+    d.str = "abc";
+    d.next = new Derived;
+    d.next.x = 2;
+    d.next.y = 3.0;
+    d.next.str = "def";
+
+    import std.array : appender;
+    auto app = appender!string;
+    auto sf = saveFile(app);
+
+    sf.put("objs", d);
+
+    assert(app.data == 
+        "version 1000\n"~
+        "objs {\n"~
+        " x 1\n"~
+        " y 2\n"~
+        " next {\n"~
+        "  x 2\n"~
+        "  y 3\n"~
+        "  str def\n"~
+        " }\n"~
+        " str abc\n"~
         "}\n"
     );
 }
