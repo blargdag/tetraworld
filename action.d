@@ -75,8 +75,6 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
  */
 ActionResult applyFloor(World w, Thing* subj)
 {
-    import std.algorithm : map, filter;
-
     auto pos = *w.store.get!Pos(subj.id);
     auto r = w.store.getAllBy!Pos(pos)
                     .map!(id => w.store.get!Usable(id))

@@ -49,7 +49,7 @@ struct Tiled
 {
     // FIXME: this should be instead an abstract tile that's mapped to a
     // visible tile by a separate module.
-    import map : ColorTile;
+    import gamemap : ColorTile;
     ColorTile tile;
     int stackOrder;
 }

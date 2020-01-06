@@ -30,7 +30,7 @@ import action;
 import bsp;
 import components;
 import display;
-import map;
+import gamemap;
 import store;
 import vector;
 import world;
@@ -59,7 +59,6 @@ struct ViewPort(Map)
      */
     @property auto curView()
     {
-        import std.algorithm : map;
         return w.map
             .fmap!((pos, floor) => w.store.getAllBy!Pos(Pos(pos))
                 .map!(id => w.store.get!Tiled(id))
@@ -228,7 +227,6 @@ void play()
     void refreshStatus()
     {
         // TBD: this should be done elsewhere
-        import std.algorithm : map;
         auto inv = world.store.get!Inventory(player.id);
         auto ngold = inv.contents
                         .map!(id => world.store.get!Tiled(id))
@@ -278,7 +276,6 @@ void play()
 
         // TBD: this is a hack that should be replaced by a System, probably.
         {
-            import std.algorithm : map;
             if (!world.store.getAllBy!Pos(Pos(playerPos))
                             .map!(id => world.store.get!Tiled(id))
                             .filter!(tp => tp !is null && tp.tile.ch == '@')

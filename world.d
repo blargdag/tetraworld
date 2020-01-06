@@ -25,7 +25,7 @@ import std.random : uniform;
 import std.range;
 
 import bsp;
-import map;
+import gamemap;
 import store;
 import store_traits;
 import vector;
