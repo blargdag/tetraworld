@@ -167,7 +167,7 @@ World loadGame(out Thing* player)
     return world;
 }
 
-void play(World world, Thing* player)
+string play(World world, Thing* player)
 {
     auto term = Terminal(ConsoleOutputType.cellular);
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
@@ -314,6 +314,9 @@ void play(World world, Thing* player)
 
     bool quit;
 
+    // FIXME: this is a hack. Replace with something better!
+    string quitMsg;
+
     inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
     inputHandler.bind('m', (dchar) { movePlayer(vec(1,0,0,0)); });
     inputHandler.bind('h', (dchar) { movePlayer(vec(0,-1,0,0)); });
@@ -334,10 +337,12 @@ void play(World world, Thing* player)
     inputHandler.bind('q', (dchar) {
         saveGame(world, player);
         quit = true;
+        quitMsg = "Be seeing you!";
     });
     inputHandler.bind('Q', (dchar) {
         // TBD: confirm abandon game
         quit = true;
+        quitMsg = "Bye!";
     });
 
     refresh();
@@ -347,10 +352,15 @@ void play(World world, Thing* player)
 
         // FIXME: this is a hack. What's the better way of doing this??
         if (world.store.get!UsePortal(player.id) !is null)
+        {
             quit = true;
+            quitMsg = "You have won!";
+        }
     }
 
     term.clear();
+
+    return quitMsg;
 }
 
 /**
@@ -368,7 +378,8 @@ void main()
     }
     else
     {
-        world = newGame([ 13, 13, 13, 13 ]);
+        //world = newGame([ 13, 13, 13, 13 ]);
+        world = newGame([ 8, 8, 8, 8 ]);
         player = world.store.createObj(
             Pos(world.map.randomLocation()),
             Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
@@ -377,7 +388,8 @@ void main()
         );
     }
 
-    play(world, player);
+    auto quitMsg = play(world, player);
+    writeln(quitMsg);
 }
 
 // vim:set ai sw=4 ts=4 et:
