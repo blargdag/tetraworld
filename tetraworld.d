@@ -167,7 +167,7 @@ World loadGame(out Thing* player)
     return world;
 }
 
-string play(World world, Thing* player)
+string play(World world, Thing* player, string welcomeMsg)
 {
     auto term = Terminal(ConsoleOutputType.cellular);
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
@@ -186,7 +186,7 @@ string play(World world, Thing* player)
         msgBox.clearToEol();
     }
 
-    message("Welcome to Tetraworld!");
+    message(welcomeMsg);
 
     Vec!(int,4) playerPos() { return world.store.get!Pos(player.id).coors; }
 
@@ -236,18 +236,28 @@ string play(World world, Thing* player)
         disp.flush();
     }
 
+    auto numGold()
+    {
+        auto inv = world.store.get!Inventory(player.id);
+        return inv.contents
+                  .map!(id => world.store.get!Tiled(id))
+                  .filter!(tp => tp !is null && tp.tile.ch == '$')
+                  .count;
+    }
+
+    auto maxGold()
+    {
+        return world.store.getAll!Tiled
+                          .map!(id => world.store.get!Tiled(id))
+                          .filter!(tp => tp.tile.ch == '$')
+                          .count;
+    }
+
     void refreshStatus()
     {
         // TBD: this should be done elsewhere
-        auto inv = world.store.get!Inventory(player.id);
-        auto ngold = inv.contents
-                        .map!(id => world.store.get!Tiled(id))
-                        .filter!(tp => tp !is null && tp.tile.ch == '$')
-                        .count;
-        auto maxgold = world.store.getAll!Tiled
-                        .map!(id => world.store.get!Tiled(id))
-                        .filter!(tp => tp.tile.ch == '$')
-                        .count;
+        auto ngold = numGold();
+        auto maxgold = maxGold();
 
         statusview.moveTo(0, 0);
         statusview.writef("$: %d/%d", ngold, maxgold);
@@ -350,11 +360,26 @@ string play(World world, Thing* player)
     {
         inputHandler.handleGlobalEvent(input.nextEvent());
 
-        // FIXME: this is a hack. What's the better way of doing this??
+        // FIXME: this looks like a System, doesn't it?
         if (world.store.get!UsePortal(player.id) !is null)
         {
-            quit = true;
-            quitMsg = "You have won!";
+            world.store.remove!UsePortal(player);
+
+            auto ngold = numGold();
+            auto maxgold = maxGold();
+
+            if (ngold < maxgold)
+            {
+                message("You haven't found all the gold yet.");
+                refresh();
+            }
+            else
+            {
+                quit = true;
+                import std.format : format;
+                quitMsg = format("Congratulations! You collected %d out of "~
+                                 "%d gold.", ngold, maxgold);
+            }
         }
     }
 
@@ -370,25 +395,28 @@ void main()
 {
     World  world;
     Thing* player;
+    string welcomeMsg;
 
     import std.file : exists;
     if (saveFileName.exists)
     {
         world = loadGame(player);
+        welcomeMsg = "Welcome back!";
     }
     else
     {
-        //world = newGame([ 13, 13, 13, 13 ]);
-        world = newGame([ 8, 8, 8, 8 ]);
+        world = newGame([ 13, 13, 13, 13 ]);
+        //world = newGame([ 9, 9, 9, 9 ]);
         player = world.store.createObj(
             Pos(world.map.randomLocation()),
             Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
             Name("You"),
             Inventory()
         );
+        welcomeMsg = "Welcome to Tetraworld!";
     }
 
-    auto quitMsg = play(world, player);
+    auto quitMsg = play(world, player, welcomeMsg);
     writeln(quitMsg);
 }
 

@@ -217,7 +217,7 @@ World newGame(int[4] dim)
                            : floorArea(node.left) + floorArea(node.right);
     }
 
-    enum goldPct = 0.1;
+    enum goldPct = 0.2;
     auto ngold = cast(int)(floorArea(w.map.tree) * goldPct / 100);
 
     foreach (i; 0 .. ngold)
