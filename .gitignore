@@ -1,5 +1,6 @@
 .*.swp
 .scons*
+.*.save
 *.exe
 *.o
 *.obj

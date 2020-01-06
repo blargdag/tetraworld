@@ -26,6 +26,7 @@ import std.range;
 
 import bsp;
 import gamemap;
+import loadsave;
 import store;
 import store_traits;
 import vector;

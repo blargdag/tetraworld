@@ -25,13 +25,16 @@ import arsd.terminal;
 import std.algorithm;
 import std.random;
 import std.range;
+import std.stdio;
 
 import action;
 import bsp;
 import components;
 import display;
 import gamemap;
+import loadsave;
 import store;
+import store_traits;
 import vector;
 import world;
 
@@ -104,7 +107,6 @@ struct ViewPort(Map)
 struct InputEventHandler
 {
     void delegate(dchar ch)[dchar] bindings;
-    bool wantQuit;
 
     /**
      * Binds a particular key to an action.
@@ -125,18 +127,10 @@ struct InputEventHandler
                 auto ev = event.get!(InputEvent.Type.CharacterEvent);
                 if (ev.eventType == CharacterEvent.Type.Pressed)
                 {
-                    switch (ev.character)
+                    if (auto handler = ev.character in bindings)
                     {
-                        case 'q':
-                            wantQuit = true;
-                            break;
-                        default:
-                            if (auto handler = ev.character in bindings)
-                            {
-                                // Invoke user-defined action.
-                                (*handler)(ev.character);
-                            }
-                            break;
+                        // Invoke user-defined action.
+                        (*handler)(ev.character);
                     }
                 }
                 break;
@@ -147,9 +141,34 @@ struct InputEventHandler
     }
 }
 
-void play()
+enum saveFileName = ".tetra.save";
+
+void saveGame(World world, Thing* player)
 {
-    import vector;
+    auto sf = File(saveFileName, "w").lockingTextWriter.saveFile;
+    sf.put("player", player.id);
+    sf.put("world", world);
+}
+
+World loadGame(out Thing* player)
+{
+    auto lf = File(saveFileName, "r").byLine.loadFile;
+    ThingId playerId = lf.parse!ThingId("player");
+    auto world = lf.parse!World("world");
+
+    player = world.store.getObj(playerId);
+    if (player is null)
+        throw new Exception("Save file is corrupt!");
+
+    // Permadeath. :-D
+    import std.file : remove;
+    remove(saveFileName);
+
+    return world;
+}
+
+void play(World world, Thing* player)
+{
     auto term = Terminal(ConsoleOutputType.cellular);
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
@@ -169,13 +188,6 @@ void play()
 
     message("Welcome to Tetraworld!");
 
-    World world = newGame([ 13, 13, 13, 13 ]);
-    Thing* player = world.store.createObj(
-        Pos(world.map.randomLocation()),
-        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
-        Name("You"),
-        Inventory()
-    );
     Vec!(int,4) playerPos() { return world.store.get!Pos(player.id).coors; }
 
     auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
@@ -300,6 +312,8 @@ void play()
         doAction!applyFloor(world, player);
     }
 
+    bool quit;
+
     inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
     inputHandler.bind('m', (dchar) { movePlayer(vec(1,0,0,0)); });
     inputHandler.bind('h', (dchar) { movePlayer(vec(0,-1,0,0)); });
@@ -317,15 +331,23 @@ void play()
     inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
     inputHandler.bind(' ', (dchar) { applyFloorObj(); });
+    inputHandler.bind('q', (dchar) {
+        saveGame(world, player);
+        quit = true;
+    });
+    inputHandler.bind('Q', (dchar) {
+        // TBD: confirm abandon game
+        quit = true;
+    });
 
     refresh();
-    while (!inputHandler.wantQuit)
+    while (!quit)
     {
         inputHandler.handleGlobalEvent(input.nextEvent());
 
         // FIXME: this is a hack. What's the better way of doing this??
         if (world.store.get!UsePortal(player.id) !is null)
-            inputHandler.wantQuit = true;
+            quit = true;
     }
 
     term.clear();
@@ -336,7 +358,26 @@ void play()
  */
 void main()
 {
-    play();
+    World  world;
+    Thing* player;
+
+    import std.file : exists;
+    if (saveFileName.exists)
+    {
+        world = loadGame(player);
+    }
+    else
+    {
+        world = newGame([ 13, 13, 13, 13 ]);
+        player = world.store.createObj(
+            Pos(world.map.randomLocation()),
+            Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
+            Name("You"),
+            Inventory()
+        );
+    }
+
+    play(world, player);
 }
 
 // vim:set ai sw=4 ts=4 et:
