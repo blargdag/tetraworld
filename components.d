@@ -35,10 +35,34 @@ struct Pos
     this(int[4] _coors...) { coors = vec(_coors); }
 
     import loadsave;
+    void save(S)(ref S savefile)
+    {
+        savefile.put("coors", coors[]);
+    }
+
     void load(L)(ref L loadfile)
     {
         coors[] = loadfile.parse!(int[])("coors")[];
     }
+}
+
+unittest
+{
+    import loadsave;
+    import std.algorithm : splitter;
+    import std.array : appender;
+
+    auto pos = Pos([ 1, 2, 3, 4 ]);
+
+    auto app = appender!string;
+    auto sf = saveFile(app);
+    sf.put("pos", pos);
+
+    auto saved = app.data;
+    auto lf = loadFile(saved.splitter("\n"));
+    auto pos2 = lf.parse!Pos("pos");
+
+    assert(pos2 == pos);
 }
 
 /**

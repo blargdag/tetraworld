@@ -862,6 +862,7 @@ unittest
     );
 }
 
+// Test classes
 unittest
 {
     static class Base(D)
@@ -915,6 +916,29 @@ unittest
     assert(d2.next.x == d.next.x);
     assert(d2.next.y == d.next.y);
     assert(d2.next.str == d.next.str);
+}
+
+// Test static arrays
+unittest
+{
+    static struct S
+    {
+        int[4] x;
+    }
+    auto data = S([ 1, 2, 3, 4 ]);
+
+    import std.array : appender;
+    auto app = appender!string;
+    auto sf = saveFile(app);
+
+    sf.put("data", data);
+
+    import std.algorithm : splitter;
+    auto saved = app.data;
+    auto lf = loadFile(saved.splitter("\n"));
+    auto data2 = lf.parse!S("data");
+
+    assert(data == data2);
 }
 
 // vim: set ts=4 sw=4 et ai:

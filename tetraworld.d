@@ -34,6 +34,7 @@ import display;
 import gamemap;
 import loadsave;
 import store;
+import store_traits;
 import vector;
 import world;
 
@@ -140,9 +141,34 @@ struct InputEventHandler
     }
 }
 
-void play()
+enum saveFileName = ".tetra.save";
+
+void saveGame(World world, Thing* player)
 {
-    import vector;
+    auto sf = File(saveFileName, "w").lockingTextWriter.saveFile;
+    sf.put("player", player.id);
+    sf.put("world", world);
+}
+
+World loadGame(out Thing* player)
+{
+    auto lf = File(saveFileName, "r").byLine.loadFile;
+    ThingId playerId = lf.parse!ThingId("player");
+    auto world = lf.parse!World("world");
+
+    player = world.store.getObj(playerId);
+    if (player is null)
+        throw new Exception("Save file is corrupt!");
+
+    // Permadeath. :-D
+    import std.file : remove;
+    remove(saveFileName);
+
+    return world;
+}
+
+void play(World world, Thing* player)
+{
     auto term = Terminal(ConsoleOutputType.cellular);
     auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
 
@@ -162,13 +188,6 @@ void play()
 
     message("Welcome to Tetraworld!");
 
-    World world = newGame([ 13, 13, 13, 13 ]);
-    Thing* player = world.store.createObj(
-        Pos(world.map.randomLocation()),
-        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
-        Name("You"),
-        Inventory()
-    );
     Vec!(int,4) playerPos() { return world.store.get!Pos(player.id).coors; }
 
     auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
@@ -313,12 +332,7 @@ void play()
     inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
     inputHandler.bind(' ', (dchar) { applyFloorObj(); });
     inputHandler.bind('q', (dchar) {
-        auto fp = File("tetraworld.save", "w");
-        auto sf = fp.lockingTextWriter.saveFile;
-
-        sf.put("player", player.id);
-        sf.put("world", world);
-
+        saveGame(world, player);
         quit = true;
     });
     inputHandler.bind('Q', (dchar) {
@@ -344,7 +358,26 @@ void play()
  */
 void main()
 {
-    play();
+    World  world;
+    Thing* player;
+
+    import std.file : exists;
+    if (saveFileName.exists)
+    {
+        world = loadGame(player);
+    }
+    else
+    {
+        world = newGame([ 13, 13, 13, 13 ]);
+        player = world.store.createObj(
+            Pos(world.map.randomLocation()),
+            Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
+            Name("You"),
+            Inventory()
+        );
+    }
+
+    play(world, player);
 }
 
 // vim:set ai sw=4 ts=4 et:
