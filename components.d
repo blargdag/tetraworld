@@ -51,6 +51,7 @@ struct Tiled
     // visible tile by a separate module.
     import map : ColorTile;
     ColorTile tile;
+    int stackOrder;
 }
 
 /**

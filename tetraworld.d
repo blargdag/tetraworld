@@ -61,12 +61,12 @@ struct ViewPort(Map)
     {
         import std.algorithm : map;
         return w.map
-            .fmap!((pos, floor) {
-                auto objs = w.store.getAllBy!Pos(Pos(pos))
-                                   .map!(id => w.store.get!Tiled(id))
-                                   .filter!(tilep => tilep !is null);
-                return (!objs.empty) ? objs.front.tile : floor;
-            })
+            .fmap!((pos, floor) => w.store.getAllBy!Pos(Pos(pos))
+                .map!(id => w.store.get!Tiled(id))
+                .filter!(tilep => tilep !is null)
+                .map!(tilep => *tilep)
+                .maxElement!(tile => tile.stackOrder)(Tiled(floor, -1))
+                .tile)
             .submap(region(pos, pos + dim));
     }
 
@@ -173,7 +173,7 @@ void play()
     World world = newGame([ 13, 13, 13, 13 ]);
     Thing* player = world.store.createObj(
         Pos(world.map.randomLocation()),
-        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT)),
+        Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
         Name("You"),
         Inventory()
     );
