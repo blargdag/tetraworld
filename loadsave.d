@@ -466,6 +466,64 @@ struct LoadFile(R)
 
             return result;
         }
+        else static if (is(T == class))
+        {
+            if (!checkAndEnterBlock(key))
+                throw new LoadException("Expecting block '%s', got '%s %s'",
+                                        key, curKey, curVal);
+
+            auto result = new T;
+
+            static if (hasMember!(T, "load"))
+            {
+                result.load(this);
+
+                if (!checkAndLeaveBlock())
+                    throw new LoadException("Unclosed block '%s', got '%s %s'",
+                                            key, curKey, curVal);
+            }
+            else
+            {
+                while (!checkAndLeaveBlock())
+                {
+                    import std.meta : AliasSeq;
+                    import std.traits : BaseClassesTuple, FieldNameTuple;
+
+                    if (empty)
+                        throw new LoadException("Expecting end of block "~
+                                                "(%s), got EOF", key);
+                    SW: switch (curKey)
+                    {
+                        static foreach (B; AliasSeq!(BaseClassesTuple!T, T))
+                        {
+                            static foreach (field; FieldNameTuple!B)
+                            {
+                                static if (!hasUDA!(__traits(getMember, result,
+                                                             field),
+                                                    NoSave))
+                                {
+                                    case field:
+                                        alias U = typeof(__traits(getMember,
+                                                                  result,
+                                                                  field));
+                                        __traits(getMember, result, field) =
+                                            parse!U(field);
+                                        break SW;
+                                }
+                            }
+                        }
+
+                        default:
+                            // TBD: warn of unknown fields (probably removed
+                            // from an older version)?
+                            parseNext();
+                            break SW;
+                    }
+                }
+            }
+
+            return result;
+        }
         else static if (is(T == V[K], V, K))
         {
             if (!checkAndEnterBlock(key))
@@ -830,11 +888,11 @@ unittest
     auto app = appender!string;
     auto sf = saveFile(app);
 
-    sf.put("objs", d);
+    sf.put("obj", d);
 
     assert(app.data == 
         "version 1000\n"~
-        "objs {\n"~
+        "obj {\n"~
         " x 1\n"~
         " y 2\n"~
         " next {\n"~
@@ -845,6 +903,18 @@ unittest
         " str abc\n"~
         "}\n"
     );
+
+    import std.algorithm : splitter;
+    auto saved = app.data;
+    auto lf = loadFile(saved.splitter("\n"));
+    auto d2 = lf.parse!Derived("obj");
+
+    assert(d2.x == d.x);
+    assert(d2.y == d.y);
+    assert(d2.str == d.str);
+    assert(d2.next.x == d.next.x);
+    assert(d2.next.y == d.next.y);
+    assert(d2.next.str == d.next.str);
 }
 
 // vim: set ts=4 sw=4 et ai:
