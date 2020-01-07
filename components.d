@@ -67,6 +67,7 @@ unittest
 
 enum TileId
 {
+    space,
     wall,
     floorBare,
     floorGrassy,
