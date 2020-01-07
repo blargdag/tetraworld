@@ -145,7 +145,7 @@ enum saveFileName = ".tetra.save";
 
 void saveGame(World world, Thing* player)
 {
-    auto sf = File(saveFileName, "w").lockingTextWriter.saveFile;
+    auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
     sf.put("player", player.id);
     sf.put("world", world);
 }
