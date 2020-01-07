@@ -1,3 +1,8 @@
+- BUG: tile colors are DIFFERENT across Windows/Posix; so you really should not
+  save any tile colors in the save file, you should be using generic tile IDs
+  that map to actual tiles in a separate module (that has proper per-platform
+  values initialized! -- though that part is taken care of by arsd.terminal,
+  you just have to separate it from the savefile).
 - Should probably implement gravity now rather than later, since it changes a
   LOT of things.
 - Map underlying representation should be distinct from dchar.
