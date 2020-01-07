@@ -354,6 +354,10 @@ string play(World world, Thing* player, string welcomeMsg)
         quit = true;
         quitMsg = "Bye!";
     });
+    inputHandler.bind('\x0c', (dchar) { // ^L
+        disp.repaint();     // force repaint of entire screen
+        refresh();
+    });
 
     refresh();
     while (!quit)
@@ -370,7 +374,8 @@ string play(World world, Thing* player, string welcomeMsg)
 
             if (ngold < maxgold)
             {
-                message("You haven't found all the gold yet.");
+                message("The exit portal is here, but you haven't found all "~
+                        "the gold yet.");
                 refresh();
             }
             else
@@ -405,7 +410,7 @@ void main()
     }
     else
     {
-        world = newGame([ 13, 13, 13, 13 ]);
+        world = newGame([ 12, 12, 12, 12 ]);
         //world = newGame([ 9, 9, 9, 9 ]);
         player = world.store.createObj(
             Pos(world.map.randomLocation()),
