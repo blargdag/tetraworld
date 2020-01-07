@@ -203,9 +203,6 @@ string play(World world, Thing* player, string welcomeMsg)
                              screenRect.max);
     auto statusview = subdisplay(&disp, statusrect);
 
-    //drawBox(&disp, region(maprect.min - vec(1,1),
-    //                      maprect.max + vec(1,1)));
-
     void refreshMap()
     {
         auto curview = viewport.curView.fmap!((pos, tile) {
