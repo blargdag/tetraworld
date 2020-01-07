@@ -42,7 +42,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
     auto oldPos = w.store.get!Pos(subj.id);
     auto newPos = Pos(oldPos.coors + displacement);
 
-    if (w.map[newPos].ch == '/')
+    if (w.map[newPos] == TileId.wall)
         return ActionResult(false, "Your way is blocked.");
 
     w.store.remove!Pos(subj);

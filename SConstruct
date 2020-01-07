@@ -47,6 +47,7 @@ sources = Split("""
 	store.d
 	store_traits.d
 	testutil.d
+	tile.d
 	vector.d
 	world.d
 

@@ -23,8 +23,10 @@ module gamemap;
 import std.range.primitives;
 
 import bsp;
+import components : TileId;
 import display;
 import loadsave;
+import tile : Tile16;
 import vector;
 
 /**
@@ -72,25 +74,16 @@ enum interColSpace = 0;
 enum interRowSpace = 1;
 
 /**
- * Colored tile to render to display.
- */
-struct ColorTile
-{
-    dchar ch;
-    ushort fg, bg;
-}
-
-/**
  * Renders a 4D map to the given grid-based display.
  *
  * Params:
  *  display = A grid-based output display satisfying isDisplay.
- *  map = An object which returns a printable character or a ColorTile, given a
+ *  map = An object which returns a printable character or a Tile16, given a
  *      set of 4D coordinates.
  */
 void renderMap(T, Map)(T display, Map map)
     if (isDisplay!T && is4DArray!Map &&
-        (is(CellType!Map == dchar) || is(CellType!Map == ColorTile)))
+        (is(CellType!Map == dchar) || is(CellType!Map == Tile16)))
 {
     auto wlen = map.opDollar!0;
     auto xlen = map.opDollar!1;
@@ -110,11 +103,11 @@ void renderMap(T, Map)(T display, Map map)
                 foreach (z; 0 .. zlen)
                 {
                     display.moveTo(outx++, outy);
-                    static if (is(CellType!Map == ColorTile))
+                    static if (is(CellType!Map == Tile16))
                     {
                         static if (hasColor!T)
                             display.color(map[w,x,y,z].fg, map[w,x,y,z].bg);
-                        display.writef("%s", map[w,x,y,z].ch);
+                        display.writef("%s", map[w,x,y,z].representation);
                     }
                     else static if (is(CellType!Map == dchar))
                     {
@@ -618,11 +611,11 @@ struct Door
 }
 
 // TBD: should become a themed room type instead.
-enum FloorStyle : dchar
+enum FloorStyle : TileId
 {
-    bare = '.',
-    grassy = ':',
-    muddy = ';',
+    bare = TileId.floorBare,
+    grassy = TileId.floorGrassy,
+    muddy = TileId.floorMuddy,
 }
 
 /**

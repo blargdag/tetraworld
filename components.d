@@ -65,16 +65,26 @@ unittest
     assert(pos2 == pos);
 }
 
+enum TileId
+{
+    wall,
+    floorBare,
+    floorGrassy,
+    floorMuddy,
+    doorway,
+
+    player,
+    gold,
+    portal,
+}
+
 /**
  * Component of any object that has a ColorTile representation.
  */
 @Component
 struct Tiled
 {
-    // FIXME: this should be instead an abstract tile that's mapped to a
-    // visible tile by a separate module.
-    import gamemap : ColorTile;
-    ColorTile tile;
+    TileId tileId;
     int stackOrder;
 }
 

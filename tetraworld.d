@@ -68,7 +68,7 @@ struct ViewPort(Map)
                 .filter!(tilep => tilep !is null)
                 .map!(tilep => *tilep)
                 .maxElement!(tile => tile.stackOrder)(Tiled(floor, -1))
-                .tile)
+                .tileId)
             .submap(region(pos, pos + dim));
     }
 
@@ -205,7 +205,11 @@ string play(World world, Thing* player, string welcomeMsg)
 
     void refreshMap()
     {
-        auto curview = viewport.curView.fmap!((pos, tile) {
+        import tile : tiles;
+
+        auto curview = viewport.curView.fmap!((pos, tileId) {
+            auto tile = tiles[tileId];
+
             // Highlight tiles along axial directions from player.
             auto plpos = playerPos - viewport.pos;
             if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) >= 3)
@@ -238,7 +242,7 @@ string play(World world, Thing* player, string welcomeMsg)
         auto inv = world.store.get!Inventory(player.id);
         return inv.contents
                   .map!(id => world.store.get!Tiled(id))
-                  .filter!(tp => tp !is null && tp.tile.ch == '$')
+                  .filter!(tp => tp !is null && tp.tileId == TileId.gold)
                   .count;
     }
 
@@ -246,7 +250,7 @@ string play(World world, Thing* player, string welcomeMsg)
     {
         return world.store.getAll!Tiled
                           .map!(id => world.store.get!Tiled(id))
-                          .filter!(tp => tp.tile.ch == '$')
+                          .filter!(tp => tp.tileId == TileId.gold)
                           .count;
     }
 
@@ -296,7 +300,8 @@ string play(World world, Thing* player, string welcomeMsg)
         {
             if (!world.store.getAllBy!Pos(Pos(playerPos))
                             .map!(id => world.store.get!Tiled(id))
-                            .filter!(tp => tp !is null && tp.tile.ch == '@')
+                            .filter!(tp => tp !is null &&
+                                     tp.tileId == TileId.portal)
                             .empty)
             {
                 message("You see the exit portal here.");
@@ -407,7 +412,7 @@ void main()
         //world = newGame([ 9, 9, 9, 9 ]);
         player = world.store.createObj(
             Pos(world.map.randomLocation()),
-            Tiled(ColorTile('&', Color.DEFAULT, Color.DEFAULT), 1),
+            Tiled(TileId.player),
             Name("You"),
             Inventory()
         );

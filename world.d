@@ -25,6 +25,7 @@ import std.random : uniform;
 import std.range;
 
 import bsp;
+import components;
 import gamemap;
 import loadsave;
 import store;
@@ -59,23 +60,19 @@ struct GameMap
 
     @property int opDollar(int i)() { return bounds.max[i]; }
 
-    ColorTile opIndex(int[4] pos...)
+    TileId opIndex(int[4] pos...)
     {
         import std.math : abs;
-        import arsd.terminal : Color;
-
-        auto fg = Color.DEFAULT;
-        auto bg = Color.DEFAULT;
 
         // FIXME: should be a more efficient way to do this
-        auto result = ColorTile('/', fg, bg);
+        auto result = TileId.wall;
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
             (MapNode node, R r) {
                 auto rr = node.interior;
                 if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
                                             pos[i] < rr.max[i])(true))
                 {
-                    result.ch = node.style;
+                    result = node.style;
                     return 1;
                 }
 
@@ -83,12 +80,12 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        result.ch = '#';
+                        result = TileId.doorway;
                         return 1;
                     }
                 }
 
-                result.ch = '/';
+                result = TileId.wall;
                 return 1;
             }
         );
@@ -100,7 +97,7 @@ struct GameMap
         return .randomLocation(tree, bounds);
     }
 }
-static assert(is4DArray!GameMap && is(CellType!GameMap == ColorTile));
+static assert(is4DArray!GameMap && is(CellType!GameMap == TileId));
 
 struct Event
 {
@@ -205,11 +202,10 @@ World newGame(int[4] dim)
     resizeRooms(w.map.tree, w.map.bounds);
     setRoomFloors(w.map.tree, w.map.bounds);
 
-    import arsd.terminal : Color;
     import components;
     w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                      Tiled(ColorTile('@', Color.DEFAULT, Color.DEFAULT)),
-                      Name("exit portal"), Usable(UseEffect.portal));
+                      Tiled(TileId.portal), Name("exit portal"),
+                      Usable(UseEffect.portal));
 
     int floorArea(MapNode node)
     {
@@ -223,8 +219,7 @@ World newGame(int[4] dim)
     foreach (i; 0 .. ngold)
     {
         w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                          Tiled(ColorTile('$', Color.yellow, Color.DEFAULT)),
-                          Name("gold"), Pickable());
+                          Tiled(TileId.gold), Name("gold"), Pickable());
     }
 
     return w;
