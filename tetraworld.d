@@ -286,7 +286,6 @@ string play(World world, Thing* player, string welcomeMsg)
             }
             lastEventId = world.events.seq;
         }
-        refresh();
     }
 
     void movePlayer(Vec!(int,4) displacement)
@@ -305,13 +304,11 @@ string play(World world, Thing* player, string welcomeMsg)
         }
 
         viewport.centerOn(playerPos);
-        refresh();
     }
 
     void moveView(Vec!(int,4) displacement)
     {
         viewport.move(displacement);
-        refresh();
     }
 
     void applyFloorObj()
@@ -356,9 +353,9 @@ string play(World world, Thing* player, string welcomeMsg)
         refresh();
     });
 
-    refresh();
     while (!quit)
     {
+        refresh();
         inputHandler.handleGlobalEvent(input.nextEvent());
 
         // FIXME: this looks like a System, doesn't it?
@@ -373,7 +370,6 @@ string play(World world, Thing* player, string welcomeMsg)
             {
                 message("The exit portal is here, but you haven't found all "~
                         "the gold yet.");
-                refresh();
             }
             else
             {
