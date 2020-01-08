@@ -1,5 +1,7 @@
-- Should probably implement gravity now rather than later, since it changes a
-  LOT of things.
+- Need to refactor play() and separate out the UI code from the game engine
+  code.
+   - A side-effect of this is to make climbing up ledges animatable, which it
+     currently isn't.
 - Map underlying representation should be distinct from dchar.
    - The dchar view should be via a MapTile proxy object that maps underlying
      game objects into printable tiles.
@@ -19,3 +21,5 @@ X Implement .dim and .pos for Rectangle.
   that map to actual tiles in a separate module (that has proper per-platform
   values initialized! -- though that part is taken care of by arsd.terminal,
   you just have to separate it from the savefile).
++ Should probably implement gravity now rather than later, since it changes a
+  LOT of things.

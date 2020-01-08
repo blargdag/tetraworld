@@ -30,6 +30,7 @@ import gamemap;
 import loadsave;
 import store;
 import store_traits;
+import terrain;
 import vector;
 
 /**
@@ -60,19 +61,43 @@ struct GameMap
 
     @property int opDollar(int i)() { return bounds.max[i]; }
 
-    TileId opIndex(int[4] pos...)
+    ThingId opIndex(int[4] pos...)
     {
         import std.math : abs;
 
         // FIXME: should be a more efficient way to do this
-        auto result = TileId.wall;
+        auto result = blockBare.id;
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
             (MapNode node, R r) {
                 auto rr = node.interior;
                 if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
                                             pos[i] < rr.max[i])(true))
                 {
-                    result = node.style;
+                    // Generate ladders to doors.
+                    foreach (d; node.doors)
+                    {
+                        import std.math : abs;
+                        if (d.axis != 0 && rr.max[0] - d.pos[0] > 2 &&
+                            pos[0] > d.pos[0] &&
+                            abs(pos[d.axis] - d.pos[d.axis]) == 1 &&
+                            iota(1,4).filter!(i => i != d.axis)
+                                .fold!((b, i) => b && pos[i] == d.pos[i])
+                                      (true))
+                        {
+                            result = ladder.id;
+                            return 1;
+                        }
+
+                        if (d.axis == 0 && pos[0] > d.pos[0] &&
+                            iota(1,4).fold!((b, i) => b && pos[i] == d.pos[i])
+                                           (true))
+                        {
+                            result = ladder.id;
+                            return 1;
+                        }
+                    }
+
+                    result = emptySpace.id;
                     return 1;
                 }
 
@@ -80,12 +105,25 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        result = TileId.doorway;
+                        result = doorway.id;
                         return 1;
                     }
                 }
 
-                result = TileId.wall;
+                final switch (node.style)
+                {
+                    case FloorStyle.bare:
+                        result = blockBare.id;
+                        break;
+
+                    case FloorStyle.grassy:
+                        result = blockGrassy.id;
+                        break;
+
+                    case FloorStyle.muddy:
+                        result = blockMuddy.id;
+                        break;
+                }
                 return 1;
             }
         );
@@ -97,7 +135,7 @@ struct GameMap
         return .randomLocation(tree, bounds);
     }
 }
-static assert(is4DArray!GameMap && is(CellType!GameMap == TileId));
+static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));
 
 struct Event
 {
@@ -182,6 +220,21 @@ class World
     GameMap map;
     Store store;
     Sensorium events;
+
+    this()
+    {
+        registerTerrains(&store);
+    }
+
+    /**
+     * Returns: An input range of all objects at the specified location,
+     * including floor tiles.
+     */
+    auto getAllAt(Pos pos)
+    {
+        return store.getAllBy!Pos(Pos(pos))
+                    .chain(only(map[pos]));
+    }
 }
 
 // FIXME: this should go into its own mapgen module.

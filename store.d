@@ -255,11 +255,17 @@ struct Store
     /**
      * Register a terrain object.
      */
-    void registerTerrain(ref Thing terrain)
-        in(terrain.id <= terrainMaxId)
-        in(terrain.id !in things)
+    void registerTerrain(Components...)(ref Thing ter, Components components)
+        in(ter.id <= terrainMaxId)
+        in(ter.id !in things)
     {
-        things[terrain.id] = &terrain;
+        things[ter.id] = &ter;
+
+        foreach (comp; components)
+        {
+            alias Comp = typeof(comp);
+            add!Comp(&ter, comp);
+        }
     }
 
     /**

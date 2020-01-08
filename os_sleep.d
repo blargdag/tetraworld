@@ -1,5 +1,5 @@
 /**
- * Concrete displayable tiles.
+ * Cross-platform subsecond sleep function.
  *
  * Copyright: (C) 2012-2021  blargdag@quickfur.ath.cx
  *
@@ -18,31 +18,23 @@
  * You should have received a copy of the GNU General Public License along with
  * Tetraworld.  If not, see <http://www.gnu.org/licenses/>.
  */
-module tile;
+module os_sleep;
 
-import arsd.terminal : Color;
-
-import components : TileId;
-import display;
-
-struct Tile16
+version(Posix)
 {
-    dchar representation;
-    ushort fg = Color.DEFAULT, bg = Color.DEFAULT;
+    void milliSleep(uint milliSec)
+    {
+        import core.sys.posix.unistd : usleep;
+        usleep(milliSec * 1000);
+    }
 }
-
-Tile16[TileId.max+1] tiles = [
-    TileId.space:       Tile16('|'),
-    TileId.wall:        Tile16('/'),
-    TileId.floorBare:   Tile16('.'),
-    TileId.floorGrassy: Tile16(':'),
-    TileId.floorMuddy:  Tile16(';'),
-    TileId.doorway:     Tile16('#'),
-    TileId.ladder:      Tile16('='),
-
-    TileId.player:      Tile16('&'),
-    TileId.gold:        Tile16('$', Color.yellow),
-    TileId.portal:      Tile16('@', Color.magenta),
-];
+else version(Windows)
+{
+    void milliSleep(uint milliSec)
+    {
+        import core.sys.windows.windows : Sleep;
+        Sleep(milliSec);
+    }
+}
 
 // vim:set ai sw=4 ts=4 et:

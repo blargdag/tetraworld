@@ -62,14 +62,38 @@ struct ViewPort(Map)
      */
     @property auto curView()
     {
+        TileId getDisplayedTile(Vec!(int,4) pos, ThingId terrainId)
+        {
+            auto r = w.store.getAllBy!Pos(Pos(pos))
+                            .map!(id => w.store.get!Tiled(id))
+                            .filter!(tilep => tilep !is null)
+                            .map!(tilep => *tilep);
+            if (!r.empty)
+                return r.maxElement!(tile => tile.stackOrder)
+                        .tileId;
+
+            import terrain : emptySpace;
+            if (terrainId == emptySpace.id)
+            {
+                // Empty space: check if it's above solid ground. If so, render
+                // the top tile of the ground instead.
+                auto floorId = w.map[pos + vec(1,0,0,0)];
+                if (w.store.get!BlocksMovement(floorId) !is null)
+                    return w.store.get!Tiled(floorId).tileId;
+            }
+            else if (w.store.get!BlocksMovement(terrainId) !is null)
+            {
+                // It's impassable terrain; render as wall when not seen from
+                // top.
+                return TileId.wall;
+            }
+
+            return w.store.get!Tiled(terrainId).tileId;
+        }
+
         return w.map
-            .fmap!((pos, floor) => w.store.getAllBy!Pos(Pos(pos))
-                .map!(id => w.store.get!Tiled(id))
-                .filter!(tilep => tilep !is null)
-                .map!(tilep => *tilep)
-                .maxElement!(tile => tile.stackOrder)(Tiled(floor, -1))
-                .tileId)
-            .submap(region(pos, pos + dim));
+                .fmap!((pos, terrainId) => getDisplayedTile(pos, terrainId))
+                .submap(region(pos, pos + dim));
     }
 
     /**
@@ -233,8 +257,6 @@ string play(World world, Thing* player, string welcomeMsg)
                 disp.showCursor();
             }
         }
-
-        disp.flush();
     }
 
     auto numGold()
@@ -265,11 +287,13 @@ string play(World world, Thing* player, string welcomeMsg)
         statusview.clearToEol();
     }
 
-
     void refresh()
     {
         refreshStatus();
-        refreshMap(); // should be last
+        refreshMap();
+
+        disp.flush();
+        term.flush(); // FIXME: arsd.terminal also caches!
     }
 
     InputEventHandler inputHandler;
@@ -358,12 +382,8 @@ string play(World world, Thing* player, string welcomeMsg)
         refresh();
     });
 
-    while (!quit)
+    void portalSystem()
     {
-        refresh();
-        inputHandler.handleGlobalEvent(input.nextEvent());
-
-        // FIXME: this looks like a System, doesn't it?
         if (world.store.get!UsePortal(player.id) !is null)
         {
             world.store.remove!UsePortal(player);
@@ -384,6 +404,55 @@ string play(World world, Thing* player, string welcomeMsg)
                                  "%d gold.", ngold, maxgold);
             }
         }
+    }
+
+    void gravitySystem()
+    {
+        bool somethingFell;
+        do
+        {
+            somethingFell = false;
+            foreach (t; world.store.getAll!Pos()
+                                   .map!(id => world.store.getObj(id)))
+            {
+                auto pos = *world.store.get!Pos(t.id);
+                auto floorPos = pos + vec(1,0,0,0);
+
+                // Gravity pulls downwards as long as there is no support
+                // underneath.
+                if (world.store.get!SupportsWeight(world.map[floorPos]) is
+                    null)
+                {
+                    if (t == player)
+                    {
+                        import os_sleep : milliSleep;
+                        refresh();
+                        milliSleep(180);
+                    }
+
+                    world.store.remove!Pos(t);
+                    world.store.add!Pos(t, Pos(floorPos));
+
+                    if (t == player)
+                    {
+                        viewport.centerOn(playerPos);
+                        message("You fall!");
+                    }
+
+                    somethingFell = true;
+                }
+            }
+        } while (somethingFell);
+    }
+
+    while (!quit)
+    {
+        gravitySystem();
+
+        refresh();
+        inputHandler.handleGlobalEvent(input.nextEvent());
+
+        portalSystem();
     }
 
     term.clear();

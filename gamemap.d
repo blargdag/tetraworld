@@ -26,6 +26,7 @@ import bsp;
 import components : TileId;
 import display;
 import loadsave;
+import store_traits : ThingId;
 import tile : Tile16;
 import vector;
 
@@ -611,11 +612,11 @@ struct Door
 }
 
 // TBD: should become a themed room type instead.
-enum FloorStyle : TileId
+enum FloorStyle
 {
-    bare = TileId.floorBare,
-    grassy = TileId.floorGrassy,
-    muddy = TileId.floorMuddy,
+    bare,
+    grassy,
+    muddy,
 }
 
 /**
