@@ -408,24 +408,41 @@ string play(World world, Thing* player, string welcomeMsg)
 
     void gravitySystem()
     {
-        auto floorPos = playerPos + vec(1,0,0,0);
-        while (world.store.get!SupportsWeight(world.map[floorPos]) is null)
+        bool somethingFell;
+        do
         {
-            refresh();
+            somethingFell = false;
+            foreach (t; world.store.getAll!Pos()
+                                   .map!(id => world.store.getObj(id)))
+            {
+                auto pos = *world.store.get!Pos(t.id);
+                auto floorPos = pos + vec(1,0,0,0);
 
-            import os_sleep : milliSleep;
-            milliSleep(180);
+                // Gravity pulls downwards as long as there is no support
+                // underneath.
+                if (world.store.get!SupportsWeight(world.map[floorPos]) is
+                    null)
+                {
+                    if (t == player)
+                    {
+                        import os_sleep : milliSleep;
+                        refresh();
+                        milliSleep(180);
+                    }
 
-            // Gravity pulls player downwards as long as there is no support
-            // underneath.
-            world.store.remove!Pos(player);
-            world.store.add!Pos(player, Pos(floorPos));
-            viewport.centerOn(playerPos);
+                    world.store.remove!Pos(t);
+                    world.store.add!Pos(t, Pos(floorPos));
 
-            message("You fall!");
+                    if (t == player)
+                    {
+                        viewport.centerOn(playerPos);
+                        message("You fall!");
+                    }
 
-            floorPos = playerPos + vec(1,0,0,0);
-        }
+                    somethingFell = true;
+                }
+            }
+        } while (somethingFell);
     }
 
     while (!quit)
