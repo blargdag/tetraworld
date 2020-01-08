@@ -447,11 +447,12 @@ string play(World world, Thing* player, string welcomeMsg)
 
     while (!quit)
     {
-        portalSystem();
         gravitySystem();
 
         refresh();
         inputHandler.handleGlobalEvent(input.nextEvent());
+
+        portalSystem();
     }
 
     term.clear();
