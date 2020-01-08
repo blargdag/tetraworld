@@ -236,7 +236,7 @@ string play(World world, Thing* player, string welcomeMsg)
 
             // Highlight tiles along axial directions from player.
             auto plpos = playerPos - viewport.pos;
-            if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) >= 3)
+            if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) == 3)
             {
                 if (tile.fg == Color.DEFAULT)
                     tile.fg = Color.blue;
