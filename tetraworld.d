@@ -257,8 +257,6 @@ string play(World world, Thing* player, string welcomeMsg)
                 disp.showCursor();
             }
         }
-
-        disp.flush();
     }
 
     auto numGold()
@@ -289,11 +287,13 @@ string play(World world, Thing* player, string welcomeMsg)
         statusview.clearToEol();
     }
 
-
     void refresh()
     {
         refreshStatus();
-        refreshMap(); // should be last
+        refreshMap();
+
+        disp.flush();
+        term.flush(); // FIXME: arsd.terminal also caches!
     }
 
     InputEventHandler inputHandler;
@@ -382,12 +382,8 @@ string play(World world, Thing* player, string welcomeMsg)
         refresh();
     });
 
-    while (!quit)
+    void portalSystem()
     {
-        refresh();
-        inputHandler.handleGlobalEvent(input.nextEvent());
-
-        // FIXME: this looks like a System, doesn't it?
         if (world.store.get!UsePortal(player.id) !is null)
         {
             world.store.remove!UsePortal(player);
@@ -408,6 +404,38 @@ string play(World world, Thing* player, string welcomeMsg)
                                  "%d gold.", ngold, maxgold);
             }
         }
+    }
+
+    void gravitySystem()
+    {
+        auto floorPos = playerPos + vec(1,0,0,0);
+        while (world.store.get!BlocksMovement(world.map[floorPos]) is null)
+        {
+            refresh();
+
+            import os_sleep : milliSleep;
+            milliSleep(200);
+
+            // Gravity pulls player downwards as long as there is no support
+            // underneath.
+            world.store.remove!Pos(player);
+            world.store.add!Pos(player, Pos(floorPos));
+            viewport.centerOn(playerPos);
+
+            message("You fall!");
+
+            floorPos = playerPos + vec(1,0,0,0);
+        }
+    }
+
+    while (!quit)
+    {
+        refresh();
+        inputHandler.handleGlobalEvent(input.nextEvent());
+
+        // FIXME: this looks like a System, doesn't it?
+        portalSystem();
+        gravitySystem();
     }
 
     term.clear();
