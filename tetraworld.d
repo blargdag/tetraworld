@@ -62,14 +62,38 @@ struct ViewPort(Map)
      */
     @property auto curView()
     {
+        TileId getDisplayedTile(Vec!(int,4) pos, ThingId terrainId)
+        {
+            auto r = w.store.getAllBy!Pos(Pos(pos))
+                            .map!(id => w.store.get!Tiled(id))
+                            .filter!(tilep => tilep !is null)
+                            .map!(tilep => *tilep);
+            if (!r.empty)
+                return r.maxElement!(tile => tile.stackOrder)
+                        .tileId;
+
+            import terrain : emptySpace;
+            if (terrainId == emptySpace.id)
+            {
+                // Empty space: check if it's above solid ground. If so, render
+                // the top tile of the ground instead.
+                auto floorId = w.map[pos + vec(1,0,0,0)];
+                if (w.store.get!BlocksMovement(floorId) !is null)
+                    return w.store.get!Tiled(floorId).tileId;
+            }
+            else if (w.store.get!BlocksMovement(terrainId) !is null)
+            {
+                // It's impassable terrain; render as wall when not seen from
+                // top.
+                return TileId.wall;
+            }
+
+            return w.store.get!Tiled(terrainId).tileId;
+        }
+
         return w.map
-            .fmap!((pos, floor) => w.getAllAt(Pos(pos))
-                .map!(id => w.store.get!Tiled(id))
-                .filter!(tilep => tilep !is null)
-                .map!(tilep => *tilep)
-                .maxElement!(tile => tile.stackOrder)
-                .tileId)
-            .submap(region(pos, pos + dim));
+                .fmap!((pos, terrainId) => getDisplayedTile(pos, terrainId))
+                .submap(region(pos, pos + dim));
     }
 
     /**

@@ -31,7 +31,7 @@ enum Dir
 /**
  * Convert an abstract direction to a concrete vector in that direction.
  */
-int[4] dir2vec(Dir dir)
+int[4] dir2vec(Dir dir) pure
 {
     final switch (dir)
     {
@@ -58,7 +58,7 @@ unittest
 /**
  * Returns: String name of the given direction.
  */
-string dir2str(Dir dir)
+string dir2str(Dir dir) pure
 {
     import std.conv : to;
     return dir.to!string;
