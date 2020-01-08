@@ -26,15 +26,18 @@ import store_traits;
 
 Thing emptySpace = Thing(1);
 Thing doorway = Thing(2);
-Thing blockBare = Thing(3);
-Thing blockGrassy = Thing(4);
-Thing blockMuddy = Thing(5);
+Thing ladder = Thing(3);
+Thing blockBare = Thing(4);
+Thing blockGrassy = Thing(5);
+Thing blockMuddy = Thing(6);
 
 void registerTerrains(Store* store)
 {
     store.registerTerrain(emptySpace, Tiled(TileId.space, -1),
                           Name("Thin air"));
     store.registerTerrain(doorway, Tiled(TileId.doorway, -1), Name("door"));
+    store.registerTerrain(ladder, Tiled(TileId.ladder, -1), Name("door"),
+                          SupportsWeight());
 
     store.registerTerrain(blockBare, Tiled(TileId.floorBare, -1),
                           BlocksMovement(), SupportsWeight(), Name("wall"));

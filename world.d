@@ -73,6 +73,20 @@ struct GameMap
                 if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
                                             pos[i] < rr.max[i])(true))
                 {
+                    foreach (d; node.doors)
+                    {
+                        import std.math : abs;
+                        if (d.axis != 0 && pos[0] > d.pos[0] &&
+                            abs(pos[d.axis] - d.pos[d.axis]) == 1 &&
+                            iota(1,4).filter!(i => i != d.axis)
+                                .fold!((b, i) => b && pos[i] == d.pos[i])
+                                      (true))
+                        {
+                            result = ladder.id;
+                            return 1;
+                        }
+                    }
+
                     result = emptySpace.id;
                     return 1;
                 }
