@@ -134,4 +134,10 @@ struct Inventory
 @Component
 struct Pickable { }
 
+/**
+ * Component for objects that blocks movement.
+ */
+@Component
+struct BlocksMovement { }
+
 // vim:set ai sw=4 ts=4 et:

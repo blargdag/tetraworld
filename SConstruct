@@ -46,6 +46,7 @@ sources = Split("""
 	gamemap.d
 	store.d
 	store_traits.d
+	terrain.d
 	testutil.d
 	tile.d
 	vector.d

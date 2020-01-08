@@ -63,11 +63,11 @@ struct ViewPort(Map)
     @property auto curView()
     {
         return w.map
-            .fmap!((pos, floor) => w.store.getAllBy!Pos(Pos(pos))
+            .fmap!((pos, floor) => w.getAllAt(Pos(pos))
                 .map!(id => w.store.get!Tiled(id))
                 .filter!(tilep => tilep !is null)
                 .map!(tilep => *tilep)
-                .maxElement!(tile => tile.stackOrder)(Tiled(floor, -1))
+                .maxElement!(tile => tile.stackOrder)
                 .tileId)
             .submap(region(pos, pos + dim));
     }
