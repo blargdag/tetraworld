@@ -414,7 +414,7 @@ string play(World world, Thing* player, string welcomeMsg)
             refresh();
 
             import os_sleep : milliSleep;
-            milliSleep(200);
+            milliSleep(180);
 
             // Gravity pulls player downwards as long as there is no support
             // underneath.
@@ -430,12 +430,11 @@ string play(World world, Thing* player, string welcomeMsg)
 
     while (!quit)
     {
-        refresh();
-        inputHandler.handleGlobalEvent(input.nextEvent());
-
-        // FIXME: this looks like a System, doesn't it?
         portalSystem();
         gravitySystem();
+
+        refresh();
+        inputHandler.handleGlobalEvent(input.nextEvent());
     }
 
     term.clear();
