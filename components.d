@@ -73,6 +73,7 @@ enum TileId
     floorGrassy,
     floorMuddy,
     doorway,
+    ladder,
 
     player,
     gold,
@@ -139,5 +140,11 @@ struct Pickable { }
  */
 @Component
 struct BlocksMovement { }
+
+/**
+ * Component for objects that blocks movement.
+ */
+@Component
+struct SupportsWeight { }
 
 // vim:set ai sw=4 ts=4 et:

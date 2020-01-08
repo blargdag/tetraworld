@@ -37,13 +37,13 @@ void registerTerrains(Store* store)
     store.registerTerrain(doorway, Tiled(TileId.doorway, -1), Name("door"));
 
     store.registerTerrain(blockBare, Tiled(TileId.floorBare, -1),
-                          BlocksMovement(), Name("wall"));
+                          BlocksMovement(), SupportsWeight(), Name("wall"));
 
     store.registerTerrain(blockGrassy, Tiled(TileId.floorGrassy, -1),
-                          BlocksMovement(), Name("wall"));
+                          BlocksMovement(), SupportsWeight(), Name("wall"));
 
     store.registerTerrain(blockMuddy, Tiled(TileId.floorMuddy, -1),
-                          BlocksMovement(), Name("wall"));
+                          BlocksMovement(), SupportsWeight(), Name("wall"));
 }
 
 unittest

@@ -409,7 +409,7 @@ string play(World world, Thing* player, string welcomeMsg)
     void gravitySystem()
     {
         auto floorPos = playerPos + vec(1,0,0,0);
-        while (world.store.get!BlocksMovement(world.map[floorPos]) is null)
+        while (world.store.get!SupportsWeight(world.map[floorPos]) is null)
         {
             refresh();
 
