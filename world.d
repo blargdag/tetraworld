@@ -169,61 +169,33 @@ struct Event
     }
 }
 
-struct Sensorium
+struct EventWatcher
 {
-    ulong seq;
-    Event[] events;
-
-    /**
-     * Add an event.
-     */
-    void add(Event ev)
-    {
-        ev.seq = seq++;
-        events ~= ev;
-    }
-
-    /**
-     * Retrieve events registered since the given sequence number.
-     */
-    auto get(ulong startSeq /*, Vec!(int,4) refPoint, int range */)
-    {
-        return events.find!((ev, seq) => ev.seq >= seq)(startSeq);
-    }
-
-    unittest
-    {
-        Sensorium s;
-        auto lastChecked = s.seq;
-        s.add(Event(vec(1,2,3,4), 1024, "blah"));
-        s.add(Event(vec(2,3,4,5), 1025, "kaboom"));
-
-        assert(s.get(lastChecked) == [
-            Event(vec(1,2,3,4), 1024, "blah"),
-            Event(vec(2,3,4,5), 1025, "kaboom")
-        ]);
-
-        lastChecked = s.seq;
-
-        s.add(Event(vec(4,3,2,1), 1026, "pssst"));
-        s.add(Event(vec(2,8,3,0), 1024, "zap!"));
-
-        assert(s.get(lastChecked) == [
-            Event(vec(4,3,2,1), 1026, "pssst"),
-            Event(vec(2,8,3,0), 1024, "zap!")
-        ]);
-    }
+    void delegate(Pos pos, ThingId subj, Pos newPos) climbLedge;
+    void delegate(Pos pos, ThingId subj, Pos newPos) move;
+    void delegate(Pos pos, ThingId subj, Pos newPos) fall;
+    void delegate(Pos pos, ThingId subj, ThingId obj) pickup;
+    void delegate(Pos pos, ThingId subj, ThingId portal) usePortal;
 }
 
 class World
 {
     GameMap map;
     Store store;
-    Sensorium events;
+    @NoSave EventWatcher notify;
 
     this()
     {
         registerTerrains(&store);
+
+        // FIXME: surely there's got to be a better way of doing this?!
+        foreach (i, ref dg; this.notify.tupleof)
+        {
+            import std.traits : Parameters;
+            alias Params = Parameters!(typeof(dg));
+            void doNothing(size_t i)(Params) {}
+            dg = &doNothing!i;
+        }
     }
 
     /**

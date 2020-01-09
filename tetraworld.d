@@ -269,14 +269,14 @@ class Game
         {
             ui.message(res.failureMsg);
         }
-        else
-        {
-            foreach (ev; w.events.get(lastEventId))
-            {
-                ui.message(ev.msg);
-            }
-            lastEventId = w.events.seq;
-        }
+//        else
+//        {
+//            foreach (ev; w.events.get(lastEventId))
+//            {
+//                ui.message(ev.msg);
+//            }
+//            lastEventId = w.events.seq;
+//        }
     }
 
     void saveGame()
@@ -383,37 +383,45 @@ class Game
                 // underneath.
                 if (w.store.get!SupportsWeight(w.map[floorPos]) is null)
                 {
-                    // FIXME: this really should not be initiated by the game
-                    // engine code!
-                    if (t == player)
-                    {
-                        ui.notifyPlayerChange();
-                    }
-
+                    w.notify.fall(pos, t.id, Pos(floorPos));
                     w.store.remove!Pos(t);
                     w.store.add!Pos(t, Pos(floorPos));
-
-                    // FIXME: this really shouldn't be here. Code should be
-                    // agnostic to player identity!
-                    if (t == player)
-                    {
-                        ui.recenterView(playerPos);
-                        ui.message("You fall!");
-                    }
-
                     somethingFell = true;
                 }
             }
         } while (somethingFell);
     }
 
+    void setupEventWatchers()
+    {
+        w.notify.climbLedge = (Pos pos, ThingId subj, Pos newPos)
+        {
+            if (subj == player.id)
+                ui.notifyPlayerChange(); // FIXME: for now only
+        };
+        w.notify.fall = (Pos pos, ThingId subj, Pos newPos)
+        {
+            if (subj == player.id)
+            {
+                ui.notifyPlayerChange(); // FIXME: for now only
+                ui.message("You fall!");
+            }
+        };
+        w.notify.pickup = (Pos pos, ThingId subj, ThingId obj)
+        {
+            if (subj == player.id)
+            {
+                auto name = w.store.get!Name(obj);
+                if (name !is null)
+                    ui.message("You pick up the " ~ name.name ~ ".");
+            }
+        };
+    }
+
     void run(GameUi _ui)
     {
         ui = _ui;
-
-        // FIXME
-        lastEventId = w.events.seq;
-
+        setupEventWatchers();
         while (!quit)
         {
             gravitySystem();
@@ -585,6 +593,8 @@ class TextUi : GameUi
         import os_sleep : milliSleep;
         refresh();
         milliSleep(180);
+
+        recenterView(g.playerPos);
     }
 
     private void refreshMap()
