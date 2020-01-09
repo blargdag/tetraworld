@@ -1,10 +1,5 @@
-- Need to refactor play() and separate out the UI code from the game engine
-  code.
-   - A side-effect of this is to make climbing up ledges animatable, which it
-     currently isn't.
-- Map underlying representation should be distinct from dchar.
-   - The dchar view should be via a MapTile proxy object that maps underlying
-     game objects into printable tiles.
+- Make climbing up ledges animatable.
+- Implement NPCs / moving creatures!
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
   and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
@@ -23,3 +18,8 @@ X Implement .dim and .pos for Rectangle.
   you just have to separate it from the savefile).
 + Should probably implement gravity now rather than later, since it changes a
   LOT of things.
++ Map underlying representation should be distinct from dchar.
+   + The dchar view should be via a MapTile proxy object that maps underlying
+     game objects into printable tiles.
++ Need to refactor play() and separate out the UI code from the game engine
+  code.
