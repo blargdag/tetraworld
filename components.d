@@ -74,6 +74,7 @@ enum TileId
     floorMuddy,
     doorway,
     ladder,
+    ladderTop,
 
     player,
     gold,

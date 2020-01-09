@@ -78,7 +78,10 @@ struct ViewPort(Map)
             {
                 // Empty space: check if it's above solid ground. If so, render
                 // the top tile of the ground instead.
+                import terrain : ladder;
                 auto floorId = w.map[pos + vec(1,0,0,0)];
+                if (floorId == ladder.id)
+                    return TileId.ladderTop;
                 if (w.store.get!BlocksMovement(floorId) !is null)
                     return w.store.get!Tiled(floorId).tileId;
             }
