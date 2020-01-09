@@ -309,7 +309,7 @@ class Game
         //game.w = newGame([ 9, 9, 9, 9 ]);
         g.player = g.w.store.createObj(
             Pos(g.w.map.randomLocation()),
-            Tiled(TileId.player),
+            Tiled(TileId.player, 1),
             Name("You"),
             Inventory()
         );
