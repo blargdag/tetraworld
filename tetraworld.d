@@ -165,69 +165,324 @@ struct InputEventHandler
     }
 }
 
+enum PlayerAction
+{
+    up, down, left, right, front, back, ana, kata, apply,
+}
+
+interface GameUi
+{
+    void message(string msg);
+
+    final void message(Args...)(string fmt, Args args)
+        if (Args.length >= 1)
+    {
+        import std.format : format;
+        message(format(fmt.args));
+    }
+
+    PlayerAction getPlayerAction();
+
+    void recenterView(Vec!(int,4) center);
+
+    void quitWithMsg(string msg);
+    final void quitWithMsg(Args...)(string fmt, Args args)
+        if (Args.length >= 1)
+    {
+        import std.format : format;
+        quitWithMsg(format(fmt, args));
+    }
+
+    // UGLY STUFF PLZ FIX KTHX
+    void notifyPlayerChange();
+}
+
 enum saveFileName = ".tetra.save";
 
-void saveGame(World world, Thing* player)
+class Game
 {
-    auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
-    sf.put("player", player.id);
-    sf.put("world", world);
+    private GameUi ui;
+    /*private*/ World w; // FIXME
+    private Thing* player;
+    private bool quit;
+
+    Vec!(int,4) playerPos()
+    {
+        return w.store.get!Pos(player.id).coors;
+    }
+
+    auto numGold()
+    {
+        auto inv = w.store.get!Inventory(player.id);
+        return inv.contents
+                  .map!(id => w.store.get!Tiled(id))
+                  .filter!(tp => tp !is null && tp.tileId == TileId.gold)
+                  .count;
+    }
+
+    auto maxGold()
+    {
+        return w.store.getAll!Tiled
+                      .map!(id => w.store.get!Tiled(id))
+                      .filter!(tp => tp.tileId == TileId.gold)
+                      .count;
+    }
+
+    // FIXME
+    ulong lastEventId;
+    private void doAction(alias act, Args...)(Args args)
+    {
+        ActionResult res = act(args);
+        if (!res)
+        {
+            ui.message(res.failureMsg);
+        }
+        else
+        {
+            foreach (ev; w.events.get(lastEventId))
+            {
+                ui.message(ev.msg);
+            }
+            lastEventId = w.events.seq;
+        }
+    }
+
+    void saveGame()
+    {
+        auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
+        sf.put("player", player.id);
+        sf.put("world", w);
+    }
+
+    static Game loadGame()
+    {
+        auto lf = File(saveFileName, "r").byLine.loadFile;
+        ThingId playerId = lf.parse!ThingId("player");
+
+        auto game = new Game;
+        game.w = lf.parse!World("world");
+
+        game.player = game.w.store.getObj(playerId);
+        if (game.player is null)
+            throw new Exception("Save file is corrupt!");
+
+        // Permadeath. :-D
+        import std.file : remove;
+        remove(saveFileName);
+
+        return game;
+    }
+
+    static Game newGame()
+    {
+        auto g = new Game;
+        g.w = genNewGame([ 12, 12, 12, 12 ]);
+        //game.w = newGame([ 9, 9, 9, 9 ]);
+        g.player = g.w.store.createObj(
+            Pos(g.w.map.randomLocation()),
+            Tiled(TileId.player),
+            Name("You"),
+            Inventory()
+        );
+        return g;
+    }
+
+    private void movePlayer(int[4] displacement)
+    {
+        doAction!move(w, player, vec(displacement));
+
+        // TBD: this is a hack that should be replaced by a System, probably.
+        {
+            if (!w.store.getAllBy!Pos(Pos(playerPos))
+                        .map!(id => w.store.get!Tiled(id))
+                        .filter!(tp => tp !is null &&
+                                 tp.tileId == TileId.portal)
+                        .empty)
+            {
+                ui.message("You see the exit portal here.");
+            }
+        }
+
+        ui.recenterView(playerPos);
+    }
+
+    private void applyFloorObj()
+    {
+        doAction!applyFloor(w, player);
+    }
+
+    private void portalSystem()
+    {
+        if (w.store.get!UsePortal(player.id) !is null)
+        {
+            w.store.remove!UsePortal(player);
+
+            auto ngold = numGold();
+            auto maxgold = maxGold();
+
+            if (ngold < maxgold)
+            {
+                ui.message("The exit portal is here, but you haven't found "~
+                           "all the gold yet.");
+            }
+            else
+            {
+                quit = true;
+                import std.format : format;
+                ui.quitWithMsg("Congratulations! You collected %d out of %d "~
+                               "gold.", ngold, maxgold);
+            }
+        }
+    }
+
+    private void gravitySystem()
+    {
+        bool somethingFell;
+        do
+        {
+            somethingFell = false;
+            foreach (t; w.store.getAll!Pos()
+                               .map!(id => w.store.getObj(id)))
+            {
+                auto pos = *w.store.get!Pos(t.id);
+                auto floorPos = pos + vec(1,0,0,0);
+
+                // Gravity pulls downwards as long as there is no support
+                // underneath.
+                if (w.store.get!SupportsWeight(w.map[floorPos]) is null)
+                {
+                    // FIXME: this really should not be initiated by the game
+                    // engine code!
+                    if (t == player)
+                    {
+                        ui.notifyPlayerChange();
+                    }
+
+                    w.store.remove!Pos(t);
+                    w.store.add!Pos(t, Pos(floorPos));
+
+                    // FIXME: this really shouldn't be here. Code should be
+                    // agnostic to player identity!
+                    if (t == player)
+                    {
+                        ui.recenterView(playerPos);
+                        ui.message("You fall!");
+                    }
+
+                    somethingFell = true;
+                }
+            }
+        } while (somethingFell);
+    }
+
+    void run(GameUi _ui)
+    {
+        ui = _ui;
+
+        // FIXME
+        lastEventId = w.events.seq;
+
+        while (!quit)
+        {
+            gravitySystem();
+
+            // handle player input
+            final switch (ui.getPlayerAction()) with(PlayerAction)
+            {
+                case up:    movePlayer([-1,0,0,0]); break;
+                case down:  movePlayer([1,0,0,0]);  break;
+                case ana:   movePlayer([0,-1,0,0]); break;
+                case kata:  movePlayer([0,1,0,0]);  break;
+                case back:  movePlayer([0,0,-1,0]); break;
+                case front: movePlayer([0,0,1,0]);  break;
+                case left:  movePlayer([0,0,0,-1]); break;
+                case right: movePlayer([0,0,0,1]);  break;
+                case apply: applyFloorObj();        break;
+            }
+
+            portalSystem();
+        }
+    }
 }
 
-World loadGame(out Thing* player)
+class TextUi : GameUi
 {
-    auto lf = File(saveFileName, "r").byLine.loadFile;
-    ThingId playerId = lf.parse!ThingId("player");
-    auto world = lf.parse!World("world");
+    import std.traits : ReturnType;
 
-    player = world.store.getObj(playerId);
-    if (player is null)
-        throw new Exception("Save file is corrupt!");
+    alias MainDisplay = ReturnType!createDisp;
+    alias MsgBox = ReturnType!createMsgBox;
+    alias Viewport = ReturnType!createViewport;
+    alias MapView = ReturnType!createMapView;
+    alias StatusView = ReturnType!createStatusView;
 
-    // Permadeath. :-D
-    import std.file : remove;
-    remove(saveFileName);
+    private Terminal* term;
+    private MainDisplay disp;
 
-    return world;
-}
+    private MsgBox      msgBox;
+    private Viewport    viewport;
+    private MapView     mapview;
+    private StatusView  statusview;
 
-string play(World world, Thing* player, string welcomeMsg)
-{
-    auto term = Terminal(ConsoleOutputType.cellular);
-    auto input = RealTimeConsoleInput(&term, ConsoleInputFlags.raw);
+    private Game g;
 
-    term.clear();
-    auto disp = bufferedDisplay(&term);
-    auto screenRect = region(vec(disp.width, disp.height));
-    auto msgRect = region(screenRect.min,
-                          vec(screenRect.max[0], 1));
-    auto msgBox = subdisplay(&disp, msgRect);
+    private bool quit;
+    // FIXME: this is a hack. Replace with something better!
+    private string quitMsg;
 
-    void message(A...)(string fmt, A args)
+    private auto createDisp() { return bufferedDisplay(term); }
+    private auto createMsgBox(Region!(int,2) msgRect)
+    {
+        return subdisplay(&disp, msgRect);
+    }
+    private auto createViewport(Region!(int,2) screenRect)
+    {
+        auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
+        return ViewPort!GameMap(g.w, optVPSize, vec(0,0,0,0));
+    }
+    private auto createMapView(Region!(int,2) screenRect)
+    {
+        auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
+        return subdisplay(&disp, maprect);
+    }
+    private auto createStatusView(Region!(int,2) screenRect)
+    {
+        auto statusrect = region(vec(screenRect.min[0], screenRect.max[1]-1),
+                                 screenRect.max);
+        return subdisplay(&disp, statusrect);
+    }
+
+    void message(string str)
     {
         msgBox.moveTo(0,0);
-        msgBox.writef(fmt, args);
+        msgBox.writef(str);
         msgBox.clearToEol();
     }
 
-    message(welcomeMsg);
+    PlayerAction getPlayerAction()
+    {
+        assert(0, "TBD");
+    }
 
-    Vec!(int,4) playerPos() { return world.store.get!Pos(player.id).coors; }
+    void recenterView(Vec!(int,4) center)
+    {
+        viewport.centerOn(g.playerPos);
+    }
 
-    auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
+    void quitWithMsg(string msg)
+    {
+        quit = true;
+        quitMsg = msg;
+    }
 
-    auto viewport = ViewPort!GameMap(world, optVPSize, vec(0,0,0,0));
-    viewport.centerOn(playerPos);
+    // FIXME: this really should not be initiated by the game engine code!
+    void notifyPlayerChange()
+    {
+        import os_sleep : milliSleep;
+        refresh();
+        milliSleep(180);
+    }
 
-    auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
-    auto mapview = subdisplay(&disp, maprect);
-    static assert(hasColor!(typeof(mapview)));
-
-    auto statusrect = region(vec(screenRect.min[0], screenRect.max[1]-1),
-                             screenRect.max);
-    auto statusview = subdisplay(&disp, statusrect);
-
-    void refreshMap()
+    private void refreshMap()
     {
         import tile : tiles;
 
@@ -235,7 +490,7 @@ string play(World world, Thing* player, string welcomeMsg)
             auto tile = tiles[tileId];
 
             // Highlight tiles along axial directions from player.
-            auto plpos = playerPos - viewport.pos;
+            auto plpos = g.playerPos - viewport.pos;
             if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) == 3)
             {
                 if (tile.fg == Color.DEFAULT)
@@ -247,10 +502,10 @@ string play(World world, Thing* player, string welcomeMsg)
         mapview.renderMap(curview);
 
         disp.hideCursor();
-        if (viewport.contains(playerPos))
+        if (viewport.contains(g.playerPos))
         {
             auto cursorPos = renderingCoors(curview,
-                                            playerPos - viewport.pos);
+                                            g.playerPos - viewport.pos);
             if (region(vec(mapview.width, mapview.height)).contains(cursorPos))
             {
                 mapview.moveTo(cursorPos[0], cursorPos[1]);
@@ -259,35 +514,18 @@ string play(World world, Thing* player, string welcomeMsg)
         }
     }
 
-    auto numGold()
-    {
-        auto inv = world.store.get!Inventory(player.id);
-        return inv.contents
-                  .map!(id => world.store.get!Tiled(id))
-                  .filter!(tp => tp !is null && tp.tileId == TileId.gold)
-                  .count;
-    }
-
-    auto maxGold()
-    {
-        return world.store.getAll!Tiled
-                          .map!(id => world.store.get!Tiled(id))
-                          .filter!(tp => tp.tileId == TileId.gold)
-                          .count;
-    }
-
-    void refreshStatus()
+    private void refreshStatus()
     {
         // TBD: this should be done elsewhere
-        auto ngold = numGold();
-        auto maxgold = maxGold();
+        auto ngold = g.numGold();
+        auto maxgold = g.maxGold();
 
         statusview.moveTo(0, 0);
         statusview.writef("$: %d/%d", ngold, maxgold);
         statusview.clearToEol();
     }
 
-    void refresh()
+    private void refresh()
     {
         refreshStatus();
         refreshMap();
@@ -296,168 +534,83 @@ string play(World world, Thing* player, string welcomeMsg)
         term.flush(); // FIXME: arsd.terminal also caches!
     }
 
-    InputEventHandler inputHandler;
-
-    ulong lastEventId = world.events.seq;
-    void doAction(alias act, Args...)(Args args)
-    {
-        ActionResult res = act(args);
-        if (!res)
-        {
-            message(res.failureMsg);
-        }
-        else
-        {
-            foreach (ev; world.events.get(lastEventId))
-            {
-                message(ev.msg);
-            }
-            lastEventId = world.events.seq;
-        }
-    }
-
-    void movePlayer(Vec!(int,4) displacement)
-    {
-        doAction!move(world, player, displacement);
-
-        // TBD: this is a hack that should be replaced by a System, probably.
-        {
-            if (!world.store.getAllBy!Pos(Pos(playerPos))
-                            .map!(id => world.store.get!Tiled(id))
-                            .filter!(tp => tp !is null &&
-                                     tp.tileId == TileId.portal)
-                            .empty)
-            {
-                message("You see the exit portal here.");
-            }
-        }
-
-        viewport.centerOn(playerPos);
-    }
-
-    void moveView(Vec!(int,4) displacement)
+    private void moveView(Vec!(int,4) displacement)
     {
         viewport.move(displacement);
     }
 
-    void applyFloorObj()
+    private void setupUi()
     {
-        doAction!applyFloor(world, player);
+        disp = createDisp();
+        auto screenRect = region(vec(disp.width, disp.height));
+
+        auto msgRect = region(screenRect.min, vec(screenRect.max[0], 1));
+        msgBox = createMsgBox(msgRect);
+
+        viewport = createViewport(screenRect);
+        viewport.centerOn(g.playerPos);
+
+        auto mapview = createMapView(screenRect);
+        static assert(hasColor!(typeof(mapview)));
+
+        statusview = createStatusView(screenRect);
     }
 
-    bool quit;
-
-    // FIXME: this is a hack. Replace with something better!
-    string quitMsg;
-
-    inputHandler.bind('i', (dchar) { movePlayer(vec(-1,0,0,0)); });
-    inputHandler.bind('m', (dchar) { movePlayer(vec(1,0,0,0)); });
-    inputHandler.bind('h', (dchar) { movePlayer(vec(0,-1,0,0)); });
-    inputHandler.bind('l', (dchar) { movePlayer(vec(0,1,0,0)); });
-    inputHandler.bind('o', (dchar) { movePlayer(vec(0,0,-1,0)); });
-    inputHandler.bind('n', (dchar) { movePlayer(vec(0,0,1,0)); });
-    inputHandler.bind('j', (dchar) { movePlayer(vec(0,0,0,-1)); });
-    inputHandler.bind('k', (dchar) { movePlayer(vec(0,0,0,1)); });
-    inputHandler.bind('I', (dchar) { moveView(vec(-1,0,0,0)); });
-    inputHandler.bind('M', (dchar) { moveView(vec(1,0,0,0)); });
-    inputHandler.bind('H', (dchar) { moveView(vec(0,-1,0,0)); });
-    inputHandler.bind('L', (dchar) { moveView(vec(0,1,0,0)); });
-    inputHandler.bind('O', (dchar) { moveView(vec(0,0,-1,0)); });
-    inputHandler.bind('N', (dchar) { moveView(vec(0,0,1,0)); });
-    inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
-    inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
-    inputHandler.bind(' ', (dchar) { applyFloorObj(); });
-    inputHandler.bind('q', (dchar) {
-        saveGame(world, player);
-        quit = true;
-        quitMsg = "Be seeing you!";
-    });
-    inputHandler.bind('Q', (dchar) {
-        // TBD: confirm abandon game
-        quit = true;
-        quitMsg = "Bye!";
-    });
-    inputHandler.bind('\x0c', (dchar) { // ^L
-        disp.repaint();     // force repaint of entire screen
-        refresh();
-    });
-
-    void portalSystem()
+    string play(Game game, string welcomeMsg)
     {
-        if (world.store.get!UsePortal(player.id) !is null)
+        auto _term = Terminal(ConsoleOutputType.cellular);
+        term = &_term;
+        g = game;
+
+        auto input = RealTimeConsoleInput(term, ConsoleInputFlags.raw);
+        setupUi();
+
+        InputEventHandler inputHandler;
+        inputHandler.bind('i', (dchar) { g.movePlayer(vec(-1,0,0,0)); });
+        inputHandler.bind('m', (dchar) { g.movePlayer(vec(1,0,0,0)); });
+        inputHandler.bind('h', (dchar) { g.movePlayer(vec(0,-1,0,0)); });
+        inputHandler.bind('l', (dchar) { g.movePlayer(vec(0,1,0,0)); });
+        inputHandler.bind('o', (dchar) { g.movePlayer(vec(0,0,-1,0)); });
+        inputHandler.bind('n', (dchar) { g.movePlayer(vec(0,0,1,0)); });
+        inputHandler.bind('j', (dchar) { g.movePlayer(vec(0,0,0,-1)); });
+        inputHandler.bind('k', (dchar) { g.movePlayer(vec(0,0,0,1)); });
+        inputHandler.bind('I', (dchar) { moveView(vec(-1,0,0,0)); });
+        inputHandler.bind('M', (dchar) { moveView(vec(1,0,0,0)); });
+        inputHandler.bind('H', (dchar) { moveView(vec(0,-1,0,0)); });
+        inputHandler.bind('L', (dchar) { moveView(vec(0,1,0,0)); });
+        inputHandler.bind('O', (dchar) { moveView(vec(0,0,-1,0)); });
+        inputHandler.bind('N', (dchar) { moveView(vec(0,0,1,0)); });
+        inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
+        inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
+        inputHandler.bind(' ', (dchar) { g.applyFloorObj(); });
+        inputHandler.bind('q', (dchar) {
+            g.saveGame();
+            quit = true;
+            quitMsg = "Be seeing you!";
+        });
+        inputHandler.bind('Q', (dchar) {
+            // TBD: confirm abandon game
+            quit = true;
+            quitMsg = "Bye!";
+        });
+        inputHandler.bind('\x0c', (dchar) { // ^L
+            disp.repaint();     // force repaint of entire screen
+            refresh();
+        });
+
+        message(welcomeMsg);
+
+        quit = false;
+        while (!quit)
         {
-            world.store.remove!UsePortal(player);
-
-            auto ngold = numGold();
-            auto maxgold = maxGold();
-
-            if (ngold < maxgold)
-            {
-                message("The exit portal is here, but you haven't found all "~
-                        "the gold yet.");
-            }
-            else
-            {
-                quit = true;
-                import std.format : format;
-                quitMsg = format("Congratulations! You collected %d out of "~
-                                 "%d gold.", ngold, maxgold);
-            }
+            refresh();
+            inputHandler.handleGlobalEvent(input.nextEvent());
         }
+
+        term.clear();
+
+        return quitMsg;
     }
-
-    void gravitySystem()
-    {
-        bool somethingFell;
-        do
-        {
-            somethingFell = false;
-            foreach (t; world.store.getAll!Pos()
-                                   .map!(id => world.store.getObj(id)))
-            {
-                auto pos = *world.store.get!Pos(t.id);
-                auto floorPos = pos + vec(1,0,0,0);
-
-                // Gravity pulls downwards as long as there is no support
-                // underneath.
-                if (world.store.get!SupportsWeight(world.map[floorPos]) is
-                    null)
-                {
-                    if (t == player)
-                    {
-                        import os_sleep : milliSleep;
-                        refresh();
-                        milliSleep(180);
-                    }
-
-                    world.store.remove!Pos(t);
-                    world.store.add!Pos(t, Pos(floorPos));
-
-                    if (t == player)
-                    {
-                        viewport.centerOn(playerPos);
-                        message("You fall!");
-                    }
-
-                    somethingFell = true;
-                }
-            }
-        } while (somethingFell);
-    }
-
-    while (!quit)
-    {
-        gravitySystem();
-
-        refresh();
-        inputHandler.handleGlobalEvent(input.nextEvent());
-
-        portalSystem();
-    }
-
-    term.clear();
-
-    return quitMsg;
 }
 
 /**
@@ -465,30 +618,24 @@ string play(World world, Thing* player, string welcomeMsg)
  */
 void main()
 {
-    World  world;
-    Thing* player;
+    Game game;
     string welcomeMsg;
 
     import std.file : exists;
     if (saveFileName.exists)
     {
-        world = loadGame(player);
+        game = Game.loadGame();
         welcomeMsg = "Welcome back!";
     }
     else
     {
-        world = newGame([ 12, 12, 12, 12 ]);
-        //world = newGame([ 9, 9, 9, 9 ]);
-        player = world.store.createObj(
-            Pos(world.map.randomLocation()),
-            Tiled(TileId.player),
-            Name("You"),
-            Inventory()
-        );
+        game = Game.newGame();
         welcomeMsg = "Welcome to Tetraworld!";
     }
 
-    auto quitMsg = play(world, player, welcomeMsg);
+    auto ui = new TextUi;
+    auto quitMsg = ui.play(game, welcomeMsg);
+
     writeln(quitMsg);
 }
 
