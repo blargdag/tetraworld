@@ -171,7 +171,7 @@ struct Event
 
 struct EventWatcher
 {
-    void delegate(Pos pos, ThingId subj, Pos newPos) climbLedge;
+    void delegate(Pos pos, ThingId subj, Pos newPos, int seq) climbLedge;
     void delegate(Pos pos, ThingId subj, Pos newPos) move;
     void delegate(Pos pos, ThingId subj, Pos newPos) fall;
     void delegate(Pos pos, ThingId subj, ThingId obj) pickup;

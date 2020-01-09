@@ -52,15 +52,15 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
               .canFind!(id => w.store.get!BlocksMovement(id) !is null))
         {
             // FIXME: is this the best way to implement this?!
-            auto medPos = Pos(oldPos + vec(1,0,0,0));
+            auto medPos = Pos(oldPos + vec(-1,0,0,0));
             w.store.remove!Pos(subj);
             w.store.add!Pos(subj, medPos);
-            w.notify.climbLedge(oldPos, subj.id, medPos);
+            w.notify.climbLedge(oldPos, subj.id, medPos, 0);
 
             newPos = Pos(newPos + vec(-1,0,0,0));
             w.store.remove!Pos(subj);
             w.store.add!Pos(subj, newPos);
-            w.notify.climbLedge(oldPos, subj.id, newPos);
+            w.notify.climbLedge(oldPos, subj.id, newPos, 1);
         }
         else
             return ActionResult(false, "Your way is blocked.");
@@ -69,6 +69,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
     {
         w.store.remove!Pos(subj);
         w.store.add!Pos(subj, newPos);
+        w.notify.move(oldPos, subj.id, newPos);
     }
 
     auto inven = w.store.get!Inventory(subj.id);
