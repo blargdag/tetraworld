@@ -20,12 +20,13 @@
  */
 module tetraworld;
 
-import arsd.terminal;
-
+import core.thread : Fiber;
 import std.algorithm;
 import std.random;
 import std.range;
 import std.stdio;
+
+import arsd.terminal;
 
 import action;
 import bsp;
@@ -123,51 +124,79 @@ struct ViewPort(Map)
 }
 
 /**
- * Input event handler.
- *
- * Manages key bindings. In the future, will also manage stack of key handlers
- * for implementing modal dialogues.
+ * A UI interaction mode. Basically, a set of event handlers and render hooks.
  */
-struct InputEventHandler
+struct Mode
 {
-    void delegate(dchar ch)[dchar] bindings;
+    void delegate() render;
+    void delegate(dchar) onCharEvent;
+}
 
-    /**
-     * Binds a particular key to an action.
-     */
-    void bind(dchar key, void delegate(dchar) action)
+/**
+ * Input dispatcher.
+ */
+struct InputDispatcher
+{
+    private Mode[] modestack;
+
+    private void setup()()
     {
-        bindings[key] = action;
+        if (modestack.length == 0)
+            modestack.length = 1;
     }
 
     /**
-     * Global input event handler to be hooked up to main event loop.
+     * Returns: The current mode (at the top of the stack).
      */
-    void handleGlobalEvent(InputEvent event)
+    Mode top()
+    {
+        setup();
+        return modestack[$-1];
+    }
+
+    /**
+     * Push a new mode onto the mode stack.
+     */
+    void push(Mode mode)
+    {
+        modestack.assumeSafeAppend();
+        modestack ~= mode;
+
+        if (mode.render !is null)
+            mode.render();
+    }
+
+    /**
+     * Pop the current mode off the stack and revert to the previous mode.
+     */
+    void pop()
+    {
+        modestack.length--;
+    }
+
+    void handleEvent(InputEvent event)
     {
         switch (event.type)
         {
-            case InputEvent.Type.CharacterEvent:
-                auto ev = event.get!(InputEvent.Type.CharacterEvent);
-                if (ev.eventType == CharacterEvent.Type.Pressed)
-                {
-                    if (auto handler = ev.character in bindings)
-                    {
-                        // Invoke user-defined action.
-                        (*handler)(ev.character);
-                    }
-                }
+            case InputEvent.Type.KeyboardEvent:
+                auto ev = event.get!(InputEvent.Type.KeyboardEvent);
+                assert(top.onCharEvent !is null);
+                top.onCharEvent(ev.which);
                 break;
 
             default:
-                break;
+                // TBD
+                return;
         }
+
+        if (top.render !is null)
+            top.render();
     }
 }
 
 enum PlayerAction
 {
-    up, down, left, right, front, back, ana, kata, apply,
+    none, up, down, left, right, front, back, ana, kata, apply,
 }
 
 interface GameUi
@@ -398,6 +427,7 @@ class Game
                 case left:  movePlayer([0,0,0,-1]); break;
                 case right: movePlayer([0,0,0,1]);  break;
                 case apply: applyFloorObj();        break;
+                case none:  assert(0, "Internal error");
             }
 
             portalSystem();
@@ -424,6 +454,8 @@ class TextUi : GameUi
     private StatusView  statusview;
 
     private Game g;
+    private Fiber gameFiber;
+    private InputDispatcher dispatch;
 
     private bool quit;
     // FIXME: this is a hack. Replace with something better!
@@ -460,7 +492,77 @@ class TextUi : GameUi
 
     PlayerAction getPlayerAction()
     {
-        assert(0, "TBD");
+        PlayerAction result;
+
+        PlayerAction[dchar] keymap = [
+            'i': PlayerAction.up,
+            'm': PlayerAction.down,
+            'h': PlayerAction.ana,
+            'l': PlayerAction.kata,
+            'o': PlayerAction.back,
+            'n': PlayerAction.front,
+            'j': PlayerAction.left,
+            'k': PlayerAction.right,
+            ' ': PlayerAction.apply,
+        ];
+
+        auto mainMode = Mode(
+            {
+                refresh();
+            },
+            (dchar ch) {
+                switch (ch)
+                {
+                    case 'I': moveView(vec(-1,0,0,0));  break;
+                    case 'M': moveView(vec(1,0,0,0));   break;
+                    case 'H': moveView(vec(0,-1,0,0));  break;
+                    case 'L': moveView(vec(0,1,0,0));   break;
+                    case 'O': moveView(vec(0,0,-1,0));  break;
+                    case 'N': moveView(vec(0,0,1,0));   break;
+                    case 'J': moveView(vec(0,0,0,-1));  break;
+                    case 'K': moveView(vec(0,0,0,1));   break;
+                    case 'q':
+                        g.saveGame();
+                        quit = true;
+                        quitMsg = "Be seeing you!";
+                        break;
+                    case 'Q':
+                        // TBD: confirm abandon game
+                        quit = true;
+                        quitMsg = "Bye!";
+                        break;
+                    case '\x0c':        // ^L
+                        disp.repaint(); // force repaint of entire screen
+                        break;
+                    default:
+                        if (auto cmd = ch in keymap)
+                        {
+                            result = *cmd;
+                            dispatch.pop();
+                            gameFiber.call();
+                        }
+                        else
+                        {
+                            import std.format : format;
+                            import std.uni : isGraphical;
+
+                            if (ch.isGraphical)
+                                message(format("Unknown key: %s", ch));
+                            else if (ch < 0x20)
+                                message(format("Unknown key ^%s",
+                                               cast(dchar)(ch + 0x40)));
+                            else
+                                message(format("Unknown key (\\u%04X)", ch));
+                        }
+                }
+            }
+        );
+
+        dispatch.push(mainMode);
+        Fiber.yield();
+
+        assert(result != PlayerAction.none);
+        return result;
     }
 
     void recenterView(Vec!(int,4) center)
@@ -550,7 +652,7 @@ class TextUi : GameUi
         viewport = createViewport(screenRect);
         viewport.centerOn(g.playerPos);
 
-        auto mapview = createMapView(screenRect);
+        mapview = createMapView(screenRect);
         static assert(hasColor!(typeof(mapview)));
 
         statusview = createStatusView(screenRect);
@@ -565,46 +667,19 @@ class TextUi : GameUi
         auto input = RealTimeConsoleInput(term, ConsoleInputFlags.raw);
         setupUi();
 
-        InputEventHandler inputHandler;
-        inputHandler.bind('i', (dchar) { g.movePlayer(vec(-1,0,0,0)); });
-        inputHandler.bind('m', (dchar) { g.movePlayer(vec(1,0,0,0)); });
-        inputHandler.bind('h', (dchar) { g.movePlayer(vec(0,-1,0,0)); });
-        inputHandler.bind('l', (dchar) { g.movePlayer(vec(0,1,0,0)); });
-        inputHandler.bind('o', (dchar) { g.movePlayer(vec(0,0,-1,0)); });
-        inputHandler.bind('n', (dchar) { g.movePlayer(vec(0,0,1,0)); });
-        inputHandler.bind('j', (dchar) { g.movePlayer(vec(0,0,0,-1)); });
-        inputHandler.bind('k', (dchar) { g.movePlayer(vec(0,0,0,1)); });
-        inputHandler.bind('I', (dchar) { moveView(vec(-1,0,0,0)); });
-        inputHandler.bind('M', (dchar) { moveView(vec(1,0,0,0)); });
-        inputHandler.bind('H', (dchar) { moveView(vec(0,-1,0,0)); });
-        inputHandler.bind('L', (dchar) { moveView(vec(0,1,0,0)); });
-        inputHandler.bind('O', (dchar) { moveView(vec(0,0,-1,0)); });
-        inputHandler.bind('N', (dchar) { moveView(vec(0,0,1,0)); });
-        inputHandler.bind('J', (dchar) { moveView(vec(0,0,0,-1)); });
-        inputHandler.bind('K', (dchar) { moveView(vec(0,0,0,1)); });
-        inputHandler.bind(' ', (dchar) { g.applyFloorObj(); });
-        inputHandler.bind('q', (dchar) {
-            g.saveGame();
-            quit = true;
-            quitMsg = "Be seeing you!";
-        });
-        inputHandler.bind('Q', (dchar) {
-            // TBD: confirm abandon game
-            quit = true;
-            quitMsg = "Bye!";
-        });
-        inputHandler.bind('\x0c', (dchar) { // ^L
-            disp.repaint();     // force repaint of entire screen
-            refresh();
+        // Run game engine thread in its own fiber.
+        gameFiber = new Fiber({
+            g.run(this);
         });
 
         message(welcomeMsg);
 
         quit = false;
+        gameFiber.call();
         while (!quit)
         {
             refresh();
-            inputHandler.handleGlobalEvent(input.nextEvent());
+            dispatch.handleEvent(input.nextEvent());
         }
 
         term.clear();
