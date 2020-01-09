@@ -599,6 +599,17 @@ class TextUi : GameUi
                     tile.fg = Color.blue;
                 tile.fg |= Bright;
             }
+
+            // Highlight potential diagonal climb destinations.
+            import std.math : abs;
+            auto abovePl = plpos + vec(-1,0,0,0);
+            if (pos[0] == abovePl[0] &&
+                iota(1,4).map!(i => abs(abovePl[i] - pos[i])).sum == 1)
+            {
+                if (tile.fg == Color.DEFAULT)
+                    tile.fg = Color.blue;
+                tile.fg |= Bright;
+            }
             return tile;
         });
         mapview.renderMap(curview);
