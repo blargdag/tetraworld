@@ -74,6 +74,7 @@ enum TileId
     floorMuddy,
     doorway,
     ladder,
+    ladderTop,
 
     player,
     gold,
@@ -82,6 +83,12 @@ enum TileId
 
 /**
  * Component of any object that has a ColorTile representation.
+ *
+ * .stackOrder is used for sorting which tile to show when there are multiple
+ * items on a single position. Currently:
+ *  -1 = background / floor tiles
+ *  0 = items and other objects lying on the ground
+ *  ≥1 = agents that can move around.
  */
 @Component
 struct Tiled

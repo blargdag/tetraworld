@@ -238,7 +238,7 @@ class World
 }
 
 // FIXME: this should go into its own mapgen module.
-World newGame(int[4] dim)
+World genNewGame(int[4] dim)
 {
     auto w = new World;
     w.map.bounds = region(vec(0, 0, 0, 0), vec(dim));

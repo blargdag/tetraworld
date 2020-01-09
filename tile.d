@@ -32,13 +32,14 @@ struct Tile16
 }
 
 Tile16[TileId.max+1] tiles = [
-    TileId.space:       Tile16('!'),
+    TileId.space:       Tile16(' '),
     TileId.wall:        Tile16('/'),
     TileId.floorBare:   Tile16('.'),
     TileId.floorGrassy: Tile16(':'),
     TileId.floorMuddy:  Tile16(';'),
     TileId.doorway:     Tile16('#'),
     TileId.ladder:      Tile16('='),
+    TileId.ladderTop:   Tile16('_'),
 
     TileId.player:      Tile16('&'),
     TileId.gold:        Tile16('$', Color.yellow),
