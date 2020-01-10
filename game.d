@@ -169,9 +169,8 @@ class Game
         //game.w = newGame([ 9, 9, 9, 9 ]);
         g.player = g.w.store.createObj(
             Pos(g.w.map.randomLocation()),
-            Tiled(TileId.player, 1),
-            Name("You"),
-            Inventory()
+            Tiled(TileId.player, 1), Name("You"), Agent(Agent.Type.player),
+            Inventory(), BlocksMovement()
         );
         return g;
     }
@@ -297,6 +296,52 @@ class Game
         };
     }
 
+    void processPlayer()
+    {
+        final switch (ui.getPlayerAction()) with(PlayerAction)
+        {
+            case up:    movePlayer([-1,0,0,0]); break;
+            case down:  movePlayer([1,0,0,0]);  break;
+            case ana:   movePlayer([0,-1,0,0]); break;
+            case kata:  movePlayer([0,1,0,0]);  break;
+            case back:  movePlayer([0,0,-1,0]); break;
+            case front: movePlayer([0,0,1,0]);  break;
+            case left:  movePlayer([0,0,0,-1]); break;
+            case right: movePlayer([0,0,0,1]);  break;
+            case apply: applyFloorObj();        break;
+            case none:  assert(0, "Internal error");
+        }
+    }
+
+    void processAi(Thing* t, Agent* agt)
+    {
+        // For now, just move randomly.
+        import dir;
+        move(w, t, vec(dir2vec(randomDir)));
+    }
+
+    void agentSystem()
+    {
+        foreach (id; w.store.getAll!Agent)
+        {
+            auto t = w.store.getObj(id);
+            if (t is null)  // guard against possible race condition
+                continue;
+
+            auto agt = w.store.get!Agent(id);
+            final switch (agt.type)
+            {
+                case Agent.Type.player:
+                    processPlayer();
+                    break;
+
+                case Agent.Type.ai:
+                    processAi(t, agt);
+                    break;
+            }
+        }
+    }
+
     void run(GameUi _ui)
     {
         ui = _ui;
@@ -304,22 +349,7 @@ class Game
         while (!quit)
         {
             gravitySystem();
-
-            // handle player input
-            final switch (ui.getPlayerAction()) with(PlayerAction)
-            {
-                case up:    movePlayer([-1,0,0,0]); break;
-                case down:  movePlayer([1,0,0,0]);  break;
-                case ana:   movePlayer([0,-1,0,0]); break;
-                case kata:  movePlayer([0,1,0,0]);  break;
-                case back:  movePlayer([0,0,-1,0]); break;
-                case front: movePlayer([0,0,1,0]);  break;
-                case left:  movePlayer([0,0,0,-1]); break;
-                case right: movePlayer([0,0,0,1]);  break;
-                case apply: applyFloorObj();        break;
-                case none:  assert(0, "Internal error");
-            }
-
+            agentSystem();
             portalSystem();
         }
     }

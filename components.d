@@ -77,6 +77,8 @@ enum TileId
     ladderTop,
 
     player,
+    creatureA,
+
     gold,
     portal,
 }
@@ -153,5 +155,16 @@ struct BlocksMovement { }
  */
 @Component
 struct SupportsWeight { }
+
+/**
+ * Component for agent objects.
+ */
+@Component
+struct Agent
+{
+    enum Type { ai, player }
+    Type type;
+    // TBD: AI state goes here
+}
 
 // vim:set ai sw=4 ts=4 et:
