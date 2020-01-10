@@ -172,6 +172,8 @@ struct InputDispatcher
     void pop()
     {
         modestack.length--;
+        if (top.render !is null)
+            top.render();
     }
 
     void handleEvent(InputEvent event)
@@ -291,9 +293,14 @@ class TextUi : GameUi
                         quitMsg = "Be seeing you!";
                         break;
                     case 'Q':
-                        // TBD: confirm abandon game
-                        quit = true;
-                        quitMsg = "Bye!";
+                        promptYesNo("Really quit and permanently delete this "~
+                                    "character?", (yes) {
+                            if (yes)
+                            {
+                                quit = true;
+                                quitMsg = "Bye!";
+                            }
+                        });
                         break;
                     case '\x0c':        // ^L
                         disp.repaint(); // force repaint of entire screen
@@ -352,6 +359,63 @@ class TextUi : GameUi
     {
         quit = true;
         quitMsg = msg;
+    }
+
+    /**
+     * Like message(), but does not store the message into the log and does not
+     * accumulate messages with a --MORE-- prompt.
+     */
+    void echo(string str)
+    {
+        msgBox.moveTo(0,0);
+        msgBox.writef(str);
+        msgBox.clearToEol();
+    }
+
+    /**
+     * Prompts the user for a response.  Keeps the cursor positioned
+     * immediately after the prompt.
+     */
+    void prompt(string str)
+    {
+        msgBox.moveTo(0, 0);
+        msgBox.writef("%s", str);
+        auto x = msgBox.cursorX;
+        auto y = msgBox.cursorY;
+        msgBox.clearToEol();
+        msgBox.moveTo(x, y);
+    }
+
+    /**
+     * Pushes a Mode to the mode stack that prompts the player for a yes/no
+     * response, and invokes the given callback with the answer.
+     */
+    private void promptYesNo(string promptStr, void delegate(bool answer) cb)
+    {
+        string str = promptStr ~ " [yn] ";
+        auto mode = Mode(
+            {
+                prompt(str);
+            }, (dchar key) {
+                switch (key)
+                {
+                    case 'y':
+                        dispatch.pop();
+                        echo(str ~ "yes");
+                        cb(true);
+                        break;
+                    case 'n':
+                        dispatch.pop();
+                        echo(str ~ "no");
+                        cb(false);
+                        break;
+
+                    default:
+                }
+            }
+        );
+
+        dispatch.push(mode);
     }
 
     private void refreshMap()
@@ -462,7 +526,7 @@ class TextUi : GameUi
         gameFiber.call();
         while (!quit)
         {
-            refresh();
+            disp.flush();
             refreshNeedsPause = false;
             dispatch.handleEvent(input.nextEvent());
         }
