@@ -35,6 +35,43 @@ struct ActionResult
 }
 
 /**
+ * A low-level movement routine that handles terrain exit/enter conditions,
+ * autopickup, and other per-tile effects.
+ *
+ * Params:
+ *  w = The World instance.
+ *  subj = The agent being moved.
+ *  newPos = The new position.
+ *  notifyMove = A delegate for sending movement notifications after the
+ *      movement but before any post-move effects are triggered.
+ *
+ * WARNING: this function DOES NOT CHECK for movement blockage, etc.. It
+ * ASSUMES that the caller has already taken care of this.  It's meant to be a
+ * low-level primitive for composing higher-level actions.
+ */
+void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
+{
+    w.store.remove!Pos(subj);
+    w.store.add!Pos(subj, newPos);
+    notifyMove();
+
+    // Autopickup
+    auto inven = w.store.get!Inventory(subj.id);
+    if (inven != null)
+    {
+        foreach (t; w.store.getAllBy!Pos(newPos)
+                           .map!(id => w.store.getObj(id))
+                           .filter!(t => w.store.get!Pickable(t.id) !is null))
+        {
+            w.store.remove!Pos(t);
+            inven.contents ~= t.id;
+
+            w.notify.pickup(newPos, subj.id, t.id);
+        }
+    }
+}
+
+/**
  * Moves an object from its current location to a new location.
  */
 ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
@@ -52,39 +89,24 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
             !w.getAllAt(Pos(newPos + vec(-1,0,0,0)))
               .canFind!(id => w.store.get!BlocksMovement(id) !is null))
         {
-            // FIXME: is this the best way to implement this?!
             auto medPos = Pos(oldPos + vec(-1,0,0,0));
-            w.store.remove!Pos(subj);
-            w.store.add!Pos(subj, medPos);
-            w.notify.climbLedge(oldPos, subj.id, medPos, 0);
+            rawMove(w, subj, medPos, {
+                w.notify.climbLedge(oldPos, subj.id, medPos, 0);
+            });
 
             newPos = Pos(newPos + vec(-1,0,0,0));
-            w.store.remove!Pos(subj);
-            w.store.add!Pos(subj, newPos);
-            w.notify.climbLedge(oldPos, subj.id, newPos, 1);
+            rawMove(w, subj, newPos, {
+                w.notify.climbLedge(medPos, subj.id, newPos, 1);
+            });
         }
         else
             return ActionResult(false, "Your way is blocked.");
     }
     else
     {
-        w.store.remove!Pos(subj);
-        w.store.add!Pos(subj, newPos);
-        w.notify.move(oldPos, subj.id, newPos);
-    }
-
-    auto inven = w.store.get!Inventory(subj.id);
-    if (inven != null)
-    {
-        foreach (t; w.store.getAllBy!Pos(newPos)
-                           .map!(id => w.store.getObj(id))
-                           .filter!(t => w.store.get!Pickable(t.id) !is null))
-        {
-            w.store.remove!Pos(t);
-            inven.contents ~= t.id;
-
-            w.notify.pickup(newPos, subj.id, t.id);
-        }
+        rawMove(w, subj, newPos, {
+            w.notify.move(oldPos, subj.id, newPos);
+        });
     }
 
     return ActionResult(true);
