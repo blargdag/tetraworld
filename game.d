@@ -232,15 +232,15 @@ class Game
                                .map!(id => w.store.getObj(id)))
             {
                 auto pos = *w.store.get!Pos(t.id);
-                auto floorPos = pos + vec(1,0,0,0);
+                auto floorPos = Pos(pos + vec(1,0,0,0));
 
                 // Gravity pulls downwards as long as there is no support
                 // underneath.
                 if (w.store.get!SupportsWeight(w.map[floorPos]) is null)
                 {
-                    w.store.remove!Pos(t);
-                    w.store.add!Pos(t, Pos(floorPos));
-                    w.notify.fall(pos, t.id, Pos(floorPos));
+                    rawMove(w, t, floorPos, {
+                        w.notify.fall(pos, t.id, floorPos);
+                    });
                     somethingFell = true;
                 }
             }

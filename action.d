@@ -59,7 +59,9 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     auto inven = w.store.get!Inventory(subj.id);
     if (inven != null)
     {
-        foreach (t; w.store.getAllBy!Pos(newPos)
+        // Note: need to .dup because otherwise we run into the bad ole
+        // modify-while-iterating container issue.
+        foreach (t; w.store.getAllBy!Pos(newPos).dup
                            .map!(id => w.store.getObj(id))
                            .filter!(t => w.store.get!Pickable(t.id) !is null))
         {
