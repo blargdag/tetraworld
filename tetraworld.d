@@ -197,15 +197,25 @@ struct InputDispatcher
     }
 }
 
+/**
+ * Logical player input action.
+ */
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata, apply,
 }
 
+/**
+ * Generic UI API.
+ */
 interface GameUi
 {
+    /**
+     * Add a message to the message log.
+     */
     void message(string msg);
 
+    /// ditto
     final void message(Args...)(string fmt, Args args)
         if (Args.length >= 1)
     {
@@ -213,24 +223,47 @@ interface GameUi
         message(format(fmt.args));
     }
 
+    /**
+     * Read player action from user input.
+     */
     PlayerAction getPlayerAction();
 
-    void recenterView(Vec!(int,4) center);
+    /**
+     * Notify UI that a map change has occurred.
+     *
+     * Params:
+     *  where = List of affected locations to update.
+     */
+    void updateMap(Pos[] where...);
 
+    /**
+     * Notify that the map should be moved and recentered on a new position.
+     * The map will be re-rendered.
+     *
+     * If multiple refreshes occur back-to-back without an intervening input
+     * event, a small pause will be added for animation effect.
+     */
+    void moveViewport(Vec!(int,4) center);
+
+    /**
+     * Signal end of game with an exit message.
+     */
     void quitWithMsg(string msg);
+
+    /// ditto
     final void quitWithMsg(Args...)(string fmt, Args args)
         if (Args.length >= 1)
     {
         import std.format : format;
         quitWithMsg(format(fmt, args));
     }
-
-    // UGLY STUFF PLZ FIX KTHX
-    void notifyPlayerChange();
 }
 
 enum saveFileName = ".tetra.save";
 
+/**
+ * Game simulation.
+ */
 class Game
 {
     private GameUi ui;
@@ -260,22 +293,12 @@ class Game
                       .count;
     }
 
-    // FIXME
-    ulong lastEventId;
     private void doAction(alias act, Args...)(Args args)
     {
         ActionResult res = act(args);
         if (!res)
         {
             ui.message(res.failureMsg);
-        }
-        else
-        {
-            foreach (ev; w.events.get(lastEventId))
-            {
-                ui.message(ev.msg);
-            }
-            lastEventId = w.events.seq;
         }
     }
 
@@ -334,8 +357,6 @@ class Game
                 ui.message("You see the exit portal here.");
             }
         }
-
-        ui.recenterView(playerPos);
     }
 
     private void applyFloorObj()
@@ -383,37 +404,62 @@ class Game
                 // underneath.
                 if (w.store.get!SupportsWeight(w.map[floorPos]) is null)
                 {
-                    // FIXME: this really should not be initiated by the game
-                    // engine code!
-                    if (t == player)
-                    {
-                        ui.notifyPlayerChange();
-                    }
-
                     w.store.remove!Pos(t);
                     w.store.add!Pos(t, Pos(floorPos));
-
-                    // FIXME: this really shouldn't be here. Code should be
-                    // agnostic to player identity!
-                    if (t == player)
-                    {
-                        ui.recenterView(playerPos);
-                        ui.message("You fall!");
-                    }
-
+                    w.notify.fall(pos, t.id, Pos(floorPos));
                     somethingFell = true;
                 }
             }
         } while (somethingFell);
     }
 
+    void setupEventWatchers()
+    {
+        w.notify.move = (Pos pos, ThingId subj, Pos newPos)
+        {
+            if (subj == player.id)
+                ui.moveViewport(newPos);
+            else
+                ui.updateMap(pos, newPos);
+        };
+        w.notify.climbLedge = (Pos pos, ThingId subj, Pos newPos, int seq)
+        {
+            if (subj == player.id)
+            {
+                if (seq == 0)
+                    ui.message("You climb up the ledge.");
+                ui.moveViewport(newPos);
+            }
+            else
+                ui.updateMap(pos, newPos);
+        };
+        w.notify.fall = (Pos pos, ThingId subj, Pos newPos)
+        {
+            if (subj == player.id)
+            {
+                ui.moveViewport(newPos);
+                ui.message("You fall!");
+            }
+            else
+                ui.updateMap(pos, newPos);
+        };
+        w.notify.pickup = (Pos pos, ThingId subj, ThingId obj)
+        {
+            if (subj == player.id)
+            {
+                auto name = w.store.get!Name(obj);
+                if (name !is null)
+                    ui.message("You pick up the " ~ name.name ~ ".");
+            }
+            else
+                ui.updateMap(pos);
+        };
+    }
+
     void run(GameUi _ui)
     {
         ui = _ui;
-
-        // FIXME
-        lastEventId = w.events.seq;
-
+        setupEventWatchers();
         while (!quit)
         {
             gravitySystem();
@@ -438,6 +484,9 @@ class Game
     }
 }
 
+/**
+ * Text-based UI implementation.
+ */
 class TextUi : GameUi
 {
     import std.traits : ReturnType;
@@ -459,6 +508,8 @@ class TextUi : GameUi
     private Game g;
     private Fiber gameFiber;
     private InputDispatcher dispatch;
+
+    private bool refreshNeedsPause;
 
     private bool quit;
     // FIXME: this is a hack. Replace with something better!
@@ -568,23 +619,29 @@ class TextUi : GameUi
         return result;
     }
 
-    void recenterView(Vec!(int,4) center)
+    void updateMap(Pos[] where...)
     {
-        viewport.centerOn(g.playerPos);
+        // FOR NOW ONLY: refresh() really should take a list of positions to
+        // re-render. Don't have to re-render everything all the time.
+        refresh();
+    }
+
+    void moveViewport(Vec!(int,4) center)
+    {
+        if (refreshNeedsPause)
+        {
+            import os_sleep : milliSleep;
+            milliSleep(180);
+        }
+
+        viewport.centerOn(center);
+        refresh();
     }
 
     void quitWithMsg(string msg)
     {
         quit = true;
         quitMsg = msg;
-    }
-
-    // FIXME: this really should not be initiated by the game engine code!
-    void notifyPlayerChange()
-    {
-        import os_sleep : milliSleep;
-        refresh();
-        milliSleep(180);
     }
 
     private void refreshMap()
@@ -648,6 +705,9 @@ class TextUi : GameUi
 
         disp.flush();
         term.flush(); // FIXME: arsd.terminal also caches!
+
+        // Next refresh should pause if no intervening input event.
+        refreshNeedsPause = true;
     }
 
     private void moveView(Vec!(int,4) displacement)
@@ -693,6 +753,7 @@ class TextUi : GameUi
         while (!quit)
         {
             refresh();
+            refreshNeedsPause = false;
             dispatch.handleEvent(input.nextEvent());
         }
 
