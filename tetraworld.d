@@ -197,15 +197,25 @@ struct InputDispatcher
     }
 }
 
+/**
+ * Logical player input action.
+ */
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata, apply,
 }
 
+/**
+ * Generic UI API.
+ */
 interface GameUi
 {
+    /**
+     * Add a message to the message log.
+     */
     void message(string msg);
 
+    /// ditto
     final void message(Args...)(string fmt, Args args)
         if (Args.length >= 1)
     {
@@ -213,25 +223,34 @@ interface GameUi
         message(format(fmt.args));
     }
 
+    /**
+     * Read player action from user input.
+     */
     PlayerAction getPlayerAction();
 
     /**
-     * Notify that a map change has occurred.
+     * Notify UI that a map change has occurred.
      *
      * Params:
-     *  where = List of affected locations.
+     *  where = List of affected locations to update.
      */
     void updateMap(Pos[] where...);
 
     /**
      * Notify that the map should be moved and recentered on a new position.
-     * The map will be re-rendered. If multiple refreshes occur back-to-back
-     * without an intervening input event, a small pause will be added for
-     * animation effect.
+     * The map will be re-rendered.
+     *
+     * If multiple refreshes occur back-to-back without an intervening input
+     * event, a small pause will be added for animation effect.
      */
     void moveViewport(Vec!(int,4) center);
 
+    /**
+     * Signal end of game with an exit message.
+     */
     void quitWithMsg(string msg);
+
+    /// ditto
     final void quitWithMsg(Args...)(string fmt, Args args)
         if (Args.length >= 1)
     {
@@ -242,6 +261,9 @@ interface GameUi
 
 enum saveFileName = ".tetra.save";
 
+/**
+ * Game simulation.
+ */
 class Game
 {
     private GameUi ui;
@@ -472,6 +494,9 @@ class Game
     }
 }
 
+/**
+ * Text-based UI implementation.
+ */
 class TextUi : GameUi
 {
     import std.traits : ReturnType;
