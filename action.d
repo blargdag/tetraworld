@@ -46,7 +46,8 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
          .canFind!(id => w.store.get!BlocksMovement(id) !is null))
     {
         // Check if climbable.
-        if (!w.getAllAt(Pos(oldPos + vec(-1,0,0,0)))
+        if (displacement != vec(1,0,0,0) &&
+            !w.getAllAt(Pos(oldPos + vec(-1,0,0,0)))
               .canFind!(id => w.store.get!BlocksMovement(id) !is null) &&
             !w.getAllAt(Pos(newPos + vec(-1,0,0,0)))
               .canFind!(id => w.store.get!BlocksMovement(id) !is null))
