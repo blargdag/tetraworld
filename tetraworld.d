@@ -426,9 +426,9 @@ class Game
         {
             if (subj == player.id)
             {
-                ui.moveViewport(newPos);
                 if (seq == 0)
                     ui.message("You climb up the ledge.");
+                ui.moveViewport(newPos);
             }
             else
                 ui.updateMap(pos, newPos);
