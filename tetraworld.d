@@ -293,8 +293,6 @@ class Game
                       .count;
     }
 
-    // FIXME
-    ulong lastEventId;
     private void doAction(alias act, Args...)(Args args)
     {
         ActionResult res = act(args);
@@ -302,14 +300,6 @@ class Game
         {
             ui.message(res.failureMsg);
         }
-//        else
-//        {
-//            foreach (ev; w.events.get(lastEventId))
-//            {
-//                ui.message(ev.msg);
-//            }
-//            lastEventId = w.events.seq;
-//        }
     }
 
     void saveGame()
