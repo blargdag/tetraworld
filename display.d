@@ -858,11 +858,8 @@ struct BufferedDisplay(Display)
         }
     }
 
-    static if (hasCursorXY!Display)
-    {
-        @property int cursorX() { return disp.cursorX; }
-        @property int cursorY() { return disp.cursorY; }
-    }
+    @property int cursorX() { return cursor[0]; }
+    @property int cursorY() { return cursor[1]; }
 
     static assert(isDisplay!(typeof(this)));
 }
@@ -1371,6 +1368,12 @@ unittest
     assert(disp.bgs == [ 0,0,4,4,4,4,2,2,
                          6,6,0,0,0,0,0,0,
                          0,6,6,6,6,2,0,8 ]);
+
+    // Cursor test: apparent cursor should not track real cursor.
+    bufDisp.moveTo(0, 0);
+    assert(bufDisp.cursorX == 0 && bufDisp.cursorY == 0);
+    bufDisp.moveTo(2, 3);
+    assert(bufDisp.cursorX == 2 && bufDisp.cursorY == 3);
 }
 
 // vim:set ai sw=4 ts=4 et:
