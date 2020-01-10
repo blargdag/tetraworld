@@ -43,6 +43,7 @@ sources = Split("""
 	components.d
 	display.d
 	loadsave.d
+	game.d
 	gamemap.d
 	os_sleep.d
 	store.d
