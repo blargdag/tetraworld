@@ -540,7 +540,7 @@ class TextUi : GameUi
 /**
  * Main program.
  */
-void main()
+int main()
 {
     Game game;
     string welcomeMsg;
@@ -558,9 +558,19 @@ void main()
     }
 
     auto ui = new TextUi;
-    auto quitMsg = ui.play(game, welcomeMsg);
-
-    writeln(quitMsg);
+    try
+    {
+        auto quitMsg = ui.play(game, welcomeMsg);
+        writeln(quitMsg);
+        return 0;
+    }
+    catch (Exception e)
+    {
+        // Emergency save when things go wrong.
+        game.saveGame();
+        writefln("Error: %s", e.msg);
+        return 1;
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
