@@ -228,10 +228,17 @@ class Game
         do
         {
             somethingFell = false;
-            foreach (t; w.store.getAll!Pos()
+            foreach (t; w.store.getAll!Pos().dup
                                .map!(id => w.store.getObj(id)))
             {
-                auto pos = *w.store.get!Pos(t.id);
+                // NOTE: race condition: a falling object may autopickup
+                // another object and remove its Pos while we're still
+                // iterating, which will cause posp to be null.
+                auto posp = w.store.get!Pos(t.id);
+                if (posp is null)
+                    continue;
+
+                auto pos = *posp;
                 auto floorPos = Pos(pos + vec(1,0,0,0));
 
                 // Gravity pulls downwards as long as there is no support
