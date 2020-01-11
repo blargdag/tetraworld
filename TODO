@@ -1,4 +1,12 @@
-- Implement NPCs / moving creatures!
+- Implement "smooth" scrolling in vertical / ana/kata directions. Probably
+  *very* necessary for new players to even understand what's going on.
+- Implement session recorder.
+- Add water level, underneath which free movement is possible? :-D
+   - But it will require finding an oxygen mask... Well, OK, this is 4D, so
+     "oxygen" doesn't make sense. Maybe call it "diving equipment"?
+- Implement FOV and player map memory.
+- Improve creature AI.
+   - Pathfinding.
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
   and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
@@ -23,3 +31,4 @@ X Implement .dim and .pos for Rectangle.
 + Need to refactor play() and separate out the UI code from the game engine
   code.
 + Make climbing up ledges animatable.
++ Implement NPCs / moving creatures!
