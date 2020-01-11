@@ -247,9 +247,12 @@ World genNewGame(int[4] dim)
                           Tiled(TileId.gold), Name("gold"), Pickable());
     }
 
-    w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                      Tiled(TileId.creatureA, 1), Name("conical creature"),
-                      BlocksMovement(), Agent());
+    foreach (i; 0 .. uniform(4, 6))
+    {
+        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+                          Tiled(TileId.creatureA, 1), Name("conical creature"),
+                          BlocksMovement(), Agent());
+    }
 
     return w;
 }
