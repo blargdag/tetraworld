@@ -41,6 +41,7 @@ sources = Split("""
 	action.d
 	bsp.d
 	components.d
+	dir.d
 	display.d
 	loadsave.d
 	game.d

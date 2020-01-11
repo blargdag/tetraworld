@@ -84,8 +84,12 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
     if (w.getAllAt(newPos)
          .canFind!(id => w.store.get!BlocksMovement(id) !is null))
     {
-        // Check if climbable.
+        // Check if climbable. Note that BlocksMovement is not sufficient for
+        // climbability; the target tile must also have SupportsWeight. This is
+        // to prevent the player from climbing on top of creatures. :-D
         if (displacement != vec(1,0,0,0) &&
+            w.getAllAt(newPos)
+             .canFind!(id => w.store.get!SupportsWeight(id) !is null) &&
             !w.getAllAt(Pos(oldPos + vec(-1,0,0,0)))
               .canFind!(id => w.store.get!BlocksMovement(id) !is null) &&
             !w.getAllAt(Pos(newPos + vec(-1,0,0,0)))

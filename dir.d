@@ -29,6 +29,22 @@ enum Dir
 }
 
 /**
+ * Returns: A random direction that isn't Dir.self.
+ */
+Dir randomDir()
+{
+    import std.random : uniform;
+    Dir d;
+
+    do
+    {
+        d = uniform!Dir;
+    } while (d == Dir.self);
+
+    return d;
+}
+
+/**
  * Convert an abstract direction to a concrete vector in that direction.
  */
 int[4] dir2vec(Dir dir) pure
