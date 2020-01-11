@@ -75,6 +75,26 @@ enum interColSpace = 0;
 enum interRowSpace = 1;
 
 /**
+ * Render a single cell to the current location of the given display.
+ */
+void renderCell(T, Cell)(T display, Cell cell)
+    if (isDisplay!T)
+{
+    static if (is(Cell == Tile16))
+    {
+        static if (hasColor!T)
+            display.color(cell.fg, cell.bg);
+        display.writef("%s", cell.representation);
+    }
+    else static if (is(Cell == dchar))
+    {
+        display.writef("%s", cell);
+    }
+    else
+        static assert(0, "Unsupported tile type: " ~ Cell.stringof);
+}
+
+/**
  * Renders a 4D map to the given grid-based display.
  *
  * Params:
@@ -104,18 +124,7 @@ void renderMap(T, Map)(T display, Map map)
                 foreach (z; 0 .. zlen)
                 {
                     display.moveTo(outx++, outy);
-                    static if (is(CellType!Map == Tile16))
-                    {
-                        static if (hasColor!T)
-                            display.color(map[w,x,y,z].fg, map[w,x,y,z].bg);
-                        display.writef("%s", map[w,x,y,z].representation);
-                    }
-                    else static if (is(CellType!Map == dchar))
-                    {
-                        display.writef("%s", map[w,x,y,z]);
-                    }
-                    else static assert(0, "Unsupported tile type: " ~
-                                          CellType!Map.stringof);
+                    display.renderCell(map[w,x,y,z]);
                 }
             }
         }

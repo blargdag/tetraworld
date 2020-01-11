@@ -418,11 +418,10 @@ class TextUi : GameUi
         dispatch.push(mode);
     }
 
-    private void refreshMap()
+    private auto getCurView()
     {
         import tile : tiles;
-
-        auto curview = viewport.curView.fmap!((pos, tileId) {
+        return viewport.curView.fmap!((pos, tileId) {
             auto tile = tiles[tileId];
 
             // Highlight tiles along axial directions from player.
@@ -446,6 +445,11 @@ class TextUi : GameUi
             }
             return tile;
         });
+    }
+
+    private void refreshMap()
+    {
+        auto curview = getCurView();
         mapview.renderMap(curview);
 
         disp.hideCursor();
