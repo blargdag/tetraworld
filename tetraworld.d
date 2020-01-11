@@ -338,9 +338,15 @@ class TextUi : GameUi
 
     void updateMap(Pos[] where...)
     {
-        // FOR NOW ONLY: refresh() really should take a list of positions to
-        // re-render. Don't have to re-render everything all the time.
-        refresh();
+        // Only update the on-screen tiles that have changed.
+        auto curview = getCurView();
+        foreach (pos; where.filter!(pos => viewport.contains(pos)))
+        {
+            auto viewPos = pos - viewport.pos;
+            auto scrnPos = curview.renderingCoors(viewPos);
+            mapview.moveTo(scrnPos[0], scrnPos[1]);
+            mapview.renderCell(curview[viewPos]);
+        }
     }
 
     void moveViewport(Vec!(int,4) center)
