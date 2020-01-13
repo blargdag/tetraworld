@@ -252,6 +252,7 @@ class TextUi : GameUi
     void message(string str)
     {
         msgBox.moveTo(0,0);
+        msgBox.color(Color.DEFAULT, Color.DEFAULT);
         msgBox.writef(str);
         msgBox.clearToEol();
     }
