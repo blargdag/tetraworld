@@ -425,33 +425,37 @@ class TextUi : GameUi
         dispatch.push(mode);
     }
 
-    private auto getCurView()
+    private auto highlightAxialTiles(Vec!(int,4) pos, TileId tileId)
     {
         import tile : tiles;
-        return viewport.curView.fmap!((pos, tileId) {
-            auto tile = tiles[tileId];
+        auto tile = tiles[tileId];
 
-            // Highlight tiles along axial directions from player.
-            auto plpos = g.playerPos - viewport.pos;
-            if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) == 3)
-            {
-                if (tile.fg == Color.DEFAULT)
-                    tile.fg = Color.blue;
-                tile.fg |= Bright;
-            }
+        // Highlight tiles along axial directions from player.
+        auto plpos = g.playerPos - viewport.pos;
+        if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) == 3)
+        {
+            if (tile.fg == Color.DEFAULT)
+                tile.fg = Color.blue;
+            tile.fg |= Bright;
+        }
 
-            // Highlight potential diagonal climb destinations.
-            import std.math : abs;
-            auto abovePl = plpos + vec(-1,0,0,0);
-            if (pos[0] == abovePl[0] &&
-                iota(1,4).map!(i => abs(abovePl[i] - pos[i])).sum == 1)
-            {
-                if (tile.fg == Color.DEFAULT)
-                    tile.fg = Color.blue;
-                tile.fg |= Bright;
-            }
-            return tile;
-        });
+        // Highlight potential diagonal climb destinations.
+        import std.math : abs;
+        auto abovePl = plpos + vec(-1,0,0,0);
+        if (pos[0] == abovePl[0] &&
+            iota(1,4).map!(i => abs(abovePl[i] - pos[i])).sum == 1)
+        {
+            if (tile.fg == Color.DEFAULT)
+                tile.fg = Color.blue;
+            tile.fg |= Bright;
+        }
+        return tile;
+    }
+
+    private auto getCurView()
+    {
+        return viewport.curView.fmap!((pos, tileId) =>
+            highlightAxialTiles(pos, tileId));
     }
 
     private void refreshMap()
