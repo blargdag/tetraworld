@@ -151,6 +151,175 @@ auto subdisplay(T)(T display, Region!(int,2) rect)
 }
 
 /**
+ * A virtual sliding display overlaying an underlying display, that ignores
+ * writes outside of the underlying display.
+ *
+ * Params:
+ *  display = The underlying display.
+ *  width = The width of the virtual display.
+ *  height = The height of the virtual display.
+ *  originX = The X coordinate of the underlying display relative to the
+ *      virtual display.
+ *  originY = The Y coordinate of the underlying display relative to the
+ *      virtual display.
+ */
+struct SlidingDisplay(Disp)
+    if (isDisplay!Disp)
+{
+    private Disp disp;
+    int width, height;
+    private int offX, offY;
+    private int curX, curY;
+
+    this(Disp _disp, int _width, int _height, int offsetX, int offsetY)
+    {
+        disp = _disp;
+        width = _width;
+        height = _height;
+        offX = offsetX;
+        offY = offsetY;
+    }
+
+    /**
+     * Scroll the overlay by the given displacement.
+     */
+    void scroll(int dx, int dy)
+    {
+        offX += dx;
+        offY += dy;
+    }
+
+    void moveTo(int x, int y)
+        in (0 <= x && x < width)
+        in (0 <= y && y < height)
+    {
+        curX = x;
+        curY = y;
+    }
+
+    void writef(Args...)(string fmt, Args args)
+    {
+        import std.format : format;
+        writefImpl(format(fmt, args));
+    }
+
+    private void writefImpl(string str)
+    {
+        import std.uni : byGrapheme;
+        foreach (g; str.byGrapheme)
+        {
+            auto xreal = curX + offX;
+            auto yreal = curY + offY;
+
+            if (xreal >= 0 && xreal < disp.width &&
+                yreal >= 0 && yreal < disp.height)
+            {
+                disp.moveTo(xreal, yreal);
+                disp.writef("%s", g[]);
+            }
+
+            curX += isWide(g[0]) ? 2 : 1;
+        }
+    }
+
+    static if (hasColor!Disp)
+    {
+        void color(ushort fg, ushort bg)
+        {
+            disp.color(fg, bg);
+        }
+    }
+}
+
+/// ditto
+auto slidingDisplay(Disp)(Disp display, int width, int height,
+                          int originX, int originY)
+{
+    return SlidingDisplay!Disp(display, width, height, originX, originY);
+}
+
+unittest
+{
+    struct TestDisp
+    {
+        enum width = 3;
+        enum height = 3;
+        char[width*height] impl;
+        int curX, curY;
+
+        void moveTo(int x, int y)
+            in (x >= 0 && x < width)
+            in (y >= 0 && y < height)
+        {
+            curX = x;
+            curY = y;
+        }
+
+        void writef(Args...)(string fmt, Args args)
+        {
+            import std.format : format;
+            foreach (ch; format(fmt, args))
+            {
+                impl[curX + width*curY] = ch;
+                curX++;
+            }
+        }
+    }
+    TestDisp disp;
+    auto sdisp = slidingDisplay(&disp, 5, 5, 0, 0);
+
+    void drawStuff()
+    {
+        sdisp.moveTo(0, 0); sdisp.writef("--*--");
+        sdisp.moveTo(0, 1); sdisp.writef("abcde");
+        sdisp.moveTo(0, 2); sdisp.writef("12345");
+        sdisp.moveTo(0, 3); sdisp.writef("VWXYZ");
+        sdisp.moveTo(0, 4); sdisp.writef("--@--");
+    }
+
+    drawStuff();
+    assert(disp.impl == "--*"~
+                        "abc"~
+                        "123");
+
+    sdisp.scroll(0, -1);
+    drawStuff();
+    assert(disp.impl == "abc"~
+                        "123"~
+                        "VWX");
+
+    sdisp.scroll(0, -1);
+    drawStuff();
+    assert(disp.impl == "123"~
+                        "VWX"~
+                        "--@");
+
+    sdisp.scroll(-1, 0);
+    drawStuff();
+    assert(disp.impl == "234"~
+                        "WXY"~
+                        "-@-");
+
+    sdisp.scroll(-1, 0);
+    drawStuff();
+    assert(disp.impl == "345"~
+                        "XYZ"~
+                        "@--");
+
+    sdisp.scroll(0, 1);
+    drawStuff();
+    assert(disp.impl == "cde"~
+                        "345"~
+                        "XYZ");
+
+    sdisp.scroll(1, 0);
+    drawStuff();
+    assert(disp.impl == "bcd"~
+                        "234"~
+                        "WXY");
+}
+
+/**
  * Writes spaces to the current display from the current cursor position until
  * the end of the line.
  */
