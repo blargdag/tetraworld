@@ -137,45 +137,42 @@ struct GameMap
 }
 static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));
 
-struct Event
-{
-    version(none)
-    @BitFlags
-    enum Type
-    {
-        visual, sound, smell
-    }
+enum void delegate(Args) doNothing(Args...) = (Args args) {};
 
-    ulong seq;
-    //Type type;
-    Vec!(int,4) origin;
-    //int range;
-    ThingId subj;
-    string msg;
-
-    this(Vec!(int,4) _origin, ThingId _subj, string _msg)
-    {
-        origin = _origin;
-        subj = _subj;
-        msg = _msg;
-    }
-
-    bool opEquals(const Event ev)
-    {
-        // We disregard sequence number when comparing events.
-        return origin == ev.origin &&
-               subj == ev.subj &&
-               msg == ev.msg;
-    }
-}
-
+/**
+ * Set of hooks for external code to react to in-game events.
+ */
 struct EventWatcher
 {
-    void delegate(Pos pos, ThingId subj, Pos newPos, int seq) climbLedge;
-    void delegate(Pos pos, ThingId subj, Pos newPos) move;
-    void delegate(Pos pos, ThingId subj, Pos newPos) fall;
-    void delegate(Pos pos, ThingId subj, ThingId obj) pickup;
-    void delegate(Pos pos, ThingId subj, ThingId portal) usePortal;
+    /**
+     * An agent climbs a ledge.
+     */
+    void delegate(Pos pos, ThingId subj, Pos newPos, int seq) climbLedge =
+        doNothing!(Pos, ThingId, Pos, int);
+
+    /**
+     * An agent or object moves (not necessarily on their own accord).
+     */
+    void delegate(Pos pos, ThingId subj, Pos newPos) move =
+        doNothing!(Pos, ThingId, Pos);
+
+    /**
+     * An object falls down.
+     */
+    void delegate(Pos pos, ThingId subj, Pos newPos) fall =
+        doNothing!(Pos, ThingId, Pos);
+
+    /**
+     * An agent picks up an object.
+     */
+    void delegate(Pos pos, ThingId subj, ThingId obj) pickup =
+        doNothing!(Pos, ThingId, ThingId);
+
+    /**
+     * An agent triggers an exit portal.
+     */
+    void delegate(Pos pos, ThingId subj, ThingId portal) usePortal =
+        doNothing!(Pos, ThingId, ThingId);
 }
 
 class World
@@ -187,15 +184,6 @@ class World
     this()
     {
         registerTerrains(&store);
-
-        // FIXME: surely there's got to be a better way of doing this?!
-        foreach (i, ref dg; this.notify.tupleof)
-        {
-            import std.traits : Parameters;
-            alias Params = Parameters!(typeof(dg));
-            void doNothing(size_t i)(Params) {}
-            dg = &doNothing!i;
-        }
     }
 
     /**
