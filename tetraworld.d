@@ -352,12 +352,49 @@ class TextUi : GameUi
 
     void moveViewport(Vec!(int,4) center)
     {
-        if (refreshNeedsPause)
-        {
-            import os_sleep : milliSleep;
-            milliSleep(180);
-        }
+        import std.math : abs;
+        import os_sleep : milliSleep;
 
+        auto diff = (center - viewport.dim/2) - viewport.pos;
+        if (diff[0 .. 2].map!(e => abs(e)).sum == 1)
+        {
+            Vec!(int,4) extension = vec(abs(diff[0]), abs(diff[1]), 0, 0);
+            Vec!(int,4) offset = vec((diff[0] - 1)/2, (diff[1] - 1)/2, 0, 0);
+            int dx = -diff[1]*3;
+            int dy = -diff[0]*2;
+
+            auto scrollview = Viewport(g.w, viewport.dim + extension,
+                                       viewport.pos + offset)
+                .curView
+                .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
+
+            auto scrollSize = scrollview.renderSize;
+            auto steps = dx ? scrollSize[0] - mapview.width :
+                              scrollSize[1] - mapview.height;
+            auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
+                                             scrollSize[1], offset[1]*steps,
+                                             offset[0]*steps);
+            disp.hideCursor();
+            auto skip = dx ? abs(dx) : abs(dy);
+            for (auto i=0; i < steps; i += skip)
+            {
+                scrollDisp.renderMap(scrollview);
+                disp.flush();
+                term.flush();
+
+                milliSleep(5);
+                scrollDisp.moveTo(0, 0);
+                scrollDisp.clearToEos();
+                scrollDisp.scroll(dx, dy);
+            }
+        }
+        else
+        {
+            if (refreshNeedsPause)
+            {
+                milliSleep(180);
+            }
+        }
         viewport.centerOn(center);
         refresh();
     }
@@ -425,33 +462,37 @@ class TextUi : GameUi
         dispatch.push(mode);
     }
 
-    private auto getCurView()
+    private auto highlightAxialTiles(Vec!(int,4) pos, TileId tileId)
     {
         import tile : tiles;
-        return viewport.curView.fmap!((pos, tileId) {
-            auto tile = tiles[tileId];
+        auto tile = tiles[tileId];
 
-            // Highlight tiles along axial directions from player.
-            auto plpos = g.playerPos - viewport.pos;
-            if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) == 3)
-            {
-                if (tile.fg == Color.DEFAULT)
-                    tile.fg = Color.blue;
-                tile.fg |= Bright;
-            }
+        // Highlight tiles along axial directions from player.
+        auto plpos = g.playerPos - viewport.pos;
+        if (iota(4).fold!((c,i) => c + !!(pos[i] == plpos[i]))(0) == 3)
+        {
+            if (tile.fg == Color.DEFAULT)
+                tile.fg = Color.blue;
+            tile.fg |= Bright;
+        }
 
-            // Highlight potential diagonal climb destinations.
-            import std.math : abs;
-            auto abovePl = plpos + vec(-1,0,0,0);
-            if (pos[0] == abovePl[0] &&
-                iota(1,4).map!(i => abs(abovePl[i] - pos[i])).sum == 1)
-            {
-                if (tile.fg == Color.DEFAULT)
-                    tile.fg = Color.blue;
-                tile.fg |= Bright;
-            }
-            return tile;
-        });
+        // Highlight potential diagonal climb destinations.
+        import std.math : abs;
+        auto abovePl = plpos + vec(-1,0,0,0);
+        if (pos[0] == abovePl[0] &&
+            iota(1,4).map!(i => abs(abovePl[i] - pos[i])).sum == 1)
+        {
+            if (tile.fg == Color.DEFAULT)
+                tile.fg = Color.blue;
+            tile.fg |= Bright;
+        }
+        return tile;
+    }
+
+    private auto getCurView()
+    {
+        return viewport.curView.fmap!((pos, tileId) =>
+            highlightAxialTiles(pos, tileId));
     }
 
     private void refreshMap()

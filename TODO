@@ -1,5 +1,3 @@
-- Implement "smooth" scrolling in vertical / ana/kata directions. Probably
-  *very* necessary for new players to even understand what's going on.
 - Implement session recorder.
 - Add water level, underneath which free movement is possible? :-D
    - But it will require finding an oxygen mask... Well, OK, this is 4D, so
@@ -32,3 +30,5 @@ X Implement .dim and .pos for Rectangle.
   code.
 + Make climbing up ledges animatable.
 + Implement NPCs / moving creatures!
++ Implement "smooth" scrolling in vertical / ana/kata directions. Probably
+  *very* necessary for new players to even understand what's going on.
