@@ -229,6 +229,12 @@ struct SlidingDisplay(Disp)
             disp.color(fg, bg);
         }
     }
+
+    @property int cursorX() { return curX; }
+    @property int cursorY() { return curY; }
+
+    static assert(isDisplay!(typeof(this)));
+    static assert(hasCursorXY!(typeof(this)));
 }
 
 /// ditto

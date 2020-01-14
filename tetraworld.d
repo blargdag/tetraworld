@@ -352,12 +352,40 @@ class TextUi : GameUi
 
     void moveViewport(Vec!(int,4) center)
     {
-        if (refreshNeedsPause)
-        {
-            import os_sleep : milliSleep;
-            milliSleep(180);
-        }
+        import os_sleep : milliSleep;
 
+        auto diff = (center - viewport.dim/2) - viewport.pos;
+        if (diff == vec(1,0,0,0))
+        {
+            auto scrollview = Viewport(g.w, viewport.dim + vec(1,0,0,0),
+                                       viewport.pos)
+                .curView
+                .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
+
+            auto scrollSize = scrollview.renderSize;
+            auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
+                                             scrollSize[1], 0, 0);
+            disp.hideCursor();
+            foreach (i; 0 .. scrollSize[1] - mapview.height)
+            {
+                scrollDisp.renderMap(scrollview);
+                disp.flush();
+                term.flush();
+
+                milliSleep(5);
+                scrollDisp.moveTo(0, 0);
+                scrollDisp.clearToEos();
+                scrollDisp.scroll(0, -1);
+            }
+        }
+        // TBD: add other scroll cases here
+        else
+        {
+            if (refreshNeedsPause)
+            {
+                milliSleep(180);
+            }
+        }
         viewport.centerOn(center);
         refresh();
     }
