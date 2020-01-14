@@ -520,6 +520,7 @@ class TextUi : GameUi
         auto maxgold = g.maxGold();
 
         statusview.moveTo(0, 0);
+        statusview.color(Color.DEFAULT, Color.DEFAULT);
         statusview.writef("$: %d/%d", ngold, maxgold);
         statusview.clearToEol();
     }
