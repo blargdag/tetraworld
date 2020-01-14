@@ -600,7 +600,7 @@ version(unittest)
                 else if (j == interior.min[1] || j == interior.max[1])
                     combineWall(i, j, 0b1010);
                 else
-                    screen[i, j] = node.style;
+                    screen[i, j] = ".,:"[node.style];
             }
         }
 
@@ -837,7 +837,7 @@ unittest
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
-    version(none)
+    //version(none)
     {
         dumpBsp(result, tree, bounds);
         assert(0);
