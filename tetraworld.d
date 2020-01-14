@@ -352,44 +352,41 @@ class TextUi : GameUi
 
     void moveViewport(Vec!(int,4) center)
     {
+        import std.math : abs;
         import os_sleep : milliSleep;
 
         auto diff = (center - viewport.dim/2) - viewport.pos;
-        if (diff == vec(1,0,0,0))
+        if (diff[0 .. 2].sum.abs == 1)
         {
-            auto scrollview = Viewport(g.w, viewport.dim + vec(1,0,0,0),
-                                       viewport.pos)
-                .curView
-                .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
+            Vec!(int,4) extension;
+            Vec!(int,4) offset;
+            int dx, dy;
 
-            auto scrollSize = scrollview.renderSize;
-            auto steps = scrollSize[1] - mapview.height;
-            auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
-                                             scrollSize[1], 0, 0);
-            disp.hideCursor();
-            foreach (i; 0 .. steps)
+            if (diff == vec(1,0,0,0))
             {
-                scrollDisp.renderMap(scrollview);
-                disp.flush();
-                term.flush();
-
-                milliSleep(5);
-                scrollDisp.moveTo(0, 0);
-                scrollDisp.clearToEos();
-                scrollDisp.scroll(0, -1);
+                extension = vec(1,0,0,0);
+                offset = vec(0,0,0,0);
+                dx = 0;
+                dy = -1;
             }
-        }
-        else if (diff == vec(-1,0,0,0))
-        {
-            auto scrollview = Viewport(g.w, viewport.dim + vec(1,0,0,0),
-                                       viewport.pos + vec(-1,0,0,0))
+            else if (diff == vec(-1,0,0,0))
+            {
+                extension = vec(1,0,0,0);
+                offset = vec(-1,0,0,0);
+                dx = 0;
+                dy = 1;
+            }
+
+            auto scrollview = Viewport(g.w, viewport.dim + extension,
+                                       viewport.pos + offset)
                 .curView
                 .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
 
             auto scrollSize = scrollview.renderSize;
             auto steps = scrollSize[1] - mapview.height;
             auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
-                                             scrollSize[1], 0, -steps);
+                                             scrollSize[1], 0,
+                                             offset[0]*steps);
             disp.hideCursor();
             foreach (i; 0 .. steps)
             {
@@ -400,7 +397,7 @@ class TextUi : GameUi
                 milliSleep(5);
                 scrollDisp.moveTo(0, 0);
                 scrollDisp.clearToEos();
-                scrollDisp.scroll(0, 1);
+                scrollDisp.scroll(dx, dy);
             }
         }
         else
