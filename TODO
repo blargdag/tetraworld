@@ -1,3 +1,4 @@
+- Make smooth scroll configurable.
 - Implement session recorder.
 - Implement message() batching and --MORE-- prompt.
 - Add water level, underneath which free movement is possible? :-D
@@ -6,6 +7,8 @@
 - Implement FOV and player map memory.
 - Improve creature AI.
    - Pathfinding.
+- Smooth scroll parameters (skip, pause) should be adapted to the current
+  terminal, since it may change depending on terminal characteristics.
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
   and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
