@@ -382,7 +382,7 @@ class TextUi : GameUi
                 disp.flush();
                 term.flush();
 
-                milliSleep(5);
+                milliSleep(dx ? 15 : 30);
                 scrollDisp.moveTo(0, 0);
                 scrollDisp.clearToEos();
                 scrollDisp.scroll(dx, dy);
