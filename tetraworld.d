@@ -361,7 +361,6 @@ class TextUi : GameUi
             Vec!(int,4) extension;
             Vec!(int,4) offset;
             int dx, dy;
-            bool isHoriz;
 
             if (diff == vec(1,0,0,0))
             {
@@ -383,7 +382,6 @@ class TextUi : GameUi
                 offset = vec(0,0,0,0);
                 dx = -1;
                 dy = 0;
-                isHoriz = true;
             }
             else if (diff == vec(0,-1,0,0))
             {
@@ -391,7 +389,6 @@ class TextUi : GameUi
                 offset = vec(0,-1,0,0);
                 dx = 1;
                 dy = 0;
-                isHoriz = true;
             }
 
             auto scrollview = Viewport(g.w, viewport.dim + extension,
@@ -400,8 +397,8 @@ class TextUi : GameUi
                 .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
 
             auto scrollSize = scrollview.renderSize;
-            auto steps = isHoriz ? scrollSize[0] - mapview.width :
-                                   scrollSize[1] - mapview.height;
+            auto steps = dx ? scrollSize[0] - mapview.width :
+                              scrollSize[1] - mapview.height;
             auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
                                              scrollSize[1], offset[1]*steps,
                                              offset[0]*steps);
@@ -412,7 +409,7 @@ class TextUi : GameUi
                 disp.flush();
                 term.flush();
 
-                milliSleep(5);
+                milliSleep(dx ? 1 : 3);
                 scrollDisp.moveTo(0, 0);
                 scrollDisp.clearToEos();
                 scrollDisp.scroll(dx, dy);
