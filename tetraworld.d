@@ -20,6 +20,7 @@
  */
 module tetraworld;
 
+import std.getopt;
 import std.stdio;
 
 import game;
@@ -28,8 +29,28 @@ import ui;
 /**
  * Main program.
  */
-int main()
+int main(string[] args)
 {
+    TextUiConfig uiConfig;
+    auto optInfo = getopt(args,
+        "smoothscroll|S", "Enable/disable smooth scrolling.",
+            &uiConfig.smoothscroll,
+        "smoothscroll-xskip|Skx", "Smooth scroll horizontal skip factor",
+            &uiConfig.smoothscrollXSkip,
+        "smoothscroll-yskip|Sky", "Smooth scroll vertical skip factor",
+            &uiConfig.smoothscrollYSkip,
+        "smoothscroll-xpause|Spx", "Smooth scroll horizontal pause",
+            &uiConfig.smoothscrollXPauseMsec,
+        "smoothscroll-ypause|Spy", "Smooth scroll vertical pause",
+            &uiConfig.smoothscrollYPauseMsec,
+    );
+
+    if (optInfo.helpWanted)
+    {
+        defaultGetoptPrinter("Tetraworld V3.0", optInfo.options);
+        return 1;
+    }
+
     Game game;
     string welcomeMsg;
 
@@ -45,7 +66,7 @@ int main()
         welcomeMsg = "Welcome to Tetraworld!";
     }
 
-    auto ui = new TextUi;
+    auto ui = new TextUi(uiConfig);
     try
     {
         auto quitMsg = ui.play(game, welcomeMsg);
@@ -57,7 +78,7 @@ int main()
         // Emergency save when things go wrong.
         game.saveGame();
         writefln("Error: %s", e.msg);
-        return 1;
+        return 2;
     }
 }
 

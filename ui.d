@@ -35,6 +35,25 @@ import vector;
 import world;
 
 /**
+ * Text UI configuration parameters.
+ */
+struct TextUiConfig
+{
+    // Currently smoothscroll is disabled on Windows because command.exe is
+    // dog-slow.
+    version(Windows)
+        enum defSmoothScroll = false;
+    else
+        enum defSmoothScroll = true;
+
+    bool smoothscroll = defSmoothScroll;
+    int smoothscrollXSkip = 3;
+    int smoothscrollYSkip = 2;
+    int smoothscrollXPauseMsec = 15;
+    int smoothscrollYPauseMsec = 30;
+}
+
+/**
  * Viewport representation.
  */
 struct ViewPort(Map)
@@ -207,6 +226,8 @@ class TextUi : GameUi
     alias MapView = ReturnType!createMapView;
     alias StatusView = ReturnType!createStatusView;
 
+    private TextUiConfig cfg;
+
     private Terminal* term;
     private MainDisplay disp;
 
@@ -245,6 +266,11 @@ class TextUi : GameUi
         auto statusrect = region(vec(screenRect.min[0], screenRect.max[1]-1),
                                  screenRect.max);
         return subdisplay(&disp, statusrect);
+    }
+
+    this(TextUiConfig config = TextUiConfig.init)
+    {
+        cfg = config;
     }
 
     void message(string str)
@@ -354,12 +380,12 @@ class TextUi : GameUi
         import os_sleep : milliSleep;
 
         auto diff = (center - viewport.dim/2) - viewport.pos;
-        if (diff[0 .. 2].map!(e => abs(e)).sum == 1)
+        if (cfg.smoothscroll && diff[0 .. 2].map!(e => abs(e)).sum == 1)
         {
             Vec!(int,4) extension = vec(abs(diff[0]), abs(diff[1]), 0, 0);
             Vec!(int,4) offset = vec((diff[0] - 1)/2, (diff[1] - 1)/2, 0, 0);
-            int dx = -diff[1]*3;
-            int dy = -diff[0]*2;
+            int dx = -diff[1] * cfg.smoothscrollXSkip;
+            int dy = -diff[0] * cfg.smoothscrollYSkip;
 
             auto scrollview = Viewport(g.w, viewport.dim + extension,
                                        viewport.pos + offset)
@@ -380,7 +406,8 @@ class TextUi : GameUi
                 disp.flush();
                 term.flush();
 
-                milliSleep(dx ? 15 : 30);
+                milliSleep(dx ? cfg.smoothscrollXPauseMsec :
+                                cfg.smoothscrollYPauseMsec);
                 scrollDisp.moveTo(0, 0);
                 scrollDisp.clearToEos();
                 scrollDisp.scroll(dx, dy);

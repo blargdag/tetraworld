@@ -1,4 +1,3 @@
-- Make smooth scroll configurable.
 - Implement session recorder.
 - Implement message() batching and --MORE-- prompt.
 - Add water level, underneath which free movement is possible? :-D
@@ -36,3 +35,4 @@ X Implement .dim and .pos for Rectangle.
 + Implement NPCs / moving creatures!
 + Implement "smooth" scrolling in vertical / ana/kata directions. Probably
   *very* necessary for new players to even understand what's going on.
++ Make smooth scroll configurable.
