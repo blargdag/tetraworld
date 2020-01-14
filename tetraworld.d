@@ -356,11 +356,12 @@ class TextUi : GameUi
         import os_sleep : milliSleep;
 
         auto diff = (center - viewport.dim/2) - viewport.pos;
-        if (diff[0 .. 2].sum.abs == 1)
+        if (diff[0 .. 2].map!(e => abs(e)).sum == 1)
         {
             Vec!(int,4) extension;
             Vec!(int,4) offset;
             int dx, dy;
+            bool isHoriz;
 
             if (diff == vec(1,0,0,0))
             {
@@ -376,6 +377,22 @@ class TextUi : GameUi
                 dx = 0;
                 dy = 1;
             }
+            else if (diff == vec(0,1,0,0))
+            {
+                extension = vec(0,1,0,0);
+                offset = vec(0,0,0,0);
+                dx = -1;
+                dy = 0;
+                isHoriz = true;
+            }
+            else if (diff == vec(0,-1,0,0))
+            {
+                extension = vec(0,1,0,0);
+                offset = vec(0,-1,0,0);
+                dx = 1;
+                dy = 0;
+                isHoriz = true;
+            }
 
             auto scrollview = Viewport(g.w, viewport.dim + extension,
                                        viewport.pos + offset)
@@ -383,9 +400,10 @@ class TextUi : GameUi
                 .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
 
             auto scrollSize = scrollview.renderSize;
-            auto steps = scrollSize[1] - mapview.height;
+            auto steps = isHoriz ? scrollSize[0] - mapview.width :
+                                   scrollSize[1] - mapview.height;
             auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
-                                             scrollSize[1], 0,
+                                             scrollSize[1], offset[1]*steps,
                                              offset[0]*steps);
             disp.hideCursor();
             foreach (i; 0 .. steps)
