@@ -358,38 +358,10 @@ class TextUi : GameUi
         auto diff = (center - viewport.dim/2) - viewport.pos;
         if (diff[0 .. 2].map!(e => abs(e)).sum == 1)
         {
-            Vec!(int,4) extension;
-            Vec!(int,4) offset;
-            int dx, dy;
-
-            if (diff == vec(1,0,0,0))
-            {
-                extension = vec(1,0,0,0);
-                offset = vec(0,0,0,0);
-                dx = 0;
-                dy = -1;
-            }
-            else if (diff == vec(-1,0,0,0))
-            {
-                extension = vec(1,0,0,0);
-                offset = vec(-1,0,0,0);
-                dx = 0;
-                dy = 1;
-            }
-            else if (diff == vec(0,1,0,0))
-            {
-                extension = vec(0,1,0,0);
-                offset = vec(0,0,0,0);
-                dx = -1;
-                dy = 0;
-            }
-            else if (diff == vec(0,-1,0,0))
-            {
-                extension = vec(0,1,0,0);
-                offset = vec(0,-1,0,0);
-                dx = 1;
-                dy = 0;
-            }
+            Vec!(int,4) extension = vec(abs(diff[0]), abs(diff[1]), 0, 0);
+            Vec!(int,4) offset = vec((diff[0] - 1)/2, (diff[1] -1)/2, 0, 0);
+            int dx = -diff[1];
+            int dy = -diff[0];
 
             auto scrollview = Viewport(g.w, viewport.dim + extension,
                                        viewport.pos + offset)
