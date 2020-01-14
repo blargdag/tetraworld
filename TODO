@@ -1,4 +1,5 @@
 - Implement session recorder.
+- Implement message() batching and --MORE-- prompt.
 - Add water level, underneath which free movement is possible? :-D
    - But it will require finding an oxygen mask... Well, OK, this is 4D, so
      "oxygen" doesn't make sense. Maybe call it "diving equipment"?
