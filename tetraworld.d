@@ -359,9 +359,9 @@ class TextUi : GameUi
         if (diff[0 .. 2].map!(e => abs(e)).sum == 1)
         {
             Vec!(int,4) extension = vec(abs(diff[0]), abs(diff[1]), 0, 0);
-            Vec!(int,4) offset = vec((diff[0] - 1)/2, (diff[1] -1)/2, 0, 0);
-            int dx = -diff[1];
-            int dy = -diff[0];
+            Vec!(int,4) offset = vec((diff[0] - 1)/2, (diff[1] - 1)/2, 0, 0);
+            int dx = -diff[1]*3;
+            int dy = -diff[0]*2;
 
             auto scrollview = Viewport(g.w, viewport.dim + extension,
                                        viewport.pos + offset)
@@ -375,13 +375,14 @@ class TextUi : GameUi
                                              scrollSize[1], offset[1]*steps,
                                              offset[0]*steps);
             disp.hideCursor();
-            foreach (i; 0 .. steps)
+            auto skip = dx ? abs(dx) : abs(dy);
+            for (auto i=0; i < steps; i += skip)
             {
                 scrollDisp.renderMap(scrollview);
                 disp.flush();
                 term.flush();
 
-                milliSleep(dx ? 1 : 3);
+                milliSleep(5);
                 scrollDisp.moveTo(0, 0);
                 scrollDisp.clearToEos();
                 scrollDisp.scroll(dx, dy);
