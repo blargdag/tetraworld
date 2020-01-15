@@ -74,8 +74,8 @@ struct GameMap
                                             pos[i] < rr.max[i])(true))
                 {
                     // Generate ladders to doors.
-                    foreach (d; node.doors.filter!(d => d.type !=
-                                                        Door.Type.trapdoor))
+                    foreach (d; node.doors.filter!(d => d.type ==
+                                                        Door.Type.normal))
                     {
                         import std.math : abs;
                         if (d.axis != 0 && rr.max[0] - d.pos[0] > 2 &&
@@ -104,8 +104,7 @@ struct GameMap
 
                 foreach (d; node.doors)
                 {
-                    if (pos[] == d.pos && (d.type != Door.Type.trapdoor ||
-                                           d.revealed))
+                    if (pos[] == d.pos && (d.type != Door.Type.trapdoor))
                     {
                         result = doorway.id;
                         return 1;
@@ -235,10 +234,17 @@ World genNewGame(int[4] dim)
         (in MapNode[2] rooms, ref Door d) {
             if (d.axis != 0)
                 return false;
-            d.type = Door.Type.trapdoor;
-            w.store.createObj(Pos(d.pos), Name("pit trap"),
-                /* TBD: should inherit appearance from upper room */
-                Tiled(TileId.floorBare), PitTrap(), NoGravity());
+            if (uniform(0, 100) < 30)
+            {
+                // Non-hidden open pit.
+                d.type = Door.Type.extra;
+            }
+            else
+            {
+                d.type = Door.Type.trapdoor;
+                w.store.createObj(Pos(d.pos), Name("pit trap"),
+                    Tiled(TileId.wall), PitTrap(), NoGravity());
+            }
             return true;
         },
         (MapNode node, Region!(int,4) bounds) => 0, // always pick vertical

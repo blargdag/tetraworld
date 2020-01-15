@@ -623,7 +623,6 @@ struct Door
 
     enum Type { normal, extra, trapdoor }
     Type type;
-    bool revealed;
 }
 
 // TBD: should become a themed room type instead.
