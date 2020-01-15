@@ -228,6 +228,7 @@ class Game
         {
             somethingFell = false;
             foreach (t; w.store.getAll!Pos().dup
+                               .filter!(id => w.store.get!NoGravity(id) is null)
                                .map!(id => w.store.getObj(id)))
             {
                 // NOTE: race condition: a falling object may autopickup
@@ -242,7 +243,8 @@ class Game
 
                 // Gravity pulls downwards as long as there is no support
                 // underneath.
-                if (w.store.get!SupportsWeight(w.map[floorPos]) is null)
+                if (w.store.get!SupportsWeight(w.map[floorPos]) is null ||
+                    w.locationHas!PitTrap(floorPos))
                 {
                     rawMove(w, t, floorPos, {
                         w.notify.fall(pos, t.id, floorPos);

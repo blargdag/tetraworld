@@ -606,7 +606,8 @@ version(unittest)
 
         foreach (door; node.doors)
         {
-            auto doorSyms = (door.extra) ? "=\u256b**"d : "-|**"d;
+            auto doorSyms = (door.type == Door.Type.extra) ? "=\u256b**"d
+                                                           : "-|**"d;
             screen[door.pos[0], door.pos[1]] = doorSyms[door.axis];
         }
     }
@@ -619,7 +620,10 @@ struct Door
 {
     int axis;
     int[4] pos;
-    bool extra;
+
+    enum Type { normal, extra, trapdoor }
+    Type type;
+    bool revealed;
 }
 
 // TBD: should become a themed room type instead.
@@ -739,8 +743,13 @@ void genCorridors(R)(MapNode root, R region)
  *  maxRetries = Maximum number of failures while looking for a room pair that
  *      can accomodate an extra door. This is to prevent infinite loops in case
  *      the given tree cannot accomodate another `count` doors.
+ *  processDoor = An optional delegate that marks up each extra door in some
+ *      way, e.g., with an .extra flag set, or some randomized door type. The
+ *      delegate is passed the room nodes that it will connect.
  */
-void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
+void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15,
+                     void delegate(in MapNode[2] node, ref Door) processDoor =
+                        (in MapNode[2], ref Door) {})
 {
     import std.random : uniform;
     do
@@ -799,7 +808,7 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
 
             auto d = Door(axis);
             d.pos = rightRoom.basePos;
-            d.extra = true; // mark this as an extra door
+            processDoor([node, rightRoom.node], d);
 
             node.doors ~= d;
             rightRoom.node.doors ~= d;
@@ -922,11 +931,13 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
-    genBackEdges(tree, bounds, 4);
+    genBackEdges(tree, bounds, 4, 15, (in MapNode[2] rooms, ref Door d) {
+        d.type = Door.Type.extra;
+    });
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
-    //version(none)
+    version(none)
     {
         dumpBsp(result, tree, bounds);
         assert(0);

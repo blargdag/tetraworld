@@ -46,6 +46,7 @@ Tile16[TileId.max+1] tiles = [
 
     TileId.gold:        Tile16('$', Color.yellow),
     TileId.portal:      Tile16('@', Color.magenta),
+    TileId.trapPit:     Tile16('^', Color.red),
 ];
 
 // vim:set ai sw=4 ts=4 et:
