@@ -280,7 +280,24 @@ class Game
             if (subj == player.id)
             {
                 ui.moveViewport(newPos);
-                ui.message("You fall!");
+
+                // Reveal any pit traps that the player may have fallen
+                // through.
+                auto r = w.getAllAt(newPos)
+                          .filter!(id => w.store.get!PitTrap(id) !is null)
+                          .map!(id => w.store.getObj(id));
+                if (!r.empty)
+                {
+                    w.store.add!Tiled(r.front, Tiled(TileId.trapPit));
+                    ui.message("You fall through a hidden pit!");
+
+                    // FIXME: hack to reveal blank space just above pit instead
+                    // of floor tile.
+                    w.store.createObj(Pos(pos), Name("pit"),
+                                      Tiled(TileId.space), NoGravity());
+                }
+                else
+                    ui.message("You fall!");
             }
             else
                 ui.updateMap(pos, newPos);

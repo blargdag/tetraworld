@@ -233,8 +233,7 @@ World genNewGame(int[4] dim)
                 d.type = Door.Type.trapdoor;
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     /* TBD: should inherit appearance from upper room */
-                    Tiled(/*TileId.floorBare*/ TileId.trapPit), PitTrap(),
-                    NoGravity());
+                    Tiled(TileId.floorBare), PitTrap(), NoGravity());
             }
         }
     );
