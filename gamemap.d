@@ -751,19 +751,23 @@ void genCorridors(R)(MapNode root, R region)
  *      failed attempts.
  *  pickAxis = An optional delegate that selects which axis to use for finding
  *      potential back-edges.
+ *  allowMultiple = Whether or not to allow multiple doors on the same wall.
+ *      Default: false.
  */
 void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
 {
     import std.random : uniform;
     genBackEdges(root, region, count, maxRetries,
                  (in MapNode[2], ref Door) => true,
-                 (MapNode node, R bounds) => uniform(0, 4));
+                 (MapNode node, R bounds) => uniform(0, 4),
+                 false);
 }
 
 /// ditto
 void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
                      bool delegate(in MapNode[2] node, ref Door) doorFilter,
-                     int delegate(MapNode, R) pickAxis)
+                     int delegate(MapNode, R) pickAxis,
+                     bool allowMultiple)
 {
     import std.random : uniform;
     do
@@ -793,9 +797,9 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
 
                 // Check that there isn't already a door between these two
                 // rooms.
-                if (node.doors.canFind!(d => iota(4).fold!((b,i) => b &&
-                                             ir.min[i] <= d.pos[i] &&
-                                             d.pos[i] <= ir.max[i])(true)))
+                if (!allowMultiple && node.doors.canFind!(d =>
+                        iota(4).fold!((b,i) => b && ir.min[i] <= d.pos[i] &&
+                                               d.pos[i] <= ir.max[i])(true)))
                     return 0;
 
                 int[4] basePos;
@@ -949,7 +953,7 @@ unittest
     genBackEdges!R(tree, bounds, 4, 15, (in MapNode[2] rooms, ref Door d) {
         d.type = Door.Type.extra;
         return true;
-    }, (MapNode node, R region) => uniform(0, 2));
+    }, (MapNode node, R region) => uniform(0, 2), false);
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 

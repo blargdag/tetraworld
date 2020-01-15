@@ -231,7 +231,7 @@ World genNewGame(int[4] dim)
     genBackEdges(w.map.tree, w.map.bounds, uniform(3, 5), 15);
 
     // Pit traps.
-    genBackEdges(w.map.tree, w.map.bounds, uniform(6, 12), 50,
+    genBackEdges(w.map.tree, w.map.bounds, uniform(4, 8), 20,
         (in MapNode[2] rooms, ref Door d) {
             if (d.axis != 0)
                 return false;
@@ -241,7 +241,8 @@ World genNewGame(int[4] dim)
                 Tiled(TileId.floorBare), PitTrap(), NoGravity());
             return true;
         },
-        (MapNode node, Region!(int,4) bounds) => 0 // always pick vertical
+        (MapNode node, Region!(int,4) bounds) => 0, // always pick vertical
+        true,   // allow multiple pit traps on same wall as normal door
     );
 
     resizeRooms(w.map.tree, w.map.bounds);
