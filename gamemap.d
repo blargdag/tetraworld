@@ -606,7 +606,8 @@ version(unittest)
 
         foreach (door; node.doors)
         {
-            screen[door.pos[0], door.pos[1]] = door.axis ? '|' : '-';
+            auto doorSyms = (door.extra) ? "=\u256b**"d : "-|**"d;
+            screen[door.pos[0], door.pos[1]] = doorSyms[door.axis];
         }
     }
 }
@@ -618,6 +619,7 @@ struct Door
 {
     int axis;
     int[4] pos;
+    bool extra;
 }
 
 // TBD: should become a themed room type instead.
@@ -729,6 +731,14 @@ void genCorridors(R)(MapNode root, R region)
 /**
  * Insert additional doors to randomly-picked rooms outside of the BSP
  * connectivity structure, so that non-trivial topology is generated.
+ *
+ * Params:
+ *  root = Root of BSP tree.
+ *  region = Initial bounding region.
+ *  count = Number of additional doors to insert.
+ *  maxRetries = Maximum number of failures while looking for a room pair that
+ *      can accomodate an extra door. This is to prevent infinite loops in case
+ *      the given tree cannot accomodate another `count` doors.
  */
 void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
 {
@@ -789,6 +799,7 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
 
             auto d = Door(axis);
             d.pos = rightRoom.basePos;
+            d.extra = true; // mark this as an extra door
 
             node.doors ~= d;
             rightRoom.node.doors ~= d;
@@ -911,7 +922,7 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
-    genBackEdges(tree, bounds, 3);
+    genBackEdges(tree, bounds, 4);
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
