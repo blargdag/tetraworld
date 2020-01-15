@@ -226,17 +226,24 @@ World genNewGame(int[4] dim)
             invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
     );
     genCorridors(w.map.tree, w.map.bounds);
-    genBackEdges(w.map.tree, w.map.bounds, uniform(5, 8), 15,
+
+    // Regular back edges.
+    genBackEdges(w.map.tree, w.map.bounds, uniform(3, 5), 15);
+
+    // Pit traps.
+    genBackEdges(w.map.tree, w.map.bounds, uniform(6, 12), 50,
         (in MapNode[2] rooms, ref Door d) {
-            if (d.axis == 0 /*&& uniform(0, 100) < 60*/)
-            {
-                d.type = Door.Type.trapdoor;
-                w.store.createObj(Pos(d.pos), Name("pit trap"),
-                    /* TBD: should inherit appearance from upper room */
-                    Tiled(TileId.floorBare), PitTrap(), NoGravity());
-            }
-        }
+            if (d.axis != 0)
+                return false;
+            d.type = Door.Type.trapdoor;
+            w.store.createObj(Pos(d.pos), Name("pit trap"),
+                /* TBD: should inherit appearance from upper room */
+                Tiled(TileId.floorBare), PitTrap(), NoGravity());
+            return true;
+        },
+        (MapNode node, Region!(int,4) bounds) => 0 // always pick vertical
     );
+
     resizeRooms(w.map.tree, w.map.bounds);
     setRoomFloors(w.map.tree, w.map.bounds);
 

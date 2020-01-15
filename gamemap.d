@@ -743,13 +743,27 @@ void genCorridors(R)(MapNode root, R region)
  *  maxRetries = Maximum number of failures while looking for a room pair that
  *      can accomodate an extra door. This is to prevent infinite loops in case
  *      the given tree cannot accomodate another `count` doors.
- *  processDoor = An optional delegate that marks up each extra door in some
- *      way, e.g., with an .extra flag set, or some randomized door type. The
- *      delegate is passed the room nodes that it will connect.
+ *  doorFilter = An optional delegate that accepts or rejects a door, and
+ *      optionally marks it up in some way, e.g., with an .extra flag set, or
+ *      some randomized door type. The delegate is passed the room nodes that
+ *      it will connect. Returns: true if the door should be added, false
+ *      otherwise. Note that returning false will count towards the number of
+ *      failed attempts.
+ *  pickAxis = An optional delegate that selects which axis to use for finding
+ *      potential back-edges.
  */
-void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15,
-                     void delegate(in MapNode[2] node, ref Door) processDoor =
-                        (in MapNode[2], ref Door) {})
+void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
+{
+    import std.random : uniform;
+    genBackEdges(root, region, count, maxRetries,
+                 (in MapNode[2], ref Door) => true,
+                 (MapNode node, R bounds) => uniform(0, 4));
+}
+
+/// ditto
+void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
+                     bool delegate(in MapNode[2] node, ref Door) doorFilter,
+                     int delegate(MapNode, R) pickAxis)
 {
     import std.random : uniform;
     do
@@ -764,8 +778,9 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15,
         auto success = root.randomRoom(region, (MapNode node, R bounds) {
             // Randomly select a wall of the room.
             R wallFilt = bounds;
-            //auto axis = uniform(0, 4);
-            auto axis = uniform(0, 2);
+            auto axis = pickAxis(node, bounds);
+            if (axis == invalidAxis)
+                return false;
             wallFilt.min[axis] = wallFilt.max[axis]; 
 
             // Find an adjacent room that can be joined to this one via a door.
@@ -808,7 +823,7 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15,
 
             auto d = Door(axis);
             d.pos = rightRoom.basePos;
-            processDoor([node, rightRoom.node], d);
+            doorFilter([node, rightRoom.node], d);
 
             node.doors ~= d;
             rightRoom.node.doors ~= d;
@@ -931,9 +946,10 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
-    genBackEdges(tree, bounds, 4, 15, (in MapNode[2] rooms, ref Door d) {
+    genBackEdges!R(tree, bounds, 4, 15, (in MapNode[2] rooms, ref Door d) {
         d.type = Door.Type.extra;
-    });
+        return true;
+    }, (MapNode node, R region) => uniform(0, 2));
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
