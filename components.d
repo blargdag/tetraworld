@@ -81,6 +81,7 @@ enum TileId
 
     gold,
     portal,
+    trapPit,
 }
 
 /**
@@ -151,10 +152,22 @@ struct Pickable { }
 struct BlocksMovement { }
 
 /**
- * Component for objects that blocks movement.
+ * Component for objects that support weight.
  */
 @Component
 struct SupportsWeight { }
+
+/**
+ * Component for objects that are not subject to gravity.
+ */
+@Component
+struct NoGravity { }
+
+/**
+ * Component for objects that negate weight support (e.g. pit traps).
+ */
+@Component
+struct PitTrap { }
 
 /**
  * Component for agent objects.

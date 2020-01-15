@@ -74,8 +74,10 @@ struct GameMap
                                             pos[i] < rr.max[i])(true))
                 {
                     // Generate ladders to doors.
-                    foreach (d; node.doors)
+                    foreach (d; node.doors.filter!(d => d.type ==
+                                                        Door.Type.normal))
                     {
+                        // Horizontal doors: add step ladders if too high.
                         import std.math : abs;
                         if (d.axis != 0 && rr.max[0] - d.pos[0] > 2 &&
                             pos[0] > d.pos[0] &&
@@ -88,6 +90,7 @@ struct GameMap
                             return 1;
                         }
 
+                        // Vertical shafts: add ladder all the way up.
                         if (d.axis == 0 && pos[0] > d.pos[0] &&
                             iota(1,4).fold!((b, i) => b && pos[i] == d.pos[i])
                                            (true))
@@ -103,9 +106,12 @@ struct GameMap
 
                 foreach (d; node.doors)
                 {
-                    if (pos[] == d.pos)
+                    if (pos[] == d.pos && (d.type != Door.Type.trapdoor))
                     {
-                        result = doorway.id;
+                        // Normal vertical exits should have ladders that reach
+                        // up to the top (in the floor).
+                        result = (d.axis == 0 && d.type == Door.Type.normal) ?
+                                 ladder.id : doorway.id;
                         return 1;
                     }
                 }
@@ -195,11 +201,23 @@ class World
         return store.getAllBy!Pos(Pos(pos))
                     .chain(only(map[pos]));
     }
+
+    /**
+     * Returns: true if one or more objects in the given location contains the
+     * component Comp; false otherwise.
+     */
+    bool locationHas(Comp)(Pos pos)
+    {
+        return !getAllAt(pos).filter!(id => store.get!Comp(id) !is null)
+                             .empty;
+    }
 }
 
 // FIXME: this should go into its own mapgen module.
 World genNewGame(int[4] dim)
 {
+    import components;
+
     auto w = new World;
     w.map.bounds = region(vec(0, 0, 0, 0), vec(dim));
 
@@ -212,10 +230,35 @@ World genNewGame(int[4] dim)
             invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
     );
     genCorridors(w.map.tree, w.map.bounds);
+
+    // Regular back edges.
+    genBackEdges(w.map.tree, w.map.bounds, uniform(3, 5), 15);
+
+    // Pit traps.
+    genBackEdges(w.map.tree, w.map.bounds, uniform(8, 12), 20,
+        (in MapNode[2] rooms, ref Door d) {
+            if (d.axis != 0)
+                return false;
+            if (uniform(0, 100) < 30)
+            {
+                // Non-hidden open pit.
+                d.type = Door.Type.extra;
+            }
+            else
+            {
+                d.type = Door.Type.trapdoor;
+                w.store.createObj(Pos(d.pos), Name("pit trap"),
+                    Tiled(TileId.wall), PitTrap(), NoGravity());
+            }
+            return true;
+        },
+        (MapNode node, Region!(int,4) bounds) => 0, // always pick vertical
+        true,   // allow multiple pit traps on same wall as normal door
+    );
+
     resizeRooms(w.map.tree, w.map.bounds);
     setRoomFloors(w.map.tree, w.map.bounds);
 
-    import components;
     w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
                       Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal));

@@ -600,13 +600,15 @@ version(unittest)
                 else if (j == interior.min[1] || j == interior.max[1])
                     combineWall(i, j, 0b1010);
                 else
-                    screen[i, j] = node.style;
+                    screen[i, j] = ".,:"[node.style];
             }
         }
 
         foreach (door; node.doors)
         {
-            screen[door.pos[0], door.pos[1]] = door.axis ? '|' : '-';
+            auto doorSyms = (door.type == Door.Type.extra) ? "=\u256b**"d
+                                                           : "-|**"d;
+            screen[door.pos[0], door.pos[1]] = doorSyms[door.axis];
         }
     }
 }
@@ -618,6 +620,9 @@ struct Door
 {
     int axis;
     int[4] pos;
+
+    enum Type { normal, extra, trapdoor }
+    Type type;
 }
 
 // TBD: should become a themed room type instead.
@@ -724,6 +729,116 @@ void genCorridors(R)(MapNode root, R region)
 
     // If we got here, it means we're in trouble.
     throw new Exception("No matching door placement found, give up");
+}
+
+/**
+ * Insert additional doors to randomly-picked rooms outside of the BSP
+ * connectivity structure, so that non-trivial topology is generated.
+ *
+ * Params:
+ *  root = Root of BSP tree.
+ *  region = Initial bounding region.
+ *  count = Number of additional doors to insert.
+ *  maxRetries = Maximum number of failures while looking for a room pair that
+ *      can accomodate an extra door. This is to prevent infinite loops in case
+ *      the given tree cannot accomodate another `count` doors.
+ *  doorFilter = An optional delegate that accepts or rejects a door, and
+ *      optionally marks it up in some way, e.g., with an .extra flag set, or
+ *      some randomized door type. The delegate is passed the room nodes that
+ *      it will connect. Returns: true if the door should be added, false
+ *      otherwise. Note that returning false will count towards the number of
+ *      failed attempts.
+ *  pickAxis = An optional delegate that selects which axis to use for finding
+ *      potential back-edges.
+ *  allowMultiple = Whether or not to allow multiple doors on the same wall.
+ *      Default: false.
+ */
+void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
+{
+    import std.random : uniform;
+    genBackEdges(root, region, count, maxRetries,
+                 (in MapNode[2], ref Door) => true,
+                 (MapNode node, R bounds) => uniform(0, 4),
+                 false);
+}
+
+/// ditto
+void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
+                     bool delegate(in MapNode[2] node, ref Door) doorFilter,
+                     int delegate(MapNode, R) pickAxis,
+                     bool allowMultiple)
+{
+    import std.random : uniform;
+    do
+    {
+        static struct RightRoom
+        {
+            MapNode node;
+            R region;
+            int[4] basePos;
+        }
+
+        auto success = root.randomRoom(region, (MapNode node, R bounds) {
+            // Randomly select a wall of the room.
+            R wallFilt = bounds;
+            auto axis = pickAxis(node, bounds);
+            if (axis == invalidAxis)
+                return false;
+            wallFilt.min[axis] = wallFilt.max[axis]; 
+
+            // Find an adjacent room that can be joined to this one via a door.
+            RightRoom[] targets;
+            root.foreachFiltRoom(region, wallFilt, (MapNode node2, R r2) {
+                import std.algorithm : canFind, filter, fold;
+                import std.range : iota;
+
+                auto ir = bounds.intersect(r2);
+
+                // Check that there isn't already a door between these two
+                // rooms.
+                if (!allowMultiple && node.doors.canFind!(d =>
+                        iota(4).fold!((b,i) => b && ir.min[i] <= d.pos[i] &&
+                                               d.pos[i] <= ir.max[i])(true)))
+                    return 0;
+
+                int[4] basePos;
+                foreach (i; 0 .. 4)
+                {
+                    if (ir.max[i] - ir.min[i] >= 3)
+                        basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+                    else if (i == axis)
+                        basePos[i] = ir.max[i];
+                    else
+                    {
+                        // Overlap is too small to place a door, skip.
+                        return 0;
+                    }
+                }
+
+                targets ~= RightRoom(node2, r2, basePos);
+                return 0;
+            });
+
+            if (targets.empty)
+                return false; // couldn't match anything for this room
+
+            auto rightRoom = targets.pickOne;
+
+            auto d = Door(axis);
+            d.pos = rightRoom.basePos;
+            doorFilter([node, rightRoom.node], d);
+
+            node.doors ~= d;
+            rightRoom.node.doors ~= d;
+
+            return true;
+        });
+
+        if (success)
+            count--;
+        else
+            maxRetries--;
+    } while (count > 0 && maxRetries > 0);
 }
 
 /**
@@ -834,6 +949,10 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
+    genBackEdges!R(tree, bounds, 4, 15, (in MapNode[2] rooms, ref Door d) {
+        d.type = Door.Type.extra;
+        return true;
+    }, (MapNode node, R region) => uniform(0, 2), false);
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
