@@ -727,6 +727,77 @@ void genCorridors(R)(MapNode root, R region)
 }
 
 /**
+ * Insert additional doors to randomly-picked rooms outside of the BSP
+ * connectivity structure, so that non-trivial topology is generated.
+ */
+void genBackEdges(R)(MapNode root, R region, int count)
+{
+    import std.random : uniform;
+    do
+    {
+        static struct RightRoom
+        {
+            MapNode node;
+            R region;
+            int[4] basePos;
+        }
+
+        auto success = root.randomRoom(region, (MapNode node, R bounds) {
+            // Randomly select a wall of the room.
+            R wallFilt = bounds;
+            //auto axis = uniform(0, 4);
+            auto axis = uniform(0, 2);
+            wallFilt.min[axis] = wallFilt.max[axis]; 
+
+            // Find an adjacent room that can be joined to this one via a door.
+            RightRoom[] targets;
+            root.foreachFiltRoom(region, wallFilt, (MapNode node2, R r2) {
+                import std.algorithm : filter;
+                import std.range : iota;
+
+// TBD: skip if there's already a door between these two rooms
+                auto ir = bounds.intersect(r2);
+                int[4] basePos;
+                foreach (i; 0 .. 4)
+                {
+                    if (ir.max[i] - ir.min[i] >= 3)
+                        basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+                    else if (ir.max[i] == ir.min[i])
+                        basePos[i] = ir.max[i];
+                    else
+                    {
+                        // Overlap is too small to place a door, skip.
+                        return 0;
+                    }
+                }
+
+                targets ~= RightRoom(node2, r2, basePos);
+                return 0;
+            });
+
+import std.stdio;writefln("target list: %s", targets);
+            if (targets.empty)
+                return false; // couldn't match anything for this room
+
+            auto rightRoom = targets.pickOne;
+
+            auto d = Door(axis);
+            d.pos = rightRoom.basePos;
+
+            node.doors ~= d;
+            rightRoom.node.doors ~= d;
+
+import std.stdio;writefln("extra door: %s", d.pos);
+            return true;
+        });
+
+import std.stdio;writefln("------");
+        if (success)
+            count--;
+    } while (count > 0);
+}
+
+/**
  * Iterate over leaf nodes in the given BSP tree and assign room interiors with
  * random sizes.
  *
@@ -834,6 +905,7 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
+    genBackEdges(tree, bounds, 3);
     resizeRooms(tree, bounds);
     setRoomFloors(tree, bounds);
 
