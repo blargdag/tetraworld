@@ -730,7 +730,7 @@ void genCorridors(R)(MapNode root, R region)
  * Insert additional doors to randomly-picked rooms outside of the BSP
  * connectivity structure, so that non-trivial topology is generated.
  */
-void genBackEdges(R)(MapNode root, R region, int count)
+void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
 {
     import std.random : uniform;
     do
@@ -752,17 +752,24 @@ void genBackEdges(R)(MapNode root, R region, int count)
             // Find an adjacent room that can be joined to this one via a door.
             RightRoom[] targets;
             root.foreachFiltRoom(region, wallFilt, (MapNode node2, R r2) {
-                import std.algorithm : filter;
+                import std.algorithm : canFind, filter, fold;
                 import std.range : iota;
 
-// TBD: skip if there's already a door between these two rooms
                 auto ir = bounds.intersect(r2);
+
+                // Check that there isn't already a door between these two
+                // rooms.
+                if (node.doors.canFind!(d => iota(4).fold!((b,i) => b &&
+                                             ir.min[i] <= d.pos[i] &&
+                                             d.pos[i] <= ir.max[i])(true)))
+                    return 0;
+
                 int[4] basePos;
                 foreach (i; 0 .. 4)
                 {
                     if (ir.max[i] - ir.min[i] >= 3)
                         basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
-                    else if (ir.max[i] == ir.min[i])
+                    else if (i == axis)
                         basePos[i] = ir.max[i];
                     else
                     {
@@ -775,7 +782,6 @@ void genBackEdges(R)(MapNode root, R region, int count)
                 return 0;
             });
 
-import std.stdio;writefln("target list: %s", targets);
             if (targets.empty)
                 return false; // couldn't match anything for this room
 
@@ -787,14 +793,14 @@ import std.stdio;writefln("target list: %s", targets);
             node.doors ~= d;
             rightRoom.node.doors ~= d;
 
-import std.stdio;writefln("extra door: %s", d.pos);
             return true;
         });
 
-import std.stdio;writefln("------");
         if (success)
             count--;
-    } while (count > 0);
+        else
+            maxRetries--;
+    } while (count > 0 && maxRetries > 0);
 }
 
 /**
