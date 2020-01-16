@@ -965,8 +965,15 @@ unittest
 
 /**
  * Randomly select a map location that isn't a wall.
+ *
+ * Params:
+ *  tree = Root of BSP tree.
+ *  initialBounds = Initial bounds of BSP tree.
+ *  allowMidAir = Whether to return locations that are in mid-air (not lying on
+ *      the floor of a room).
  */
-Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds)
+Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
+                           bool allowMidAir = false)
 {
     return randomRoom(tree, initialBounds, (MapNode node, Region!(int,4) bounds)
     {
@@ -976,9 +983,11 @@ Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds)
         foreach (i; 0 .. 4)
         {
             assert(node.interior.length(i) >= 3);
-
-            result[i] = uniform(node.interior.min[i] + 1,
-                                node.interior.max[i] - 1);
+            if (i == 0 && !allowMidAir)
+                result[i] = node.interior.max[i] - 1;
+            else
+                result[i] = uniform(node.interior.min[i] + 1,
+                                    node.interior.max[i] - 1);
         }
         return result;
     });
