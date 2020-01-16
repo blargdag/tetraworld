@@ -8,11 +8,6 @@
 - Implement FOV and player map memory.
 - Improve creature AI.
    - Pathfinding.
-- Smooth scroll parameters (skip, pause) should be adapted to the current
-  terminal, since it may change depending on terminal characteristics.
-   - Actually, what you *really* should be doing is to key the frames to real
-     time, rather than some fake sleep timer. *That* will guarantee device
-     independence and device speed independence.
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
   and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
@@ -49,3 +44,8 @@ X Implement .dim and .pos for Rectangle.
 + Implement message() batching and --MORE-- prompt.
 + BUG: tile above undiscovered pit trap shows up as blank??
    * Can't repro.
++ Smooth scroll parameters (skip, pause) should be adapted to the current
+  terminal, since it may change depending on terminal characteristics.
+   + Actually, what you *really* should be doing is to key the frames to real
+     time, rather than some fake sleep timer. *That* will guarantee device
+     independence and device speed independence.
