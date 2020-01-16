@@ -1,4 +1,3 @@
-- BUG: tile above undiscovered pit trap shows up as blank??
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
 - Gravity should apply immediately after each creature's turn.
@@ -48,3 +47,5 @@ X Implement .dim and .pos for Rectangle.
    + This would be a good place to add one-way pits too. Though non-trivial
      (unidirectional) cycles are still not obvious how to generate them.
 + Implement message() batching and --MORE-- prompt.
++ BUG: tile above undiscovered pit trap shows up as blank??
+   * Can't repro.
