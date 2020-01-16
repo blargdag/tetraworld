@@ -39,18 +39,7 @@ import world;
  */
 struct TextUiConfig
 {
-    // Currently smoothscroll is disabled on Windows because command.exe is
-    // dog-slow.
-    version(Windows)
-        enum defSmoothScroll = false;
-    else
-        enum defSmoothScroll = true;
-
-    bool smoothscroll = defSmoothScroll;
-    int smoothscrollXSkip = 3;
-    int smoothscrollYSkip = 2;
-    int smoothscrollXPauseMsec = 15;
-    int smoothscrollYPauseMsec = 30;
+    int smoothscrollMsec = 80;
 }
 
 /**
@@ -505,15 +494,14 @@ class TextUi : GameUi
     void moveViewport(Vec!(int,4) center)
     {
         import std.math : abs;
-        import os_sleep : milliSleep;
 
         auto diff = (center - viewport.dim/2) - viewport.pos;
-        if (cfg.smoothscroll && diff[0 .. 2].map!(e => abs(e)).sum == 1)
+        if (diff[0 .. 2].map!(e => abs(e)).sum == 1)
         {
             Vec!(int,4) extension = vec(abs(diff[0]), abs(diff[1]), 0, 0);
             Vec!(int,4) offset = vec((diff[0] - 1)/2, (diff[1] - 1)/2, 0, 0);
-            int dx = -diff[1] * cfg.smoothscrollXSkip;
-            int dy = -diff[0] * cfg.smoothscrollYSkip;
+            int dx = -diff[1];
+            int dy = -diff[0];
 
             auto scrollview = Viewport(g.w, viewport.dim + extension,
                                        viewport.pos + offset)
@@ -523,29 +511,50 @@ class TextUi : GameUi
             auto scrollSize = scrollview.renderSize;
             auto steps = dx ? scrollSize[0] - mapview.width :
                               scrollSize[1] - mapview.height;
+            auto scrnOffset = offset*steps;
             auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
-                                             scrollSize[1], offset[1]*steps,
-                                             offset[0]*steps);
-            disp.hideCursor();
-            auto skip = dx ? abs(dx) : abs(dy);
-            for (auto i=0; i < steps; i += skip)
-            {
-                scrollDisp.renderMap(scrollview);
-                disp.flush();
-                term.flush();
+                                             scrollSize[1], scrnOffset[1],
+                                             scrnOffset[0]);
 
-                milliSleep(dx ? cfg.smoothscrollXPauseMsec :
-                                cfg.smoothscrollYPauseMsec);
-                scrollDisp.moveTo(0, 0);
-                scrollDisp.clearToEos();
-                scrollDisp.scroll(dx, dy);
+            disp.hideCursor();
+
+            // Initial frame
+            int last_i = 0;
+            scrollDisp.renderMap(scrollview);
+            disp.flush();
+            term.flush();
+
+            import core.time : dur, MonoTime;
+            auto totalTime = dur!"msecs"(cfg.smoothscrollMsec);
+            auto startTime = MonoTime.currTime;
+            while (MonoTime.currTime - startTime < totalTime)
+            {
+                auto i = cast(int)((MonoTime.currTime - startTime)*steps /
+                                   totalTime);
+                if (i > last_i && i < steps)
+                {
+                    scrollDisp.moveTo(0, 0);
+                    scrollDisp.clearToEos();
+
+                    scrollDisp.scrollTo(scrnOffset[1] + i*dx,
+                                        scrnOffset[0] + i*dy);
+                    scrollDisp.renderMap(scrollview);
+                    disp.flush();
+                    term.flush();
+                    last_i = i;
+                }
             }
+
+            scrollDisp.moveTo(0, 0);
+            scrollDisp.clearToEos();
         }
         else
         {
             if (refreshNeedsPause)
             {
-                milliSleep(180);
+                import core.thread : Thread;
+                import core.time : dur;
+                Thread.sleep(dur!"msecs"(180));
             }
         }
         viewport.centerOn(center);
