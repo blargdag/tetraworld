@@ -514,6 +514,34 @@ unittest
                format("Shouldn't be wide but is: %s (U+%04X)", ch, ch));
 }
 
+/**
+ * Returns: The display length of the string. Assumes non-graphical characters
+ * have length zero, and wide characters (as classified by isWide) have length
+ * 2.
+ *
+ * BUGS: Does NOT interpret control characters like newlines, and particularly
+ * tabs.
+ */
+size_t displayLength(string str)
+{
+    import std.algorithm : map, sum;
+    import std.uni : byGrapheme, isGraphical;
+    return str.byGrapheme
+              .map!(g => !g[0].isGraphical ? 0 :
+                         g[0].isWide ? 2 : 1)
+              .sum;
+}
+
+///
+unittest
+{
+    assert("abcde".displayLength == 5);
+    assert("ab\ncde".displayLength == 5);
+    assert("ab\u0301cde".displayLength == 5);
+    assert("ab\u0301\u0310cde".displayLength == 5);
+    assert("ab\u0301\u0310\u5f35e".displayLength == 5);
+}
+
 /* Lame hackery due to Grapheme slices being unable to survive past the
  * lifetime of the Grapheme itself, and the fact that CTFE can't handle unions
  * so we have to initialize this at runtime.

@@ -214,6 +214,133 @@ struct InputDispatcher
 }
 
 /**
+ * Message buffer that accumulates in-game messages between turns, and prompts
+ * player for keypress if messages overflow message window size before player's
+ * next turn.
+ */
+struct MessageBox(Disp)
+    if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
+{
+    private enum morePrompt = "--MORE--";
+
+    private Disp impl;
+    private size_t moreLen;
+    private int curX = 0;
+
+    this(Disp disp)
+    {
+        impl = disp;
+        moreLen = morePrompt.displayLength;
+    }
+
+    /**
+     * Post a message to this MessageBox. If it fits in the current space,
+     * print it immediately. Otherwise, display a prompt for the user to
+     * acknowledge reading the previous messages first, then clear the line and
+     * display this one.
+     */
+    void message(string str, void delegate() waitForKeypress)
+    {
+        auto len = str.displayLength;
+        if (curX + len + moreLen >= impl.width)
+        {
+            // FIXME: this assumes impl.height==1.
+            impl.moveTo(curX, 0);
+            impl.color(Color.white, Color.blue);
+            impl.writef("%s", morePrompt);
+            waitForKeypress();
+
+            impl.moveTo(0, 0);
+            impl.clearToEol();
+            curX = 0;
+        }
+
+        // FIXME: this assumes impl.height==1.
+        // FIXME: support the case where len > impl.width.
+        impl.moveTo(curX, 0);
+        impl.color(Color.DEFAULT, Color.DEFAULT);
+        impl.writef("%s", str);
+        impl.clearToEol();
+
+        curX += len + 1;
+    }
+
+    /**
+     * Inform this MessageBox that the player has read all messages, and the
+     * next one should start from the beginning again.
+     */
+    void sync()
+    {
+        curX = 0;
+    }
+}
+
+/// ditto
+auto messageBox(Disp)(Disp disp)
+    if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
+{
+    return MessageBox!Disp(disp);
+}
+
+unittest
+{
+    struct TestDisp
+    {
+        enum width = 20;
+        enum height = 1;
+        char[width*height] impl;
+        int curX, curY;
+
+        void moveTo(int x, int y)
+            in (x >= 0 && x < width)
+            in (y >= 0 && y < height)
+        {
+            curX = x;
+            curY = y;
+        }
+
+        void writef(Args...)(string fmt, Args args)
+        {
+            import std.format : format;
+            foreach (ch; format(fmt, args))
+            {
+                impl[curX + width*curY] = ch;
+                curX++;
+            }
+        }
+        void color(ushort, ushort) {}
+        @property int cursorX() { return curX; }
+        @property int cursorY() { return curY; }
+    }
+
+    TestDisp disp;
+
+    foreach (ref ch; disp.impl) { ch = ' '; }
+    auto box = messageBox(&disp);
+
+    box.message("Blehk.", { assert(false, "should not wait for keypress"); });
+    assert(disp.impl == "Blehk.              ");
+
+    box.message("Eh?", { assert(false, "should not wait for keypress"); });
+    assert(disp.impl == "Blehk. Eh?          ");
+
+    box.sync();
+
+    box.message("Blah.", { assert(false, "should not wait for keypress"); });
+    assert(disp.impl == "Blah.               ");
+
+    box.message("Bleh.", { assert(false, "should not wait for keypress"); });
+    assert(disp.impl == "Blah. Bleh.         ");
+
+    bool keypress;
+    box.message("Kaboom.", {
+        assert(disp.impl == "Blah. Bleh. --MORE--");
+        keypress = true;
+    });
+    assert(keypress && disp.impl == "Kaboom.             ");
+}
+
+/**
  * Text-based UI implementation.
  */
 class TextUi : GameUi
@@ -229,6 +356,7 @@ class TextUi : GameUi
     private TextUiConfig cfg;
 
     private Terminal* term;
+    private RealTimeConsoleInput* input;
     private MainDisplay disp;
 
     private MsgBox      msgBox;
@@ -249,7 +377,7 @@ class TextUi : GameUi
     private auto createDisp() { return bufferedDisplay(term); }
     private auto createMsgBox(Region!(int,2) msgRect)
     {
-        return subdisplay(&disp, msgRect);
+        return messageBox(subdisplay(&disp, msgRect));
     }
     private auto createViewport(Region!(int,2) screenRect)
     {
@@ -275,10 +403,10 @@ class TextUi : GameUi
 
     void message(string str)
     {
-        msgBox.moveTo(0,0);
-        msgBox.color(Color.DEFAULT, Color.DEFAULT);
-        msgBox.writef(str);
-        msgBox.clearToEol();
+        msgBox.message(str, {
+            disp.flush();
+            input.getch();
+        });
     }
 
     PlayerAction getPlayerAction()
@@ -436,9 +564,10 @@ class TextUi : GameUi
      */
     void echo(string str)
     {
-        msgBox.moveTo(0,0);
-        msgBox.writef(str);
-        msgBox.clearToEol();
+        // FIXME: probably should be in a subdisplay?
+        disp.moveTo(0,0);
+        disp.writef(str);
+        disp.clearToEol();
     }
 
     /**
@@ -447,12 +576,13 @@ class TextUi : GameUi
      */
     void prompt(string str)
     {
-        msgBox.moveTo(0, 0);
-        msgBox.writef("%s", str);
-        auto x = msgBox.cursorX;
-        auto y = msgBox.cursorY;
-        msgBox.clearToEol();
-        msgBox.moveTo(x, y);
+        // FIXME: probably should be in a subdisplay?
+        disp.moveTo(0, 0);
+        disp.writef("%s", str);
+        auto x = disp.cursorX;
+        auto y = disp.cursorY;
+        disp.clearToEol();
+        disp.moveTo(x, y);
     }
 
     /**
@@ -590,7 +720,8 @@ class TextUi : GameUi
         term = &_term;
         g = game;
 
-        auto input = RealTimeConsoleInput(term, ConsoleInputFlags.raw);
+        auto _input = RealTimeConsoleInput(term, ConsoleInputFlags.raw);
+        input = &_input;
         setupUi();
 
         // Run game engine thread in its own fiber.
@@ -606,6 +737,7 @@ class TextUi : GameUi
         {
             disp.flush();
             refreshNeedsPause = false;
+            msgBox.sync();
             dispatch.handleEvent(input.nextEvent());
         }
 
