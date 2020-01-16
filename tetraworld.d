@@ -33,16 +33,9 @@ int main(string[] args)
 {
     TextUiConfig uiConfig;
     auto optInfo = getopt(args,
-        "smoothscroll|S", "Enable/disable smooth scrolling.",
-            &uiConfig.smoothscroll,
-        "smoothscroll-xskip|Skx", "Smooth scroll horizontal skip factor",
-            &uiConfig.smoothscrollXSkip,
-        "smoothscroll-yskip|Sky", "Smooth scroll vertical skip factor",
-            &uiConfig.smoothscrollYSkip,
-        "smoothscroll-xpause|Spx", "Smooth scroll horizontal pause",
-            &uiConfig.smoothscrollXPauseMsec,
-        "smoothscroll-ypause|Spy", "Smooth scroll vertical pause",
-            &uiConfig.smoothscrollYPauseMsec,
+        "smoothscroll|S",
+            "Set smooth scroll total time in msec (0 to disable).",
+            &uiConfig.smoothscrollMsec,
     );
 
     if (optInfo.helpWanted)

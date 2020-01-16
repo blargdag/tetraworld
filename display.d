@@ -189,6 +189,15 @@ struct SlidingDisplay(Disp)
         offY += dy;
     }
 
+    /**
+     * Scroll the overlay to the given position.
+     */
+    void scrollTo(int x, int y)
+    {
+        offX = x;
+        offY = y;
+    }
+
     void moveTo(int x, int y)
         in (0 <= x && x < width)
         in (0 <= y && y < height)
@@ -323,6 +332,12 @@ unittest
     assert(disp.impl == "bcd"~
                         "234"~
                         "WXY");
+
+    sdisp.scrollTo(-2, 0);
+    drawStuff();
+    assert(disp.impl == "*--"~
+                        "cde"~
+                        "345");
 }
 
 /**
