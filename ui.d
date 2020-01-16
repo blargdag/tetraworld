@@ -503,6 +503,7 @@ class TextUi : GameUi
             int dx = -diff[1];
             int dy = -diff[0];
 
+import std;stderr.writefln("offset=%s dx=%s dy=%s", offset, dx, dy);
             auto scrollview = Viewport(g.w, viewport.dim + extension,
                                        viewport.pos + offset)
                 .curView
@@ -514,24 +515,35 @@ class TextUi : GameUi
             auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
                                              scrollSize[1], offset[1]*steps,
                                              offset[0]*steps);
+import std;stderr.writefln("initial scroll(%d, %d)", offset[1]*steps, offset[0]*steps);
 
             disp.hideCursor();
+
+            // Initial frame
+            int last_i = 0;
+            scrollDisp.renderMap(scrollview);
+            disp.flush();
+            term.flush();
 
             import core.time : dur, MonoTime;
             auto totalTime = dur!"msecs"(cfg.smoothscrollMsec);
             auto startTime = MonoTime.currTime;
             while (MonoTime.currTime - startTime < totalTime)
             {
-                scrollDisp.renderMap(scrollview);
-                disp.flush();
-                term.flush();
 
                 scrollDisp.moveTo(0, 0);
                 scrollDisp.clearToEos();
 
                 auto i = cast(int)((MonoTime.currTime - startTime)*steps /
                                    totalTime);
-                scrollDisp.scrollTo(offset[1] + i*dx, offset[0] + i*dy);
+                if (i > last_i && i < steps)
+                {
+                    scrollDisp.scrollTo(offset[1]*steps + i*dx, offset[0]*steps + i*dy);
+                    scrollDisp.renderMap(scrollview);
+                    disp.flush();
+                    term.flush();
+                    last_i = i;
+                }
             }
         }
         else
