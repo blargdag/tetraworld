@@ -503,7 +503,6 @@ class TextUi : GameUi
             int dx = -diff[1];
             int dy = -diff[0];
 
-import std;stderr.writefln("offset=%s dx=%s dy=%s", offset, dx, dy);
             auto scrollview = Viewport(g.w, viewport.dim + extension,
                                        viewport.pos + offset)
                 .curView
@@ -512,10 +511,10 @@ import std;stderr.writefln("offset=%s dx=%s dy=%s", offset, dx, dy);
             auto scrollSize = scrollview.renderSize;
             auto steps = dx ? scrollSize[0] - mapview.width :
                               scrollSize[1] - mapview.height;
+            auto scrnOffset = offset*steps;
             auto scrollDisp = slidingDisplay(mapview, scrollSize[0],
-                                             scrollSize[1], offset[1]*steps,
-                                             offset[0]*steps);
-import std;stderr.writefln("initial scroll(%d, %d)", offset[1]*steps, offset[0]*steps);
+                                             scrollSize[1], scrnOffset[1],
+                                             scrnOffset[0]);
 
             disp.hideCursor();
 
@@ -530,21 +529,24 @@ import std;stderr.writefln("initial scroll(%d, %d)", offset[1]*steps, offset[0]*
             auto startTime = MonoTime.currTime;
             while (MonoTime.currTime - startTime < totalTime)
             {
-
-                scrollDisp.moveTo(0, 0);
-                scrollDisp.clearToEos();
-
                 auto i = cast(int)((MonoTime.currTime - startTime)*steps /
                                    totalTime);
                 if (i > last_i && i < steps)
                 {
-                    scrollDisp.scrollTo(offset[1]*steps + i*dx, offset[0]*steps + i*dy);
+                    scrollDisp.moveTo(0, 0);
+                    scrollDisp.clearToEos();
+
+                    scrollDisp.scrollTo(scrnOffset[1] + i*dx,
+                                        scrnOffset[0] + i*dy);
                     scrollDisp.renderMap(scrollview);
                     disp.flush();
                     term.flush();
                     last_i = i;
                 }
             }
+
+            scrollDisp.moveTo(0, 0);
+            scrollDisp.clearToEos();
         }
         else
         {
