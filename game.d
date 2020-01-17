@@ -21,6 +21,7 @@
 module game;
 
 import std.algorithm;
+import std.container.binaryheap;
 import std.stdio;
 
 import action;
@@ -30,6 +31,14 @@ import store;
 import store_traits;
 import vector;
 import world;
+
+/**
+ * Default savegame filename.
+ *
+ * TBD: this really should be replaced with a playground directory system like
+ * in nethack.
+ */
+enum saveFileName = ".tetra.save";
 
 /**
  * Logical player input action.
@@ -93,7 +102,198 @@ interface GameUi
     }
 }
 
-enum saveFileName = ".tetra.save";
+/**
+ * An entry in the turn queue.
+ */
+private struct QueueEntry
+{
+    ulong nextTurn;
+    ThingId id;
+
+    int opCmp(ref const QueueEntry b)
+    {
+        // Sort not just by .nextTurn, but also by ID to ensure stable priority
+        // sorting (relative order of agents with same .nextTurn is stable
+        // rather than changing randomly between turns).
+        return nextTurn < b.nextTurn ? 1 :
+               nextTurn > b.nextTurn ? -1 :
+               id < b.id ? 1 :
+               id > b.id ? -1 : 0;
+    }
+}
+
+unittest
+{
+    auto a1 = QueueEntry(10, 101);
+    auto a2 = QueueEntry(10, 102);
+    auto a3 = QueueEntry(15, 103);
+
+    assert(a1 == a1);
+    assert(a2 == a2);
+    assert(a3 == a3);
+
+    assert(a1 > a2);
+    assert(a1 > a3);
+    assert(a2 > a3);
+}
+
+/**
+ * An Agent's implementation.
+ */
+struct AgentImpl
+{
+    /**
+     * A delegate representing the Agent's decision function. It examines the
+     * World state and returns an Action representing the Agent's chosen course
+     * of action.
+     */
+    Action delegate(scope World w, ThingId agentId) chooseAction;
+
+    /**
+     * A delegate that notifies the Agent of an action failure. 
+     */
+    void delegate(scope World w, ThingId agentId, ActionResult result)
+        notifyFailure;
+}
+
+/**
+ * System for managing turn-based timing for agents.
+ */
+struct SysAgent
+{
+    private alias TurnQueue = BinaryHeap!(QueueEntry[]);
+    private TurnQueue turnQueue;
+    private bool inited;
+
+    private AgentImpl[Agent.Type.max + 1] agentImpls;
+
+    private void setup()
+    {
+        if (inited) return;
+        turnQueue = TurnQueue([]);
+    }
+
+    /**
+     * Register an agent implementation.
+     *
+     * Params:
+     *  type = The Agent type.
+     *  impl = The implementation of the Agent's decision routine and failure
+     *      notification routine.
+     */
+    void registerAgentImpl(Agent.Type type, AgentImpl impl)
+    {
+        agentImpls[type] = impl;
+    }
+
+    /**
+     * Current turn number.
+     */
+    ulong curTick()
+    {
+        setup();
+        if (turnQueue.empty) return 1;
+        return turnQueue.front.nextTurn;
+    }
+
+    /**
+     * Collect entities with newly-added Agent components from the Store and
+     * enqueue them for processing.
+     */
+    private void enqueueNewAgents(World w)
+    {
+        foreach (id; w.store.getAllNew!Agent)
+        {
+            auto ag = w.store.get!Agent(id);
+            if (ag is null) continue;
+
+            auto nextTurn = curTick();
+            turnQueue.insert(QueueEntry(nextTurn, id));
+        }
+
+        w.store.clearNew!Agent();
+    }
+
+    /**
+     * Run a single iteration of this system.
+     */
+    void run(World w)
+    {
+        setup();
+        enqueueNewAgents(w);
+
+        if (turnQueue.empty)
+            return; // nothing to do
+
+        auto ent = turnQueue.front;
+        auto id = ent.id;
+        auto thisTick = ent.nextTurn;
+        turnQueue.popFront();
+
+        auto agt = w.store.get!Agent(id);
+        if (agt is null)
+            return; // Agent has been unregistered since last update, ignore.
+
+        // Run agent logic and execute agent's action.
+        auto type = agt.type;
+        Action action = agentImpls[type].chooseAction(w, id);
+        assert(action !is null);
+
+        ActionResult result = action(w);
+        if (!result.success)
+            agentImpls[type].notifyFailure(w, id, result);
+
+        // Reschedule agent in queue unless it was deregistered during its
+        // action code. (We have to refetch it from the store because it may
+        // have changed.)
+        agt = w.store.get!Agent(id);
+        if (agt !is null)
+        {
+            auto nextTurn = thisTick + result.turnCost;
+            turnQueue.insert(QueueEntry(nextTurn, id));
+        }
+    }
+
+    /**
+     * Save the current agent state into the destination file.
+     */
+    void save(S)(S savefile)
+        if (isSaveFile!S)
+    {
+        savefile.put("turnQueue", turnQueue.dup);
+    }
+
+    /**
+     * Load the agent subsystem state from the given file.
+     */
+    void load(L)(ref L loadfile)
+        if (isLoadFile!L)
+    {
+        auto turns = loadfile.parse!(QueueEntry[])("turnQueue");
+
+        size_t turn;
+        foreach (ent; turns)
+        {
+// FIXME: TBD
+//            auto id = ent.id;
+//            auto t = store.getObj(id);
+//            if (t is null) continue;
+//
+//            auto ag = store.get!Agent(id);
+//            if (ag is null || t is null)
+//                throw new LoadException("Invalid turn data");
+
+            // Verify ascending order
+            if (ent.nextTurn < turn)
+                throw new LoadException("Turn data corrupted");
+
+            turn = ent.nextTurn;
+        }
+
+        turnQueue.acquire(turns);
+        inited = true;
+    }
+}
 
 /**
  * Game simulation.
@@ -102,9 +302,14 @@ class Game
 {
     private GameUi ui;
     /*private*/ World w; // FIXME
+    private SysAgent sysAgent;
+
     private Thing* player;
     private bool quit;
 
+    /**
+     * Returns: The player's current position.
+     */
     Vec!(int,4) playerPos()
     {
         return w.store.get!Pos(player.id).coors;
@@ -125,15 +330,6 @@ class Game
                       .map!(id => w.store.get!Tiled(id))
                       .filter!(tp => tp.tileId == TileId.gold)
                       .count;
-    }
-
-    private void doAction(alias act, Args...)(Args args)
-    {
-        ActionResult res = act(args);
-        if (!res)
-        {
-            ui.message(res.failureMsg);
-        }
     }
 
     void saveGame()
@@ -175,26 +371,31 @@ class Game
         return g;
     }
 
-    private void movePlayer(int[4] displacement)
+    private Action movePlayer(int[4] displacement)
     {
-        doAction!move(w, player, vec(displacement));
+        return (scope World w) {
+            auto result = move(w, player, vec(displacement));
 
-        // TBD: this is a hack that should be replaced by a System, probably.
-        {
-            if (!w.store.getAllBy!Pos(Pos(playerPos))
-                        .map!(id => w.store.get!Tiled(id))
-                        .filter!(tp => tp !is null &&
-                                 tp.tileId == TileId.portal)
-                        .empty)
+            // TBD: this is a hack that should be replaced by a System,
+            // probably.
             {
-                ui.message("You see the exit portal here.");
+                if (!w.store.getAllBy!Pos(Pos(playerPos))
+                            .map!(id => w.store.get!Tiled(id))
+                            .filter!(tp => tp !is null &&
+                                     tp.tileId == TileId.portal)
+                            .empty)
+                {
+                    ui.message("You see the exit portal here.");
+                }
             }
-        }
+
+            return result;
+        };
     }
 
-    private void applyFloorObj()
+    private Action applyFloorObj()
     {
-        doAction!applyFloor(w, player);
+        return (scope World w) => applyFloor(w, player);
     }
 
     private void portalSystem()
@@ -315,60 +516,60 @@ class Game
         };
     }
 
-    void processPlayer()
+    Action processPlayer()
     {
         final switch (ui.getPlayerAction()) with(PlayerAction)
         {
-            case up:    movePlayer([-1,0,0,0]); break;
-            case down:  movePlayer([1,0,0,0]);  break;
-            case ana:   movePlayer([0,-1,0,0]); break;
-            case kata:  movePlayer([0,1,0,0]);  break;
-            case back:  movePlayer([0,0,-1,0]); break;
-            case front: movePlayer([0,0,1,0]);  break;
-            case left:  movePlayer([0,0,0,-1]); break;
-            case right: movePlayer([0,0,0,1]);  break;
-            case apply: applyFloorObj();        break;
+            case up:    return movePlayer([-1,0,0,0]);
+            case down:  return movePlayer([1,0,0,0]);
+            case ana:   return movePlayer([0,-1,0,0]);
+            case kata:  return movePlayer([0,1,0,0]);
+            case back:  return movePlayer([0,0,-1,0]);
+            case front: return movePlayer([0,0,1,0]);
+            case left:  return movePlayer([0,0,0,-1]);
+            case right: return movePlayer([0,0,0,1]);
+            case apply: return applyFloorObj();
             case none:  assert(0, "Internal error");
         }
     }
 
-    void processAi(Thing* t, Agent* agt)
+    void setupAgentImpls()
     {
-        // For now, just move randomly.
-        import dir;
-        move(w, t, vec(dir2vec(randomDir)));
-    }
-
-    void agentSystem()
-    {
-        foreach (id; w.store.getAll!Agent)
+        AgentImpl playerImpl;
+        playerImpl.chooseAction = (scope World w, ThingId agentId)
         {
-            auto t = w.store.getObj(id);
-            if (t is null)  // guard against possible race condition
-                continue;
+            return processPlayer();
+        };
+        playerImpl.notifyFailure = (scope World w, ThingId agentId,
+                                    ActionResult result)
+        {
+            ui.message(result.failureMsg);
+        };
+        sysAgent.registerAgentImpl(Agent.Type.player, playerImpl);
 
-            auto agt = w.store.get!Agent(id);
-            final switch (agt.type)
-            {
-                case Agent.Type.player:
-                    processPlayer();
-                    break;
-
-                case Agent.Type.ai:
-                    processAi(t, agt);
-                    break;
-            }
-        }
+        AgentImpl aiImpl;
+        aiImpl.chooseAction = (scope World w, ThingId agentId)
+        {
+            return (scope World w) {
+                // For now, just move randomly.
+                import dir;
+                auto t = w.store.getObj(agentId);
+                return move(w, t, vec(dir2vec(randomDir)));
+            };
+        };
+        sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
     }
 
     void run(GameUi _ui)
     {
         ui = _ui;
         setupEventWatchers();
+        setupAgentImpls();
+
         while (!quit)
         {
             gravitySystem();
-            agentSystem();
+            sysAgent.run(w);
             portalSystem();
         }
     }

@@ -26,11 +26,26 @@ import store;
 import world;
 import vector;
 
+/**
+ * An encapsulated game action.
+ */
+alias Action = ActionResult delegate(scope World w);
+
+/**
+ * Result of an action.
+ */
 struct ActionResult
 {
-    bool success;
-    alias success this;
+    @property bool success() { return turnCost > 0; }
 
+    /**
+     * How many ticks this action costed to perform.
+     */
+    ulong turnCost;
+
+    /**
+     * If action failed, a failure message.
+     */
     string failureMsg;
 }
 

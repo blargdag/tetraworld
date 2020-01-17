@@ -172,7 +172,7 @@ struct PitTrap { }
 /**
  * Component for agent objects.
  */
-@Component
+@Component @TrackNew
 struct Agent
 {
     enum Type { ai, player }
