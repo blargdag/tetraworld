@@ -1,6 +1,7 @@
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
-- Gravity should apply immediately after each creature's turn.
+- Optimize gravity system so that it doesn't have to loop through *all* objects
+  with Pos every iteration!!
 - Implement session recorder.
 - Add water level, underneath which free movement is possible? :-D
    - But it will require finding an oxygen mask... Well, OK, this is 4D, so
@@ -49,3 +50,4 @@ X Implement .dim and .pos for Rectangle.
    + Actually, what you *really* should be doing is to key the frames to real
      time, rather than some fake sleep timer. *That* will guarantee device
      independence and device speed independence.
++ Gravity should apply immediately after each creature's turn.
