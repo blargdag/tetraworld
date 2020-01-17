@@ -389,8 +389,16 @@ class Game
         return g;
     }
 
-    private Action movePlayer(int[4] displacement)
+    private Action movePlayer(int[4] displacement, ref string errmsg)
     {
+        auto pos = playerPos;
+        if (!canMove(w, pos, vec(displacement)) &&
+            !canClimb(w, pos, vec(displacement)))
+        {
+            errmsg = "Your way is blocked.";
+            return null;
+        }
+
         auto v = vec(displacement);
         return (World w) {
             auto result = move(w, player, v);
@@ -412,9 +420,18 @@ class Game
         };
     }
 
-    private Action applyFloorObj()
+    private Action applyFloorObj(ref string errmsg)
     {
-        return (World w) => applyFloor(w, player);
+        auto pos = *w.store.get!Pos(player.id);
+        auto r = w.store.getAllBy!Pos(pos)
+                        .filter!(id => w.store.get!Usable(id) !is null);
+        if (r.empty)
+        {
+            errmsg = "Nothing to apply here.";
+            return null;
+        }
+
+        return (World w) => useItem(w, player, r.front);
     }
 
     private void portalSystem()
@@ -537,19 +554,28 @@ class Game
 
     Action processPlayer()
     {
-        final switch (ui.getPlayerAction()) with(PlayerAction)
+        Action act;
+        string errmsg;
+        while (act is null)
         {
-            case up:    return movePlayer([-1,0,0,0]);
-            case down:  return movePlayer([1,0,0,0]);
-            case ana:   return movePlayer([0,-1,0,0]);
-            case kata:  return movePlayer([0,1,0,0]);
-            case back:  return movePlayer([0,0,-1,0]);
-            case front: return movePlayer([0,0,1,0]);
-            case left:  return movePlayer([0,0,0,-1]);
-            case right: return movePlayer([0,0,0,1]);
-            case apply: return applyFloorObj();
-            case none:  assert(0, "Internal error");
+            final switch (ui.getPlayerAction()) with(PlayerAction)
+            {
+                case up:    act = movePlayer([-1,0,0,0], errmsg); break;
+                case down:  act = movePlayer([1,0,0,0],  errmsg); break;
+                case ana:   act = movePlayer([0,-1,0,0], errmsg); break;
+                case kata:  act = movePlayer([0,1,0,0],  errmsg); break;
+                case back:  act = movePlayer([0,0,-1,0], errmsg); break;
+                case front: act = movePlayer([0,0,1,0],  errmsg); break;
+                case left:  act = movePlayer([0,0,0,-1], errmsg); break;
+                case right: act = movePlayer([0,0,0,1],  errmsg); break;
+                case apply: act = applyFloorObj(errmsg); break;
+                case none:  assert(0, "Internal error");
+            }
+
+            if (act is null)
+                ui.message(errmsg); // FIXME: should be ui.echo
         }
+        return act;
     }
 
     void setupAgentImpls()

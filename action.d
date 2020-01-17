@@ -23,6 +23,7 @@ module action;
 import std.algorithm;
 import components;
 import store;
+import store_traits;
 import world;
 import vector;
 
@@ -96,6 +97,36 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
 }
 
 /**
+ * Check if movement from the given location by the given displacement would be
+ * blocked.
+ */
+bool canMove(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
+{
+    auto newPos = Pos(pos + displacement);
+    return !w.getAllAt(newPos)
+             .canFind!(id => w.store.get!BlocksMovement(id) !is null);
+}
+
+/**
+ * Check if moving in the given displacement from the given location qualifies
+ * as a climb-ledge action.
+ */
+bool canClimb(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
+{
+    // Note that BlocksMovement is not sufficient for climbability; the target
+    // tile must also have SupportsWeight. This is to prevent the player from
+    // climbing on top of creatures. :-D
+    auto newPos = Pos(pos + displacement);
+    return displacement != vec(1,0,0,0) &&
+           w.getAllAt(newPos)
+            .canFind!(id => w.store.get!SupportsWeight(id) !is null) &&
+           !w.getAllAt(Pos(pos + vec(-1,0,0,0)))
+             .canFind!(id => w.store.get!BlocksMovement(id) !is null) &&
+           !w.getAllAt(Pos(newPos + vec(-1,0,0,0)))
+             .canFind!(id => w.store.get!BlocksMovement(id) !is null);
+}
+
+/**
  * Moves an object from its current location to a new location.
  */
 ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
@@ -103,19 +134,9 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
     auto oldPos = *w.store.get!Pos(subj.id);
     auto newPos = Pos(oldPos.coors + displacement);
 
-    if (w.getAllAt(newPos)
-         .canFind!(id => w.store.get!BlocksMovement(id) !is null))
+    if (!canMove(w, oldPos, displacement))
     {
-        // Check if climbable. Note that BlocksMovement is not sufficient for
-        // climbability; the target tile must also have SupportsWeight. This is
-        // to prevent the player from climbing on top of creatures. :-D
-        if (displacement != vec(1,0,0,0) &&
-            w.getAllAt(newPos)
-             .canFind!(id => w.store.get!SupportsWeight(id) !is null) &&
-            !w.getAllAt(Pos(oldPos + vec(-1,0,0,0)))
-              .canFind!(id => w.store.get!BlocksMovement(id) !is null) &&
-            !w.getAllAt(Pos(newPos + vec(-1,0,0,0)))
-              .canFind!(id => w.store.get!BlocksMovement(id) !is null))
+        if (canClimb(w, oldPos, displacement))
         {
             auto medPos = Pos(oldPos + vec(-1,0,0,0));
             rawMove(w, subj, medPos, {
@@ -130,7 +151,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
             return ActionResult(true, 15);
         }
         else
-            return ActionResult(false, 10, "Your way is blocked.");
+            return ActionResult(false, 10, "You bump into a wall!"); // FIXME
     }
     else
     {
@@ -143,18 +164,16 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
 }
 
 /**
- * Activate an object on the floor.
+ * Use an item.
  */
-ActionResult applyFloor(World w, Thing* subj)
+ActionResult useItem(World w, Thing* subj, ThingId objId)
 {
-    auto pos = *w.store.get!Pos(subj.id);
-    auto r = w.store.getAllBy!Pos(pos)
-                    .map!(id => w.store.get!Usable(id))
-                    .filter!(u => u !is null);
-    if (r.empty)
-        return ActionResult(false, 10, "Nothing to apply here.");
+    auto u = w.store.get!Usable(objId);
+    if (u is null)
+        return ActionResult(false, 10, "Can't figure out how to use this "~
+                                       "object.");
 
-    final switch (r.front.effect)
+    final switch (u.effect)
     {
         case UseEffect.portal:
             // Experimental
