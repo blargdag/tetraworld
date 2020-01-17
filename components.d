@@ -25,7 +25,7 @@ import store_traits;
 /**
  * Component of all objects that have a map position.
  */
-@Indexed @Component
+@Indexed @Component @TrackNew
 struct Pos
 {
     import vector : Vec, vec;
