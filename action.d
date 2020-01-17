@@ -36,12 +36,19 @@ alias Action = ActionResult delegate(World w);
  */
 struct ActionResult
 {
-    @property bool success() { return turnCost > 0; }
+    /**
+     * Whether or not the action succeeded.
+     */
+    bool success;
 
     /**
-     * How many ticks this action costed to perform.
+     * How many ticks this action costed to perform. Note that this applies
+     * even for failed actions; it must be non-zero to prevent dumb agents from
+     * getting stuck in the turn queue.
      */
     ulong turnCost;
+
+    invariant() { assert(turnCost > 0); }
 
     /**
      * If action failed, a failure message.
@@ -120,10 +127,10 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
                 w.notify.climbLedge(medPos, subj.id, newPos, 1);
             });
 
-            return ActionResult(15);
+            return ActionResult(true, 15);
         }
         else
-            return ActionResult(0, "Your way is blocked.");
+            return ActionResult(false, 10, "Your way is blocked.");
     }
     else
     {
@@ -132,7 +139,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         });
     }
 
-    return ActionResult(10);
+    return ActionResult(true, 10);
 }
 
 /**
@@ -145,14 +152,14 @@ ActionResult applyFloor(World w, Thing* subj)
                     .map!(id => w.store.get!Usable(id))
                     .filter!(u => u !is null);
     if (r.empty)
-        return ActionResult(0, "Nothing to apply here.");
+        return ActionResult(false, 10, "Nothing to apply here.");
 
     final switch (r.front.effect)
     {
         case UseEffect.portal:
             // Experimental
             w.store.add!UsePortal(subj, UsePortal());
-            return ActionResult(10);
+            return ActionResult(true, 10);
     }
 }
 
@@ -161,7 +168,7 @@ ActionResult applyFloor(World w, Thing* subj)
  */
 ActionResult pass(World w, Thing* subj)
 {
-    return ActionResult(10);
+    return ActionResult(true, 10);
 }
 
 // vim:set ai sw=4 ts=4 et:

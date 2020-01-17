@@ -246,11 +246,8 @@ struct SysAgent
         {
             if (agentImpls[type].notifyFailure !is null)
                 agentImpls[type].notifyFailure(w, id, result);
-            else
-            {
-                // Don't get stuck if it's a fire-and-forget dumb agent.
-                result.turnCost = 10;
-            }
+
+            assert(result.turnCost > 0);
         }
 
         // NOTE: this MUST NOT be done before the Agent's Action is executed,
