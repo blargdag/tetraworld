@@ -449,7 +449,8 @@ unittest
         " 500 {",
         "  coors [ 1 0 0 1 ]",
         " }",
-        "}"
+        "}",
+        "posNew [  ]"
     ]);
 
     Store store;
