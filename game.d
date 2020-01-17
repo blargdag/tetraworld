@@ -147,12 +147,12 @@ struct AgentImpl
      * World state and returns an Action representing the Agent's chosen course
      * of action.
      */
-    Action delegate(scope World w, ThingId agentId) chooseAction;
+    Action delegate(World w, ThingId agentId) chooseAction;
 
     /**
      * A delegate that notifies the Agent of an action failure. 
      */
-    void delegate(scope World w, ThingId agentId, ActionResult result)
+    void delegate(World w, ThingId agentId, ActionResult result)
         notifyFailure;
 }
 
@@ -171,6 +171,7 @@ struct SysAgent
     {
         if (inited) return;
         turnQueue = TurnQueue([]);
+        inited = true;
     }
 
     /**
@@ -182,6 +183,7 @@ struct SysAgent
      *      notification routine.
      */
     void registerAgentImpl(Agent.Type type, AgentImpl impl)
+        in (impl.chooseAction !is null)
     {
         agentImpls[type] = impl;
     }
@@ -192,8 +194,7 @@ struct SysAgent
     ulong curTick()
     {
         setup();
-        if (turnQueue.empty) return 1;
-        return turnQueue.front.nextTurn;
+        return (turnQueue.empty) ? 1 : turnQueue.front.nextTurn;
     }
 
     /**
@@ -240,7 +241,7 @@ struct SysAgent
         assert(action !is null);
 
         ActionResult result = action(w);
-        if (!result.success)
+        if (!result.success && agentImpls[type].notifyFailure !is null)
             agentImpls[type].notifyFailure(w, id, result);
 
         // Reschedule agent in queue unless it was deregistered during its
@@ -373,8 +374,9 @@ class Game
 
     private Action movePlayer(int[4] displacement)
     {
-        return (scope World w) {
-            auto result = move(w, player, vec(displacement));
+        auto v = vec(displacement);
+        return (World w) {
+            auto result = move(w, player, v);
 
             // TBD: this is a hack that should be replaced by a System,
             // probably.
@@ -395,7 +397,7 @@ class Game
 
     private Action applyFloorObj()
     {
-        return (scope World w) => applyFloor(w, player);
+        return (World w) => applyFloor(w, player);
     }
 
     private void portalSystem()
@@ -536,11 +538,11 @@ class Game
     void setupAgentImpls()
     {
         AgentImpl playerImpl;
-        playerImpl.chooseAction = (scope World w, ThingId agentId)
+        playerImpl.chooseAction = (World w, ThingId agentId)
         {
             return processPlayer();
         };
-        playerImpl.notifyFailure = (scope World w, ThingId agentId,
+        playerImpl.notifyFailure = (World w, ThingId agentId,
                                     ActionResult result)
         {
             ui.message(result.failureMsg);
@@ -548,9 +550,9 @@ class Game
         sysAgent.registerAgentImpl(Agent.Type.player, playerImpl);
 
         AgentImpl aiImpl;
-        aiImpl.chooseAction = (scope World w, ThingId agentId)
+        aiImpl.chooseAction = (World w, ThingId agentId)
         {
-            return (scope World w) {
+            return (World w) {
                 // For now, just move randomly.
                 import dir;
                 auto t = w.store.getObj(agentId);
