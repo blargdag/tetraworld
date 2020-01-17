@@ -26,11 +26,26 @@ import store;
 import world;
 import vector;
 
+/**
+ * An encapsulated game action.
+ */
+alias Action = ActionResult delegate(World w);
+
+/**
+ * Result of an action.
+ */
 struct ActionResult
 {
-    bool success;
-    alias success this;
+    @property bool success() { return turnCost > 0; }
 
+    /**
+     * How many ticks this action costed to perform.
+     */
+    ulong turnCost;
+
+    /**
+     * If action failed, a failure message.
+     */
     string failureMsg;
 }
 
@@ -104,9 +119,11 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
             rawMove(w, subj, newPos, {
                 w.notify.climbLedge(medPos, subj.id, newPos, 1);
             });
+
+            return ActionResult(15);
         }
         else
-            return ActionResult(false, "Your way is blocked.");
+            return ActionResult(0, "Your way is blocked.");
     }
     else
     {
@@ -115,7 +132,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         });
     }
 
-    return ActionResult(true);
+    return ActionResult(10);
 }
 
 /**
@@ -128,15 +145,23 @@ ActionResult applyFloor(World w, Thing* subj)
                     .map!(id => w.store.get!Usable(id))
                     .filter!(u => u !is null);
     if (r.empty)
-        return ActionResult(false, "Nothing to apply here.");
+        return ActionResult(0, "Nothing to apply here.");
 
     final switch (r.front.effect)
     {
         case UseEffect.portal:
             // Experimental
             w.store.add!UsePortal(subj, UsePortal());
-            return ActionResult(true);
+            return ActionResult(10);
     }
+}
+
+/**
+ * Pass a turn.
+ */
+ActionResult pass(World w, Thing* subj)
+{
+    return ActionResult(10);
 }
 
 // vim:set ai sw=4 ts=4 et:
