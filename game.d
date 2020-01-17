@@ -312,6 +312,43 @@ struct SysAgent
 }
 
 /**
+ * Gravity system.
+ */
+void gravitySystem(World w)
+{
+    bool willFall()(ThingId id, out Pos oldPos, out Pos floorPos)
+    {
+        // NOTE: race condition: a falling object may autopickup another
+        // object and remove its Pos while we're still iterating, which
+        // will cause posp to be null.
+        auto posp = w.store.get!Pos(id);
+        if (posp is null)
+            return false;
+
+        oldPos = *posp;
+        floorPos = Pos(oldPos + vec(1,0,0,0));
+
+        return w.store.get!SupportsWeight(w.map[floorPos]) is null ||
+               w.locationHas!PitTrap(floorPos);
+    }
+
+    foreach (t; w.store.getAllNew!Pos().dup
+                       .filter!(id => w.store.get!NoGravity(id) is null)
+                       .map!(id => w.store.getObj(id)))
+    {
+        Pos oldPos, floorPos;
+        while (willFall(t.id, oldPos, floorPos))
+        {
+            rawMove(w, t, floorPos, {
+                w.notify.fall(oldPos, t.id, floorPos);
+            });
+        }
+    }
+
+    w.store.clearNew!Pos();
+}
+
+/**
  * Game simulation.
  */
 class Game
@@ -458,40 +495,6 @@ class Game
         }
     }
 
-    private void gravitySystem()
-    {
-        bool willFall()(ThingId id, out Pos oldPos, out Pos floorPos)
-        {
-            // NOTE: race condition: a falling object may autopickup another
-            // object and remove its Pos while we're still iterating, which
-            // will cause posp to be null.
-            auto posp = w.store.get!Pos(id);
-            if (posp is null)
-                return false;
-
-            oldPos = *posp;
-            floorPos = Pos(oldPos + vec(1,0,0,0));
-
-            return w.store.get!SupportsWeight(w.map[floorPos]) is null ||
-                   w.locationHas!PitTrap(floorPos);
-        }
-
-        foreach (t; w.store.getAllNew!Pos().dup
-                           .filter!(id => w.store.get!NoGravity(id) is null)
-                           .map!(id => w.store.getObj(id)))
-        {
-            Pos oldPos, floorPos;
-            while (willFall(t.id, oldPos, floorPos))
-            {
-                rawMove(w, t, floorPos, {
-                    w.notify.fall(oldPos, t.id, floorPos);
-                });
-            }
-        }
-
-        w.store.clearNew!Pos();
-    }
-
     void setupEventWatchers()
     {
         w.notify.move = (Pos pos, ThingId subj, Pos newPos)
@@ -613,7 +616,7 @@ class Game
 
         while (!quit)
         {
-            gravitySystem();
+            gravitySystem(w);
             if (!sysAgent.run(w))
                 quit = true;
             portalSystem();
