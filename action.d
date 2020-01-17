@@ -156,4 +156,12 @@ ActionResult applyFloor(World w, Thing* subj)
     }
 }
 
+/**
+ * Pass a turn.
+ */
+ActionResult pass(World w, Thing* subj)
+{
+    return ActionResult(10);
+}
+
 // vim:set ai sw=4 ts=4 et:

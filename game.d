@@ -217,23 +217,24 @@ struct SysAgent
 
     /**
      * Run a single iteration of this system.
+     *
+     * Returns: false if there are no agents to run, true otherwise.
      */
-    void run(World w)
+    bool run(World w)
     {
         setup();
         enqueueNewAgents(w);
 
         if (turnQueue.empty)
-            return; // nothing to do
+            return false; // nothing to do
 
         auto ent = turnQueue.front;
         auto id = ent.id;
         auto thisTick = ent.nextTurn;
-        turnQueue.popFront();
 
         auto agt = w.store.get!Agent(id);
         if (agt is null)
-            return; // Agent has been unregistered since last update, ignore.
+            return true; // Agent was unregistered since last update, ignore.
 
         // Run agent logic and execute agent's action.
         auto type = agt.type;
@@ -241,8 +242,23 @@ struct SysAgent
         assert(action !is null);
 
         ActionResult result = action(w);
-        if (!result.success && agentImpls[type].notifyFailure !is null)
-            agentImpls[type].notifyFailure(w, id, result);
+        if (!result.success)
+        {
+            if (agentImpls[type].notifyFailure !is null)
+                agentImpls[type].notifyFailure(w, id, result);
+            else
+            {
+                // Don't get stuck if it's a fire-and-forget dumb agent.
+                result.turnCost = 10;
+            }
+        }
+
+        // NOTE: this MUST NOT be done before the Agent's Action is executed,
+        // because if it's the player Agent, the player might trigger a game
+        // save, but at that point the player Agent is no longer in the queue
+        // so the next time the game starts up it will get stuck in an infinite
+        // loop.
+        turnQueue.popFront();
 
         // Reschedule agent in queue unless it was deregistered during its
         // action code. (We have to refetch it from the store because it may
@@ -253,6 +269,8 @@ struct SysAgent
             auto nextTurn = thisTick + result.turnCost;
             turnQueue.insert(QueueEntry(nextTurn, id));
         }
+
+        return true;
     }
 
     /**
@@ -338,6 +356,7 @@ class Game
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
         sf.put("player", player.id);
         sf.put("world", w);
+        sf.put("agent", sysAgent);
     }
 
     static Game loadGame()
@@ -347,6 +366,7 @@ class Game
 
         auto game = new Game;
         game.w = lf.parse!World("world");
+        game.sysAgent = lf.parse!SysAgent("agent");
 
         game.player = game.w.store.getObj(playerId);
         if (game.player is null)
@@ -571,7 +591,8 @@ class Game
         while (!quit)
         {
             gravitySystem();
-            sysAgent.run(w);
+            if (!sysAgent.run(w))
+                quit = true;
             portalSystem();
         }
     }
