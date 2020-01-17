@@ -337,10 +337,10 @@ struct Store
             // already sufficient for us to rebuild the indices after loading.)
 
             static if (hasUDA!(T, TrackNew))
-            {
+            {{
                 enum newlistName = T.stringof.toLower ~ "New";
                 savefile.put(newlistName, newlists[i]);
-            }
+            }}
         }
     }
 
@@ -449,7 +449,8 @@ unittest
         " 500 {",
         "  coors [ 1 0 0 1 ]",
         " }",
-        "}"
+        "}",
+        "posNew [  ]"
     ]);
 
     Store store;
