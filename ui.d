@@ -402,6 +402,12 @@ class TextUi : GameUi
     {
         PlayerAction result;
 
+        version(Posix)
+            enum keyEnter = '\n';
+        else version(Windows)
+            enum keyEnter = '\r';
+        else static assert(0);
+
         PlayerAction[dchar] keymap = [
             'i': PlayerAction.up,
             'm': PlayerAction.down,
@@ -411,8 +417,7 @@ class TextUi : GameUi
             'n': PlayerAction.front,
             'j': PlayerAction.left,
             'k': PlayerAction.right,
-            '\r': PlayerAction.apply, // Windows
-            '\n': PlayerAction.apply,
+            keyEnter: PlayerAction.apply,
             ' ': PlayerAction.pass,
         ];
 
