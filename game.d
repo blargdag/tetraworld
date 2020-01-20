@@ -45,7 +45,8 @@ enum saveFileName = ".tetra.save";
  */
 enum PlayerAction
 {
-    none, up, down, left, right, front, back, ana, kata, apply,
+    none, up, down, left, right, front, back, ana, kata,
+    apply, pass,
 }
 
 /**
@@ -553,6 +554,11 @@ class Game
             else
                 ui.updateMap(pos);
         };
+        w.notify.pass = (Pos pos, ThingId subj)
+        {
+            if (subj == player.id)
+                ui.message("You pause for a moment.");
+        };
     }
 
     Action processPlayer()
@@ -572,6 +578,7 @@ class Game
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
                 case apply: act = applyFloorObj(errmsg); break;
+                case pass:  act = (World w) => .pass(w, player);  break;
                 case none:  assert(0, "Internal error");
             }
 

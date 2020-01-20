@@ -179,6 +179,11 @@ struct EventWatcher
      */
     void delegate(Pos pos, ThingId subj, ThingId portal) usePortal =
         doNothing!(Pos, ThingId, ThingId);
+
+    /**
+     * An agent passes a turn.
+     */
+    void delegate(Pos pos, ThingId subj) pass = doNothing!(Pos, ThingId);
 }
 
 class World

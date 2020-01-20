@@ -411,7 +411,9 @@ class TextUi : GameUi
             'n': PlayerAction.front,
             'j': PlayerAction.left,
             'k': PlayerAction.right,
-            ' ': PlayerAction.apply,
+            '\r': PlayerAction.apply, // Windows
+            '\n': PlayerAction.apply,
+            ' ': PlayerAction.pass,
         ];
 
         auto mainMode = Mode(
