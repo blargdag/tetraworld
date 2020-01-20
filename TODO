@@ -1,3 +1,5 @@
+- BUG: sometimes a pit can be created at the bottom of a ladder, which makes
+  that ladder inaccessible.
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
 - Implement session recorder.
