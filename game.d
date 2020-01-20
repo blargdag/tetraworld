@@ -557,7 +557,10 @@ class Game
         w.notify.pass = (Pos pos, ThingId subj)
         {
             if (subj == player.id)
+            {
                 ui.message("You pause for a moment.");
+                ui.moveViewport(pos);
+            }
         };
     }
 
