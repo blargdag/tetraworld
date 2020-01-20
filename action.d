@@ -187,6 +187,8 @@ ActionResult useItem(World w, Thing* subj, ThingId objId)
  */
 ActionResult pass(World w, Thing* subj)
 {
+    auto pos = *w.store.get!Pos(subj.id);
+    w.notify.pass(pos, subj.id);
     return ActionResult(true, 10);
 }
 
