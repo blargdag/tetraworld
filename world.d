@@ -246,7 +246,7 @@ World genNewGame(int[4] dim)
             assert(d.axis == 0);
 
             bool nextToExisting;
-            OUTER: foreach (rm; rooms)
+            foreach (rm; rooms)
             {
                 foreach (dd; rm.doors)
                 {
@@ -254,7 +254,6 @@ World genNewGame(int[4] dim)
                         iota(4).map!(i => abs(d.pos[i] - dd.pos[i])).sum == 1)
                     {
                         nextToExisting = true;
-                        break OUTER;
                     }
 
                     if (dd.axis != 0 &&
@@ -316,10 +315,10 @@ World genNewGame(int[4] dim)
     return w;
 }
 
+// Door placement checks.
 unittest
 {
-    // Door placement checks.
-    foreach (i; 0 .. 10)
+    foreach (i; 0 .. 12)
     {
         auto w = genNewGame([ 10, 10, 10, 10 ]);
         foreachRoom(w.map.tree, w.map.bounds,
@@ -336,12 +335,29 @@ unittest
                         // No coincident doors.
                         assert(pos1 != pos2);
 
-                        // Only trapdoors are allowed to be adjacent to another
-                        // door.
+                        // Only trapdoors/pits are allowed to be adjacent to
+                        // another door.
                         if (iota(4).map!(i => abs(pos1[i] - pos2[i])).sum == 1)
                         {
-                            assert(d1.type == Door.Type.trapdoor ||
-                                   d2.type == Door.Type.trapdoor);
+                            assert(d1.type != Door.Type.normal ||
+                                   d2.type != Door.Type.normal);
+                        }
+                    }
+
+                    // Trapdoors & pits not allowed where ladders would be
+                    // placed.
+                    if (d1.type != Door.Type.normal)
+                    {
+                        foreach (j; 0 .. node.doors.length)
+                        {
+                            auto d2 = node.doors[j];
+                            auto pos2 = d2.pos;
+
+                            if (i == j || d2.axis == 0)
+                                continue;
+
+                            assert(iota(1,4).map!(i => abs(pos1[i] - pos2[i]))
+                                            .sum != 1);
                         }
                     }
                 }
