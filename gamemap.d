@@ -815,6 +815,10 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
                     }
                 }
 
+                // Avoid coincident doors
+                if (node.doors.canFind!(d => d.pos == basePos))
+                    return 0;
+
                 targets ~= RightRoom(node2, r2, basePos);
                 return 0;
             });
@@ -826,7 +830,8 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
 
             auto d = Door(axis);
             d.pos = rightRoom.basePos;
-            doorFilter([node, rightRoom.node], d);
+            if (!doorFilter([node, rightRoom.node], d))
+                return false;
 
             node.doors ~= d;
             rightRoom.node.doors ~= d;

@@ -250,10 +250,6 @@ World genNewGame(int[4] dim)
             {
                 foreach (dd; rm.doors)
                 {
-                    // Avoid coincident placements.
-                    if (d.pos == dd.pos)
-                        return false;
-
                     if (dd.type == Door.Type.normal &&
                         iota(4).map!(i => abs(d.pos[i] - dd.pos[i])).sum == 1)
                     {
@@ -318,6 +314,29 @@ World genNewGame(int[4] dim)
     }
 
     return w;
+}
+
+unittest
+{
+    // Door placement checks.
+    foreach (i; 0 .. 15)
+    {
+        auto w = genNewGame([ 10, 10, 10, 10 ]);
+        foreachRoom(w.map.tree, w.map.bounds,
+            (Region!(int,4) region, MapNode node) {
+                foreach (i; 0 .. node.doors.length-1)
+                {
+                    auto pos1 = node.doors[i].pos;
+                    foreach (j; i+1 .. node.doors.length)
+                    {
+                        auto pos2 = node.doors[j].pos;
+                        assert(pos1 != pos2);
+                    }
+                }
+                return 0;
+            }
+        );
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
