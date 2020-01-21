@@ -21,6 +21,7 @@
 module world;
 
 import std.algorithm;
+import std.math;
 import std.random : uniform;
 import std.range;
 
@@ -242,9 +243,35 @@ World genNewGame(int[4] dim)
     // Pit traps.
     genBackEdges(w.map.tree, w.map.bounds, uniform(8, 12), 20,
         (in MapNode[2] rooms, ref Door d) {
-            if (d.axis != 0)
-                return false;
-            if (uniform(0, 100) < 30)
+            assert(d.axis == 0);
+
+            bool nextToExisting;
+            OUTER: foreach (rm; rooms)
+            {
+                foreach (dd; rm.doors)
+                {
+                    // Avoid coincident placements.
+                    if (d.pos == dd.pos)
+                        return false;
+
+                    if (dd.type == Door.Type.normal &&
+                        iota(4).map!(i => abs(d.pos[i] - dd.pos[i])).sum == 1)
+                    {
+                        nextToExisting = true;
+                        break OUTER;
+                    }
+
+                    if (dd.axis != 0 &&
+                        iota(1, 4).map!(i => abs(d.pos[i] - dd.pos[i]))
+                                  .sum == 1)
+                    {
+                        // Don't place where a ladder would be placed.
+                        return false;
+                    }
+                }
+            }
+
+            if (!nextToExisting && uniform(0, 100) < 30)
             {
                 // Non-hidden open pit.
                 d.type = Door.Type.extra;
