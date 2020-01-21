@@ -319,18 +319,30 @@ World genNewGame(int[4] dim)
 unittest
 {
     // Door placement checks.
-    foreach (i; 0 .. 15)
+    foreach (i; 0 .. 10)
     {
         auto w = genNewGame([ 10, 10, 10, 10 ]);
         foreachRoom(w.map.tree, w.map.bounds,
             (Region!(int,4) region, MapNode node) {
                 foreach (i; 0 .. node.doors.length-1)
                 {
-                    auto pos1 = node.doors[i].pos;
+                    auto d1 = node.doors[i];
+                    auto pos1 = d1.pos;
                     foreach (j; i+1 .. node.doors.length)
                     {
-                        auto pos2 = node.doors[j].pos;
+                        auto d2 = node.doors[j];
+                        auto pos2 = d2.pos;
+
+                        // No coincident doors.
                         assert(pos1 != pos2);
+
+                        // Only trapdoors are allowed to be adjacent to another
+                        // door.
+                        if (iota(4).map!(i => abs(pos1[i] - pos2[i])).sum == 1)
+                        {
+                            assert(d1.type == Door.Type.trapdoor ||
+                                   d2.type == Door.Type.trapdoor);
+                        }
                     }
                 }
                 return 0;
