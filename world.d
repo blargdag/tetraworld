@@ -21,6 +21,7 @@
 module world;
 
 import std.algorithm;
+import std.math;
 import std.random : uniform;
 import std.range;
 
@@ -242,9 +243,30 @@ World genNewGame(int[4] dim)
     // Pit traps.
     genBackEdges(w.map.tree, w.map.bounds, uniform(8, 12), 20,
         (in MapNode[2] rooms, ref Door d) {
-            if (d.axis != 0)
-                return false;
-            if (uniform(0, 100) < 30)
+            assert(d.axis == 0);
+
+            bool nextToExisting;
+            foreach (rm; rooms)
+            {
+                foreach (dd; rm.doors)
+                {
+                    if (dd.type == Door.Type.normal &&
+                        iota(4).map!(i => abs(d.pos[i] - dd.pos[i])).sum == 1)
+                    {
+                        nextToExisting = true;
+                    }
+
+                    if (dd.axis != 0 &&
+                        iota(1, 4).map!(i => abs(d.pos[i] - dd.pos[i]))
+                                  .sum == 1)
+                    {
+                        // Don't place where a ladder would be placed.
+                        return false;
+                    }
+                }
+            }
+
+            if (!nextToExisting && uniform(0, 100) < 30)
             {
                 // Non-hidden open pit.
                 d.type = Door.Type.extra;
@@ -291,6 +313,58 @@ World genNewGame(int[4] dim)
     }
 
     return w;
+}
+
+// Door placement checks.
+unittest
+{
+    foreach (i; 0 .. 12)
+    {
+        auto w = genNewGame([ 10, 10, 10, 10 ]);
+        foreachRoom(w.map.tree, w.map.bounds,
+            (Region!(int,4) region, MapNode node) {
+                foreach (i; 0 .. node.doors.length-1)
+                {
+                    auto d1 = node.doors[i];
+                    auto pos1 = d1.pos;
+                    foreach (j; i+1 .. node.doors.length)
+                    {
+                        auto d2 = node.doors[j];
+                        auto pos2 = d2.pos;
+
+                        // No coincident doors.
+                        assert(pos1 != pos2);
+
+                        // Only trapdoors/pits are allowed to be adjacent to
+                        // another door.
+                        if (iota(4).map!(i => abs(pos1[i] - pos2[i])).sum == 1)
+                        {
+                            assert(d1.type != Door.Type.normal ||
+                                   d2.type != Door.Type.normal);
+                        }
+                    }
+
+                    // Trapdoors & pits not allowed where ladders would be
+                    // placed.
+                    if (d1.type != Door.Type.normal)
+                    {
+                        foreach (j; 0 .. node.doors.length)
+                        {
+                            auto d2 = node.doors[j];
+                            auto pos2 = d2.pos;
+
+                            if (i == j || d2.axis == 0)
+                                continue;
+
+                            assert(iota(1,4).map!(i => abs(pos1[i] - pos2[i]))
+                                            .sum != 1);
+                        }
+                    }
+                }
+                return 0;
+            }
+        );
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
