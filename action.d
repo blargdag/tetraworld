@@ -192,4 +192,36 @@ ActionResult pass(World w, Thing* subj)
     return ActionResult(true, 10);
 }
 
+/**
+ * Attack a Mortal.
+ *
+ * BUGS: weaponId is currently unused.
+ */
+ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
+{
+    auto pos = w.store.get!Pos(subj.id);
+    auto targetPos = w.store.get!Pos(objId);
+    if (pos is null || targetPos is null)
+        return ActionResult(false, 10, "You attack thin air!");
+
+    /*if (!weapon.canReach(obj))*/
+    if (rectNorm(*targetPos - *pos) > 1)
+        return ActionResult(false, 10, "You're unable to reach that far!");
+
+    auto m = w.store.get!Mortal(objId);
+    if (m is null)
+        return ActionResult(false, 10, "Attacking that seems to have no "~
+                                       "effect.");
+
+    // TBD: damage should be determined by weapon
+    w.notify.attack(*pos, subj.id, objId, weaponId);
+    m.hp -= 1;
+    if (m.hp <= 0)
+    {
+        // TBD
+    }
+
+    return ActionResult(true, 10);
+}
+
 // vim:set ai sw=4 ts=4 et:

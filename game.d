@@ -24,6 +24,7 @@ import std.algorithm;
 import std.container.binaryheap;
 import std.conv : to;
 import std.stdio;
+import std.uni : asCapitalized;
 
 import action;
 import ai;
@@ -66,7 +67,7 @@ interface GameUi
         if (Args.length >= 1)
     {
         import std.format : format;
-        message(format(fmt.args));
+        message(format(fmt, args));
     }
 
     /**
@@ -587,6 +588,13 @@ class Game
                 ui.message("You pause for a moment.");
                 ui.moveViewport(pos);
             }
+        };
+        w.notify.attack = (Pos pos, ThingId subj, ThingId obj, ThingId weapon)
+        {
+            auto subjName = w.store.get!Name(subj).name;
+            auto objName = (obj == player.id) ? "you" :
+                           w.store.get!Name(obj).name;
+            ui.message("%s attacks %s!", subjName.asCapitalized, objName);
         };
     }
 

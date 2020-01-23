@@ -119,6 +119,24 @@ struct Vec(T, size_t n)
 }
 
 /**
+ * Returns: The rectilinear norm (Manhattan distance) of the given vector.
+ */
+auto rectNorm(T, size_t n)(Vec!(T,n) vec)
+{
+    import std.math : abs;
+    auto acc = abs(vec[0]);
+    foreach (i; 1 .. n)
+        acc += abs(vec[i]);
+    return acc;
+}
+
+///
+unittest
+{
+    assert(vec(-1,2,3,-4).rectNorm == 10);
+}
+
+/**
  * Convenience function for creating vectors.
  * Returns: Vec!(U,n) instance where n = args.length, and U is the common type
  * of the elements given in args. A compile-time error results if the arguments

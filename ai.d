@@ -36,7 +36,7 @@ import world;
  */
 Action chooseAiAction(World w, ThingId agentId)
 {
-    auto t = w.store.getObj(agentId);
+    auto agent = w.store.getObj(agentId);
     auto curPos = *w.store.get!Pos(agentId);
 
     // For now, chase player.
@@ -47,24 +47,25 @@ Action chooseAiAction(World w, ThingId agentId)
         auto targetId = r.front;
         auto targetPos = *w.store.get!Pos(targetId);
         auto diff = targetPos - curPos;
-    //    if (diff[].map!(x => abs(x)).sum == 1)
-    //    {
-    //        // Adjacent to player. Attack!
-    //    }
-    //    else
+        if (diff[].map!(x => abs(x)).sum == 1)
+        {
+            // Adjacent to player. Attack!
+            return (World w) => attack(w, agent, targetId, invalidId/*FIXME*/);
+        }
+        else
         {
             foreach (_; 0 .. 6)
             {
                 auto dir = chooseDir(targetPos - curPos);
                 if (canMove(w, curPos, vec(dir)))
-                    return (World w) => move(w, t, vec(dir));
+                    return (World w) => move(w, agent, vec(dir));
             }
             // Couldn't find a way to reach target, fallback to random move.
         }
     }
 
     // Nothing to do, just wander aimlessly.
-    return (World w) => move(w, t, vec(dir2vec(randomDir)));
+    return (World w) => move(w, agent, vec(dir2vec(randomDir)));
 }
 
 // vim:set ai sw=4 ts=4 et:
