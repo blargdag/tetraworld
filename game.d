@@ -25,6 +25,7 @@ import std.container.binaryheap;
 import std.stdio;
 
 import action;
+import ai;
 import components;
 import loadsave;
 import store;
@@ -606,15 +607,7 @@ class Game
         sysAgent.registerAgentImpl(Agent.Type.player, playerImpl);
 
         AgentImpl aiImpl;
-        aiImpl.chooseAction = (World w, ThingId agentId)
-        {
-            return (World w) {
-                // For now, just move randomly.
-                import dir;
-                auto t = w.store.getObj(agentId);
-                return move(w, t, vec(dir2vec(randomDir)));
-            };
-        };
+        aiImpl.chooseAction = (w, agentId) => chooseAiAction(w, agentId);
         sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
     }
 
