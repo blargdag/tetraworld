@@ -686,13 +686,13 @@ class TextUi : GameUi
 
     private void refreshStatus()
     {
-        // TBD: this should be done elsewhere
-        auto ngold = g.numGold();
-        auto maxgold = g.maxGold();
-
         statusview.moveTo(0, 0);
         statusview.color(Color.DEFAULT, Color.DEFAULT);
-        statusview.writef("$: %d/%d", ngold, maxgold);
+        foreach (stat; g.getStatuses())
+        {
+            statusview.writef("%s:%d/%d ", stat.label, stat.curval,
+                              stat.maxval);
+        }
         statusview.clearToEol();
     }
 

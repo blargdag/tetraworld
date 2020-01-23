@@ -22,6 +22,7 @@ module game;
 
 import std.algorithm;
 import std.container.binaryheap;
+import std.conv : to;
 import std.stdio;
 
 import action;
@@ -351,6 +352,16 @@ void gravitySystem(World w)
 }
 
 /**
+ * Player status.
+ */
+struct PlayerStatus
+{
+    string label;
+    int curval;
+    int maxval;
+}
+
+/**
  * Game simulation.
  */
 class Game
@@ -370,21 +381,35 @@ class Game
         return w.store.get!Pos(player.id).coors;
     }
 
-    auto numGold()
+    PlayerStatus[] getStatuses()
+    {
+        PlayerStatus[] result;
+        result ~= PlayerStatus("$", numGold(), maxGold());
+
+        auto m = w.store.get!Mortal(player.id);
+        if (m !is null)
+            result ~= PlayerStatus("hp", m.hp, m.maxhp);
+
+        return result;
+    }
+
+    private int numGold()
     {
         auto inv = w.store.get!Inventory(player.id);
         return inv.contents
                   .map!(id => w.store.get!Tiled(id))
                   .filter!(tp => tp !is null && tp.tileId == TileId.gold)
-                  .count;
+                  .count
+                  .to!int;
     }
 
-    auto maxGold()
+    private int maxGold()
     {
         return w.store.getAll!Tiled
                       .map!(id => w.store.get!Tiled(id))
                       .filter!(tp => tp.tileId == TileId.gold)
-                      .count;
+                      .count
+                      .to!int;
     }
 
     void saveGame()
@@ -423,7 +448,7 @@ class Game
         g.player = g.w.store.createObj(
             Pos(g.w.map.randomLocation()),
             Tiled(TileId.player, 1), Name("You"), Agent(Agent.Type.player),
-            Inventory(), BlocksMovement()
+            Inventory(), BlocksMovement(), Mortal(5,5)
         );
         return g;
     }

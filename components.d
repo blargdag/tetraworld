@@ -180,4 +180,11 @@ struct Agent
     // TBD: AI state goes here
 }
 
+@Component
+struct Mortal
+{
+    int maxhp;
+    int hp; // FIXME: is there a better system than this lousy old thing?!
+}
+
 // vim:set ai sw=4 ts=4 et:
