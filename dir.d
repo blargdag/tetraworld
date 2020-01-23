@@ -96,6 +96,8 @@ unittest
  * Choose a cardinal direction to move that heads towards the given goal, with
  * the likelihood of each direction scaled by the relative magnitude of the
  * corresponding coordinate in the goal coordinates.
+ *
+ * BUGS: Does not correctly handle the case goal=[0,0,0,0].
  */
 int[4] chooseDir(int[4] goal)
     out(v; v[].map!(x => abs(x)).sum == 1)

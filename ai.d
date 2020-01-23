@@ -21,6 +21,7 @@
 module ai;
 
 import std.algorithm;
+import std.math;
 import std.range;
 
 import action;
@@ -41,16 +42,29 @@ Action chooseAiAction(World w, ThingId agentId)
     // For now, chase player.
     auto r = w.store.getAll!Agent()
               .filter!(id => w.store.get!Agent(id).type == Agent.Type.player);
-    if (r.empty)
+    if (!r.empty)
     {
-        // Nothing to do, just wander aimlessly.
-        return (World w) => move(w, t, vec(dir2vec(randomDir)));
+        auto targetId = r.front;
+        auto targetPos = *w.store.get!Pos(targetId);
+        auto diff = targetPos - curPos;
+    //    if (diff[].map!(x => abs(x)).sum == 1)
+    //    {
+    //        // Adjacent to player. Attack!
+    //    }
+    //    else
+        {
+            foreach (_; 0 .. 6)
+            {
+                auto dir = chooseDir(targetPos - curPos);
+                if (canMove(w, curPos, vec(dir)))
+                    return (World w) => move(w, t, vec(dir));
+            }
+            // Couldn't find a way to reach target, fallback to random move.
+        }
     }
 
-    auto targetId = r.front;
-    auto targetPos = *w.store.get!Pos(targetId);
-    auto dir = chooseDir(targetPos - curPos);
-    return (World w) => move(w, t, vec(dir));
+    // Nothing to do, just wander aimlessly.
+    return (World w) => move(w, t, vec(dir2vec(randomDir)));
 }
 
 // vim:set ai sw=4 ts=4 et:
