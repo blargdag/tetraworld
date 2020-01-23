@@ -1,6 +1,5 @@
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
-- Implement session recorder.
 - Add water level, underneath which free movement is possible? :-D
    - But it will require finding an oxygen mask... Well, OK, this is 4D, so
      "oxygen" doesn't make sense. Maybe call it "diving equipment"?
@@ -53,3 +52,6 @@ X Implement .dim and .pos for Rectangle.
   with Pos every iteration!!
 + BUG: sometimes a pit can be created at the bottom of a ladder, which makes
   that ladder inaccessible.
+P Implement session recorder.
+   * This is turning out to be FAR more complex than anticipated. :-(  (What
+     else is new?!)
