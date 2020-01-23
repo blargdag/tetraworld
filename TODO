@@ -1,3 +1,5 @@
+- Fold Vec!(4,int) into Pos. There are TOO MANY different types representing a
+  4D vector, it's seriously uglifying the code like crazy.
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
 - Add water level, underneath which free movement is possible? :-D
