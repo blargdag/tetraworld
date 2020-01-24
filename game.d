@@ -29,7 +29,9 @@ import std.uni : asCapitalized;
 import action;
 import ai;
 import components;
+import dir;
 import loadsave;
+import rndutil;
 import store;
 import store_traits;
 import vector;
@@ -343,6 +345,31 @@ void gravitySystem(World w)
         Pos oldPos, floorPos;
         while (willFall(t.id, oldPos, floorPos))
         {
+            // An object that does not support weight but does block moves will
+            // get damaged by the falling object, and throw the falling object
+            // sideways. (Note that not supporting weight is already implied by
+            // willFall().)
+            auto r = w.store.getAllBy!Pos(floorPos)
+                      .map!(id => w.store.getObj(id))
+                      .filter!(t => t.systems & SysMask.blocksmovement);
+            if (!r.empty)
+            {
+                auto obj = r.front;
+                if (w.store.get!Mortal(obj.id) !is null)
+                    w.store.add!Injury(obj, Injury(t.id, invalidId, 1));
+
+                // Throw object to random sideways direction, unless it's
+                // completely blocked in, in which case it stays put.
+                floorPos = horizDirs
+                    .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
+                    .filter!(pos => !w.locationHas!BlocksMovement(pos))
+                    .pickOne(oldPos);
+
+                if (floorPos == oldPos)
+                    break;
+
+                w.notify.fallOn(oldPos, t.id, obj.id);
+            }
             rawMove(w, t, floorPos, {
                 w.notify.fall(oldPos, t.id, floorPos);
             });
@@ -484,7 +511,7 @@ class Game
         //game.w = newGame([ 9, 9, 9, 9 ]);
         g.player = g.w.store.createObj(
             Pos(g.w.map.randomLocation()),
-            Tiled(TileId.player, 1), Name("You"), Agent(Agent.Type.player),
+            Tiled(TileId.player, 1), Name("you"), Agent(Agent.Type.player),
             Inventory(), BlocksMovement(), Mortal(5,5)
         );
         return g;
@@ -585,6 +612,7 @@ class Game
             {
                 ui.moveViewport(newPos);
 
+                // FIXME: this really should be done elsewhere!!!
                 // Reveal any pit traps that the player may have fallen
                 // through.
                 auto r = w.getAllAt(newPos)
@@ -605,6 +633,24 @@ class Game
             }
             else
                 ui.updateMap(pos, newPos);
+        };
+        w.notify.fallOn = (Pos pos, ThingId subj, ThingId obj)
+        {
+            if (subj == player.id)
+            {
+                ui.moveViewport(pos);
+                // FIXME: reveal pit traps here? Though if we move that
+                // elsewhere, this ought to be already taken care of.
+                ui.message("You fall on top of %s!",
+                           w.store.get!Name(obj).name);
+            }
+            else
+            {
+                ui.updateMap(pos);
+                ui.message("%s falls on top of %s!",
+                           w.store.get!Name(subj).name.asCapitalized,
+                           w.store.get!Name(obj).name);
+            }
         };
         w.notify.pickup = (Pos pos, ThingId subj, ThingId obj)
         {
@@ -701,9 +747,9 @@ class Game
         while (!quit)
         {
             gravitySystem(w);
+            mortalSystem(w);
             if (!sysAgent.run(w))
                 quit = true;
-            mortalSystem(w);
             portalSystem();
         }
     }
