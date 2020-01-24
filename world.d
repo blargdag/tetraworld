@@ -185,6 +185,18 @@ struct EventWatcher
      * An agent passes a turn.
      */
     void delegate(Pos pos, ThingId subj) pass = doNothing!(Pos, ThingId);
+
+    /**
+     * An agent attacks something.
+     */
+    void delegate(Pos pos, ThingId subj, ThingId obj, ThingId weapon) attack =
+        doNothing!(Pos, ThingId, ThingId, ThingId);
+
+    /**
+     * A mortal is killed by something.
+     */
+    void delegate(Pos pos, ThingId killer, ThingId victim) kill =
+        doNothing!(Pos, ThingId, ThingId);
 }
 
 class World

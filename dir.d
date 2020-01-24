@@ -20,6 +20,12 @@
  */
 module dir;
 
+import std.algorithm;
+import std.conv;
+import std.math;
+import std.random;
+import std.range;
+
 /**
  * Abstract 4D axial direction.
  */
@@ -33,7 +39,6 @@ enum Dir
  */
 Dir randomDir()
 {
-    import std.random : uniform;
     Dir d;
 
     do
@@ -76,7 +81,6 @@ unittest
  */
 string dir2str(Dir dir) pure
 {
-    import std.conv : to;
     return dir.to!string;
 }
 
@@ -86,6 +90,76 @@ unittest
     assert(Dir.down.dir2str == "down");
     assert(Dir.ana.dir2str == "ana");
     assert(Dir.kata.dir2str == "kata");
+}
+
+/**
+ * Choose a cardinal direction to move that heads towards the given goal, with
+ * the likelihood of each direction scaled by the relative magnitude of the
+ * corresponding coordinate in the goal coordinates.
+ */
+int[4] chooseDir(int[4] goal)
+    out(v; v == [0, 0, 0, 0] || v[].map!(x => abs(x)).sum == 1)
+{
+    auto sum = goal[].map!(x => abs(x)).sum;
+    if (sum == 0)
+        return [ 0, 0, 0, 0 ];
+
+    auto pick = uniform(0, sum);
+    auto acc = 0;
+    foreach (i; 0 .. 4)
+    {
+        acc += abs(goal[i]);
+        if (pick < acc)
+        {
+            int[4] result;
+            result[i] = (goal[i] < 0) ? -1 : 1;
+            return result;
+        }
+    }
+    assert(0);
+}
+
+///
+unittest
+{
+    assert(chooseDir([10, 0, 0, 0]) == [1,0,0,0]);
+    assert(chooseDir([-10, 0, 0, 0]) == [-1,0,0,0]);
+    assert(chooseDir([0, 0, 10, 0]) == [0,0,1,0]);
+    assert(chooseDir([0, -5, 0, 0]) == [0,-1,0,0]);
+    assert(chooseDir([0, 0, 0, -7]) == [0,0,0,-1]);
+    assert(chooseDir([0, 0, 0, 0]) == [0,0,0,0]);
+
+    void testDistrib(int[4] vec)
+    {
+        enum ntrials = 10000;
+        enum tolerance = 1.0;
+
+        double[4] counts = [0,0,0,0];
+        auto csum = vec[].map!(x => abs(x)).sum;
+        foreach (_; 0 .. ntrials)
+        {
+            auto v = chooseDir(vec);
+            auto idx = v[].countUntil!(e => e == 1 || e == -1);
+            assert(idx != -1);
+            counts[idx] += v[idx];
+        }
+        foreach (i; 0 .. 4)
+        {
+            import std.format : format;
+            assert(abs(counts[i]*csum/ntrials - vec[i]) < tolerance,
+                   format("v=%s n=%d tol=%f counts=%s normalized=%s", vec,
+                          ntrials, tolerance, counts,
+                          counts[].map!(c => c*csum/ntrials)));
+        }
+    }
+
+    //foreach (_; 0 .. 500)
+    {
+        testDistrib([ 1, 0, 0, -5 ]);
+        testDistrib([ 1, 2, 3, 4 ]);
+        testDistrib([ -10, 1, -1, 1 ]);
+        testDistrib([ -10, 1, 12, 1 ]);
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:

@@ -22,9 +22,12 @@ module game;
 
 import std.algorithm;
 import std.container.binaryheap;
+import std.conv : to;
 import std.stdio;
+import std.uni : asCapitalized;
 
 import action;
+import ai;
 import components;
 import loadsave;
 import store;
@@ -64,7 +67,7 @@ interface GameUi
         if (Args.length >= 1)
     {
         import std.format : format;
-        message(format(fmt.args));
+        message(format(fmt, args));
     }
 
     /**
@@ -88,6 +91,11 @@ interface GameUi
      * event, a small pause will be added for animation effect.
      */
     void moveViewport(Vec!(int,4) center);
+
+    /**
+     * Signal game over prompt.
+     */
+    void gameOver(string msg);
 
     /**
      * Signal end of game with an exit message.
@@ -349,6 +357,51 @@ void gravitySystem(World w)
     w.store.clearNew!Pos();
 }
 
+void mortalSystem(World w)
+{
+    ThingId[] deadIds;
+    auto injuredIds = w.store.getAll!Injury().dup;
+    foreach (id; injuredIds)
+    {
+        auto inj = w.store.get!Injury(id);
+        auto m = w.store.get!Mortal(id);
+        if (m is null) // TBD: emit a message about target being impervious
+            continue;
+
+        m.hp -= inj.hp;
+        if (m.hp <= 0)
+        {
+            w.notify.kill(*w.store.get!Pos(id), inj.inflictor, id);
+            deadIds ~= id;
+        }
+    }
+
+    // Don't apply injury more than once!
+    foreach (id; injuredIds)
+    {
+        auto t = w.store.getObj(id);
+        w.store.remove!Injury(t);
+    }
+
+    // Clean up the dead things.
+    foreach (id; deadIds)
+    {
+        // TBD: drop corpses here
+        // TBD: drop inventory items here
+        w.store.destroyObj(id);
+    }
+}
+
+/**
+ * Player status.
+ */
+struct PlayerStatus
+{
+    string label;
+    int curval;
+    int maxval;
+}
+
 /**
  * Game simulation.
  */
@@ -369,21 +422,36 @@ class Game
         return w.store.get!Pos(player.id).coors;
     }
 
-    auto numGold()
+    PlayerStatus[] getStatuses()
+    {
+        PlayerStatus[] result;
+        if (w.store.get!Inventory(player.id) !is null)
+            result ~= PlayerStatus("$", numGold(), maxGold());
+
+        auto m = w.store.get!Mortal(player.id);
+        if (m !is null)
+            result ~= PlayerStatus("hp", m.hp, m.maxhp);
+
+        return result;
+    }
+
+    private int numGold()
     {
         auto inv = w.store.get!Inventory(player.id);
         return inv.contents
                   .map!(id => w.store.get!Tiled(id))
                   .filter!(tp => tp !is null && tp.tileId == TileId.gold)
-                  .count;
+                  .count
+                  .to!int;
     }
 
-    auto maxGold()
+    private int maxGold()
     {
         return w.store.getAll!Tiled
                       .map!(id => w.store.get!Tiled(id))
                       .filter!(tp => tp.tileId == TileId.gold)
-                      .count;
+                      .count
+                      .to!int;
     }
 
     void saveGame()
@@ -422,7 +490,7 @@ class Game
         g.player = g.w.store.createObj(
             Pos(g.w.map.randomLocation()),
             Tiled(TileId.player, 1), Name("You"), Agent(Agent.Type.player),
-            Inventory(), BlocksMovement()
+            Inventory(), BlocksMovement(), Mortal(5,5)
         );
         return g;
     }
@@ -562,6 +630,25 @@ class Game
                 ui.moveViewport(pos);
             }
         };
+        w.notify.attack = (Pos pos, ThingId subj, ThingId obj, ThingId weapon)
+        {
+            auto subjName = w.store.get!Name(subj).name;
+            auto objName = (obj == player.id) ? "you" :
+                           w.store.get!Name(obj).name;
+            ui.message("%s attacks %s!", subjName.asCapitalized, objName);
+        };
+        w.notify.kill = (Pos pos, ThingId killer, ThingId victim)
+        {
+            auto subjName = w.store.get!Name(killer).name;
+            auto objName = (victim == player.id) ? "you" :
+                           w.store.get!Name(victim).name;
+            ui.message("%s kills %s!", subjName.asCapitalized, objName);
+            if (victim == player.id)
+            {
+                ui.gameOver("YOU HAVE DIED.");
+                quit = true;
+            }
+        };
     }
 
     Action processPlayer()
@@ -606,15 +693,7 @@ class Game
         sysAgent.registerAgentImpl(Agent.Type.player, playerImpl);
 
         AgentImpl aiImpl;
-        aiImpl.chooseAction = (World w, ThingId agentId)
-        {
-            return (World w) {
-                // For now, just move randomly.
-                import dir;
-                auto t = w.store.getObj(agentId);
-                return move(w, t, vec(dir2vec(randomDir)));
-            };
-        };
+        aiImpl.chooseAction = (w, agentId) => chooseAiAction(w, agentId);
         sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
     }
 
@@ -629,6 +708,7 @@ class Game
             gravitySystem(w);
             if (!sysAgent.run(w))
                 quit = true;
+            mortalSystem(w);
             portalSystem();
         }
     }
