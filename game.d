@@ -635,7 +635,7 @@ class Game
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
-            ui.message("%s attacks %s!", subjName.asCapitalized, objName);
+            ui.message("%s hits %s!", subjName.asCapitalized, objName);
         };
         w.notify.kill = (Pos pos, ThingId killer, ThingId victim)
         {
