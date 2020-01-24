@@ -93,11 +93,6 @@ interface GameUi
     void moveViewport(Vec!(int,4) center);
 
     /**
-     * Signal game over prompt.
-     */
-    void gameOver(string msg);
-
-    /**
      * Signal end of game with an exit message.
      */
     void quitWithMsg(string msg);
@@ -557,7 +552,6 @@ class Game
             else
             {
                 quit = true;
-                import std.format : format;
                 ui.quitWithMsg("Congratulations! You collected %d out of %d "~
                                "gold.", ngold, maxgold);
             }
@@ -645,8 +639,8 @@ class Game
             ui.message("%s kills %s!", subjName.asCapitalized, objName);
             if (victim == player.id)
             {
-                ui.gameOver("YOU HAVE DIED.");
                 quit = true;
+                ui.quitWithMsg("YOU HAVE DIED.");
             }
         };
     }

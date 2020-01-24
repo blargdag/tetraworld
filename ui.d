@@ -577,20 +577,16 @@ class TextUi : GameUi
         refresh();
     }
 
-    void gameOver(string msg)
+    void quitWithMsg(string msg)
     {
         message(msg);
         msgBox.forcePrompt({
             refresh();
             input.getch();
         });
-        quitWithMsg("Game over.");
-    }
 
-    void quitWithMsg(string msg)
-    {
         quit = true;
-        quitMsg = msg;
+        quitMsg = "Game over.";
     }
 
     /**
