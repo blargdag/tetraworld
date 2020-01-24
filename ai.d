@@ -31,6 +31,27 @@ import store_traits;
 import vector;
 import world;
 
+bool isViableMove(World w, Pos curPos, int[4] dir)
+{
+    if (dir == [0,0,0,0])
+        return false;
+    if (dir == [-1,0,0,0] && !w.locationHas!SupportsWeight(curPos))
+        return false;
+    return canMove(w, curPos, vec(dir));
+}
+
+bool findViableMove(World w, Pos curPos, int numTries,
+                    int[4] delegate() generator, out int[4] dir)
+{
+    while (numTries-- > 0)
+    {
+        dir = generator();
+        if (isViableMove(w, curPos, dir))
+            return true;
+    }
+    return false;
+}
+
 /**
  * AI decision-making routine.
  */
@@ -54,18 +75,20 @@ Action chooseAiAction(World w, ThingId agentId)
         }
         else
         {
-            foreach (_; 0 .. 6)
-            {
-                auto dir = chooseDir(targetPos - curPos);
-                if (canMove(w, curPos, vec(dir)))
-                    return (World w) => move(w, agent, vec(dir));
-            }
+            int[4] dir;
+            if (findViableMove(w, curPos, 6, () => chooseDir(diff), dir))
+                return (World w) => move(w, agent, vec(dir));
             // Couldn't find a way to reach target, fallback to random move.
         }
     }
 
     // Nothing to do, just wander aimlessly.
-    return (World w) => move(w, agent, vec(dir2vec(randomDir)));
+    int[4] dir;
+    if (findViableMove(w, curPos, 6, () => dir2vec(randomDir), dir))
+        return (World w) => move(w, agent, vec(dir));
+
+    // Can't even do that; give up.
+    return (World w) => pass(w, agent);
 }
 
 // vim:set ai sw=4 ts=4 et:
