@@ -552,6 +552,7 @@ class Game
             else
             {
                 quit = true;
+                ui.message("You activate the exit portal!");
                 ui.quitWithMsg("Congratulations! You collected %d out of %d "~
                                "gold.", ngold, maxgold);
             }
