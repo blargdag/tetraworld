@@ -173,8 +173,8 @@ struct EventWatcher
     /**
      * An object falls on top of another, possibly causing damage.
      */
-    void delegate(Pos pos, ThingId subj, Pos newPos, ThingId obj) fallOn =
-        doNothing!(Pos, ThingId, Pos, ThingId);
+    void delegate(Pos pos, ThingId subj, ThingId obj) fallOn =
+        doNothing!(Pos, ThingId, ThingId);
 
     /**
      * An agent picks up an object.

@@ -368,16 +368,11 @@ void gravitySystem(World w)
                 if (floorPos == oldPos)
                     break;
 
-                rawMove(w, t, floorPos, {
-                    w.notify.fallOn(oldPos, t.id, floorPos, obj.id);
-                });
+                w.notify.fallOn(oldPos, t.id, obj.id);
             }
-            else
-            {
-                rawMove(w, t, floorPos, {
-                    w.notify.fall(oldPos, t.id, floorPos);
-                });
-            }
+            rawMove(w, t, floorPos, {
+                w.notify.fall(oldPos, t.id, floorPos);
+            });
         }
     }
 
@@ -639,11 +634,11 @@ class Game
             else
                 ui.updateMap(pos, newPos);
         };
-        w.notify.fallOn = (Pos pos, ThingId subj, Pos newPos, ThingId obj)
+        w.notify.fallOn = (Pos pos, ThingId subj, ThingId obj)
         {
             if (subj == player.id)
             {
-                ui.moveViewport(newPos);
+                ui.moveViewport(pos);
                 // FIXME: reveal pit traps here? Though if we move that
                 // elsewhere, this ought to be already taken care of.
                 ui.message("You fall on top of %s!",
@@ -651,7 +646,7 @@ class Game
             }
             else
             {
-                ui.updateMap(pos, newPos);
+                ui.updateMap(pos);
                 ui.message("%s falls on top of %s!",
                            w.store.get!Name(subj).name.asCapitalized,
                            w.store.get!Name(obj).name);
