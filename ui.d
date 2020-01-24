@@ -498,12 +498,33 @@ class TextUi : GameUi
     {
         // Only update the on-screen tiles that have changed.
         auto curview = getCurView();
+        bool visChange;
         foreach (pos; where.filter!(pos => viewport.contains(pos)))
         {
             auto viewPos = pos - viewport.pos;
             auto scrnPos = curview.renderingCoors(viewPos);
             mapview.moveTo(scrnPos[0], scrnPos[1]);
             mapview.renderCell(curview[viewPos]);
+            visChange = true;
+        }
+
+        if (visChange)
+        {
+            if (refreshNeedsPause)
+            {
+                import core.thread : Thread;
+                import core.time : dur;
+
+                // FIXME: this should be factored out somewhere?
+                auto cx = term.cursorX();
+                auto cy = term.cursorY();
+                disp.flush();
+                term.moveTo(cx, cy);
+                term.flush();
+
+                Thread.sleep(dur!"msecs"(100));
+            }
+            refreshNeedsPause = true;
         }
     }
 
