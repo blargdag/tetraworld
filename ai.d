@@ -31,6 +31,13 @@ import store_traits;
 import vector;
 import world;
 
+/**
+ * Returns: true if dir passes the following checks:
+ * - It's not zero (not staying still);
+ * - If it's moving up, the current position can support weight so that the
+ *   agent will not immediately fall down again;
+ * - There are no (known) obstacles that block movement in that direction.
+ */
 bool isViableMove(World w, Pos curPos, int[4] dir)
 {
     if (dir == [0,0,0,0])
@@ -40,6 +47,14 @@ bool isViableMove(World w, Pos curPos, int[4] dir)
     return canMove(w, curPos, vec(dir));
 }
 
+/**
+ * Tries to call the given move generator up to numTries times until a viable
+ * move is found.
+ *
+ * Returns: true if a viable move was found, in which case `dir` contains the
+ * viable move; false otherwise, in which case the contents of `dir` are
+ * undefined.
+ */
 bool findViableMove(World w, Pos curPos, int numTries,
                     int[4] delegate() generator, out int[4] dir)
 {
