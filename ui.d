@@ -427,7 +427,7 @@ class TextUi : GameUi
             'j': PlayerAction.left,
             'k': PlayerAction.right,
             keyEnter: PlayerAction.apply,
-            ' ': PlayerAction.pass,
+            'p': PlayerAction.pass,
         ];
 
         auto mainMode = Mode(
@@ -445,6 +445,7 @@ class TextUi : GameUi
                     case 'N': moveView(vec(0,0,1,0));   break;
                     case 'J': moveView(vec(0,0,0,-1));  break;
                     case 'K': moveView(vec(0,0,0,1));   break;
+                    case ' ': viewport.centerOn(g.playerPos);   break;
                     case 'q':
                         g.saveGame();
                         quit = true;
