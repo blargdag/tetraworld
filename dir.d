@@ -96,13 +96,14 @@ unittest
  * Choose a cardinal direction to move that heads towards the given goal, with
  * the likelihood of each direction scaled by the relative magnitude of the
  * corresponding coordinate in the goal coordinates.
- *
- * BUGS: Does not correctly handle the case goal=[0,0,0,0].
  */
 int[4] chooseDir(int[4] goal)
-    out(v; v[].map!(x => abs(x)).sum == 1)
+    out(v; v == [0, 0, 0, 0] || v[].map!(x => abs(x)).sum == 1)
 {
     auto sum = goal[].map!(x => abs(x)).sum;
+    if (sum == 0)
+        return [ 0, 0, 0, 0 ];
+
     auto pick = uniform(0, sum);
     auto acc = 0;
     foreach (i; 0 .. 4)
@@ -126,11 +127,12 @@ unittest
     assert(chooseDir([0, 0, 10, 0]) == [0,0,1,0]);
     assert(chooseDir([0, -5, 0, 0]) == [0,-1,0,0]);
     assert(chooseDir([0, 0, 0, -7]) == [0,0,0,-1]);
+    assert(chooseDir([0, 0, 0, 0]) == [0,0,0,0]);
 
     void testDistrib(int[4] vec)
     {
         enum ntrials = 200;
-        enum tolerance = 1.0;
+        enum tolerance = 1.5;
 
         double[4] counts = [0,0,0,0];
         auto csum = vec[].map!(x => abs(x)).sum;

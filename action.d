@@ -208,18 +208,9 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
     if (rectNorm(*targetPos - *pos) > 1)
         return ActionResult(false, 10, "You're unable to reach that far!");
 
-    auto m = w.store.get!Mortal(objId);
-    if (m is null)
-        return ActionResult(false, 10, "Attacking that seems to have no "~
-                                       "effect.");
-
     // TBD: damage should be determined by weapon
+    w.store.add!Injury(w.store.getObj(objId), Injury(subj.id, weaponId, 1));
     w.notify.attack(*pos, subj.id, objId, weaponId);
-    m.hp -= 1;
-    if (m.hp <= 0)
-    {
-        // TBD
-    }
 
     return ActionResult(true, 10);
 }

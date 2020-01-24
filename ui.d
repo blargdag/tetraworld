@@ -233,15 +233,8 @@ struct MessageBox(Disp)
         auto len = str.displayLength;
         if (curX + len + moreLen >= impl.width)
         {
-            // FIXME: this assumes impl.height==1.
-            impl.moveTo(curX, 0);
-            impl.color(Color.white, Color.blue);
-            impl.writef("%s", morePrompt);
-            waitForKeypress();
-
-            impl.moveTo(0, 0);
-            impl.clearToEol();
-            curX = 0;
+            forcePrompt(waitForKeypress);
+            assert(curX == 0);
         }
 
         // FIXME: this assumes impl.height==1.
@@ -260,6 +253,22 @@ struct MessageBox(Disp)
      */
     void sync()
     {
+        curX = 0;
+    }
+
+    /**
+     * Force a message prompt even if the message box isn't full yet.
+     */
+    void forcePrompt(void delegate() waitForKeypress)
+    {
+        // FIXME: this assumes impl.height==1.
+        impl.moveTo(curX, 0);
+        impl.color(Color.white, Color.blue);
+        impl.writef("%s", morePrompt);
+        waitForKeypress();
+
+        impl.moveTo(0, 0);
+        impl.clearToEol();
         curX = 0;
     }
 }
@@ -393,7 +402,7 @@ class TextUi : GameUi
     void message(string str)
     {
         msgBox.message(str, {
-            disp.flush();
+            refresh();
             input.getch();
         });
     }
@@ -566,6 +575,16 @@ class TextUi : GameUi
         }
         viewport.centerOn(center);
         refresh();
+    }
+
+    void gameOver(string msg)
+    {
+        message(msg);
+        msgBox.forcePrompt({
+            refresh();
+            input.getch();
+        });
+        quitWithMsg("Game over.");
     }
 
     void quitWithMsg(string msg)

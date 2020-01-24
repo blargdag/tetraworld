@@ -93,6 +93,11 @@ interface GameUi
     void moveViewport(Vec!(int,4) center);
 
     /**
+     * Signal game over prompt.
+     */
+    void gameOver(string msg);
+
+    /**
      * Signal end of game with an exit message.
      */
     void quitWithMsg(string msg);
@@ -352,6 +357,41 @@ void gravitySystem(World w)
     w.store.clearNew!Pos();
 }
 
+void mortalSystem(World w)
+{
+    ThingId[] deadIds;
+    auto injuredIds = w.store.getAll!Injury().dup;
+    foreach (id; injuredIds)
+    {
+        auto inj = w.store.get!Injury(id);
+        auto m = w.store.get!Mortal(id);
+        if (m is null) // TBD: emit a message about target being impervious
+            continue;
+
+        m.hp -= inj.hp;
+        if (m.hp <= 0)
+        {
+            w.notify.kill(*w.store.get!Pos(id), inj.inflictor, id);
+            deadIds ~= id;
+        }
+    }
+
+    // Don't apply injury more than once!
+    foreach (id; injuredIds)
+    {
+        auto t = w.store.getObj(id);
+        w.store.remove!Injury(t);
+    }
+
+    // Clean up the dead things.
+    foreach (id; deadIds)
+    {
+        // TBD: drop corpses here
+        // TBD: drop inventory items here
+        w.store.destroyObj(id);
+    }
+}
+
 /**
  * Player status.
  */
@@ -385,7 +425,8 @@ class Game
     PlayerStatus[] getStatuses()
     {
         PlayerStatus[] result;
-        result ~= PlayerStatus("$", numGold(), maxGold());
+        if (w.store.get!Inventory(player.id) !is null)
+            result ~= PlayerStatus("$", numGold(), maxGold());
 
         auto m = w.store.get!Mortal(player.id);
         if (m !is null)
@@ -596,6 +637,18 @@ class Game
                            w.store.get!Name(obj).name;
             ui.message("%s attacks %s!", subjName.asCapitalized, objName);
         };
+        w.notify.kill = (Pos pos, ThingId killer, ThingId victim)
+        {
+            auto subjName = w.store.get!Name(killer).name;
+            auto objName = (victim == player.id) ? "you" :
+                           w.store.get!Name(victim).name;
+            ui.message("%s kills %s!", subjName.asCapitalized, objName);
+            if (victim == player.id)
+            {
+                ui.gameOver("YOU HAVE DIED.");
+                quit = true;
+            }
+        };
     }
 
     Action processPlayer()
@@ -655,6 +708,7 @@ class Game
             gravitySystem(w);
             if (!sysAgent.run(w))
                 quit = true;
+            mortalSystem(w);
             portalSystem();
         }
     }
