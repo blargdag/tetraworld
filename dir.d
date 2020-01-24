@@ -131,8 +131,8 @@ unittest
 
     void testDistrib(int[4] vec)
     {
-        enum ntrials = 200;
-        enum tolerance = 1.5;
+        enum ntrials = 10000;
+        enum tolerance = 1.0;
 
         double[4] counts = [0,0,0,0];
         auto csum = vec[].map!(x => abs(x)).sum;
@@ -153,7 +153,7 @@ unittest
         }
     }
 
-    //foreach (_; 0 .. 50)
+    //foreach (_; 0 .. 500)
     {
         testDistrib([ 1, 0, 0, -5 ]);
         testDistrib([ 1, 2, 3, 4 ]);
