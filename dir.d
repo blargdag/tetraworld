@@ -35,6 +35,13 @@ enum Dir
 }
 
 /**
+ * Dir's that are horizontal directions.
+ */
+static immutable Dir[] horizDirs = [
+    Dir.left, Dir.right, Dir.front, Dir.back, Dir.ana, Dir.kata
+];
+
+/**
  * Returns: A random direction that isn't Dir.self.
  */
 Dir randomDir()

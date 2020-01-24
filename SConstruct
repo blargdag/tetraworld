@@ -47,6 +47,7 @@ sources = Split("""
 	loadsave.d
 	game.d
 	gamemap.d
+	rndutil.d
 	store.d
 	store_traits.d
 	terrain.d

@@ -42,66 +42,6 @@ class BspNode(Derived)
 class Node : BspNode!Node { }
 
 /**
- * Randomly picks a single element out of the given range with equal
- * probability for every element.
- *
- * Params:
- *  range = The range to pick an element from. Must be non-empty if defElem is
- *      not specified.
- *  defElem = (Optional) default element to return if the range is empty. If
- *      not specified, the range must not be empty.
- *
- * Complexity: O(n) where n is the length of the range.
- */
-ElementType!R pickOne(R)(R range)
-    if (isInputRange!R)
-    in (!range.empty)
-{
-    ElementType!R result = range.front;
-    range.popFront();
-    size_t i = 2;
-    while (!range.empty)
-    {
-        import std.random : uniform; 
-        if (uniform(0, i++) == 0)
-            result = range.front;
-        range.popFront();
-    }
-    return result;
-}
-
-/// ditto
-ElementType!R pickOne(R, E)(R range, E defElem)
-    if (isInputRange!R && is(E : ElementType!R))
-{
-    if (range.empty)
-        return defElem;
-    return range.pickOne();
-}
-
-///
-unittest
-{
-    assert([ 123 ].pickOne() == 123);
-    assert((cast(int[]) []).pickOne(-1) == -1);
-}
-
-unittest
-{
-    int[5] counts;
-    auto data = [ 0, 1, 2, 3, 4 ];
-    foreach (_; 0 .. 50000)
-    {
-        counts[data.pickOne]++;
-    }
-    foreach (c; counts)
-    {
-        import std.math : round;
-        assert(round((cast(float) c) / 10000) == 1.0);
-    }
-}
-
-/**
  * Returns: The subregion to the "left" of the given region along the given
  * axis and splitting pivot.
  */
@@ -202,6 +142,7 @@ Node genBsp(Node,R)(R region, int[4] minSize)
     import std.algorithm : filter;
     import std.random : uniform;
     import std.range : iota;
+    import rndutil : pickOne;
 
     return genBsp!Node(region,
         (R r) => true,

@@ -48,6 +48,7 @@ struct GameMap
         bounds.min = vec(0, 0, 0, 0);
         bounds.max = _dim;
 
+        import rndutil : pickOne;
         tree = genBsp!MapNode(bounds,
             (R r) => r.volume > 24 + uniform(0, 80),
             (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
@@ -170,6 +171,12 @@ struct EventWatcher
         doNothing!(Pos, ThingId, Pos);
 
     /**
+     * An object falls on top of another, possibly causing damage.
+     */
+    void delegate(Pos pos, ThingId subj, Pos newPos, ThingId obj) fallOn =
+        doNothing!(Pos, ThingId, Pos, ThingId);
+
+    /**
      * An agent picks up an object.
      */
     void delegate(Pos pos, ThingId subj, ThingId obj) pickup =
@@ -235,6 +242,7 @@ class World
 World genNewGame(int[4] dim)
 {
     import components;
+    import rndutil;
 
     auto w = new World;
     w.map.bounds = region(vec(0, 0, 0, 0), vec(dim));

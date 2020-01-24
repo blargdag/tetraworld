@@ -671,6 +671,7 @@ void genCorridors(R)(MapNode root, R region)
     int ntries=0;
     while (ntries++ < 2*leftRooms.length)
     {
+        import rndutil : pickOne;
         auto leftRoom = leftRooms.pickOne;
         R wallFilt = leftRoom.region;
         wallFilt.min[root.axis] = root.pivot;
@@ -769,6 +770,7 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
                      bool allowMultiple)
 {
     import std.random : uniform;
+    import rndutil : pickOne;
     do
     {
         static struct RightRoom
@@ -936,7 +938,7 @@ unittest
     import std.algorithm : filter, clamp;
     import std.random : uniform;
     import std.range : iota;
-    import gauss;
+    import rndutil;
 
     // Generate base BSP tree
     auto bounds = region(vec(0, 0, 0, 0), vec(w-1, h-1, 3, 3));
