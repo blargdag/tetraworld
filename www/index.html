@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style type="text/css">
+body {
+	background-color: #400180;
+}
+main {
+	display: table;
+	margin-left: auto;
+	margin-right: auto;
+	padding: 1em;
+	border: .25ex outset #8002C0;
+	max-width: 42em;
+	background-color: #e0c0ff;
+	color: black;
+}
+h1,h2 {
+	text-align: center;
+}
+</style>
+</head><body><main>
+
+<h1><em>Tetraworld</em></h1>
+<hr/>
+
+<p>A roguelike game set in a 4D world where there are 4 macroscopic dimensions
+of space.</p>
+
+<p><strong>Warning:</strong> the current version of the game is
+<em>pre-alpha</em>, meaning it's just a technology preview, and may be
+unstable, or have partially-implemented or unimplemented mechanics.  Play at
+your own risk. :-P</p>
+
+
+<h2>Download</h2>
+
+<ul>
+<li><a href="tetraworld">Linux 64-bit executable</a>.</li>
+<li><a href="tetraworld.exe">Windows 64-bit executable</a> (runs inside
+	cmd.exe).</li>
+</ul>
+
+
+<h2>Usage</h2>
+
+<p>Run the program from a terminal (cmd.exe on Windows). Run with <tt>-h</tt>
+for a list of command-line options.</p>
+
+<p>Currently there is only one option:</p>
+
+<dl>
+<dt><tt>-S</tt>, <tt>--smoothscroll</tt></dt>
+<dd>Controls the timing delay when scrolling up/down or ana/kata, in msec. The
+	default is 80msec. If you find this too laggy, try a lower value, like
+	<tt>-S60</tt> or <tt>-S40</tt>.  Or turn it off altogether with
+	<tt>-S0</tt>, in which case up/down or ana/kata movement will not have
+	any intermediate frames, which will make the game respond faster but
+	may be harder for beginners to understand what's going
+	on.<br/><br/>Note that this value is treated on a best-efforts basis;
+	if your terminal is slow, there is not much the game can do about it.
+	On Windows, <tt>-S0</tt> may be your best bet, since
+	<tt>command.exe</tt> is dog-slow.</dd>
+</dl>
+
+
+<h2>Basic instructions</h2>
+
+
+<h3>Okay, just <em>what</em> am I looking at here?!</h3>
+
+<p>You're looking at an attempt to represent a piece of 4D space on a 2D
+screen. :-P</p>
+
+<p>Each trapezoidal blob of characters is a faux-isometric 2D slice of your
+character's current 4D view. The central trapezoid is where your character
+is currently at, and the vertical column it's in is a 3D slice of the 4D
+view. All the columns taken together are the 3D slices that make up the 4D
+chunk of the world you're in.</p>
+
+<p>The various characters have the following meanings:</p>
+
+<dl>
+
+<dt><tt>/</tt></dt>
+<dd>Walls that you cannot pass through.</dd>
+
+<dt><tt>, : ;</tt></dt>
+<dd>These characters represent different types of floor. In this version,
+different types of floor do not yet have any difference in function.</dd>
+
+<dt>(blank)</dt>
+<dd>Blanks represent empty space that you will fall through.</dd>
+
+<dt>#</dt>
+<dd>Doorways that you can pass through.</dd>
+
+<dt><tt>=</tt></tt></dt>
+<dd>(Part of) ladders that you can climb.</dd>
+
+<dt><tt>_</tt></tt></dt>
+<dd>Top of a ladder.</dd>
+
+<dt>$</dt>
+<dd>Collectible gold ores. In this version of the game, you're supposed to
+collect all the gold in the level and then find and activate the exit
+portal.</dd>
+
+<dt>@</dt>
+<dd>The exit portal. Activate this after collecting all the gold in order to
+win the game.</dd>
+
+</dl>
+
+<p>Furthermore, in order to help you get your bearings in a 4D world, tiles
+that lie along the 8 cardinal directions in 4D from your current location are
+highlighted. This is particularly important when aligning yourself across
+display columns.</p>
+
+
+<h3>Navigating your environment</h3>
+
+<h4>Gravity(!)</h4>
+
+<p>As if moving around in 4D space wasn't already hard enough, this game also
+has <em>gravity</em>, of the 4D variety.  That is to say, there is a designated
+vertical direction, conveniently represented on screen vertically, along which
+gravity acts.  For your convenience, we call the direction in which gravity
+pulls <q>down</q>, and the opposite direction <q>up</q>, and the on-screen map
+is drawn such that they correspond with the familiar <q>up</q> and <q>down</q>
+directions on your screen.</p>
+
+<p>Therefore, objects that are not supported from beneath in the <q>down</q>
+direction will fall downwards under the action of 4D gravity, until it lands on
+something solid.  So moving up/down will only be effective if you're standing
+on a ladder; otherwise, moving down will accomplish nothing (you cannot pass
+through the floor), and moving up will make you jump up but you will
+immediately fall down again, (no) thanks to 4D gravity.</p>
+
+
+<h4>Horizontal directions</h4>
+
+<p>Perpendicular to the vertical dimension of gravity are 3 other dimensions
+that constitute the horizontal directions: this being 4D space, there are 3
+leftover dimensions after you exclude the vertical, so there are not 2, but 3
+pairs of perpendicular horizontal directions. Accordingly, the floor surface
+has 3 dimensions (and has an <em>area</em> that's measured in <em>cubic</em>
+units&mdash;so we speak of cube footage in 4D rather than square footage!).
+Thus, the <em>row</em> of 2D trapezoidal isometric slices underneath your
+character, taken together, constitute a 3D slice where the floor is.</p>
+
+<p>Which means there are <em>three</em> pairs of horizontal directions you can
+move in: in addition to left, right, forwards, and backwards, we have to add a
+new pair of directions: <em>ana</em> and <em>kata</em>.  If we include up/down,
+that gives us 4 pairs of perpendicular directions to move it, which is why we
+need 8 movement keys!</p>
+
+
+<h4>Ledges</h4>
+
+<p>Besides climbing ladders and moving over a flat surface, you also have a
+special combo move: climbing a 1-tile-high ledge. If you're standing next to a
+wall tile, and the tile on top of that is not another wall, moving in the
+direction of the wall will initiate a 2-step combo move where you climb up the
+wall onto the space on top (ala <em>Prince of Persia</em>). Thus, it is
+possible to climb up to a doorway that isn't level with the floor, but 1 tile
+above it.  This move can be useful for escaping certain scrapes if your pursuer
+is unable to climb ledges.</p>
+
+<p>On the other hand, such ledges can sometimes be easily overlooked, so be
+sure you don't miss them when exploring!  To help with this, tile positions
+that could function as ledges from your current location are highlighted in
+blue along with the tiles along the cardinal axes. These highlights lie one row
+above where your character currently stands. If you see a floor tile or doorway
+highlighted this way, it means you're standing next to a ledge and can climb it
+by moving in the direction of the wall immediately below it.  Which also means
+that if you see a floor or doorway tile that looks like it might line up with
+the blue highlights if you move a little, it's probably also a ledge, and it
+might be worthwhile to try to reach it, as it might lead somewhere
+interesting.</p>
+
+
+<h4>Map features</h4>
+
+<p>The current version of game only generates maps that consist of
+rectangular<sup>*</sup> rooms connected by doors, ladders, the occasional pits
+(watch out for holes in the floor!), and even hidden trapdoors. Have fun!</p>
+
+<p>(<sup>*</sup> Technically, <em>hypercuboidal</em>.)</p>
+
+<p>In later versions, you may encounter other types of maps as well.</p>
+
+<p>There are also native 4D creatures that you're likely to run into. In this
+version of the game, they are always hostile, and therefore should be avoided!
+You will know them when you see them: they move and chase after you!</p>
+
+
+<h2>Controls</h2>
+
+<p>Currently, only keyboard controls are supported. Mouse support is planned,
+but currently not yet implemented.</p>
+
+<dl>
+
+<dt>i, j, k, l, m, n, o</dt>
+<dd>Movement keys.  These keys were chosen to approximate the movement
+	direction they represent on-screen, at least on Qwerty layout keyboards
+	(Dvorak layout support will eventually be included).  So:
+
+	<dl>
+	<dt><tt>i</tt>, <tt>m</tt></dt>
+	<dd>move in the vertical direction (up/down);</dd>
+
+	<dt><tt>h</tt>, <tt>l</tt></dt>
+	<dd>move left/right across columns (ana/kata, or if you're used to Vi
+	keys, you could also think of it as left/right, it's just one of the
+	horizontal directions after all);</dd>
+
+	<dt><tt>j</tt>, <tt>k</tt></dt>
+	<dd>move left/right within a column (left/right, or if you're a Vi
+	person, <q>up</q>/<q>down</q>: imagine the floor as a slice of the 3D
+	universe laying <q>flat</q> on a 4D surface such that what we 3D folk
+	think of as up/down is now an extra pair of horizontal directions
+	instead);</dd>
+
+	<dt><tt>n</tt>, <tt>o</tt></dt>
+	<dd>move backwards/forwards within an isometric slice (think of it as
+	being perpendicular to your computer screen, isometrically projected to
+	be diagonal).</dd>
+	</dl>
+
+<dt>I, J, K, L, M, N, O</dt>
+<dd>Keys for panning the current 4D viewport around without moving your player
+	character. These keys directly correspond with the movement keys, but
+	instead of moving the player character they pan the 4D viewpoint only.
+	Useful for looking around at your surroundings without spending your
+	turns (which may be fatal when enemies are around!).<br/><br/>Better
+	yet, in this version of the game FOV is not implemented yet, so you can
+	actually view the entire level this way (if you can wrap your head
+	around the 4D layout :-P).  To re-center the viewport on your player
+	character again, press space.</dd>
+
+<dt>(space)</dt>
+<dd>Recenter the 4D viewport on the player character. Useful after you've moved
+	the viewport with <tt>I, J, K, L, M, N, O</tt>.</dd>
+
+<dt>p</dt>
+<dd>Pass a turn. Can be useful in tactical movement around enemies.</dd>
+
+<dt>(enter)</dt>
+<dd>Activate an object in the tile you're standing on. Currently only useful
+for the exit portal.</dd>
+
+<dt>q</dt>
+<dd>Save current game and quit. The game will automatically continue where you
+left off the next time you start the program. <strong>Warning:</strong> always
+exit the game with 'q' if you want to keep your current character; if the game
+terminates for any other reason, you will permanently lose your character.
+Welcome to permadeath.  :-D</dd>
+
+<dt>Q</dt>
+<dd>Delete current game and quit. <strong>Warning:</strong> once deleted, it is
+impossible to get your character back.</dd>
+
+</dl>
+
+
+<h2>How to win</h2>
+
+<p>In this version of the game, all you have to do is to find and collect all
+of the gold ores scattered around the level, then find the exit portal and
+activate it.</p>
+
+<p>The challenge, of course, is navigating the 4D geometry of the level and
+locating the gold. Fortunately, barring a bug in the map generator, the current
+version of the game always generates maps that are <em>connected</em>: you will
+always be able to reach all parts of the map from any part, even if you stumble
+into hidden pits and fall through.  So you can rest assured that you will never
+get stuck without a way out, even if you do get totally lost in 4D space.
+:-D</p>
+
+<p>There are also enemies that you may run into (you will know them when you
+see them!).  Fortunately, in this version of the game they are pretty dumb and
+predictable; they will always try to home in to your location, but they cannot
+climb ledges, and have a tendency of falling off ladders if appropriately
+lured. With some practice you should be able to easily lose them as long as you
+have access to a ladder or ledge.  Be careful that what is adjacent in 4D may
+not be displayed adjacently on the screen, and these enemies are native to 4D
+space and facile with moving around in 4D, so you should always double-check
+exactly which tiles are adjacent to an enemy before making a move!</p>
+
+
+</main></body></html>
