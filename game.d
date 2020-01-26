@@ -232,18 +232,21 @@ struct SysAgent
         setup();
         enqueueNewAgents(w);
 
+        Agent* agt;
+        while (!turnQueue.empty &&
+               (agt = w.store.get!Agent(turnQueue.front.id)) is null)
+        {
+            // Agent was unregistered since last update, ignore.
+            turnQueue.popFront;
+        }
+
         if (turnQueue.empty)
             return false; // nothing to do
 
-        auto ent = turnQueue.front;
-        auto id = ent.id;
-        auto thisTick = ent.nextTurn;
-
-        auto agt = w.store.get!Agent(id);
-        if (agt is null)
-            return true; // Agent was unregistered since last update, ignore.
-
         // Run agent logic and execute agent's action.
+        auto ent = turnQueue.front;
+        auto thisTick = ent.nextTurn;
+        auto id = ent.id;
         auto type = agt.type;
         Action action = agentImpls[type].chooseAction(w, id);
         assert(action !is null);
@@ -685,7 +688,7 @@ class Game
             auto subjName = w.store.get!Name(killer).name;
             auto objName = (victim == player.id) ? "you" :
                            w.store.get!Name(victim).name;
-            ui.message("%s kills %s!", subjName.asCapitalized, objName);
+            ui.message("%s killed %s!", subjName.asCapitalized, objName);
             if (victim == player.id)
             {
                 quit = true;

@@ -329,7 +329,7 @@ World genNewGame(int[4] dim)
     {
         w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
                           Tiled(TileId.creatureA, 1), Name("conical creature"),
-                          BlocksMovement(), Agent());
+                          BlocksMovement(), Agent(), Mortal(5,5));
     }
 
     return w;
