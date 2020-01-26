@@ -21,6 +21,7 @@
 module game;
 
 import std.algorithm;
+import std.array;
 import std.container.binaryheap;
 import std.conv : to;
 import std.stdio;
@@ -338,9 +339,10 @@ void gravitySystem(World w)
                w.locationHas!PitTrap(floorPos);
     }
 
-    foreach (t; w.store.getAllNew!Pos().dup
+    foreach (t; w.store.getAllNew!Pos()
                        .filter!(id => w.store.get!NoGravity(id) is null)
-                       .map!(id => w.store.getObj(id)))
+                       .map!(id => w.store.getObj(id))
+                       .array)
     {
         Pos oldPos, floorPos;
         while (willFall(t.id, oldPos, floorPos))
