@@ -1814,11 +1814,10 @@ void replay(Disp,Log)(Log log,
     enforce(w != 0 && h != 0, "Invalid dimensions");
 
     auto disp = createDisp(w, h);
-    foreach (line; log)
+    while (!log.empty)
     {
-        if (line == "")
-            continue;
-        else if (line.startsWith("moveTo "))
+        auto line = log.front;
+        if (line.startsWith("moveTo "))
         {
             auto args = line[7 .. $];
             auto x = args.parse!int;
@@ -1844,7 +1843,18 @@ void replay(Disp,Log)(Log log,
                 disp.writef("%s", args[0 .. $-1]);
             }
             else
-                assert(0, "Wrapped lines not implemented yet");
+            {
+                auto txt = args.idup;
+                while (txt.length < len && !log.empty)
+                {
+                    log.popFront();
+                    txt ~= "\n" ~ log.front;
+                }
+                enforce(txt.length == len+1, "Invalid wrapped line");
+                enforce(txt[$-1] == '|', "Unterminated wrapped line");
+                txt = txt[0 .. $-1];
+                disp.writef("%s", txt);
+            }
         }
         else if (line == "showCursor")
             disp.showCursor();
@@ -1882,8 +1892,10 @@ void replay(Disp,Log)(Log log,
             auto msecs = args.parse!uint;
             delayHook(msecs);
         }
-        else
+        else if (line != "")
             throw new Exception("Unknown directive: " ~ line);
+
+        log.popFront();
     }
 }
 
@@ -1920,6 +1932,13 @@ unittest
         "writef 22|Правда так??!|",
         "moveTo 0 3",
         "showCursor",
+        "moveTo 0 4",
+        "writef 21|evil embedded",
+        "newline|",
+        "moveTo 0 5",
+        "writef 18|multi",
+        "newline",
+        "fun!|",
         ""
     ];
 
