@@ -439,6 +439,7 @@ class Game
     private SysAgent sysAgent;
 
     private Thing* player;
+    private Vec!(int,4) lastPlPos;
     private bool quit;
 
     /**
@@ -446,7 +447,10 @@ class Game
      */
     Vec!(int,4) playerPos()
     {
-        return w.store.get!Pos(player.id).coors;
+        auto posp = w.store.get!Pos(player.id);
+        if (posp !is null)
+            lastPlPos = posp.coors;
+        return lastPlPos;
     }
 
     PlayerStatus[] getStatuses()
