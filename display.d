@@ -1594,4 +1594,176 @@ unittest
     assert(bufDisp.cursorX == 2 && bufDisp.cursorY == 3);
 }
 
+/**
+ * A Display that wraps around another Display and records method calls and
+ * arguments, such that it can be saved and replayed later into a different
+ * Display. Timing information is saved for faithful replay.
+ */
+struct Recorded(Disp,Log)
+    if (isDisplay!Disp && isOutputRange!(Log, char))
+{
+    import core.time : MonoTime;
+    import std.format : formattedWrite, format;
+
+    private Disp disp;
+    private Log log;
+    private MonoTime lastStamp;
+
+    private void timestamp()
+    {
+        auto now = MonoTime.currTime;
+        if (lastStamp != MonoTime.init) // skip first delay
+        {
+            auto delay = (now - lastStamp).total!"msecs";
+            if (delay > 0)
+            {
+                log.formattedWrite("delay %d\n", delay);
+            }
+        }
+        lastStamp = now;
+    }
+
+    this(Disp _disp, Log _log)
+    {
+        disp = _disp;
+        log = _log;
+
+        log.formattedWrite("width %d\n", disp.width);
+        log.formattedWrite("height %d\n", disp.height);
+    }
+
+    void moveTo(int x, int y)
+    {
+        timestamp();
+        disp.moveTo(x, y);
+        log.formattedWrite("moveTo %d %d\n", x, y);
+    }
+
+    void writef(Args...)(string fmt, Args args)
+    {
+        timestamp();
+        string str = format(fmt, args);
+        disp.writef("%s", str);
+        log.formattedWrite("writef %d|%s|\n", str.length, str);
+    }
+
+    static if (canShowHideCursor!Disp)
+    {
+        void showCursor()
+        {
+            timestamp();
+            disp.showCursor();
+            log.formattedWrite("showCursor\n");
+        }
+
+        void hideCursor()
+        {
+            timestamp();
+            disp.hideCursor();
+            log.formattedWrite("hideCursor\n");
+        }
+    }
+
+    static if (hasColor!Disp)
+    {
+        void color(ushort fg, ushort bg)
+        {
+            timestamp();
+            disp.color(fg, bg);
+
+            // Assumption: arsd.terminal.Color converts to an OS-independent
+            // readable string, and Bright can be OR'd with any color. We
+            // represent Bright with a suffixed '*' in the output.
+            import arsd.terminal : Color, Bright;
+            import std.conv : to;
+            bool fgBright = (fg & Bright) != 0;
+            bool bgBright = (bg & Bright) != 0;
+            log.formattedWrite("color %s%s %s%s\n",
+                (cast(Color)(fg & ~Bright)).to!string, fgBright ? "*" : "",
+                (cast(Color)(bg & ~Bright)).to!string, bgBright ? "*" : "");
+        }
+    }
+
+    static if (canClear!Disp)
+    {
+        void clear()
+        {
+            timestamp();
+            disp.clear();
+            log.formattedWrite("clear\n");
+        }
+    }
+
+    static if (hasCursorXY!Disp)
+    {
+        // Note: no need to log anything here, it's just an internal query.
+        int cursorX() { return disp.cursorX(); }
+        int cursorY() { return disp.cursorY(); }
+    }
+}
+
+/// ditto
+auto recorded(Disp,Log)(Disp disp, Log log)
+    if (isDisplay!Disp && isOutputRange!(Log, char))
+{
+    return Recorded!(Disp, Log)(disp, log);
+}
+
+///
+unittest
+{
+    struct DummyDisp
+    {
+        enum width = 80;
+        enum height = 24;
+
+        void moveTo(int x, int y) { }
+        void writef(A...)(string fmt, A args) { }
+        void showCursor() { }
+        void hideCursor() { }
+        void color(ushort _fg, ushort _bg) { }
+        void clear() { }
+    }
+    DummyDisp disp;
+
+    import core.thread : Thread;
+    import core.time : dur;
+    import std.array : appender;
+    import arsd.terminal : Bright, Color;
+
+    auto log = appender!string;
+    auto recdisp = disp.recorded(log);
+
+    recdisp.moveTo(0, 0);
+    recdisp.writef(" blah blah blah hahaha");
+    recdisp.moveTo(0, 1);
+    recdisp.color(Color.red, Color.cyan);
+    recdisp.writef("hehehehe, Ну это да!");
+
+    Thread.sleep(dur!"msecs"(50));
+    recdisp.hideCursor();
+    recdisp.moveTo(2, 3);
+    recdisp.color(Color.blue | Bright, Color.white);
+    recdisp.writef("Правда так??!");
+    recdisp.moveTo(0, 3);
+    recdisp.showCursor();
+
+    assert(log.data ==
+        "width 80\n"~
+        "height 24\n"~
+        "moveTo 0 0\n"~
+        "writef 22| blah blah blah hahaha|\n"~
+        "moveTo 0 1\n"~
+        "color red cyan\n"~
+        "writef 27|hehehehe, Ну это да!|\n"~
+        "delay 50\n"~
+        "hideCursor\n"~
+        "moveTo 2 3\n"~
+        "color blue* white\n"~
+        "writef 22|Правда так??!|\n"~
+        "moveTo 0 3\n"~
+        "showCursor\n"
+    );
+}
+
 // vim:set ai sw=4 ts=4 et:
