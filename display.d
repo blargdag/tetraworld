@@ -1632,6 +1632,10 @@ struct Recorded(Disp,Log)
         log.formattedWrite("height %d\n", disp.height);
     }
 
+    // These don't need to be recorded.
+    @property int width() { return disp.width; }
+    @property int height() { return disp.height; }
+
     void moveTo(int x, int y)
     {
         timestamp();
@@ -1733,6 +1737,7 @@ unittest
 
     auto log = appender!string;
     auto recdisp = disp.recorded(log);
+    static assert(isDisplay!(typeof(recdisp)));
 
     recdisp.moveTo(0, 0);
     recdisp.writef(" blah blah blah hahaha");
@@ -1764,6 +1769,176 @@ unittest
         "moveTo 0 3\n"~
         "showCursor\n"
     );
+}
+
+/**
+ * Replay to the given Display the given log saved by Recorded.
+ *
+ * Params:
+ *  log = A log saved by Recorded.
+ *  createDisp = A delegate that returns a Display of the given dimensions for
+ *      the replay to happen in.
+ *  delayHook = An optional delegate that implements the 'delay' directive,
+ *      taking an msec argument. If not specified, defaults to
+ *      core.thread.Thread.sleep.
+ */
+void replay(Disp,Log)(Log log,
+                      Disp delegate(int width, int height) createDisp)
+{
+    import core.thread : Thread;
+    import core.time : dur;
+    replay(log, createDisp, (msecs) => Thread.sleep(dur!"msecs"(msecs)));
+}
+
+/// ditto
+void replay(Disp,Log)(Log log,
+                      Disp delegate(int width, int height) createDisp,
+                      void delegate(int msecs) delayHook)
+    if (isDisplay!Disp && isInputRange!Log &&
+        is(ElementType!Log : const(char)[]))
+{
+    import std.algorithm : startsWith, endsWith;
+    import std.conv : parse, to;
+    import std.exception : enforce;
+
+    enforce(!log.empty, "Missing width spec");
+    enforce(log.front.startsWith("width "), "Invalid width spec");
+    auto w = log.front[6 .. $].to!int;
+    log.popFront();
+
+    enforce(!log.empty, "Missing height spec ");
+    enforce(log.front.startsWith("height "), "Invalid height spec");
+    auto h = log.front[7 .. $].to!int;
+    log.popFront();
+
+    enforce(w != 0 && h != 0, "Invalid dimensions");
+
+    auto disp = createDisp(w, h);
+    foreach (line; log)
+    {
+        if (line == "")
+            continue;
+        else if (line.startsWith("moveTo "))
+        {
+            auto args = line[7 .. $];
+            auto x = args.parse!int;
+
+            enforce(args.startsWith(" "), "Invalid moveTo arg 1");
+            args.popFront;
+
+            auto y = args.parse!int;
+            enforce(args.empty, "Invalid moveTo arg 2");
+
+            disp.moveTo(x, y);
+        }
+        else if (line.startsWith("writef "))
+        {
+            auto args = line[7 .. $];
+            auto len = args.parse!size_t;
+            enforce(args.startsWith("|"), "Invalid writef arg 1");
+            args.popFront;
+
+            if (args.length == len+1)
+            {
+                enforce(args.endsWith("|"), "Invalid writef arg 2");
+                disp.writef("%s", args[0 .. $-1]);
+            }
+            else
+                assert(0, "Wrapped lines not implemented yet");
+        }
+        else if (line == "showCursor")
+            disp.showCursor();
+        else if (line == "hideCursor")
+            disp.hideCursor();
+        else if (line.startsWith("color "))
+        {
+            import arsd.terminal : Color, Bright;
+            auto args = line[6 .. $];
+
+            auto fg = args.parse!Color;
+            if (args.startsWith("*"))
+            {
+                fg |= Bright;
+                args.popFront();
+            }
+
+            enforce(args.startsWith(" "), "Invalid color arg 1");
+            args.popFront;
+
+            auto bg = args.parse!Color;
+            if (args.startsWith("*"))
+            {
+                bg |= Bright;
+                args.popFront();
+            }
+
+            disp.color(fg, bg);
+        }
+        else if (line == "clear")
+            disp.clear();
+        else if (line.startsWith("delay "))
+        {
+            auto args = line[6 .. $];
+            auto msecs = args.parse!uint;
+            delayHook(msecs);
+        }
+        else
+            throw new Exception("Unknown directive: " ~ line);
+    }
+}
+
+///
+unittest
+{
+    struct DummyDisp
+    {
+        int width;
+        int height;
+
+        this(int w, int h) { width = w; height = h; }
+        void moveTo(int x, int y) { }
+        void writef(A...)(string fmt, A args) { }
+        void showCursor() { }
+        void hideCursor() { }
+        void color(ushort _fg, ushort _bg) { }
+        void clear() { }
+    }
+
+    auto input = [
+        "width 80",
+        "height 24",
+        "moveTo 0 0",
+        "writef 22| blah blah blah hahaha|",
+        "moveTo 0 1",
+        "color red cyan*",
+        "writef 27|hehehehe, Ну это да!|",
+        "delay 50",
+        "clear",
+        "hideCursor",
+        "moveTo 2 3",
+        "color blue* white",
+        "writef 22|Правда так??!|",
+        "moveTo 0 3",
+        "showCursor",
+        ""
+    ];
+
+    import std.array : appender, split;
+    auto log = appender!string;
+
+    DummyDisp disp;
+    input.replay((w, h) {
+        disp = DummyDisp(w, h);
+        return disp.recorded(log);
+    });
+
+    auto lines = log.data.split("\n");
+    foreach (i; 0 .. lines.length)
+    {
+        assert(i < input.length, lines[i] ~ " != EOF");
+        assert(lines[i] == input[i], lines[i] ~ " != " ~ input[i]);
+    }
+    assert(lines.length == input.length);
 }
 
 // vim:set ai sw=4 ts=4 et:
