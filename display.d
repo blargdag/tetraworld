@@ -1994,4 +1994,93 @@ unittest
     assert(lines.length == input.length);
 }
 
+/**
+ * Runtime polymorphic Display object.
+ */
+abstract class DisplayObject
+{
+    @property abstract int width();
+    @property abstract int height();
+    abstract void moveTo(int x, int y);
+    abstract void writefImpl(string s);
+
+    final void writef(Args...)(string fmt, Args args)
+    {
+        import std.format : format;
+        writefImpl(format(fmt, args));
+    }
+
+    bool canShowHideCursor() { return false; }
+    void showCursor() { assert(0); }
+    void hideCursor() { assert(0); }
+
+    bool hasColor() { return false; }
+    void color(ushort fg, ushort bg) { assert(0); }
+
+    bool canClear() { return false; }
+    void clear() { assert(0); }
+
+    bool hasCursorXY() { return false; }
+    @property int cursorX() { assert(0); }
+    @property int cursorY() { assert(0); }
+
+    bool hasFlush() { return false; }
+    void flush() { assert(0); }
+}
+
+private class DisplayObjImpl(Disp) : DisplayObject
+    if (isDisplay!Disp)
+{
+    private Disp disp;
+    this(Disp _disp)
+    {
+        disp = _disp;
+    }
+    @property override int width() { return disp.width; }
+    @property override int height() { return disp.height; }
+    override void moveTo(int x, int y) { disp.moveTo(x, y); }
+    override void writefImpl(string s) { disp.writef("%s", s); }
+    static if (.canShowHideCursor!Disp)
+    {
+        override bool canShowHideCursor() { return true; }
+        override void showCursor() { disp.showCursor(); }
+        override void hideCursor() { disp.hideCursor(); }
+    }
+    static if (.hasColor!Disp)
+    {
+        override bool hasColor() { return true; }
+        override void color(ushort fg, ushort bg) { disp.color(fg, bg); }
+    }
+    static if (.canClear!Disp)
+    {
+        override bool canClear() { return true; }
+        override void clear() { disp.clear(); }
+    }
+    static if (.hasCursorXY!Disp)
+    {
+        override bool hasCursorXY() { return true; }
+        @property override int cursorX() { return disp.cursorX; }
+        @property override int cursorY() { return disp.cursorY; }
+    }
+    static if (.hasFlush!Disp)
+    {
+        override bool hasFlush() { return true; }
+        override void flush() { disp.flush(); }
+    }
+}
+
+/// ditto
+auto displayObject(Disp)(Disp disp)
+    if (isDisplay!Disp)
+{
+    return new DisplayObjImpl!Disp(disp);
+}
+
+unittest
+{
+    import arsd.terminal;
+    Terminal* term;
+    auto obj = displayObject(term);
+}
+
 // vim:set ai sw=4 ts=4 et:
