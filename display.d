@@ -1735,6 +1735,10 @@ struct Recorded(Disp,Log)
         int cursorX() { return disp.cursorX(); }
         int cursorY() { return disp.cursorY(); }
     }
+    static if (hasFlush!Disp)
+    {
+        void flush() { disp.flush(); }
+    }
 }
 
 /// ditto
