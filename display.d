@@ -1732,8 +1732,8 @@ struct Recorded(Disp,Log)
     static if (hasCursorXY!Disp)
     {
         // Note: no need to log anything here, it's just an internal query.
-        int cursorX() { return disp.cursorX(); }
-        int cursorY() { return disp.cursorY(); }
+        @property int cursorX() { return disp.cursorX(); }
+        @property int cursorY() { return disp.cursorY(); }
     }
     static if (hasFlush!Disp)
     {
