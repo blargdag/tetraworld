@@ -100,6 +100,11 @@ template hasCursorXY(T)
 }
 
 /**
+ * true if T is a grid-based display that has a .flush method.
+ */
+enum hasFlush(T) = isDisplay!T && is(typeof(T.init.flush()));
+
+/**
  * A wrapper around an existing display that represents a rectangular subset of
  * it. The .moveTo primitive is wrapped to translate input coordinates into
  * actual coordinates on the display.
@@ -134,6 +139,32 @@ struct SubDisplay(T)
     {
         @property int cursorX() { return parent.cursorX - rect.min[0]; }
         @property int cursorY() { return parent.cursorY - rect.min[1]; }
+    }
+
+    static if (canShowHideCursor!T)
+    {
+        void showCursor() { parent.showCursor(); }
+        void hideCursor() { parent.hideCursor(); }
+    }
+
+    void clear()
+    {
+        foreach (j; rect.min[1] .. rect.max[1])
+        {
+            parent.moveTo(rect.min[0], j);
+            foreach (i; rect.min[0] .. rect.max[0])
+            {
+                parent.writef("%s", " ");
+            }
+        }
+    }
+
+    static if (hasFlush!T)
+    {
+        void flush()
+        {
+            parent.flush();
+        }
     }
 }
 
@@ -1890,10 +1921,13 @@ void replay(Disp,Log)(Log log,
         {
             auto args = line[6 .. $];
             auto msecs = args.parse!uint;
+
+            static if (hasFlush!Disp)
+                disp.flush();
             delayHook(msecs);
         }
         else if (line != "")
-            throw new Exception("Unknown directive: " ~ line);
+            throw new Exception("Unknown directive: " ~ line.idup);
 
         log.popFront();
     }
