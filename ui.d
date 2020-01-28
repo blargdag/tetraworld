@@ -40,6 +40,7 @@ import world;
 struct TextUiConfig
 {
     int smoothscrollMsec = 80;
+    string tscriptFile;
 }
 
 /**
@@ -353,7 +354,7 @@ class TextUi : GameUi
 
     private TextUiConfig cfg;
 
-    private Terminal* term;
+    private DisplayObject term;
     private RealTimeConsoleInput* input;
     private MainDisplay disp;
 
@@ -770,10 +771,17 @@ class TextUi : GameUi
     string play(Game game, string welcomeMsg)
     {
         auto _term = Terminal(ConsoleOutputType.cellular);
-        term = &_term;
+        if (cfg.tscriptFile.length > 0)
+        {
+            import std.stdio;
+            auto f = File(cfg.tscriptFile, "w");
+            term = displayObject(recorded(&_term, f.lockingBinaryWriter));
+        }
+        else
+            term = displayObject(&_term);
         g = game;
 
-        auto _input = RealTimeConsoleInput(term, ConsoleInputFlags.raw);
+        auto _input = RealTimeConsoleInput(&_term, ConsoleInputFlags.raw);
         input = &_input;
         setupUi();
 

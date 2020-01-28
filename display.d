@@ -100,6 +100,11 @@ template hasCursorXY(T)
 }
 
 /**
+ * true if T is a grid-based display that has a .flush method.
+ */
+enum hasFlush(T) = isDisplay!T && is(typeof(T.init.flush()));
+
+/**
  * A wrapper around an existing display that represents a rectangular subset of
  * it. The .moveTo primitive is wrapped to translate input coordinates into
  * actual coordinates on the display.
@@ -134,6 +139,32 @@ struct SubDisplay(T)
     {
         @property int cursorX() { return parent.cursorX - rect.min[0]; }
         @property int cursorY() { return parent.cursorY - rect.min[1]; }
+    }
+
+    static if (canShowHideCursor!T)
+    {
+        void showCursor() { parent.showCursor(); }
+        void hideCursor() { parent.hideCursor(); }
+    }
+
+    void clear()
+    {
+        foreach (j; rect.min[1] .. rect.max[1])
+        {
+            parent.moveTo(rect.min[0], j);
+            foreach (i; rect.min[0] .. rect.max[0])
+            {
+                parent.writef("%s", " ");
+            }
+        }
+    }
+
+    static if (hasFlush!T)
+    {
+        void flush()
+        {
+            parent.flush();
+        }
     }
 }
 
@@ -1592,6 +1623,468 @@ unittest
     assert(bufDisp.cursorX == 0 && bufDisp.cursorY == 0);
     bufDisp.moveTo(2, 3);
     assert(bufDisp.cursorX == 2 && bufDisp.cursorY == 3);
+}
+
+/**
+ * A Display that wraps around another Display and records method calls and
+ * arguments, such that it can be saved and replayed later into a different
+ * Display. Timing information is saved for faithful replay.
+ */
+struct Recorded(Disp,Log)
+    if (isDisplay!Disp && isOutputRange!(Log, char))
+{
+    import core.time : MonoTime;
+    import std.format : formattedWrite, format;
+
+    private Disp disp;
+    private Log log;
+    private MonoTime lastStamp;
+
+    private void timestamp()
+    {
+        auto now = MonoTime.currTime;
+        if (lastStamp != MonoTime.init) // skip first delay
+        {
+            auto delay = (now - lastStamp).total!"msecs";
+            if (delay > 0)
+            {
+                log.formattedWrite("delay %d\n", delay);
+            }
+        }
+        lastStamp = now;
+    }
+
+    this(Disp _disp, Log _log)
+    {
+        disp = _disp;
+        log = _log;
+
+        log.formattedWrite("width %d\n", disp.width);
+        log.formattedWrite("height %d\n", disp.height);
+    }
+
+    // These don't need to be recorded.
+    @property int width() { return disp.width; }
+    @property int height() { return disp.height; }
+
+    void moveTo(int x, int y)
+    {
+        timestamp();
+        disp.moveTo(x, y);
+        log.formattedWrite("moveTo %d %d\n", x, y);
+    }
+
+    void writef(Args...)(string fmt, Args args)
+    {
+        timestamp();
+        string str = format(fmt, args);
+        disp.writef("%s", str);
+        log.formattedWrite("writef %d|%s|\n", str.length, str);
+    }
+
+    static if (canShowHideCursor!Disp)
+    {
+        void showCursor()
+        {
+            timestamp();
+            disp.showCursor();
+            log.formattedWrite("showCursor\n");
+        }
+
+        void hideCursor()
+        {
+            timestamp();
+            disp.hideCursor();
+            log.formattedWrite("hideCursor\n");
+        }
+    }
+
+    static if (hasColor!Disp)
+    {
+        void color(ushort fg, ushort bg)
+        {
+            timestamp();
+            disp.color(fg, bg);
+
+            // Assumption: arsd.terminal.Color converts to an OS-independent
+            // readable string, and Bright can be OR'd with any color. We
+            // represent Bright with a suffixed '*' in the output.
+            import arsd.terminal : Color, Bright;
+            import std.conv : to;
+            bool fgBright = (fg & Bright) != 0;
+            bool bgBright = (bg & Bright) != 0;
+            log.formattedWrite("color %s%s %s%s\n",
+                (cast(Color)(fg & ~Bright)).to!string, fgBright ? "*" : "",
+                (cast(Color)(bg & ~Bright)).to!string, bgBright ? "*" : "");
+        }
+    }
+
+    static if (canClear!Disp)
+    {
+        void clear()
+        {
+            timestamp();
+            disp.clear();
+            log.formattedWrite("clear\n");
+        }
+    }
+
+    static if (hasCursorXY!Disp)
+    {
+        // Note: no need to log anything here, it's just an internal query.
+        int cursorX() { return disp.cursorX(); }
+        int cursorY() { return disp.cursorY(); }
+    }
+    static if (hasFlush!Disp)
+    {
+        void flush() { disp.flush(); }
+    }
+}
+
+/// ditto
+auto recorded(Disp,Log)(Disp disp, Log log)
+    if (isDisplay!Disp && isOutputRange!(Log, char))
+{
+    return Recorded!(Disp, Log)(disp, log);
+}
+
+///
+unittest
+{
+    struct DummyDisp
+    {
+        enum width = 80;
+        enum height = 24;
+
+        void moveTo(int x, int y) { }
+        void writef(A...)(string fmt, A args) { }
+        void showCursor() { }
+        void hideCursor() { }
+        void color(ushort _fg, ushort _bg) { }
+        void clear() { }
+    }
+    DummyDisp disp;
+
+    import core.thread : Thread;
+    import core.time : dur;
+    import std.array : appender;
+    import arsd.terminal : Bright, Color;
+
+    auto log = appender!string;
+    auto recdisp = disp.recorded(log);
+    static assert(isDisplay!(typeof(recdisp)));
+
+    recdisp.moveTo(0, 0);
+    recdisp.writef(" blah blah blah hahaha");
+    recdisp.moveTo(0, 1);
+    recdisp.color(Color.red, Color.cyan);
+    recdisp.writef("hehehehe, Ну это да!");
+
+    Thread.sleep(dur!"msecs"(50));
+    recdisp.hideCursor();
+    recdisp.moveTo(2, 3);
+    recdisp.color(Color.blue | Bright, Color.white);
+    recdisp.writef("Правда так??!");
+    recdisp.moveTo(0, 3);
+    recdisp.showCursor();
+
+    assert(log.data ==
+        "width 80\n"~
+        "height 24\n"~
+        "moveTo 0 0\n"~
+        "writef 22| blah blah blah hahaha|\n"~
+        "moveTo 0 1\n"~
+        "color red cyan\n"~
+        "writef 27|hehehehe, Ну это да!|\n"~
+        "delay 50\n"~
+        "hideCursor\n"~
+        "moveTo 2 3\n"~
+        "color blue* white\n"~
+        "writef 22|Правда так??!|\n"~
+        "moveTo 0 3\n"~
+        "showCursor\n"
+    );
+}
+
+/**
+ * Replay to the given Display the given log saved by Recorded.
+ *
+ * Params:
+ *  log = A log saved by Recorded.
+ *  createDisp = A delegate that returns a Display of the given dimensions for
+ *      the replay to happen in.
+ *  delayHook = An optional delegate that implements the 'delay' directive,
+ *      taking an msec argument. If not specified, defaults to
+ *      core.thread.Thread.sleep.
+ */
+void replay(Disp,Log)(Log log,
+                      Disp delegate(int width, int height) createDisp)
+{
+    import core.thread : Thread;
+    import core.time : dur;
+    replay(log, createDisp, (msecs) => Thread.sleep(dur!"msecs"(msecs)));
+}
+
+/// ditto
+void replay(Disp,Log)(Log log,
+                      Disp delegate(int width, int height) createDisp,
+                      void delegate(int msecs) delayHook)
+    if (isDisplay!Disp && isInputRange!Log &&
+        is(ElementType!Log : const(char)[]))
+{
+    import std.algorithm : startsWith, endsWith;
+    import std.conv : parse, to;
+    import std.exception : enforce;
+
+    enforce(!log.empty, "Missing width spec");
+    enforce(log.front.startsWith("width "), "Invalid width spec");
+    auto w = log.front[6 .. $].to!int;
+    log.popFront();
+
+    enforce(!log.empty, "Missing height spec ");
+    enforce(log.front.startsWith("height "), "Invalid height spec");
+    auto h = log.front[7 .. $].to!int;
+    log.popFront();
+
+    enforce(w != 0 && h != 0, "Invalid dimensions");
+
+    auto disp = createDisp(w, h);
+    while (!log.empty)
+    {
+        auto line = log.front;
+        if (line.startsWith("moveTo "))
+        {
+            auto args = line[7 .. $];
+            auto x = args.parse!int;
+
+            enforce(args.startsWith(" "), "Invalid moveTo arg 1");
+            args.popFront;
+
+            auto y = args.parse!int;
+            enforce(args.empty, "Invalid moveTo arg 2");
+
+            disp.moveTo(x, y);
+        }
+        else if (line.startsWith("writef "))
+        {
+            auto args = line[7 .. $];
+            auto len = args.parse!size_t;
+            enforce(args.startsWith("|"), "Invalid writef arg 1");
+            args.popFront;
+
+            if (args.length == len+1)
+            {
+                enforce(args.endsWith("|"), "Invalid writef arg 2");
+                disp.writef("%s", args[0 .. $-1]);
+            }
+            else
+            {
+                auto txt = args.idup;
+                while (txt.length < len && !log.empty)
+                {
+                    log.popFront();
+                    txt ~= "\n" ~ log.front;
+                }
+                enforce(txt.length == len+1, "Invalid wrapped line");
+                enforce(txt[$-1] == '|', "Unterminated wrapped line");
+                txt = txt[0 .. $-1];
+                disp.writef("%s", txt);
+            }
+        }
+        else if (line == "showCursor")
+            disp.showCursor();
+        else if (line == "hideCursor")
+            disp.hideCursor();
+        else if (line.startsWith("color "))
+        {
+            import arsd.terminal : Color, Bright;
+            auto args = line[6 .. $];
+
+            auto fg = args.parse!Color;
+            if (args.startsWith("*"))
+            {
+                fg |= Bright;
+                args.popFront();
+            }
+
+            enforce(args.startsWith(" "), "Invalid color arg 1");
+            args.popFront;
+
+            auto bg = args.parse!Color;
+            if (args.startsWith("*"))
+            {
+                bg |= Bright;
+                args.popFront();
+            }
+
+            disp.color(fg, bg);
+        }
+        else if (line == "clear")
+            disp.clear();
+        else if (line.startsWith("delay "))
+        {
+            auto args = line[6 .. $];
+            auto msecs = args.parse!uint;
+
+            static if (hasFlush!Disp)
+                disp.flush();
+            delayHook(msecs);
+        }
+        else if (line != "")
+            throw new Exception("Unknown directive: " ~ line.idup);
+
+        log.popFront();
+    }
+}
+
+///
+unittest
+{
+    struct DummyDisp
+    {
+        int width;
+        int height;
+
+        this(int w, int h) { width = w; height = h; }
+        void moveTo(int x, int y) { }
+        void writef(A...)(string fmt, A args) { }
+        void showCursor() { }
+        void hideCursor() { }
+        void color(ushort _fg, ushort _bg) { }
+        void clear() { }
+    }
+
+    auto input = [
+        "width 80",
+        "height 24",
+        "moveTo 0 0",
+        "writef 22| blah blah blah hahaha|",
+        "moveTo 0 1",
+        "color red cyan*",
+        "writef 27|hehehehe, Ну это да!|",
+        "delay 50",
+        "clear",
+        "hideCursor",
+        "moveTo 2 3",
+        "color blue* white",
+        "writef 22|Правда так??!|",
+        "moveTo 0 3",
+        "showCursor",
+        "moveTo 0 4",
+        "writef 21|evil embedded",
+        "newline|",
+        "moveTo 0 5",
+        "writef 18|multi",
+        "newline",
+        "fun!|",
+        ""
+    ];
+
+    import std.array : appender, split;
+    auto log = appender!string;
+
+    DummyDisp disp;
+    input.replay((w, h) {
+        disp = DummyDisp(w, h);
+        return disp.recorded(log);
+    });
+
+    auto lines = log.data.split("\n");
+    foreach (i; 0 .. lines.length)
+    {
+        assert(i < input.length, lines[i] ~ " != EOF");
+        assert(lines[i] == input[i], lines[i] ~ " != " ~ input[i]);
+    }
+    assert(lines.length == input.length);
+}
+
+/**
+ * Runtime polymorphic Display object.
+ */
+abstract class DisplayObject
+{
+    @property abstract int width();
+    @property abstract int height();
+    abstract void moveTo(int x, int y);
+    abstract void writefImpl(string s);
+
+    final void writef(Args...)(string fmt, Args args)
+    {
+        import std.format : format;
+        writefImpl(format(fmt, args));
+    }
+
+    bool canShowHideCursor() { return false; }
+    void showCursor() { assert(0); }
+    void hideCursor() { assert(0); }
+
+    bool hasColor() { return false; }
+    void color(ushort fg, ushort bg) { assert(0); }
+
+    bool canClear() { return false; }
+    void clear() { assert(0); }
+
+    bool hasCursorXY() { return false; }
+    @property int cursorX() { assert(0); }
+    @property int cursorY() { assert(0); }
+
+    bool hasFlush() { return false; }
+    void flush() { assert(0); }
+}
+
+private class DisplayObjImpl(Disp) : DisplayObject
+    if (isDisplay!Disp)
+{
+    private Disp disp;
+    this(Disp _disp)
+    {
+        disp = _disp;
+    }
+    @property override int width() { return disp.width; }
+    @property override int height() { return disp.height; }
+    override void moveTo(int x, int y) { disp.moveTo(x, y); }
+    override void writefImpl(string s) { disp.writef("%s", s); }
+    static if (.canShowHideCursor!Disp)
+    {
+        override bool canShowHideCursor() { return true; }
+        override void showCursor() { disp.showCursor(); }
+        override void hideCursor() { disp.hideCursor(); }
+    }
+    static if (.hasColor!Disp)
+    {
+        override bool hasColor() { return true; }
+        override void color(ushort fg, ushort bg) { disp.color(fg, bg); }
+    }
+    static if (.canClear!Disp)
+    {
+        override bool canClear() { return true; }
+        override void clear() { disp.clear(); }
+    }
+    static if (.hasCursorXY!Disp)
+    {
+        override bool hasCursorXY() { return true; }
+        @property override int cursorX() { return disp.cursorX; }
+        @property override int cursorY() { return disp.cursorY; }
+    }
+    static if (.hasFlush!Disp)
+    {
+        override bool hasFlush() { return true; }
+        override void flush() { disp.flush(); }
+    }
+}
+
+/// ditto
+auto displayObject(Disp)(Disp disp)
+    if (isDisplay!Disp)
+{
+    return new DisplayObjImpl!Disp(disp);
+}
+
+unittest
+{
+    import arsd.terminal;
+    Terminal* term;
+    auto obj = displayObject(term);
 }
 
 // vim:set ai sw=4 ts=4 et:

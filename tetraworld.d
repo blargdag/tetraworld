@@ -36,6 +36,9 @@ int main(string[] args)
         "smoothscroll|S",
             "Set smooth scroll total time in msec (0 to disable).",
             &uiConfig.smoothscrollMsec,
+        "record|R",
+            "Record session in specified playterm transcript.",
+            &uiConfig.tscriptFile,
     );
 
     if (optInfo.helpWanted)
