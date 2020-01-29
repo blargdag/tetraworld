@@ -42,6 +42,7 @@ sources = Split("""
 	ai.d
 	bsp.d
 	components.d
+	damage.d
 	dir.d
 	display.d
 	loadsave.d

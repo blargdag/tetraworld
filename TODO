@@ -1,8 +1,3 @@
-- Current gravity system is B0RKEN. It needs to interlace with the Mortal
-  system, otherwise it makes no sense (fall on A, hit it, but before it dies
-  you fall further: out of sequence).
-- Fold Vec!(4,int) into Pos. There are TOO MANY different types representing a
-  4D vector, it's seriously uglifying the code like crazy.
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
 - Add water level, underneath which free movement is possible? :-D
@@ -63,3 +58,15 @@ P Implement session recorder.
 + Segfault when fall on A then get hit and die.
    + Caused by dead player no longer having a Pos.
    P Should really turn player into corpse instead of outright deletion.
+P Fold Vec!(4,int) into Pos. There are TOO MANY different types representing a
+  4D vector, it's seriously uglifying the code like crazy.
+   * A distinction needs to be made between Vec!(int,4), a generic 4D vector,
+     and Pos, an ECS position component. An object can have a Pos (a position
+     on the map), but it doesn't make sense to say an object has a 4D vector. A
+     Pos happens to be a 4D vector, *but could be more later*, such as having a
+     map ID.
+   * So the two should not be conflated. Code that conflates them should be
+     fixed.
++ Current gravity system is B0RKEN. It needs to interlace with the Mortal
+  system, otherwise it makes no sense (fall on A, hit it, but before it dies
+  you fall further: out of sequence).

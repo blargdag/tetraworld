@@ -209,8 +209,9 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
         return ActionResult(false, 10, "You're unable to reach that far!");
 
     // TBD: damage should be determined by weapon
-    w.store.add!Injury(w.store.getObj(objId), Injury(subj.id, weaponId, 1));
+    import damage;
     w.notify.attack(*pos, subj.id, objId, weaponId);
+    w.injure(subj.id, objId, weaponId, 1 /*FIXME*/);
 
     return ActionResult(true, 10);
 }

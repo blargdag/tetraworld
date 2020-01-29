@@ -360,8 +360,13 @@ void gravitySystem(World w)
             if (!r.empty)
             {
                 auto obj = r.front;
+
+                w.notify.fallOn(oldPos, t.id, obj.id);
                 if (w.store.get!Mortal(obj.id) !is null)
-                    w.store.add!Injury(obj, Injury(t.id, invalidId, 1));
+                {
+                    import damage;
+                    w.injure(t.id, obj.id, invalidId /*FIXME*/, 1 /*FIXME*/);
+                }
 
                 // Throw object to random sideways direction, unless it's
                 // completely blocked in, in which case it stays put.
@@ -373,50 +378,22 @@ void gravitySystem(World w)
                 if (floorPos == oldPos)
                     break;
 
-                w.notify.fallOn(oldPos, t.id, obj.id);
+                rawMove(w, t, floorPos, {
+                    // FIXME: replace with something else, like being thrown to
+                    // the side.
+                    w.notify.fall(oldPos, t.id, floorPos);
+                });
             }
-            rawMove(w, t, floorPos, {
-                w.notify.fall(oldPos, t.id, floorPos);
-            });
+            else
+            {
+                rawMove(w, t, floorPos, {
+                    w.notify.fall(oldPos, t.id, floorPos);
+                });
+            }
         }
     }
 
     w.store.clearNew!Pos();
-}
-
-void mortalSystem(World w)
-{
-    ThingId[] deadIds;
-    auto injuredIds = w.store.getAll!Injury().dup;
-    foreach (id; injuredIds)
-    {
-        auto inj = w.store.get!Injury(id);
-        auto m = w.store.get!Mortal(id);
-        if (m is null) // TBD: emit a message about target being impervious
-            continue;
-
-        m.hp -= inj.hp;
-        if (m.hp <= 0)
-        {
-            w.notify.kill(*w.store.get!Pos(id), inj.inflictor, id);
-            deadIds ~= id;
-        }
-    }
-
-    // Don't apply injury more than once!
-    foreach (id; injuredIds)
-    {
-        auto t = w.store.getObj(id);
-        w.store.remove!Injury(t);
-    }
-
-    // Clean up the dead things.
-    foreach (id; deadIds)
-    {
-        // TBD: drop corpses here
-        // TBD: drop inventory items here
-        w.store.destroyObj(id);
-    }
 }
 
 /**
@@ -756,7 +733,6 @@ class Game
         while (!quit)
         {
             gravitySystem(w);
-            mortalSystem(w);
             if (!sysAgent.run(w))
                 quit = true;
             portalSystem();
