@@ -72,6 +72,10 @@ env.Command('uniwidth', Split("""
 	"$LDC $LDCFLAGS -of$TARGET $SOURCES"
 )
 
+env.Command('upload', 'upload.d',
+	"$LDC $LDCFLAGS -of$TARGET $SOURCES"
+)
+
 # Cross-compiled Windows build
 winenv = env.Clone()
 winenv.Append(LDCFLAGS = [ '-mtriple=x86_64-windows-msvc' ])
