@@ -4,73 +4,66 @@
 
 An African elephant simulation game, in which you play the role of an African
 elephant trying to survive in the wilderness. Core mechanic is survival and
-navigation: finding food, water, and minerals in a harsh wilderness landscape,
-surviving predators and poachers, managing other herd members and rising in
-rank in elephant society.
+navigation: finding food, water, and minerals in a harsh wilderness, surviving
+predators and poachers, managing other herd members, and rising in rank in
+elephant society.
 
 
 **Tetraworld (working title)**
 
 A roguelike set in 4D space, where the map occupies not 2, not 3, but 4
-dimensions of space. On top of that, there's 4D gravity, which adds a whole new
-dimension of interest in map generation, movement mechanics, and exploration.
-The core mechanic is exploration and tactical maneuvers.
+dimensions of space. Features 4D gravity, which adds a whole new dimension(!)
+of interest in map generation, movement mechanics, and exploration.  The core
+mechanic is exploration and tactical maneuvers.
 
 
 **2019 Retrospective**
 
 These projects have been around for years but have been sitting on the
 backburner collecting dust, until late 2019 when I stumbled across
-/r/roguelikedev. I had played Hack and Nethack before, and even heard rumors
-about Slash'em and Angband, but never imagined there was a community still
-actively developing roguelikes, so I was very surprised to find one!  This
-further led to discovering the Roguebasin articles, which inspired me to start
-with a narrower scope for my projects and get a core working game first,
-instead of reaching for the skies but never getting out of the well.
+/r/roguelikedev and the Roguebasin articles, which inspired me to start with a
+narrower scope and get a core working game first, instead of reaching for the
+skies but never getting out of the well.
 
-So I started working on *Elephant!* again.  Before this, the only thing I had
-working was an E (for elephant) moving around on the screen with a bunch of
-other E's moving randomly on a featureless map.  Within a few months I had an
-actual game loop, a semi-nice UI (by my very low standards :-P), xterm
-256-color mode, an ECS system (or rather, an EC store), a plot (an excuse one,
-but nevertheless!), the beginnings of an AI system that has herbivores seeking
-for and eating food and carnivores hunting and eating prey, and a preliminary
-win condition.  That's very good progress, considering this is a spare-time
-hobby!
+So I started working on *Elephant!* again.  Before this, there was only a bunch
+of E's (for **e**lephant) moving around randomly on a featureless map, but
+within a few months I had an actual game loop, a semi-nice ASCII UI, xterm
+256-color mode, an ECS system (or rather, an EC store), a plot, the beginnings
+of an AI system that has herbivores seeking for and eating food and carnivores
+hunting and eating prey, and a preliminary win condition.  Pretty good progress
+for a spare-time hobby!
 
-The end of 2019 saw a pause in *Elephant!*'s development, though, mostly due to
+The end of 2019 saw a pause in *Elephant!*'s development, however, due to
 getting stuck in over-engineering a complicated AI action system that may or
-may not be warranted at this stage of the game.  Out of frustration, I turned
-to Tetraworld, another backburner project that's been collecting dust for
-years.
+may not be warranted at this point.  Out of frustration, I turned to
+Tetraworld, another backburner project that had been collecting dust for years.
 
 Tetraworld was actually an attempted rewrite of an even older 4D maze game I
 wrote more than a decade ago. Before I started working on it again in December,
-it had a tiny single-room map and the player character moving around. Not even
-the camera moved along with the player, and it would crash if the player moved
-out of view.  Thanks to lessons learned from the *Elephant!* project, however,
-and thanks to liberally borrowing from *Elephant!*'s codebase (hence my SS
-jokes about pachyderms leasing out their code), within a month Tetraworld has
-expanded by leaps and bounds, and now has a BSP-tree based mapgen, gravity, a
-ladders-and-pits exploration mechanic, collectible plot tokens, a win
-condition, rudimentary monsters, nice ASCII animations for vertical and
-ana/kata movements, a Nethack-like message system, and just this week, an
-ability to record sessions that can be replayed by another tool I wrote called
+it only had a tiny single-room map and the player character moving around with
+nothing to do; not even the viewport moved with the player, and it would crash
+when the player moved out of view.  Thanks to lessons learned from the
+*Elephant!* project, however, and thanks to liberally borrowing from
+*Elephant!*'s codebase (hence my SS jokes about pachyderms leasing out their
+code), within a month Tetraworld has expanded by leaps and bounds, and now has
+a BSP-tree based mapgen, gravity, a ladders-and-pits exploration mechanic,
+collectible plot tokens, a win condition, rudimentary monsters, nice ASCII
+animations for vertical and ana/kata movements, and just this week, an ability
+to record sessions that can be replayed by another tool I wrote called
 `playterm` (a reinvention of ttyrec but with an editable text format, that can
 also render into animated gif format using libfreetype and ImageMagick).
 
 
 ** 2020 Outlook **
 
-While *Elephant!* and *Tetraworld* are drastically different games, in terms of
-code they have been feeding off each other, and even though development on
-*Elephant!* has been on hold for the last month or so, I've learned a lot from
-working with Tetraworld's code, and now have a much better idea of what needs
-to be done to get through the current impasse in *Elephant!*.  So this year,
-the hope is resume work on *Elephant!* and produce an MVP (minimum viable
-product).  I had planned for an MVP by December 2019, but clearly that was
-*far* too ambitious. :-D  The saying is true, that writing a roguelike is *far*
-more complex than it first appears!
+This year, the hope is resume work on *Elephant!* and produce an MVP (minimum
+viable product).  While *Elephant!* and *Tetraworld* are drastically different
+games, in terms of code they have been feeding off each other, and I've learned
+a lot from working with Tetraworld's code; this has given me a much better idea
+of how to get through the current impasse in *Elephant!*.  I had planned for an
+MVP by December 2019, but clearly that was *far* too ambitious.  :-D  The
+saying is true, that writing a roguelike is *far* more complex than it first
+appears!
 
 For Tetraworld, this year's plan is to adapt the rudimentary plot I'd written
 for the ancient version of the game, add interesting items to aid 4D
