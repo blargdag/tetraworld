@@ -2,11 +2,11 @@
 
 **Elephant!**
 
-An African elephant simulation game, in which you play the role of an African
-elephant trying to survive in the wilderness. Core mechanic is survival and
-navigation: finding food, water, and minerals in a harsh wilderness, surviving
-predators and poachers, managing other herd members, and rising in rank in
-elephant society.
+An elephant simulation game, in which you play the role of an African elephant
+trying to survive in the wilderness. Core mechanic is survival and navigation:
+finding food, water, and minerals in a harsh wilderness, surviving predators
+and poachers, managing other herd members, and rising in rank in elephant
+society.
 
 
 **Tetraworld (working title)**
@@ -39,57 +39,66 @@ may not be warranted at this point.  Out of frustration, I turned to
 Tetraworld, another backburner project that had been collecting dust for years.
 
 Tetraworld was actually an attempted rewrite of an even older 4D maze game I
-wrote more than a decade ago. Before I started working on it again in December,
-it only had a tiny single-room map and the player character moving around with
-nothing to do; not even the viewport moved with the player, and it would crash
-when the player moved out of view.  Thanks to lessons learned from the
-*Elephant!* project, however, and thanks to liberally borrowing from
-*Elephant!*'s codebase (hence my SS jokes about pachyderms leasing out their
-code), within a month Tetraworld has expanded by leaps and bounds, and now has
-a BSP-tree based mapgen, gravity, a ladders-and-pits exploration mechanic,
-collectible plot tokens, a win condition, rudimentary monsters, nice ASCII
-animations for vertical and ana/kata movements, and just this week, an ability
-to record sessions that can be replayed by another tool I wrote called
-`playterm` (a reinvention of ttyrec but with an editable text format, that can
-also render into animated gif format using libfreetype and ImageMagick).
+wrote more than a decade ago. It was left in a skeletal, barely-working state,
+but thanks to lessons learned from the *Elephant!* project, and thanks to
+liberally borrowing from *Elephant!*'s codebase (hence my SS jokes about
+pachyderms leasing out their code), within a month Tetraworld has expanded by
+leaps and bounds, and now has BSP-tree based mapgen, gravity, a
+ladders-and-pits exploration mechanic, collectible plot tokens, a win
+condition, rudimentary monsters, nice ASCII animations for vertical and
+ana/kata movements, and just this week, an ability to record sessions that can
+be replayed into animated gifs.
 
 
 ** 2020 Outlook **
 
 This year, the hope is resume work on *Elephant!* and produce an MVP (minimum
-viable product).  While *Elephant!* and *Tetraworld* are drastically different
-games, in terms of code they have been feeding off each other, and I've learned
-a lot from working with Tetraworld's code; this has given me a much better idea
-of how to get through the current impasse in *Elephant!*.  I had planned for an
-MVP by December 2019, but clearly that was *far* too ambitious.  :-D  The
-saying is true, that writing a roguelike is *far* more complex than it first
-appears!
+viable product): a minimal but fully-functional game that can be played from
+start to finish.  While *Elephant!* and *Tetraworld* are drastically different
+games, in terms of code they have a lot in common, and have been feeding off
+each other; I've learned a lot from working with Tetraworld's code, and this
+has given me a much better idea of how to get through the current impasse in
+*Elephant!*.  I had planned for an MVP by December 2019, but clearly that was
+*far* too ambitious.  :-D  The saying is true, that writing a roguelike is
+*far* more complex than it first appears!
 
-For Tetraworld, this year's plan is to adapt the rudimentary plot I'd written
-for the ancient version of the game, add interesting items to aid 4D
-exploration, and make it something nice and playable from start to finish.  The
-most exciting things I'm looking forward to are:
+The main features for *Elephant!*'s MVP is planned to be:
+
+* Basic survival mechanics (food, water, minerals, protection from the
+  elements);
+
+* Herbivores (mainly decorative for the time being), predators and combat
+  mechanics.
+
+* A challenge system for rising in male elephant rank, with some target rank
+  (say reaching rank 50 to win the game).
+
+All will be challenging to implement because I've yet to work out all the
+intricacies of how these mechanics will interact. Hopefully the code will be
+back in shape once I start working on these issues.
+
+
+For Tetraworld, this year's plan is to add:
 
 * More interesting terrains, in particular, "4D water" (for lack of a better
-  term!) where the player gets full degrees of freedom in movement, no longer
-  constrained by gravity. This will drastically change the exploration
+  term!) where the player gets full degrees of freedom in movement (not
+  constrained by gravity). This will drastically change the exploration
   mechanic, and I think will be very interesting!
 
-* Simulating 4D ecosystems, where the mapgen will run short simulations so that
-  the generated levels will feel "lived in".  Things like water flow in 4D,
-  creatures and ecosystems that spring up around it, etc., will be extremely
-  interesting, because in 4D there are certain novel characteristics that
-  cannot be found in 3D, and it will be great fun to explore them in the
-  context of a roguelike!
+* Simulation of 4D ecosystems, so that generated levels will feel "lived in".
+  Things like water flow in 4D, creatures and ecosystems that spring up around
+  it, etc., will be extremely interesting, because in 4D there are certain
+  novel characteristics that cannot be found in 3D, and it will be great fun to
+  explore them in the context of a roguelike!
 
-* Generating a 4D city: eventually there will be a city where the player can
-  setup a home base of sorts. The plan is to have this gradually grow from a
-  bare minimum settlement into a full-fledged thriving city as the player
-  progresses.  It won't be a city sim -- that's not the goal of this game --
-  but the player's actions will have consequences on the city, which in turn
-  has consequences for the availability of resources for the player. Again,
-  there are novel characteristics about 4D that will have dramatic consequences
-  on the structure of a city, so this will be extremely interesting to explore.
+* A 4D city where the player can setup a home base of sorts: it will gradually
+  grow from a bare minimum settlement into a full-fledged thriving city as the
+  player progresses.  The game will *not* become a city sim -- that's not the
+  goal -- but the player's actions will have consequences on the city, which in
+  turn will have consequences for the player (like the availability of shops,
+  resources, etc.).  Again, there are novel characteristics about 4D that will
+  have dramatic consequences on the structure of the city, and will be very
+  interesting to explore.
 
 
 **Links**
