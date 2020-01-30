@@ -1,8 +1,21 @@
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
 - Add water level, underneath which free movement is possible? :-D
+   - Need to place player and exit portal above water level.
+   - Water should only support weight of objects *inside* it, but not objects
+     above it!
+   - Inanimate objects (and objects that can't swim) should sink to the bottom
+     of water.
+   - Climb-ledge action should not trigger while in water.
+   - A-monsters should fear water. Create instead a water-dwelling creature
+     that will terrorize the player in whole new 4D ways. :-D
    - But it will require finding an oxygen mask... Well, OK, this is 4D, so
      "oxygen" doesn't make sense. Maybe call it "diving equipment"?
+   - Implement water currents? :-D
+      - Moving creatures should leave a wake, maybe implemented as temporary
+        random mover in water tiles?
+   - Per-room water levels?
+   - Waterfalls? Rivers? :-D
 - Implement FOV and player map memory.
 - Improve creature AI.
    - Pathfinding.
