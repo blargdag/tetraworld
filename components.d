@@ -72,6 +72,7 @@ enum TileId
     floorBare,
     floorGrassy,
     floorMuddy,
+    water,
     doorway,
     ladder,
     ladderTop,

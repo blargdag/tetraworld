@@ -30,6 +30,7 @@ Thing ladder = Thing(3);
 Thing blockBare = Thing(4);
 Thing blockGrassy = Thing(5);
 Thing blockMuddy = Thing(6);
+Thing water = Thing(7);
 
 void registerTerrains(Store* store)
 {
@@ -47,6 +48,9 @@ void registerTerrains(Store* store)
 
     store.registerTerrain(blockMuddy, Tiled(TileId.floorMuddy, -1),
                           BlocksMovement(), SupportsWeight(), Name("wall"));
+
+    store.registerTerrain(water, Tiled(TileId.water, -1), SupportsWeight(),
+                          Name("water"));
 }
 
 unittest

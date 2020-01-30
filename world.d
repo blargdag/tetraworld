@@ -43,6 +43,8 @@ struct GameMap
     private alias R = Region!(int,4);
     private R bounds;
 
+    private int waterLevel;
+
     this(int[4] _dim)
     {
         bounds.min = vec(0, 0, 0, 0);
@@ -102,7 +104,10 @@ struct GameMap
                         }
                     }
 
-                    result = emptySpace.id;
+                    if (pos[0] > waterLevel)
+                        result = water.id;
+                    else
+                        result = emptySpace.id;
                     return 1;
                 }
 
@@ -305,6 +310,10 @@ World genNewGame(int[4] dim)
 
     resizeRooms(w.map.tree, w.map.bounds);
     setRoomFloors(w.map.tree, w.map.bounds);
+
+    randomRoom(w.map.tree, w.map.bounds, (MapNode node, R r) {
+        w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
+    });
 
     w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
                       Tiled(TileId.portal), Name("exit portal"),
