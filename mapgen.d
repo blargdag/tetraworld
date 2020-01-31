@@ -33,6 +33,18 @@ import vector;
 import world;
 
 /**
+ * Returns: The total interior volumes of the rooms in the given BSP tree.
+ *
+ * BUGS: This function is either misnamed, or wrongly implemented. It returns
+ * the total interior *volume* of the map, not its *floor* area!
+ */
+int floorArea(MapNode node)
+{
+    return node.isLeaf ? node.interior.volume
+                       : floorArea(node.left) + floorArea(node.right);
+}
+
+/**
  * Generate corridors based on BSP tree structure.
  */
 void genCorridors(R)(MapNode root, R region)
@@ -473,12 +485,6 @@ World genNewGame(int[4] dim, out int[4] startPos)
                       Name("exit portal"), Usable(UseEffect.portal));
 
     startPos = randomDryPos(w);
-
-    int floorArea(MapNode node)
-    {
-        return node.isLeaf ? node.interior.volume
-                           : floorArea(node.left) + floorArea(node.right);
-    }
 
     enum goldPct = 0.2;
     auto ngold = cast(int)(floorArea(w.map.tree) * goldPct / 100);
