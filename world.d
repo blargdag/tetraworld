@@ -101,7 +101,8 @@ struct GameMap
                         // Normal vertical exits should have ladders that reach
                         // up to the top (in the floor).
                         result = (d.axis == 0 && d.type == Door.Type.normal) ?
-                                 ladder.id : doorway.id;
+                                 ladder.id :
+                                 (pos[0] > waterLevel) ? water.id : doorway.id;
                         return 1;
                     }
                 }
