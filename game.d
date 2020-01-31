@@ -32,6 +32,7 @@ import ai;
 import components;
 import dir;
 import loadsave;
+import mapgen;
 import rndutil;
 import store;
 import store_traits;
