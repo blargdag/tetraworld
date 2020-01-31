@@ -1,7 +1,7 @@
 - BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
 - Add water level, underneath which free movement is possible? :-D
-   - Need to place player and exit portal above water level.
+   + Need to place player and exit portal above water level.
    - Water should only support weight of objects *inside* it, but not objects
      above it!
    - Inanimate objects (and objects that can't swim) should sink to the bottom

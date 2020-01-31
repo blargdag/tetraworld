@@ -493,12 +493,13 @@ class Game
     static Game newGame()
     {
         auto g = new Game;
-        g.w = genNewGame([ 12, 12, 12, 12 ]);
+        int[4] startPos;
+        g.w = genNewGame([ 12, 12, 12, 12 ], startPos);
         //game.w = newGame([ 9, 9, 9, 9 ]);
         g.player = g.w.store.createObj(
-            Pos(g.w.map.randomLocation()),
-            Tiled(TileId.player, 1), Name("you"), Agent(Agent.Type.player),
-            Inventory(), BlocksMovement(), Mortal(5,5)
+            Pos(startPos), Tiled(TileId.player, 1), Name("you"),
+            Agent(Agent.Type.player), Inventory(), BlocksMovement(),
+            Mortal(5,5)
         );
         return g;
     }

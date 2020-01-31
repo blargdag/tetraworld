@@ -244,7 +244,7 @@ class World
 }
 
 // FIXME: this should go into its own mapgen module.
-World genNewGame(int[4] dim)
+World genNewGame(int[4] dim, out int[4] startPos)
 {
     import components;
     import rndutil;
@@ -315,9 +315,37 @@ World genNewGame(int[4] dim)
         w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
     });
 
-    w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+    Vec!(int,4) findDryPos(MapNode node, Region!(int,4) bounds)
+    {
+        auto dryRegion = bounds;
+        dryRegion.max[0] = w.map.waterLevel - 1;
+
+        MapNode dryRoom;
+        Region!(int,4) dryBounds;
+        int n = 0;
+        foreachFiltRoom(node, bounds, dryRegion,
+            (MapNode node, Region!(int,4) r) {
+                if (r.max[0] > w.map.waterLevel)
+                    return 0; // reject partially-submerged rooms
+
+                if (n == 0 || uniform(0, n) == 0)
+                {
+                    dryRoom = node;
+                    dryBounds = r;
+                }
+                n++;
+                return 0;
+            }
+        );
+        assert(dryRoom !is null);
+        return dryRoom.randomLocation(dryBounds);
+    }
+
+    w.store.createObj(Pos(findDryPos(w.map.tree, w.map.bounds)),
                       Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal));
+
+    startPos = findDryPos(w.map.tree, w.map.bounds);
 
     int floorArea(MapNode node)
     {
@@ -344,12 +372,15 @@ World genNewGame(int[4] dim)
     return w;
 }
 
-// Door placement checks.
+// Mapgen sanity tests.
 unittest
 {
     foreach (i; 0 .. 12)
     {
-        auto w = genNewGame([ 10, 10, 10, 10 ]);
+        int[4] startPos;
+        auto w = genNewGame([ 10, 10, 10, 10 ], startPos);
+
+        // Door placement checks.
         foreachRoom(w.map.tree, w.map.bounds,
             (Region!(int,4) region, MapNode node) {
                 foreach (i; 0 .. node.doors.length-1)
@@ -393,6 +424,23 @@ unittest
                 return 0;
             }
         );
+
+        // Water level tests.
+        import std.format : format;
+        assert(startPos[0] < w.map.waterLevel,
+               format("startPos %s below water level %d", startPos,
+                      w.map.waterLevel));
+        foreach (pos; w.store.getAll!Usable()
+                       .filter!(id => w.store.get!Usable(id).effect ==
+                                      UseEffect.portal)
+                       .map!(id => w.store.get!Pos(id))
+                       .filter!(posp => posp !is null)
+                       .map!(posp => *posp))
+        {
+            assert(pos[0] < w.map.waterLevel,
+                   format("Portal %s below water level %d", pos,
+                          w.map.waterLevel));
+        }
     }
 }
 
