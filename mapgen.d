@@ -366,17 +366,17 @@ unittest
  * Returns: A random floor location in the given BSP tree that's above the
  * given water level.
  */
-Vec!(int,4) randomDryPos(MapNode node, Region!(int,4) bounds, int waterLevel)
+Vec!(int,4) randomDryPos(World w)
 {
-    auto dryRegion = bounds;
-    dryRegion.max[0] = waterLevel - 1;
+    auto dryRegion = w.map.bounds;
+    dryRegion.max[0] = w.map.waterLevel - 1;
 
     MapNode dryRoom;
     Region!(int,4) dryBounds;
     int n = 0;
-    foreachFiltRoom(node, bounds, dryRegion,
+    foreachFiltRoom(w.map.tree, w.map.bounds, dryRegion,
         (MapNode node, Region!(int,4) r) {
-            if (r.max[0] > waterLevel)
+            if (r.max[0] > w.map.waterLevel)
                 return 0; // reject partially-submerged rooms
 
             if (n == 0 || uniform(0, n) == 0)
@@ -469,12 +469,10 @@ World genNewGame(int[4] dim, out int[4] startPos)
         w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
     });
 
-    w.store.createObj(Pos(randomDryPos(w.map.tree, w.map.bounds,
-                                       w.map.waterLevel)),
-                      Tiled(TileId.portal), Name("exit portal"),
-                      Usable(UseEffect.portal));
+    w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
+                      Name("exit portal"), Usable(UseEffect.portal));
 
-    startPos = randomDryPos(w.map.tree, w.map.bounds, w.map.waterLevel);
+    startPos = randomDryPos(w);
 
     int floorArea(MapNode node)
     {
