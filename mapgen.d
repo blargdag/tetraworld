@@ -375,16 +375,16 @@ unittest
 }
 
 /**
- * Returns: A random floor location in the given BSP tree that's above the
- * given water level.
+ * Returns: A random room in the given BSP tree that's completely above the
+ * water level.
  */
-Vec!(int,4) randomDryPos(World w)
+MapNode randomDryRoom(World w, out Region!(int,4) dryBounds)
+    out(node; node !is null && node.isLeaf())
 {
     auto dryRegion = w.map.bounds;
     dryRegion.max[0] = w.map.waterLevel - 1;
 
     MapNode dryRoom;
-    Region!(int,4) dryBounds;
     int n = 0;
     foreachFiltRoom(w.map.tree, w.map.bounds, dryRegion,
         (MapNode node, Region!(int,4) r) {
@@ -400,7 +400,17 @@ Vec!(int,4) randomDryPos(World w)
             return 0;
         }
     );
-    assert(dryRoom !is null);
+    return dryRoom;
+}
+
+/**
+ * Returns: A random floor location in the given BSP tree that's above the
+ * water level.
+ */
+Vec!(int,4) randomDryPos(World w)
+{
+    Region!(int,4) dryBounds;
+    auto dryRoom = randomDryRoom(w, dryBounds);
     return dryRoom.randomLocation(dryBounds);
 }
 
@@ -484,7 +494,9 @@ World genNewGame(int[4] dim, out int[4] startPos)
     w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
                       Name("exit portal"), Usable(UseEffect.portal));
 
-    startPos = randomDryPos(w);
+    Region!(int,4) startBounds;
+    MapNode startRoom = randomDryRoom(w, startBounds);
+    startPos = startRoom.randomLocation(startBounds);
 
     enum goldPct = 0.2;
     auto ngold = cast(int)(floorArea(w.map.tree) * goldPct / 100);
