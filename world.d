@@ -315,7 +315,7 @@ World genNewGame(int[4] dim, out int[4] startPos)
         w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
     });
 
-    Vec!(int,4) findDryPos(MapNode node, Region!(int,4) bounds)
+    Vec!(int,4) randomDryPos(MapNode node, Region!(int,4) bounds)
     {
         auto dryRegion = bounds;
         dryRegion.max[0] = w.map.waterLevel - 1;
@@ -341,11 +341,11 @@ World genNewGame(int[4] dim, out int[4] startPos)
         return dryRoom.randomLocation(dryBounds);
     }
 
-    w.store.createObj(Pos(findDryPos(w.map.tree, w.map.bounds)),
+    w.store.createObj(Pos(randomDryPos(w.map.tree, w.map.bounds)),
                       Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal));
 
-    startPos = findDryPos(w.map.tree, w.map.bounds);
+    startPos = randomDryPos(w.map.tree, w.map.bounds);
 
     int floorArea(MapNode node)
     {
