@@ -2,6 +2,8 @@
   through hidden pit" message.
 - Add water level, underneath which free movement is possible? :-D
    + Need to place player and exit portal above water level.
+   - Water should fill pits too. Currently there's a vacuum there and you can
+     fall even though it ought to be completely submerged!
    - Water should only support weight of objects *inside* it, but not objects
      above it!
    - Inanimate objects (and objects that can't swim) should sink to the bottom
