@@ -305,6 +305,9 @@ void resizeRooms(R)(MapNode root, R region)
     });
 }
 
+/**
+ * Randomly assign room floors.
+ */
 void setRoomFloors(R)(MapNode root, R bounds)
     if (is(R == Region!(int,n), size_t n))
 {
@@ -359,7 +362,39 @@ unittest
     }
 }
 
-// FIXME: this should go into its own mapgen module.
+/**
+ * Returns: A random floor location in the given BSP tree that's above the
+ * given water level.
+ */
+Vec!(int,4) randomDryPos(MapNode node, Region!(int,4) bounds, int waterLevel)
+{
+    auto dryRegion = bounds;
+    dryRegion.max[0] = waterLevel - 1;
+
+    MapNode dryRoom;
+    Region!(int,4) dryBounds;
+    int n = 0;
+    foreachFiltRoom(node, bounds, dryRegion,
+        (MapNode node, Region!(int,4) r) {
+            if (r.max[0] > waterLevel)
+                return 0; // reject partially-submerged rooms
+
+            if (n == 0 || uniform(0, n) == 0)
+            {
+                dryRoom = node;
+                dryBounds = r;
+            }
+            n++;
+            return 0;
+        }
+    );
+    assert(dryRoom !is null);
+    return dryRoom.randomLocation(dryBounds);
+}
+
+/**
+ * Generate new game world.
+ */
 World genNewGame(int[4] dim, out int[4] startPos)
 {
     auto w = new World;
@@ -428,37 +463,12 @@ World genNewGame(int[4] dim, out int[4] startPos)
         w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
     });
 
-    Vec!(int,4) randomDryPos(MapNode node, Region!(int,4) bounds)
-    {
-        auto dryRegion = bounds;
-        dryRegion.max[0] = w.map.waterLevel - 1;
-
-        MapNode dryRoom;
-        Region!(int,4) dryBounds;
-        int n = 0;
-        foreachFiltRoom(node, bounds, dryRegion,
-            (MapNode node, Region!(int,4) r) {
-                if (r.max[0] > w.map.waterLevel)
-                    return 0; // reject partially-submerged rooms
-
-                if (n == 0 || uniform(0, n) == 0)
-                {
-                    dryRoom = node;
-                    dryBounds = r;
-                }
-                n++;
-                return 0;
-            }
-        );
-        assert(dryRoom !is null);
-        return dryRoom.randomLocation(dryBounds);
-    }
-
-    w.store.createObj(Pos(randomDryPos(w.map.tree, w.map.bounds)),
+    w.store.createObj(Pos(randomDryPos(w.map.tree, w.map.bounds,
+                                       w.map.waterLevel)),
                       Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal));
 
-    startPos = randomDryPos(w.map.tree, w.map.bounds);
+    startPos = randomDryPos(w.map.tree, w.map.bounds, w.map.waterLevel);
 
     int floorArea(MapNode node)
     {
