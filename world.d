@@ -46,24 +46,6 @@ struct GameMap
 
     int waterLevel;
 
-    this(int[4] _dim)
-    {
-        bounds.min = vec(0, 0, 0, 0);
-        bounds.max = _dim;
-
-        import rndutil : pickOne;
-        tree = genBsp!MapNode(bounds,
-            (R r) => r.volume > 24 + uniform(0, 80),
-            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
-                            .pickOne(invalidAxis),
-            (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
-                invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
-        );
-        genCorridors(tree, bounds);
-        resizeRooms(tree, bounds);
-        setRoomFloors(tree, bounds);
-    }
-
     @property int opDollar(int i)() { return bounds.max[i]; }
 
     ThingId opIndex(int[4] pos...)
