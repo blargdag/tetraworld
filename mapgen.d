@@ -393,27 +393,10 @@ Vec!(int,4) randomDryPos(MapNode node, Region!(int,4) bounds, int waterLevel)
 }
 
 /**
- * Generate new game world.
+ * Generate pits and pit traps.
  */
-World genNewGame(int[4] dim, out int[4] startPos)
+void genPitTraps(World w)
 {
-    auto w = new World;
-    w.map.bounds = region(vec(0, 0, 0, 0), vec(dim));
-
-    alias R = Region!(int,4);
-    w.map.tree = genBsp!MapNode(w.map.bounds,
-        (R r) => r.volume > 24 + uniform(0, 80),
-        (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
-                        .pickOne(invalidAxis),
-        (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
-            invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
-    );
-    genCorridors(w.map.tree, w.map.bounds);
-
-    // Regular back edges.
-    genBackEdges(w.map.tree, w.map.bounds, uniform(3, 5), 15);
-
-    // Pit traps.
     genBackEdges(w.map.tree, w.map.bounds, uniform(8, 12), 20,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
@@ -455,6 +438,29 @@ World genNewGame(int[4] dim, out int[4] startPos)
         (MapNode node, Region!(int,4) bounds) => 0, // always pick vertical
         true,   // allow multiple pit traps on same wall as normal door
     );
+}
+
+/**
+ * Generate new game world.
+ */
+World genNewGame(int[4] dim, out int[4] startPos)
+{
+    auto w = new World;
+    w.map.bounds = region(vec(0, 0, 0, 0), vec(dim));
+
+    alias R = Region!(int,4);
+    w.map.tree = genBsp!MapNode(w.map.bounds,
+        (R r) => r.volume > 24 + uniform(0, 80),
+        (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+                        .pickOne(invalidAxis),
+        (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+            invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
+    );
+    genCorridors(w.map.tree, w.map.bounds);
+
+    // Add back edges, regular and pits/pit traps.
+    genBackEdges(w.map.tree, w.map.bounds, uniform(3, 5), 15);
+    genPitTraps(w);
 
     resizeRooms(w.map.tree, w.map.bounds);
     setRoomFloors(w.map.tree, w.map.bounds);
