@@ -34,23 +34,27 @@ Thing water = Thing(7);
 
 void registerTerrains(Store* store)
 {
-    store.registerTerrain(emptySpace, Tiled(TileId.space, -1),
+    store.registerTerrain(emptySpace, Tiled(TileId.space, -2),
                           Name("Thin air"));
-    store.registerTerrain(doorway, Tiled(TileId.doorway, -1), Name("door"));
-    store.registerTerrain(ladder, Tiled(TileId.ladder, -1), Name("ladder"),
+    store.registerTerrain(doorway, Tiled(TileId.doorway, -2), Name("door"));
+    store.registerTerrain(ladder, Tiled(TileId.ladder, -2), Name("ladder"),
+                          TiledAbove(TileId.ladderTop, -1),
                           SupportsWeight(SupportType.above | SupportType.within,
                                          SupportCond.climbing));
 
-    store.registerTerrain(blockBare, Tiled(TileId.floorBare, -1),
+    store.registerTerrain(blockBare, Tiled(TileId.wall, -2),
+                          TiledAbove(TileId.floorBare, -1),
                           BlocksMovement(Climbable.yes), Name("wall"));
 
-    store.registerTerrain(blockGrassy, Tiled(TileId.floorGrassy, -1),
+    store.registerTerrain(blockGrassy, Tiled(TileId.wall, -2),
+                          TiledAbove(TileId.floorGrassy, -1),
                           BlocksMovement(Climbable.yes), Name("wall"));
 
-    store.registerTerrain(blockMuddy, Tiled(TileId.floorMuddy, -1),
+    store.registerTerrain(blockMuddy, Tiled(TileId.wall, -2),
+                          TiledAbove(TileId.floorMuddy, -1),
                           BlocksMovement(Climbable.yes), Name("wall"));
 
-    store.registerTerrain(water, Tiled(TileId.water, -1),
+    store.registerTerrain(water, Tiled(TileId.water, -2),
                           SupportsWeight(SupportType.within,
                                          SupportCond.buoyant),
                           Name("water"));

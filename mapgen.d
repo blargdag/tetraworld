@@ -452,8 +452,10 @@ void genPitTraps(World w)
             else
             {
                 d.type = Door.Type.trapdoor;
+                auto floorId = style2Terrain(rooms[1].style);
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
-                    Tiled(TileId.wall), PitTrap(), NoGravity());
+                    Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
+                    PitTrap(), NoGravity());
             }
             return true;
         },
@@ -479,13 +481,13 @@ World genNewGame(int[4] dim, out int[4] startPos)
             invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
     );
     genCorridors(w.map.tree, w.map.bounds);
+    setRoomFloors(w.map.tree, w.map.bounds);
 
     // Add back edges, regular and pits/pit traps.
     genBackEdges(w.map.tree, w.map.bounds, uniform(3, 5), 15);
     genPitTraps(w);
 
     resizeRooms(w.map.tree, w.map.bounds);
-    setRoomFloors(w.map.tree, w.map.bounds);
 
     randomRoom(w.map.tree, w.map.bounds, (MapNode node, R r) {
         w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);

@@ -91,12 +91,23 @@ enum TileId
  *
  * .stackOrder is used for sorting which tile to show when there are multiple
  * items on a single position. Currently:
- *  -1 = background / floor tiles
+ *  <0 = background / floor tiles
  *  0 = items and other objects lying on the ground
  *  ≥1 = agents that can move around.
  */
 @Component
 struct Tiled
+{
+    TileId tileId;
+    int stackOrder;
+}
+
+/**
+ * Component of an object that changes the appearance of empty space
+ * immediately above it.
+ */
+@Component
+struct TiledAbove
 {
     TileId tileId;
     int stackOrder;

@@ -80,20 +80,13 @@ struct ViewPort(Map)
             import terrain : emptySpace;
             if (terrainId == emptySpace.id)
             {
-                // Empty space: check if it's above solid ground. If so, render
-                // the top tile of the ground instead.
-                import terrain : ladder;
-                auto floorId = w.map[pos + vec(1,0,0,0)];
-                if (floorId == ladder.id)
-                    return TileId.ladderTop;
-                if (w.store.get!BlocksMovement(floorId) !is null)
-                    return w.store.get!Tiled(floorId).tileId;
-            }
-            else if (w.store.get!BlocksMovement(terrainId) !is null)
-            {
-                // It's impassable terrain; render as wall when not seen from
-                // top.
-                return TileId.wall;
+                // Empty space: check if tile below has TiledAbove; if so,
+                // render that instead.
+                auto ta = w.getAllAt(Pos(pos + vec(1,0,0,0)))
+                           .map!(id => w.store.get!TiledAbove(id))
+                           .filter!(ta => ta !is null);
+                if (!ta.empty)
+                    return ta.front.tileId;
             }
 
             return w.store.get!Tiled(terrainId).tileId;

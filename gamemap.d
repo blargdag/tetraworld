@@ -644,6 +644,21 @@ class MapNode : BspNode!(MapNode)
 }
 
 /**
+ * Map room style to terrain ID.
+ */
+ThingId style2Terrain(FloorStyle style)
+{
+    import terrain;
+    final switch (style)
+    {
+        case FloorStyle.bare:   return blockBare.id;
+        case FloorStyle.grassy: return blockGrassy.id;
+        case FloorStyle.muddy:  return blockMuddy.id;
+    }
+    assert(0);
+}
+
+/**
  * Randomly select a map location that isn't a wall.
  *
  * Params:
