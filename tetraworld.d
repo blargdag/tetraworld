@@ -67,6 +67,13 @@ int main(string[] args)
     {
         auto quitMsg = ui.play(game, welcomeMsg);
         writeln(quitMsg);
+
+        version(Windows)
+        {
+            import core.thread : Thread;
+            import core.time : dur;
+            Thread.sleep(dur!"seconds"(2));
+        }
         return 0;
     }
     catch (Exception e)
