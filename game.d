@@ -24,6 +24,7 @@ import std.algorithm;
 import std.array;
 import std.container.binaryheap;
 import std.conv : to;
+import std.random : uniform;
 import std.stdio;
 import std.uni : asCapitalized;
 
@@ -342,7 +343,10 @@ void gravitySystem(World w)
             case SupportCond.buoyant:
                 if (w.store.get!Swims(id) !is null)
                     return true;
-                break;
+
+                // Non-buoyant objects will sink, but only slowly, so simulate
+                // this with random support.
+                return (uniform(0, 10) < 4);
         }
         return false;
     }

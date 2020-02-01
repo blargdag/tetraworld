@@ -8,7 +8,7 @@
      above it!
    + Inanimate objects (and objects that can't swim) should sink to the bottom
      of water.
-   - Sinking objects should sink *slowly*!
+   + Sinking objects should sink *slowly*!
    - Climb-ledge action should not trigger while in water.
    - A-monsters should fear water.
       - Create instead a water-dwelling creature that will terrorize the player
