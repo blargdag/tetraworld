@@ -20,6 +20,7 @@
  */
 module components;
 
+import loadsave;
 import store_traits;
 
 /**
@@ -146,23 +147,68 @@ struct Inventory
 @Component
 struct Pickable { }
 
-/**
- * Component for objects that blocks movement.
- */
-@Component
-struct BlocksMovement { }
+enum Climbable : bool { no, yes }
 
 /**
- * Component for objects that support weight.
+ * Component for objects that block movement into the same tile.
  */
 @Component
-struct SupportsWeight { }
+struct BlocksMovement
+{
+    Climbable climbable;
+}
+
+/**
+ * The type of weight support an object has.
+ */
+@BitFlags
+enum SupportType
+{
+    within = 1 << 0,
+    above  = 1 << 1,
+    /+below = 1 << 2, /*for ropes!*/ +/
+}
+
+/**
+ * Condition for an object to be supported by an object that has
+ * SupportsWeight.
+ */
+enum SupportCond
+{
+    climbing,
+    buoyant,
+    /* notFalling // for fragile floors that break if you fall on it */
+}
+
+/**
+ * Component for objects that (conditionally) support weight.
+ *
+ * Not to be confused with BlocksMovement, which is unconditional.
+ */
+@Component
+struct SupportsWeight
+{
+    SupportType type;
+    SupportCond cond;
+}
 
 /**
  * Component for objects that are not subject to gravity.
  */
 @Component
 struct NoGravity { }
+
+/**
+ * Component for objects that can climb ladders.
+ */
+@Component
+struct Climbs { }
+
+/**
+ * Component for objects that don't sink in water.
+ */
+@Component
+struct Swims { }
 
 /**
  * Component for objects that negate weight support (e.g. pit traps).

@@ -37,19 +37,22 @@ void registerTerrains(Store* store)
     store.registerTerrain(emptySpace, Tiled(TileId.space, -1),
                           Name("Thin air"));
     store.registerTerrain(doorway, Tiled(TileId.doorway, -1), Name("door"));
-    store.registerTerrain(ladder, Tiled(TileId.ladder, -1), Name("door"),
-                          SupportsWeight());
+    store.registerTerrain(ladder, Tiled(TileId.ladder, -1), Name("ladder"),
+                          SupportsWeight(SupportType.above | SupportType.within,
+                                         SupportCond.climbing));
 
     store.registerTerrain(blockBare, Tiled(TileId.floorBare, -1),
-                          BlocksMovement(), SupportsWeight(), Name("wall"));
+                          BlocksMovement(Climbable.yes), Name("wall"));
 
     store.registerTerrain(blockGrassy, Tiled(TileId.floorGrassy, -1),
-                          BlocksMovement(), SupportsWeight(), Name("wall"));
+                          BlocksMovement(Climbable.yes), Name("wall"));
 
     store.registerTerrain(blockMuddy, Tiled(TileId.floorMuddy, -1),
-                          BlocksMovement(), SupportsWeight(), Name("wall"));
+                          BlocksMovement(Climbable.yes), Name("wall"));
 
-    store.registerTerrain(water, Tiled(TileId.water, -1), SupportsWeight(),
+    store.registerTerrain(water, Tiled(TileId.water, -1),
+                          SupportsWeight(SupportType.within,
+                                         SupportCond.buoyant),
                           Name("water"));
 }
 
