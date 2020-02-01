@@ -37,6 +37,7 @@ Tile16[TileId.max+1] tiles = [
     TileId.floorBare:   Tile16('.'),
     TileId.floorGrassy: Tile16(':'),
     TileId.floorMuddy:  Tile16(';'),
+    TileId.water:       Tile16('~', Color.blue),
     TileId.doorway:     Tile16('#'),
     TileId.ladder:      Tile16('='),
     TileId.ladderTop:   Tile16('_'),

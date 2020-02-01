@@ -24,6 +24,7 @@ import std.algorithm;
 import std.array;
 import std.container.binaryheap;
 import std.conv : to;
+import std.random : uniform;
 import std.stdio;
 import std.uni : asCapitalized;
 
@@ -32,6 +33,7 @@ import ai;
 import components;
 import dir;
 import loadsave;
+import mapgen;
 import rndutil;
 import store;
 import store_traits;
@@ -326,6 +328,29 @@ struct SysAgent
  */
 void gravitySystem(World w)
 {
+    bool isSupported(ThingId id, SupportsWeight* sw, SupportType type)
+    {
+        if (sw is null || (sw.type & type) == 0)
+            return false;
+
+        final switch (sw.cond)
+        {
+            case SupportCond.climbing:
+                if (w.store.get!Climbs(id) !is null)
+                    return true;
+                break;
+
+            case SupportCond.buoyant:
+                if (w.store.get!Swims(id) !is null)
+                    return true;
+
+                // Non-buoyant objects will sink, but only slowly, so simulate
+                // this with random support.
+                return (uniform(0, 10) < 4);
+        }
+        return false;
+    }
+
     bool willFall()(ThingId id, out Pos oldPos, out Pos floorPos)
     {
         // NOTE: race condition: a falling object may autopickup another
@@ -334,11 +359,28 @@ void gravitySystem(World w)
         auto posp = w.store.get!Pos(id);
         if (posp is null)
             return false;
-
         oldPos = *posp;
-        floorPos = Pos(oldPos + vec(1,0,0,0));
 
-        return w.store.get!SupportsWeight(w.map[floorPos]) is null ||
+        // Check if something at current location is supporting this object.
+        if (w.getAllAt(oldPos)
+             .map!(id => w.store.get!SupportsWeight(id))
+             .canFind!(sw => isSupported(id, sw, SupportType.within)))
+        {
+            return false;
+        }
+
+        // Check if something on the floor is supporting this object.
+        floorPos = Pos(oldPos + vec(1,0,0,0));
+        if (w.getAllAt(floorPos)
+             .map!(id => w.store.get!SupportsWeight(id))
+             .canFind!(sw => isSupported(id, sw, SupportType.above)))
+        {
+            return false;
+        }
+
+        // FIXME: pit trap really should just have no BlocksMovement and a
+        // "false" appearance, it should not be hardcoded here.
+        return w.store.get!BlocksMovement(w.map[floorPos]) is null ||
                w.locationHas!PitTrap(floorPos);
     }
 
@@ -493,12 +535,13 @@ class Game
     static Game newGame()
     {
         auto g = new Game;
-        g.w = genNewGame([ 12, 12, 12, 12 ]);
+        int[4] startPos;
+        g.w = genNewGame([ 12, 12, 12, 12 ], startPos);
         //game.w = newGame([ 9, 9, 9, 9 ]);
         g.player = g.w.store.createObj(
-            Pos(g.w.map.randomLocation()),
-            Tiled(TileId.player, 1), Name("you"), Agent(Agent.Type.player),
-            Inventory(), BlocksMovement(), Mortal(5,5)
+            Pos(startPos), Tiled(TileId.player, 1), Name("you"),
+            Agent(Agent.Type.player), Inventory(), BlocksMovement(), Climbs(),
+            Swims(), Mortal(5,5)
         );
         return g;
     }

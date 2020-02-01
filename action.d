@@ -113,14 +113,23 @@ bool canMove(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
  */
 bool canClimb(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
 {
-    // Note that BlocksMovement is not sufficient for climbability; the target
-    // tile must also have SupportsWeight. This is to prevent the player from
-    // climbing on top of creatures. :-D
     auto newPos = Pos(pos + displacement);
-    return displacement != vec(1,0,0,0) &&
-           w.getAllAt(newPos)
-            .canFind!(id => w.store.get!SupportsWeight(id) !is null) &&
-           !w.getAllAt(Pos(pos + vec(-1,0,0,0)))
+
+    // Only single-tile horizontal moves qualify for climb-ledges.
+    if (displacement[0] != 0 || displacement.rectNorm != 1)
+        return false;
+
+    // Destination tile must block movement, but be climbable.
+    if (!w.getAllAt(newPos)
+          .canFind!((id) {
+             auto bm = w.store.get!BlocksMovement(id);
+             return bm !is null && bm.climbable == Climbable.yes;
+          }))
+        return false;
+
+    // Tiles above current position and target position must not block
+    // movement.
+    return !w.getAllAt(Pos(pos + vec(-1,0,0,0)))
              .canFind!(id => w.store.get!BlocksMovement(id) !is null) &&
            !w.getAllAt(Pos(newPos + vec(-1,0,0,0)))
              .canFind!(id => w.store.get!BlocksMovement(id) !is null);
