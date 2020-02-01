@@ -7,10 +7,6 @@
       - Create instead a water-dwelling creature that will terrorize the player
         in whole new 4D ways. :-D
 - Falling on a ladder should not cause ladder to support weight!
-- Rework hidden pit traps:
-   - Terrain should be blank tile or doorway, NOT wall!
-   - Pit trap object should have appearance of wall, AND should affect
-     appearance of tile above itself like walls do.
 - Implement FOV and player map memory.
 - Improve creature AI.
    - Pathfinding.
@@ -94,3 +90,7 @@ P Fold Vec!(4,int) into Pos. There are TOO MANY different types representing a
    + Inanimate objects (and objects that can't swim) should sink to the bottom
      of water.
    + Sinking objects should sink *slowly*!
++ Rework hidden pit traps:
+   + Terrain should be blank tile or doorway, NOT wall!
+   + Pit trap object should have appearance of wall, AND should affect
+     appearance of tile above itself like walls do.

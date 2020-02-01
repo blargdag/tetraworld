@@ -96,7 +96,7 @@ struct GameMap
 
                 foreach (d; node.doors)
                 {
-                    if (pos[] == d.pos && (d.type != Door.Type.trapdoor))
+                    if (pos[] == d.pos)
                     {
                         // Normal vertical exits should have ladders that reach
                         // up to the top (in the floor).
@@ -107,20 +107,7 @@ struct GameMap
                     }
                 }
 
-                final switch (node.style)
-                {
-                    case FloorStyle.bare:
-                        result = blockBare.id;
-                        break;
-
-                    case FloorStyle.grassy:
-                        result = blockGrassy.id;
-                        break;
-
-                    case FloorStyle.muddy:
-                        result = blockMuddy.id;
-                        break;
-                }
+                result = style2Terrain(node.style);
                 return 1;
             }
         );

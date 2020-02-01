@@ -378,10 +378,7 @@ void gravitySystem(World w)
             return false;
         }
 
-        // FIXME: pit trap really should just have no BlocksMovement and a
-        // "false" appearance, it should not be hardcoded here.
-        return w.store.get!BlocksMovement(w.map[floorPos]) is null ||
-               w.locationHas!PitTrap(floorPos);
+        return w.store.get!BlocksMovement(w.map[floorPos]) is null;
     }
 
     foreach (t; w.store.getAllNew!Pos()
@@ -649,13 +646,12 @@ class Game
                           .map!(id => w.store.getObj(id));
                 if (!r.empty)
                 {
+                    if (r.front.systems & SysMask.tiledabove)
+                    {
+                        ui.message("You fall through a hidden pit!");
+                        w.store.remove!TiledAbove(r.front);
+                    }
                     w.store.add!Tiled(r.front, Tiled(TileId.trapPit));
-                    ui.message("You fall through a hidden pit!");
-
-                    // FIXME: hack to reveal blank space just above pit instead
-                    // of floor tile.
-                    w.store.createObj(Pos(pos), Name("pit"),
-                                      Tiled(TileId.space), NoGravity());
                 }
                 else
                     ui.message("You fall!");
