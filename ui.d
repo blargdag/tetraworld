@@ -22,6 +22,7 @@ module ui;
 
 import core.thread : Fiber;
 import std.algorithm;
+import std.array;
 import std.range;
 
 import arsd.terminal;
@@ -332,6 +333,35 @@ unittest
     assert(keypress && disp.impl == "Kaboom.             ");
 }
 
+private static immutable helpText = q"ENDTEXT
+Movement keys:
+
+         i o     
+         |/      
+  h<- j--+--k ->l
+        /|       
+       n m
+
+   i,m = up/down
+   j,k = left/right
+   n,o = forwards/backwards
+   h,l = ana/kata
+
+   H,I,J,K,L,M,N,O = move viewport only, does not consume turn.
+
+Commands:
+   p        Pass a turn.
+   <enter>  Activate object in current location.
+
+Meta-commands:
+   ?        Show this help.
+   q        Save current progress and quit.
+   Q        Delete current progress and quit.
+   <space>  Center player in map view.
+   ^L       Repaint the screen.
+ENDTEXT"
+    .split('\n');
+
 /**
  * Text-based UI implementation.
  */
@@ -454,6 +484,9 @@ class TextUi : GameUi
                                 quitMsg = "Bye!";
                             }
                         });
+                        break;
+                    case '?':
+                        showHelp();
                         break;
                     case '\x0c':        // ^L
                         disp.repaint(); // force repaint of entire screen
@@ -691,6 +724,33 @@ class TextUi : GameUi
         return tile;
     }
 
+    private void showHelp()
+    {
+        auto helpMode = Mode(
+            {
+                disp.color(Color.DEFAULT, Color.DEFAULT);
+                disp.clear();
+                foreach (i; 0 .. helpText.length)
+                {
+                    disp.moveTo(0, cast(int)i);
+                    disp.writef("%s", helpText[i]);
+                }
+
+                disp.moveTo(0, disp.height - 1);
+                disp.color(Color.white, Color.blue);
+                disp.writef("Press any key to return to game");
+                disp.clearToEol();
+            },
+            (dchar ch) {
+                disp.color(Color.DEFAULT, Color.DEFAULT);
+                disp.clear();
+                dispatch.pop();
+            }
+        );
+
+        dispatch.push(helpMode);
+    }
+
     private auto getCurView()
     {
         return viewport.curView.fmap!((pos, tileId) =>
@@ -784,6 +844,7 @@ class TextUi : GameUi
         });
 
         message(welcomeMsg);
+        message("Press '?' for help.");
 
         quit = false;
         gameFiber.call();
