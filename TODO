@@ -1,8 +1,7 @@
 - Need a tutorial mode for new players!!!
-- BUG: after falling through pit trap the first time, should suppress "fall
-  through hidden pit" message.
 - Water-related issues:
-   - Climb-ledge action should not trigger while in water.
+   X Climb-ledge action should not trigger while in water.
+      * Why shouldn't it?
    - A-monsters should fear water.
       - Create instead a water-dwelling creature that will terrorize the player
         in whole new 4D ways. :-D
@@ -94,3 +93,5 @@ P Fold Vec!(4,int) into Pos. There are TOO MANY different types representing a
    + Terrain should be blank tile or doorway, NOT wall!
    + Pit trap object should have appearance of wall, AND should affect
      appearance of tile above itself like walls do.
++ BUG: after falling through pit trap the first time, should suppress "fall
+  through hidden pit" message.
