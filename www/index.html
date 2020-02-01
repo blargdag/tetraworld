@@ -55,12 +55,25 @@ unstable, or have partially-implemented or unimplemented mechanics.
 Compatibility with existing saved games is not guaranteed.  Play at your own
 risk. :-P</p>
 
-
 <ul>
 <li><a href="tetraworld">Linux 64-bit executable</a>.</li>
 <li><a href="tetraworld.exe">Windows 64-bit executable</a> (runs inside
 	cmd.exe).</li>
 </ul>
+
+
+<h2>News</h2>
+
+<dl>
+
+<dt>2020-02-01</dt>
+<dd><ul>
+<li>Water has been added. Each new game will have a random chance of getting
+	rooms submerged or partially submerged in water.</li>
+<li>Added in-game help screen. Press <tt>?</tt> to open it.</li>
+</ul></dd>
+
+</dl>
 
 
 <h2>Usage</h2>
@@ -108,6 +121,10 @@ chunk of the world you're in.</p>
 <dt><tt>, : ;</tt></dt>
 <dd>These characters represent different types of floor. In this version,
 different types of floor do not yet have any difference in function.</dd>
+
+<dt>~</dt>
+<dd>Water. In this version, you can freely swim through water, and will not be
+subject to gravity while in water.</dd>
 
 <dt>(blank)</dt>
 <dd>Blanks represent empty space that you will fall through.</dd>
@@ -207,7 +224,8 @@ interesting.</p>
 
 <p>The current version of game only generates maps that consist of
 rectangular<sup>*</sup> rooms connected by doors, ladders, the occasional pits
-(watch out for holes in the floor!), and even hidden trapdoors. Have fun!</p>
+(watch out for holes in the floor!), and even hidden trapdoors. There may be
+rooms submerged or partially submerged in 4D water. Have fun!</p>
 
 <p>(<sup>*</sup> Technically, <em>hypercuboidal</em>.)</p>
 
@@ -224,6 +242,10 @@ You will know them when you see them: they move and chase after you!</p>
 but currently not yet implemented.</p>
 
 <dl>
+
+<dt>?</dt>
+<dd>The most important key of all, this shows the in-game help screen that
+	describes the various controls.</dd>
 
 <dt>h, i, j, k, l, m, n, o</dt>
 <dd>Movement keys.  These keys were chosen to approximate the movement
@@ -307,10 +329,14 @@ see them!).  Fortunately, in this version of the game they are pretty dumb and
 predictable; they will always try to home in to your location, but they cannot
 climb ledges, and have a tendency of falling off ladders if appropriately
 lured. With some practice you should be able to easily lose them as long as you
-have access to a ladder or ledge.  Be careful that what is adjacent in 4D may
-not be displayed adjacently on the screen, and these enemies are native to 4D
-space and facile with moving around in 4D, so you should always double-check
-exactly which tiles are adjacent to an enemy before making a move!</p>
+have access to a ladder or ledge.  They are also poor swimmers and tend to get
+stuck at the bottom of pools; if you can lure them into one it will relieve you
+of them for a while.</p>
+
+<p>Be careful that what is adjacent in 4D may not be displayed adjacently on
+the screen, and these enemies are native to 4D space and facile with moving
+around in 4D, so you should always double-check exactly which tiles are
+adjacent to an enemy before making a move!</p>
 
 
 <hr/>
