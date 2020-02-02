@@ -5,6 +5,8 @@
    - A-monsters should fear water.
       - Create instead a water-dwelling creature that will terrorize the player
         in whole new 4D ways. :-D
+   - Gravity system stops applying to sinking objects after initial sink
+     because Pos doesn't change anymore.
 - Falling on a ladder should not cause ladder to support weight!
 - Implement FOV and player map memory.
 - Improve creature AI.
