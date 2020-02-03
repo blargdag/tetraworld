@@ -1,5 +1,5 @@
 /**
- * Gravity system.
+ * Gravity module.
  *
  * Copyright: (C) 2012-2021  blargdag@quickfur.ath.cx
  *
@@ -21,6 +21,7 @@
 module gravity;
 
 import std.algorithm;
+import std.array;
 import std.range;
 import std.random;
 
@@ -33,9 +34,22 @@ import store_traits;
 import world;
 import vector;
 
+/**
+ * Gravity system.
+ */
 struct SysGravity
 {
     ThingId[] targets;
+
+    private void enqueueNewTargets(World w)
+    {
+        auto app = appender(targets);
+        w.store.getAllNew!Pos()
+               .filter!(id => w.store.get!NoGravity(id) is null)
+               .copy(app);
+        targets = app.data;
+        w.store.clearNew!Pos();
+    }
 
     private bool isSupported(World w, ThingId id, SupportsWeight* sw,
                              SupportType type)
@@ -97,10 +111,10 @@ struct SysGravity
      */
     void run(World w)
     {
-        foreach (t; w.store.getAllNew!Pos()
-                           .filter!(id => w.store.get!NoGravity(id) is null)
-                           .map!(id => w.store.getObj(id))
-                           .array)
+        enqueueNewTargets(w);
+        ThingId[] newTargets;
+        foreach (t; targets.map!(id => w.store.getObj(id))
+                           .filter!(t => t !is null))
         {
             Pos oldPos, floorPos;
             while (willFall(w, t.id, oldPos, floorPos))
@@ -148,7 +162,7 @@ struct SysGravity
             }
         }
 
-        w.store.clearNew!Pos();
+        targets = newTargets;
     }
 }
 
