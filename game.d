@@ -342,6 +342,7 @@ class Game
     private GameUi ui;
     /*private*/ World w; // FIXME
     private SysAgent sysAgent;
+    private SysGravity sysGravity;
 
     private Thing* player;
     private Vec!(int,4) lastPlPos;
@@ -396,6 +397,7 @@ class Game
         sf.put("player", player.id);
         sf.put("world", w);
         sf.put("agent", sysAgent);
+        sf.put("gravity", sysGravity);
     }
 
     static Game loadGame()
@@ -406,6 +408,7 @@ class Game
         auto game = new Game;
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
+        game.sysGravity = lf.parse!SysGravity("gravity");
 
         game.player = game.w.store.getObj(playerId);
         if (game.player is null)
@@ -660,7 +663,7 @@ class Game
 
         while (!quit)
         {
-            gravitySystem(w);
+            sysGravity.run(w);
             if (!sysAgent.run(w))
                 quit = true;
             portalSystem();

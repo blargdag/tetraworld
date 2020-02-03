@@ -33,12 +33,12 @@ import store_traits;
 import world;
 import vector;
 
-/**
- * Gravity system.
- */
-void gravitySystem(World w)
+struct SysGravity
 {
-    bool isSupported(ThingId id, SupportsWeight* sw, SupportType type)
+    ThingId[] targets;
+
+    private bool isSupported(World w, ThingId id, SupportsWeight* sw,
+                             SupportType type)
     {
         if (sw is null || (sw.type & type) == 0)
             return false;
@@ -61,7 +61,8 @@ void gravitySystem(World w)
         return false;
     }
 
-    bool willFall()(ThingId id, out Pos oldPos, out Pos floorPos)
+    private bool willFall()(World w, ThingId id, out Pos oldPos,
+                            out Pos floorPos)
     {
         // NOTE: race condition: a falling object may autopickup another
         // object and remove its Pos while we're still iterating, which
@@ -74,7 +75,7 @@ void gravitySystem(World w)
         // Check if something at current location is supporting this object.
         if (w.getAllAt(oldPos)
              .map!(id => w.store.get!SupportsWeight(id))
-             .canFind!(sw => isSupported(id, sw, SupportType.within)))
+             .canFind!(sw => isSupported(w, id, sw, SupportType.within)))
         {
             return false;
         }
@@ -83,7 +84,7 @@ void gravitySystem(World w)
         floorPos = Pos(oldPos + vec(1,0,0,0));
         if (w.getAllAt(floorPos)
              .map!(id => w.store.get!SupportsWeight(id))
-             .canFind!(sw => isSupported(id, sw, SupportType.above)))
+             .canFind!(sw => isSupported(w, id, sw, SupportType.above)))
         {
             return false;
         }
@@ -91,58 +92,64 @@ void gravitySystem(World w)
         return w.store.get!BlocksMovement(w.map[floorPos]) is null;
     }
 
-    foreach (t; w.store.getAllNew!Pos()
-                       .filter!(id => w.store.get!NoGravity(id) is null)
-                       .map!(id => w.store.getObj(id))
-                       .array)
+    /**
+     * Gravity system.
+     */
+    void run(World w)
     {
-        Pos oldPos, floorPos;
-        while (willFall(t.id, oldPos, floorPos))
+        foreach (t; w.store.getAllNew!Pos()
+                           .filter!(id => w.store.get!NoGravity(id) is null)
+                           .map!(id => w.store.getObj(id))
+                           .array)
         {
-            // An object that does not support weight but does block moves will
-            // get damaged by the falling object, and throw the falling object
-            // sideways. (Note that not supporting weight is already implied by
-            // willFall().)
-            auto r = w.store.getAllBy!Pos(floorPos)
-                      .map!(id => w.store.getObj(id))
-                      .filter!(t => t.systems & SysMask.blocksmovement);
-            if (!r.empty)
+            Pos oldPos, floorPos;
+            while (willFall(w, t.id, oldPos, floorPos))
             {
-                auto obj = r.front;
-
-                w.notify.fallOn(oldPos, t.id, obj.id);
-                if (w.store.get!Mortal(obj.id) !is null)
+                // An object that does not support weight but does block moves will
+                // get damaged by the falling object, and throw the falling object
+                // sideways. (Note that not supporting weight is already implied by
+                // willFall().)
+                auto r = w.store.getAllBy!Pos(floorPos)
+                          .map!(id => w.store.getObj(id))
+                          .filter!(t => t.systems & SysMask.blocksmovement);
+                if (!r.empty)
                 {
-                    import damage;
-                    w.injure(t.id, obj.id, invalidId /*FIXME*/, 1 /*FIXME*/);
+                    auto obj = r.front;
+
+                    w.notify.fallOn(oldPos, t.id, obj.id);
+                    if (w.store.get!Mortal(obj.id) !is null)
+                    {
+                        import damage;
+                        w.injure(t.id, obj.id, invalidId /*FIXME*/, 1 /*FIXME*/);
+                    }
+
+                    // Throw object to random sideways direction, unless it's
+                    // completely blocked in, in which case it stays put.
+                    floorPos = horizDirs
+                        .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
+                        .filter!(pos => !w.locationHas!BlocksMovement(pos))
+                        .pickOne(oldPos);
+
+                    if (floorPos == oldPos)
+                        break;
+
+                    rawMove(w, t, floorPos, {
+                        // FIXME: replace with something else, like being thrown to
+                        // the side.
+                        w.notify.fall(oldPos, t.id, floorPos);
+                    });
                 }
-
-                // Throw object to random sideways direction, unless it's
-                // completely blocked in, in which case it stays put.
-                floorPos = horizDirs
-                    .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
-                    .filter!(pos => !w.locationHas!BlocksMovement(pos))
-                    .pickOne(oldPos);
-
-                if (floorPos == oldPos)
-                    break;
-
-                rawMove(w, t, floorPos, {
-                    // FIXME: replace with something else, like being thrown to
-                    // the side.
-                    w.notify.fall(oldPos, t.id, floorPos);
-                });
-            }
-            else
-            {
-                rawMove(w, t, floorPos, {
-                    w.notify.fall(oldPos, t.id, floorPos);
-                });
+                else
+                {
+                    rawMove(w, t, floorPos, {
+                        w.notify.fall(oldPos, t.id, floorPos);
+                    });
+                }
             }
         }
-    }
 
-    w.store.clearNew!Pos();
+        w.store.clearNew!Pos();
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
