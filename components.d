@@ -238,6 +238,9 @@ struct Agent
     // TBD: AI state goes here
 }
 
+/**
+ * Component for objects that can be injured and killed.
+ */
 @Component
 struct Mortal
 {
