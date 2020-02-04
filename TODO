@@ -1,4 +1,6 @@
 - Need a tutorial mode for new players!!!
+- Fall-and-injure should not trigger unless object falls at least 1 tile! You
+  can't just walk on top of an object and cause falling damage!
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?

@@ -49,6 +49,7 @@ sources = Split("""
 	mapgen.d
 	game.d
 	gamemap.d
+	gravity.d
 	rndutil.d
 	store.d
 	store_traits.d

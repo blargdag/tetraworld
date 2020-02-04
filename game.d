@@ -32,6 +32,7 @@ import action;
 import ai;
 import components;
 import dir;
+import gravity;
 import loadsave;
 import mapgen;
 import rndutil;
@@ -324,118 +325,6 @@ struct SysAgent
 }
 
 /**
- * Gravity system.
- */
-void gravitySystem(World w)
-{
-    bool isSupported(ThingId id, SupportsWeight* sw, SupportType type)
-    {
-        if (sw is null || (sw.type & type) == 0)
-            return false;
-
-        final switch (sw.cond)
-        {
-            case SupportCond.climbing:
-                if (w.store.get!Climbs(id) !is null)
-                    return true;
-                break;
-
-            case SupportCond.buoyant:
-                if (w.store.get!Swims(id) !is null)
-                    return true;
-
-                // Non-buoyant objects will sink, but only slowly, so simulate
-                // this with random support.
-                return (uniform(0, 10) < 4);
-        }
-        return false;
-    }
-
-    bool willFall()(ThingId id, out Pos oldPos, out Pos floorPos)
-    {
-        // NOTE: race condition: a falling object may autopickup another
-        // object and remove its Pos while we're still iterating, which
-        // will cause posp to be null.
-        auto posp = w.store.get!Pos(id);
-        if (posp is null)
-            return false;
-        oldPos = *posp;
-
-        // Check if something at current location is supporting this object.
-        if (w.getAllAt(oldPos)
-             .map!(id => w.store.get!SupportsWeight(id))
-             .canFind!(sw => isSupported(id, sw, SupportType.within)))
-        {
-            return false;
-        }
-
-        // Check if something on the floor is supporting this object.
-        floorPos = Pos(oldPos + vec(1,0,0,0));
-        if (w.getAllAt(floorPos)
-             .map!(id => w.store.get!SupportsWeight(id))
-             .canFind!(sw => isSupported(id, sw, SupportType.above)))
-        {
-            return false;
-        }
-
-        return w.store.get!BlocksMovement(w.map[floorPos]) is null;
-    }
-
-    foreach (t; w.store.getAllNew!Pos()
-                       .filter!(id => w.store.get!NoGravity(id) is null)
-                       .map!(id => w.store.getObj(id))
-                       .array)
-    {
-        Pos oldPos, floorPos;
-        while (willFall(t.id, oldPos, floorPos))
-        {
-            // An object that does not support weight but does block moves will
-            // get damaged by the falling object, and throw the falling object
-            // sideways. (Note that not supporting weight is already implied by
-            // willFall().)
-            auto r = w.store.getAllBy!Pos(floorPos)
-                      .map!(id => w.store.getObj(id))
-                      .filter!(t => t.systems & SysMask.blocksmovement);
-            if (!r.empty)
-            {
-                auto obj = r.front;
-
-                w.notify.fallOn(oldPos, t.id, obj.id);
-                if (w.store.get!Mortal(obj.id) !is null)
-                {
-                    import damage;
-                    w.injure(t.id, obj.id, invalidId /*FIXME*/, 1 /*FIXME*/);
-                }
-
-                // Throw object to random sideways direction, unless it's
-                // completely blocked in, in which case it stays put.
-                floorPos = horizDirs
-                    .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
-                    .filter!(pos => !w.locationHas!BlocksMovement(pos))
-                    .pickOne(oldPos);
-
-                if (floorPos == oldPos)
-                    break;
-
-                rawMove(w, t, floorPos, {
-                    // FIXME: replace with something else, like being thrown to
-                    // the side.
-                    w.notify.fall(oldPos, t.id, floorPos);
-                });
-            }
-            else
-            {
-                rawMove(w, t, floorPos, {
-                    w.notify.fall(oldPos, t.id, floorPos);
-                });
-            }
-        }
-    }
-
-    w.store.clearNew!Pos();
-}
-
-/**
  * Player status.
  */
 struct PlayerStatus
@@ -453,6 +342,7 @@ class Game
     private GameUi ui;
     /*private*/ World w; // FIXME
     private SysAgent sysAgent;
+    private SysGravity sysGravity;
 
     private Thing* player;
     private Vec!(int,4) lastPlPos;
@@ -507,6 +397,7 @@ class Game
         sf.put("player", player.id);
         sf.put("world", w);
         sf.put("agent", sysAgent);
+        sf.put("gravity", sysGravity);
     }
 
     static Game loadGame()
@@ -517,6 +408,7 @@ class Game
         auto game = new Game;
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
+        game.sysGravity = lf.parse!SysGravity("gravity");
 
         game.player = game.w.store.getObj(playerId);
         if (game.player is null)
@@ -771,7 +663,7 @@ class Game
 
         while (!quit)
         {
-            gravitySystem(w);
+            sysGravity.run(w);
             if (!sysAgent.run(w))
                 quit = true;
             portalSystem();
