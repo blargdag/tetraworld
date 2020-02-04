@@ -26,36 +26,56 @@ enum server = "eusebeia";
 enum port = 62222;
 enum destdir = "/var/www/tetraworld/";
 
-enum files = [
-    "tetraworld",
-    "tetraworld.exe",
-	"screenshots/2020-01-28a.gif",
-    "www/index.html",
-];
-
-void main(string[] args)
+int main(string[] args)
 {
-    if (args.length >= 2 && args[1] == "--for-real")
+    try
     {
-        writeln("Uploading for real this time!");
-        auto rs = execute([
-                "scp",
-                "-CP" ~ port.to!string
-            ] ~ files ~ [
-                server ~ ":" ~ destdir
-            ]
-        );
-        if (rs.status != 0)
-            writefln("Upload failed: %s", rs.output);
+        bool forReal;
+        if (args.length >= 2 && args[1] == "--for-real")
+            forReal = true;
+
+        auto files = File("upload.files", "r").byLineCopy.array;
+        writeln("Files:");
+        bool hasMissing;
+        foreach (f; files)
+        {
+            auto e = f.exists;
+            writefln("\t%s%s", f, e ? "" : "\t(MISSING)");
+            if (!e)
+                hasMissing = true;
+        }
+
+        if (hasMissing)
+            throw new Exception("There are missing files, aborting");
+
+        if (forReal)
+        {
+            writeln("Uploading for real this time!");
+            auto rs = execute([
+                    "scp",
+                    "-CP" ~ port.to!string
+                ] ~ files ~ [
+                    server ~ ":" ~ destdir
+                ]
+            );
+            if (rs.status != 0)
+                writefln("Upload failed: %s", rs.output);
+        }
+        else
+        {
+            writefln("Copying to local %s for testing.", destdir);
+            mkdirRecurse(destdir);
+            auto rs = execute([ "cp" ] ~ files ~ [ destdir ]);
+            if (rs.status != 0)
+                writefln("Upload failed: %s", rs.output);
+        }
     }
-    else
+    catch(Exception e)
     {
-        writefln("Copying to local %s for testing.", destdir);
-        mkdirRecurse(destdir);
-        auto rs = execute([ "cp" ] ~ files ~ [ destdir ]);
-        if (rs.status != 0)
-            writefln("Upload failed: %s", rs.output);
+        stderr.writefln("Error: %s", e.msg);
+        return 2;
     }
+    return 0;
 }
 
 // vim: set ts=4 sw=4 et ai:
