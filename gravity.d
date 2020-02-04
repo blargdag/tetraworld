@@ -119,10 +119,10 @@ struct SysGravity
             Pos oldPos, floorPos;
             while (willFall(w, t.id, oldPos, floorPos))
             {
-                // An object that does not support weight but does block moves will
-                // get damaged by the falling object, and throw the falling object
-                // sideways. (Note that not supporting weight is already implied by
-                // willFall().)
+                // An object that does not support weight but does block moves
+                // will get damaged by the falling object, and throw the
+                // falling object sideways. (Note that not supporting weight is
+                // already implied by willFall().)
                 auto r = w.store.getAllBy!Pos(floorPos)
                           .map!(id => w.store.getObj(id))
                           .filter!(t => t.systems & SysMask.blocksmovement);
