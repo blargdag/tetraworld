@@ -104,6 +104,49 @@ struct SysGravity
     }
 
     /**
+     * Called when a falling object is on top of an object that blocks movement
+     * but is unable to support weight.
+     *
+     * Returns: true if object should keep falling, false if object should stop
+     * falling.
+     */
+    private bool fallOn(World w, Thing* t, Thing* obj, Pos oldPos,
+                        Pos floorPos)
+    {
+        auto objId = obj.id;
+
+        w.notify.fallOn(oldPos, t.id, objId);
+        if (w.store.get!Mortal(objId) !is null)
+        {
+            import damage;
+            w.injure(t.id, objId, invalidId /*FIXME*/, 1 /*FIXME*/);
+        }
+
+        if (w.store.getObj(objId) is null)
+            return true; // obj has been destroyed; keep falling
+
+        // Throw object to random sideways direction, unless it's completely
+        // blocked in, in which case it stays put.
+        auto newPos = horizDirs
+            .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
+            .filter!(pos => !w.locationHas!BlocksMovement(pos) &&
+                            !w.locationHas!BlocksMovement(Pos(pos +
+                                                              vec(-1,0,0,0))))
+            .pickOne(oldPos);
+
+        // If completely blocked on all sides, get stuck on top.
+        if (newPos == oldPos)
+            return false;
+
+        rawMove(w, t, newPos, {
+            // FIXME: replace with something else, like being thrown to the
+            // side.
+            w.notify.fall(oldPos, t.id, newPos);
+        });
+        return true;
+    }
+
+    /**
      * Gravity system.
      */
     void run(World w)
@@ -125,40 +168,8 @@ struct SysGravity
                           .filter!(t => t.systems & SysMask.blocksmovement);
                 if (!r.empty)
                 {
-                    auto obj = r.front;
-                    auto objId = obj.id;
-
-                    w.notify.fallOn(oldPos, t.id, objId);
-                    if (w.store.get!Mortal(objId) !is null)
-                    {
-                        import damage;
-                        w.injure(t.id, objId, invalidId /*FIXME*/, 1 /*FIXME*/);
-                    }
-
-                    if (w.store.getObj(objId) !is null)
-                    {
-                        // Throw object to random sideways direction, unless
-                        // it's completely blocked in, in which case it stays
-                        // put.
-                        auto newPos = horizDirs
-                            .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
-                            .filter!(pos =>
-                                !w.locationHas!BlocksMovement(pos) &&
-                                !w.locationHas!BlocksMovement(Pos(
-                                    pos + vec(-1,0,0,0))))
-                            .pickOne(oldPos);
-
-                        // If completely blocked on all sides, get stuck on
-                        // top.
-                        if (newPos == oldPos)
-                            break;
-
-                        rawMove(w, t, newPos, {
-                            // FIXME: replace with something else, like being
-                            // thrown to the side.
-                            w.notify.fall(oldPos, t.id, newPos);
-                        });
-                    }
+                    if (!fallOn(w, t, r.front, oldPos, floorPos))
+                        break;
                 }
                 else
                 {
