@@ -9,6 +9,15 @@
         in whole new 4D ways. :-D
    - Gravity system stops applying to sinking objects after initial sink
      because Pos doesn't change anymore.
+      - Argh!! This is far more complex than anticipated. Basically we CANNOT
+        use the gravity system for this, because the gravity system acts within
+        1 turn, but this must spread out over multiple turns, but not just
+        multiple calls to the gravity system (which can happen multiple times
+        per turn!!!), but must be keyed to the agent system's current tick
+        number.
+      - So, looks like we need to attach a Sinking component to sinking
+        objects, and register an agent that specifically deals with pulling
+        down sinking objects.
 - Falling on a ladder should not cause ladder to support weight!
 - Implement FOV and player map memory.
 - Improve creature AI.
