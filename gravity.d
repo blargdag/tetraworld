@@ -229,6 +229,7 @@ unittest
     //  1 #@ #  ==> 1 #  #
     //  2 #A #      2 #@ #
     //  3 ####      3 ####
+    w.store.remove!Pos(rock);
     w.store.add!Pos(rock, Pos(1,1,1,1));
     grav.run(w);
 
@@ -241,6 +242,7 @@ unittest
     //  1 #@##  ==> 1 #@##
     //  2 #A #      2 #A #
     //  3 ####      3 ####
+    w.store.remove!Pos(rock);
     w.store.add!Pos(rock, Pos(1,1,1,1));
     victim = w.store.createObj(Name("victim"), Pos(2,1,1,1),
                                Mortal(3, 3), BlocksMovement());
@@ -260,6 +262,7 @@ unittest
     //  1 #@ #  ==> 1 #@ #
     //  2 #A##      2 #A##
     //  3 ####      3 ####
+    w.store.remove!Pos(rock);
     w.store.add!Pos(rock, Pos(1,1,1,1));
     w.store.remove!Pos(corner);
     w.store.add!Pos(corner, Pos(2,2,1,1));
@@ -269,6 +272,20 @@ unittest
     assert(*w.store.get!Pos(rock.id) == Pos(1,1,1,1));
     assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
     assert(*w.store.get!Mortal(victim.id) == Mortal(3, 1));
+    assert(*w.store.get!Pos(corner.id) == Pos(2,2,1,1));
+
+    // Scenario 5:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #  #
+    //  2 #A##      2 #@##
+    //  3 ####      3 ####
+    w.store.remove!Pos(rock);
+    w.store.add!Pos(rock, Pos(1,1,1,1));
+    grav.run(w);
+
+    assert(*w.store.get!Pos(rock.id) == Pos(2,1,1,1));
+    assert(w.store.getObj(victim.id) == null);
     assert(*w.store.get!Pos(corner.id) == Pos(2,2,1,1));
 }
 
