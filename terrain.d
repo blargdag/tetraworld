@@ -42,17 +42,23 @@ void registerTerrains(Store* store)
                           SupportsWeight(SupportType.above | SupportType.within,
                                          SupportCond.climbing));
 
-    store.registerTerrain(blockBare, Tiled(TileId.wall, -2),
+    store.registerTerrain(blockBare, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorBare, -1),
-                          BlocksMovement(Climbable.yes), Name("wall"));
+                          BlocksMovement(Climbable.yes),
+                          SupportsWeight(SupportType.above |
+                                         SupportType.within));
 
-    store.registerTerrain(blockGrassy, Tiled(TileId.wall, -2),
+    store.registerTerrain(blockGrassy, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorGrassy, -1),
-                          BlocksMovement(Climbable.yes), Name("wall"));
+                          BlocksMovement(Climbable.yes),
+                          SupportsWeight(SupportType.above |
+                                         SupportType.within));
 
-    store.registerTerrain(blockMuddy, Tiled(TileId.wall, -2),
+    store.registerTerrain(blockMuddy, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorMuddy, -1),
-                          BlocksMovement(Climbable.yes), Name("wall"));
+                          BlocksMovement(Climbable.yes),
+                          SupportsWeight(SupportType.above |
+                                         SupportType.within));
 
     store.registerTerrain(water, Tiled(TileId.water, -2),
                           SupportsWeight(SupportType.within,

@@ -33,7 +33,7 @@ enum invalidId = 0;
 /**
  * The number of ThingId's reserved for terrain objects.
  *
- * All terrains will have fixed IDs between 1 and this number (inclusive), and
+ * All terrains will have fixed IDs between 1 and this number (exclusive), and
  * all non-terrain objects will have IDs above this number.
  */
 enum terrainMaxId = 256;

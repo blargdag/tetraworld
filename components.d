@@ -186,6 +186,7 @@ enum SupportType
  */
 enum SupportCond
 {
+    always,
     climbing,
     buoyant,
     /* notFalling // for fragile floors that break if you fall on it */
@@ -222,6 +223,12 @@ struct Climbs { }
 struct Swims { }
 
 /**
+ * Component attached by gravity system for objects that are sinking in water.
+ */
+@Component
+struct Sinking { }
+
+/**
  * Component for objects that negate weight support (e.g. pit traps).
  */
 @Component
@@ -233,7 +240,7 @@ struct PitTrap { }
 @Component @TrackNew
 struct Agent
 {
-    enum Type { ai, player }
+    enum Type { ai, player, sinkAgent }
     Type type;
     // TBD: AI state goes here
 }

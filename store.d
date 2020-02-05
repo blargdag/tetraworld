@@ -272,11 +272,17 @@ struct Store
      * Register special non-physical object that has a ThingId and can interact
      * with other in-game objects.
      */
-    void registerSpecial(ref Thing obj)
+    void registerSpecial(Components...)(ref Thing obj, Components components)
         in (obj.id >= terrainMaxId && obj.id < specialMaxId)
         in (obj.id !in things)
     {
         things[obj.id] = &obj;
+
+        foreach (comp; components)
+        {
+            alias Comp = typeof(comp);
+            add!Comp(&obj, comp);
+        }
     }
 
     /**
