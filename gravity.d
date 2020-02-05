@@ -141,8 +141,11 @@ struct SysGravity
                         // it's completely blocked in, in which case it stays
                         // put.
                         auto newPos = horizDirs
-                            .map!(dir => Pos(oldPos + vec(dir2vec(dir))))
-                            .filter!(pos => !w.locationHas!BlocksMovement(pos))
+                            .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
+                            .filter!(pos =>
+                                !w.locationHas!BlocksMovement(pos) &&
+                                !w.locationHas!BlocksMovement(Pos(
+                                    pos + vec(-1,0,0,0))))
                             .pickOne(oldPos);
 
                         // If completely blocked on all sides, get stuck on
@@ -213,6 +216,7 @@ unittest
     auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1));
     auto victim = w.store.createObj(Name("victim"), Pos(2,1,1,1),
                                     Mortal(2, 2), BlocksMovement());
+    assert(!w.locationHas!BlocksMovement(Pos(1,2,1,1)));
     grav.run(w);
 
     assert(*w.store.get!Pos(rock.id) == Pos(2,2,1,1));
@@ -239,15 +243,33 @@ unittest
     //  3 ####      3 ####
     w.store.add!Pos(rock, Pos(1,1,1,1));
     victim = w.store.createObj(Name("victim"), Pos(2,1,1,1),
-                               Mortal(2, 2), BlocksMovement());
+                               Mortal(3, 3), BlocksMovement());
     auto corner = w.store.createObj(Name("artificial wall"), Pos(1,2,1,1),
                                     BlocksMovement(), NoGravity());
+    assert(w.locationHas!BlocksMovement(Pos(1,2,1,1)));
     grav.run(w);
 
     assert(*w.store.get!Pos(rock.id) == Pos(1,1,1,1));
     assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
-    assert(*w.store.get!Mortal(victim.id) == Mortal(2, 1));
+    assert(*w.store.get!Mortal(victim.id) == Mortal(3, 2));
     assert(*w.store.get!Pos(corner.id) == Pos(1,2,1,1));
+
+    // Scenario 4:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #@ #
+    //  2 #A##      2 #A##
+    //  3 ####      3 ####
+    w.store.add!Pos(rock, Pos(1,1,1,1));
+    w.store.remove!Pos(corner);
+    w.store.add!Pos(corner, Pos(2,2,1,1));
+    assert(!w.locationHas!BlocksMovement(Pos(1,2,1,1)));
+    grav.run(w);
+
+    assert(*w.store.get!Pos(rock.id) == Pos(1,1,1,1));
+    assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
+    assert(*w.store.get!Mortal(victim.id) == Mortal(3, 1));
+    assert(*w.store.get!Pos(corner.id) == Pos(2,2,1,1));
 }
 
 // vim:set ai sw=4 ts=4 et:
