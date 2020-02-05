@@ -88,8 +88,8 @@ struct SysGravity
 
         // Check if something at current location is supporting this object.
         auto ft = w.getAllAt(oldPos)
-                   .map!(id => checkSupport(w, id,
-                                            w.store.get!SupportsWeight(id),
+                   .map!(swid => checkSupport(w, id,
+                                            w.store.get!SupportsWeight(swid),
                                             SupportType.within))
                    .minElement;
         if (ft != FallType.fall)
@@ -98,8 +98,8 @@ struct SysGravity
         // Check if something on the floor is supporting this object.
         floorPos = Pos(oldPos + vec(1,0,0,0));
         ft = w.getAllAt(floorPos)
-              .map!(id => checkSupport(w, id,
-                                       w.store.get!SupportsWeight(id),
+              .map!(swid => checkSupport(w, id,
+                                       w.store.get!SupportsWeight(swid),
                                        SupportType.above))
               .minElement;
         return ft;

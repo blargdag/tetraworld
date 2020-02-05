@@ -653,6 +653,16 @@ class Game
         AgentImpl aiImpl;
         aiImpl.chooseAction = (w, agentId) => chooseAiAction(w, agentId);
         sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
+
+        // Gravity system proxy for sinking objects over time.
+        AgentImpl sinkImpl;
+        sinkImpl.chooseAction = (World w, ThingId agentId) {
+            sysGravity.sinkObjects(w);
+            return (World w) => ActionResult(true, 10);
+        };
+        sysAgent.registerAgentImpl(Agent.Type.sinkAgent, sinkImpl);
+        auto sinkAgent = new Thing(257); // FIXME: need master list of special IDs
+        w.store.registerSpecial(*sinkAgent, Agent(Agent.type.sinkAgent));
     }
 
     void run(GameUi _ui)

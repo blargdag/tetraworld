@@ -240,7 +240,7 @@ struct PitTrap { }
 @Component @TrackNew
 struct Agent
 {
-    enum Type { ai, player }
+    enum Type { ai, player, sinkAgent }
     Type type;
     // TBD: AI state goes here
 }
