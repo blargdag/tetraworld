@@ -41,14 +41,13 @@ struct SysGravity
 {
     ThingId[] targets;
 
-    private void enqueueNewTargets(World w)
+    private void enqueueTargets(World w)
     {
         auto app = appender(targets);
         w.store.getAllNew!Pos()
                .filter!(id => w.store.get!NoGravity(id) is null)
                .copy(app);
         targets = app.data;
-        w.store.clearNew!Pos();
     }
 
     private bool isSupported(World w, ThingId id, SupportsWeight* sw,
@@ -109,7 +108,7 @@ struct SysGravity
      */
     void run(World w)
     {
-        enqueueNewTargets(w);
+        enqueueTargets(w);
         ThingId[] newTargets;
         foreach (t; targets.map!(id => w.store.getObj(id))
                            .filter!(t => t !is null))
@@ -142,13 +141,13 @@ struct SysGravity
                         // it's completely blocked in, in which case it stays
                         // put.
                         auto newPos = horizDirs
-                            .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
+                            .map!(dir => Pos(oldPos + vec(dir2vec(dir))))
                             .filter!(pos => !w.locationHas!BlocksMovement(pos))
-                            .pickOne(floorPos);
+                            .pickOne(oldPos);
 
                         // If completely blocked on all sides, get stuck on
                         // top.
-                        if (newPos == floorPos)
+                        if (newPos == oldPos)
                             break;
 
                         rawMove(w, t, newPos, {
@@ -167,6 +166,10 @@ struct SysGravity
             }
         }
 
+        // We clear here rather than in enqueueTargets because objects that we
+        // move around above should not be added back unless we explicitly put
+        // them in newTargets.
+        w.store.clearNew!Pos();
         targets = newTargets;
     }
 }
@@ -227,6 +230,24 @@ unittest
 
     assert(*w.store.get!Pos(rock.id) == Pos(2,1,1,1));
     assert(w.store.getObj(victim.id) == null);
+
+    // Scenario 3:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@##  ==> 1 #@##
+    //  2 #A #      2 #A #
+    //  3 ####      3 ####
+    w.store.add!Pos(rock, Pos(1,1,1,1));
+    victim = w.store.createObj(Name("victim"), Pos(2,1,1,1),
+                               Mortal(2, 2), BlocksMovement());
+    auto corner = w.store.createObj(Name("artificial wall"), Pos(1,2,1,1),
+                                    BlocksMovement(), NoGravity());
+    grav.run(w);
+
+    assert(*w.store.get!Pos(rock.id) == Pos(1,1,1,1));
+    assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
+    assert(*w.store.get!Mortal(victim.id) == Mortal(2, 1));
+    assert(*w.store.get!Pos(corner.id) == Pos(1,2,1,1));
 }
 
 // vim:set ai sw=4 ts=4 et:
