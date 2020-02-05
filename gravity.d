@@ -230,7 +230,8 @@ struct SysGravity
             if (posp is null)   // sidestep race conditions
                 continue;
 
-            auto floorPos = Pos(*posp + vec(1,0,0,0));
+            auto oldPos = *posp;
+            auto floorPos = Pos(oldPos + vec(1,0,0,0));
 
             if (w.locationHas!BlocksMovement(floorPos) ||
                 w.getAllAt(floorPos)
@@ -246,6 +247,7 @@ struct SysGravity
             {
                 rawMove(w, obj, floorPos, {
                     // FIXME: notify sinking message here?
+                    w.notify.move(oldPos, obj.id, floorPos);
                 });
             }
         }
