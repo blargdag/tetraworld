@@ -1,6 +1,4 @@
 - Need a tutorial mode for new players!!!
-- Fall-and-injure should not trigger unless object falls at least 1 tile! You
-  can't just walk on top of an object and cause falling damage!
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -108,3 +106,6 @@ P Fold Vec!(4,int) into Pos. There are TOO MANY different types representing a
      appearance of tile above itself like walls do.
 + BUG: after falling through pit trap the first time, should suppress "fall
   through hidden pit" message.
+X Fall-and-injure should not trigger unless object falls at least 1 tile! You
+  can't just walk on top of an object and cause falling damage!
+   * Actually you can, it's called trampling your enemies. :-D
