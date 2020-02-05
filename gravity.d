@@ -39,57 +39,70 @@ import vector;
  */
 struct SysGravity
 {
-    private bool isSupported(World w, ThingId id, SupportsWeight* sw,
-                             SupportType type)
+    private enum FallType
+    {
+        // NOTE: this is ordered in such a way that when multiple objects
+        // provide different kinds of support, min(FallType) gives the
+        // resulting overall effect.
+        none = 0,
+        sink = 1,
+        fall = 2,
+    }
+
+    private FallType checkSupport(World w, ThingId id, SupportsWeight* sw,
+                                  SupportType type)
     {
         if (sw is null || (sw.type & type) == 0)
-            return false;
+            return FallType.fall;
 
         final switch (sw.cond)
         {
             case SupportCond.always:
-                return true;
+                return FallType.none;
 
             case SupportCond.climbing:
                 if (w.store.get!Climbs(id) !is null)
-                    return true;
+                    return FallType.none;
                 break;
 
             case SupportCond.buoyant:
                 if (w.store.get!Swims(id) !is null)
-                    return true;
+                    return FallType.none;
 
-                // Non-buoyant objects will sink, but only slowly, so simulate
-                // this with random support.
-                return (uniform(0, 10) < 4);
+                // Non-buoyant objects will sink, but only slowly.
+                return FallType.sink;
         }
-        return false;
+        return FallType.fall;
     }
 
-    private bool willFall()(World w, ThingId id, out Pos oldPos,
-                            out Pos floorPos)
+    private FallType computeFallType()(World w, ThingId id, out Pos oldPos,
+                                       out Pos floorPos)
     {
         // NOTE: race condition: a falling object may autopickup another
         // object and remove its Pos while we're still iterating, which
         // will cause posp to be null.
         auto posp = w.store.get!Pos(id);
         if (posp is null)
-            return false;
+            return FallType.none;
         oldPos = *posp;
 
         // Check if something at current location is supporting this object.
-        if (w.getAllAt(oldPos)
-             .map!(id => w.store.get!SupportsWeight(id))
-             .canFind!(sw => isSupported(w, id, sw, SupportType.within)))
-        {
-            return false;
-        }
+        auto ft = w.getAllAt(oldPos)
+                   .map!(id => checkSupport(w, id,
+                                            w.store.get!SupportsWeight(id),
+                                            SupportType.within))
+                   .minElement;
+        if (ft != FallType.fall)
+            return ft;
 
         // Check if something on the floor is supporting this object.
         floorPos = Pos(oldPos + vec(1,0,0,0));
-        return !w.getAllAt(floorPos)
-                 .map!(id => w.store.get!SupportsWeight(id))
-                 .canFind!(sw => isSupported(w, id, sw, SupportType.above));
+        ft = w.getAllAt(floorPos)
+              .map!(id => checkSupport(w, id,
+                                       w.store.get!SupportsWeight(id),
+                                       SupportType.above))
+              .minElement;
+        return ft;
     }
 
     /**
@@ -147,26 +160,44 @@ struct SysGravity
                            .filter!(t => t !is null))
         {
             Pos oldPos, floorPos;
-            while (willFall(w, t.id, oldPos, floorPos))
+            FallType type = computeFallType(w, t.id, oldPos, floorPos);
+            OUTER: while (type != FallType.none)
             {
-                // An object that blocks moves but is unable to support weight
-                // will get damaged by the falling object, and throw the
-                // falling object sideways. (Note that not supporting weight is
-                // already implied by willFall().)
-                auto r = w.store.getAllBy!Pos(floorPos)
-                          .map!(id => w.store.getObj(id))
-                          .filter!(t => t.systems & SysMask.blocksmovement);
-                if (!r.empty)
+                final switch (type)
                 {
-                    if (!fallOn(w, t, r.front, oldPos, floorPos))
+                    case FallType.none:
+                        assert(0);
+
+                    case FallType.sink:
+                        // Sinking is done by the sinking agent; here we just
+                        // mark the object has sinking and the agent will pick
+                        // it up later.
+                        w.store.add!Sinking(t, Sinking());
+                        break OUTER;
+
+                    case FallType.fall:
+                        // An object that blocks moves but is unable to support
+                        // weight will get damaged by the falling object, and
+                        // throw the falling object sideways. (Note that not
+                        // supporting weight is already implied by willFall().)
+                        auto r = w.store.getAllBy!Pos(floorPos)
+                                  .map!(id => w.store.getObj(id))
+                                  .filter!(t => t.systems &
+                                                SysMask.blocksmovement);
+                        if (!r.empty)
+                        {
+                            if (!fallOn(w, t, r.front, oldPos, floorPos))
+                                break OUTER;
+                        }
+                        else
+                        {
+                            rawMove(w, t, floorPos, {
+                                w.notify.fall(oldPos, t.id, floorPos);
+                            });
+                        }
                         break;
                 }
-                else
-                {
-                    rawMove(w, t, floorPos, {
-                        w.notify.fall(oldPos, t.id, floorPos);
-                    });
-                }
+                type = computeFallType(w, t.id, oldPos, floorPos);
             }
         }
 
@@ -174,6 +205,56 @@ struct SysGravity
         // move around above should not be added back unless we explicitly put
         // them in newTargets.
         w.store.clearNew!Pos();
+    }
+
+    /**
+     * Run slow-sinking agent for objects that are slowly sinking in water.
+     *
+     * Note: We cannot do this in run() because this needs to be keyed to the
+     * agent system's tick time (run() may get called multiple times per turn,
+     * which would produce strange sinking acceleration the more agents there
+     * are).
+     */
+    void sinkObjects(World w)
+    {
+        Thing*[] objsAtRest;
+
+        // Note: need to copy Thing* into array because rawMove() can
+        // potentially destroy / remove objects.
+        foreach (obj; w.store.getAll!Sinking()
+                       .map!(id => w.store.getObj(id))
+                       .filter!(t => t !is null)
+                       .array)
+        {
+            auto posp = w.store.get!Pos(obj.id);
+            if (posp is null)   // sidestep race conditions
+                continue;
+
+            auto floorPos = Pos(*posp + vec(1,0,0,0));
+
+            if (w.locationHas!BlocksMovement(floorPos) ||
+                w.getAllAt(floorPos)
+                 .map!(id => checkSupport(w, obj.id,
+                                          w.store.get!SupportsWeight(id),
+                                          SupportType.above))
+                 .minElement == FallType.none)
+            {
+                // Object has come to rest on something; stop sinking.
+                objsAtRest ~= obj;
+            }
+            else
+            {
+                rawMove(w, obj, floorPos, {
+                    // FIXME: notify sinking message here?
+                });
+            }
+        }
+
+        // Remove Sinking component from objects that have come to rest.
+        foreach (obj; objsAtRest)
+        {
+            w.store.remove!Sinking(obj);
+        }
     }
 }
 
@@ -287,6 +368,61 @@ unittest
     assert(*w.store.get!Pos(rock.id) == Pos(2,1,1,1));
     assert(w.store.getObj(victim.id) == null);
     assert(*w.store.get!Pos(corner.id) == Pos(2,2,1,1));
+}
+
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //  0 ####
+    //  1 #  #
+    //  2 #  #
+    //  3 #  #
+    //  4 #  #
+    //  5 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,3,2,2));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(5,3,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+
+    SysGravity grav;
+
+    // Scenario 1:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #  #
+    //  2 #  #      2 #  #
+    //  3 #~~#      3 #@~#
+    //  4 #~~#      4 #~~#
+    //  5 ####      5 ####
+    w.map.waterLevel = 2;
+    assert(w.map[2,1,1,1] == emptySpace.id);
+    assert(w.map[3,1,1,1] == water.id);
+    auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1));
+    grav.run(w);
+
+    assert(*w.store.get!Pos(rock.id) == Pos(3,1,1,1));
+    assert(w.store.get!Sinking(rock.id) !is null);
+
+    // Scenario 2:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #  #  ==> 1 #  #
+    //  2 #  #      2 #  #
+    //  3 #@~#      3 #~~#
+    //  4 #~~#      4 #@~#
+    //  5 ####      5 ####
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(rock.id) == Pos(4,1,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(w.store.get!Sinking(rock.id) is null);
 }
 
 // vim:set ai sw=4 ts=4 et:

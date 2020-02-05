@@ -223,6 +223,12 @@ struct Climbs { }
 struct Swims { }
 
 /**
+ * Component attached by gravity system for objects that are sinking in water.
+ */
+@Component
+struct Sinking { }
+
+/**
  * Component for objects that negate weight support (e.g. pit traps).
  */
 @Component
