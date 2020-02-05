@@ -39,17 +39,6 @@ import vector;
  */
 struct SysGravity
 {
-    ThingId[] targets;
-
-    private void enqueueTargets(World w)
-    {
-        auto app = appender(targets);
-        w.store.getAllNew!Pos()
-               .filter!(id => w.store.get!NoGravity(id) is null)
-               .copy(app);
-        targets = app.data;
-    }
-
     private bool isSupported(World w, ThingId id, SupportsWeight* sw,
                              SupportType type)
     {
@@ -147,12 +136,13 @@ struct SysGravity
     }
 
     /**
-     * Gravity system.
+     * Run main gravity system.
      */
     void run(World w)
     {
-        enqueueTargets(w);
-        ThingId[] newTargets;
+        auto targets = w.store.getAllNew!Pos()
+                        .filter!(id => w.store.get!NoGravity(id) is null)
+                        .array;
         foreach (t; targets.map!(id => w.store.getObj(id))
                            .filter!(t => t !is null))
         {
@@ -184,7 +174,6 @@ struct SysGravity
         // move around above should not be added back unless we explicitly put
         // them in newTargets.
         w.store.clearNew!Pos();
-        targets = newTargets;
     }
 }
 
