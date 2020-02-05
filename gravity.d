@@ -171,4 +171,51 @@ struct SysGravity
     }
 }
 
+unittest
+{
+    import gamemap;
+
+    static void dump(World w)
+    {
+        import tile, std;
+        writefln("%-(%-(%s%)\n%)",
+            iota(4).map!(j =>
+                iota(4).map!(i =>
+                    tiles[w.store.get!Tiled(w.map[j,i,1,1]).tileId]
+                    .representation)));
+    }
+
+    // Test map:
+    //  0 ####
+    //  1 #  #
+    //  2 #  #
+    //  3 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(0,0,0,0), vec(3,3,2,2));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(3,3,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = int.max;
+
+    SysGravity grav;
+
+    // Scenario 1:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #  #
+    //  2 #A #      2 #A@#
+    //  3 ####      3 ####
+    auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1));
+    auto victim = w.store.createObj(Name("victim"), Pos(2,1,1,1),
+                                    Mortal(2, 2), BlocksMovement());
+
+    grav.run(w);
+
+    assert(*w.store.get!Pos(rock.id) == Pos(2,2,1,1));
+    assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
+    assert(*w.store.get!Mortal(victim.id) == Mortal(2, 1));
+}
+
 // vim:set ai sw=4 ts=4 et:
