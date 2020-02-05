@@ -186,6 +186,7 @@ enum SupportType
  */
 enum SupportCond
 {
+    always,
     climbing,
     buoyant,
     /* notFalling // for fragile floors that break if you fall on it */

@@ -59,6 +59,9 @@ struct SysGravity
 
         final switch (sw.cond)
         {
+            case SupportCond.always:
+                return true;
+
             case SupportCond.climbing:
                 if (w.store.get!Climbs(id) !is null)
                     return true;
@@ -96,14 +99,9 @@ struct SysGravity
 
         // Check if something on the floor is supporting this object.
         floorPos = Pos(oldPos + vec(1,0,0,0));
-        if (w.getAllAt(floorPos)
-             .map!(id => w.store.get!SupportsWeight(id))
-             .canFind!(sw => isSupported(w, id, sw, SupportType.above)))
-        {
-            return false;
-        }
-
-        return w.store.get!BlocksMovement(w.map[floorPos]) is null;
+        return !w.getAllAt(floorPos)
+                 .map!(id => w.store.get!SupportsWeight(id))
+                 .canFind!(sw => isSupported(w, id, sw, SupportType.above));
     }
 
     /**
@@ -119,7 +117,7 @@ struct SysGravity
             Pos oldPos, floorPos;
             while (willFall(w, t.id, oldPos, floorPos))
             {
-                // An object that does not support weight but does block moves
+                // An object that blocks moves but is unable to support weight
                 // will get damaged by the falling object, and throw the
                 // falling object sideways. (Note that not supporting weight is
                 // already implied by willFall().)
@@ -129,29 +127,36 @@ struct SysGravity
                 if (!r.empty)
                 {
                     auto obj = r.front;
+                    auto objId = obj.id;
 
-                    w.notify.fallOn(oldPos, t.id, obj.id);
-                    if (w.store.get!Mortal(obj.id) !is null)
+                    w.notify.fallOn(oldPos, t.id, objId);
+                    if (w.store.get!Mortal(objId) !is null)
                     {
                         import damage;
-                        w.injure(t.id, obj.id, invalidId /*FIXME*/, 1 /*FIXME*/);
+                        w.injure(t.id, objId, invalidId /*FIXME*/, 1 /*FIXME*/);
                     }
 
-                    // Throw object to random sideways direction, unless it's
-                    // completely blocked in, in which case it stays put.
-                    floorPos = horizDirs
-                        .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
-                        .filter!(pos => !w.locationHas!BlocksMovement(pos))
-                        .pickOne(oldPos);
+                    if (w.store.getObj(objId) !is null)
+                    {
+                        // Throw object to random sideways direction, unless
+                        // it's completely blocked in, in which case it stays
+                        // put.
+                        auto newPos = horizDirs
+                            .map!(dir => Pos(floorPos + vec(dir2vec(dir))))
+                            .filter!(pos => !w.locationHas!BlocksMovement(pos))
+                            .pickOne(floorPos);
 
-                    if (floorPos == oldPos)
-                        break;
+                        // If completely blocked on all sides, get stuck on
+                        // top.
+                        if (newPos == floorPos)
+                            break;
 
-                    rawMove(w, t, floorPos, {
-                        // FIXME: replace with something else, like being thrown to
-                        // the side.
-                        w.notify.fall(oldPos, t.id, floorPos);
-                    });
+                        rawMove(w, t, newPos, {
+                            // FIXME: replace with something else, like being
+                            // thrown to the side.
+                            w.notify.fall(oldPos, t.id, newPos);
+                        });
+                    }
                 }
                 else
                 {
