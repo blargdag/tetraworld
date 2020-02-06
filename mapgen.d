@@ -416,10 +416,16 @@ Vec!(int,4) randomDryPos(World w)
 
 /**
  * Generate pits and pit traps.
+ *
+ * Params:
+ *  w = The game world.
+ *  count = The number of pit traps to attempt to place. Note that the actual
+ *      number of traps generated may be lower than this, if there are too many
+ *      failed attempts to find suitable locations for traps.
  */
-void genPitTraps(World w)
+void genPitTraps(World w, int count)
 {
-    genBackEdges(w.map.tree, w.map.bounds, uniform(8, 12), 20,
+    genBackEdges(w.map.tree, w.map.bounds, count, 50,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
 
@@ -480,6 +486,7 @@ struct MapGenArgs
 {
     int[4] dim;
     ValRange nBackEdges = ValRange(3, 5);
+    ValRange nPitTraps = ValRange(8, 12);
 
     float goldPct = 0.2;
     ValRange nMonstersA = ValRange(4, 6);
@@ -506,7 +513,7 @@ World genNewGame(MapGenArgs args, out int[4] startPos)
 
     // Add back edges, regular and pits/pit traps.
     genBackEdges(w.map.tree, w.map.bounds, args.nBackEdges.pick, 15);
-    genPitTraps(w);
+    genPitTraps(w, args.nPitTraps.pick);
 
     resizeRooms(w.map.tree, w.map.bounds);
 
