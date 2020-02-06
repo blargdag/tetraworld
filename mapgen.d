@@ -634,36 +634,42 @@ World genTutorialLevel(out int[4] startPos)
 
     auto cor1 = new MapNode;
     cor1.interior = region(vec(0,0,0,0), vec(2,2,2,8));
-    cor1.doors ~= Door(2, [1,1,2,7], Door.Type.normal);
 
     auto cor2 = new MapNode;
     cor2.interior = region(vec(0,0,2,6), vec(2,2,8,8));
     cor2.doors ~= Door(2, [1,1,2,7], Door.Type.normal);
-    cor2.doors ~= Door(1, [1,2,7,7], Door.Type.normal);
 
     auto cor3 = new MapNode;
     cor3.interior = region(vec(0,2,6,6), vec(2,8,8,8));
     cor3.doors ~= Door(1, [1,2,7,7], Door.Type.normal);
-    cor3.doors ~= Door(0, [2,7,7,7], Door.Type.normal);
 
     auto cor4 = new MapNode;
     cor4.interior = region(vec(2,6,6,6), vec(8,8,8,8));
     cor4.doors ~= Door(0, [2,7,7,7], Door.Type.normal);
 
+    auto room = new MapNode;
+    room.interior = region(vec(2,3,3,1), vec(8,8,8,6));
+    cor4.doors ~= Door(3, [7,7,7,6], Door.Type.normal);
+
     auto root = new MapNode;
-    root.axis = 1;
+    root.axis = 0;
     root.pivot = 2;
 
     root.left = new MapNode;
-    root.left.axis = 2;
+    root.left.axis = 1;
     root.left.pivot = 2;
-    root.left.left = cor1;
-    root.left.right = cor2;
+    root.left.left = new MapNode;
+    root.left.right = cor3;
+
+    root.left.left.axis = 2;
+    root.left.left.pivot = 2;
+    root.left.left.left = cor1;
+    root.left.left.right = cor2;
 
     root.right = new MapNode;
-    root.right.axis = 0;
-    root.right.pivot = 2;
-    root.right.left = cor3;
+    root.right.axis = 3;
+    root.right.pivot = 6;
+    root.right.left = room;
     root.right.right = cor4;
 
     w.map.tree = root;
