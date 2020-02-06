@@ -110,6 +110,11 @@ interface GameUi
         import std.format : format;
         quitWithMsg(format(fmt, args));
     }
+
+    /**
+     * Display some info for the user and wait for keypress.
+     */
+    void infoScreen(const(string)[] paragraphs, string endPrompt = "[End]");
 }
 
 /**
@@ -134,6 +139,7 @@ class Game
 
     private Thing* player;
     private Vec!(int,4) lastPlPos;
+    private bool isNewGame;
     private bool quit;
 
     /**
@@ -202,6 +208,8 @@ class Game
         if (game.player is null)
             throw new Exception("Save file is corrupt!");
 
+        game.isNewGame = false;
+
         // Permadeath. :-D
         import std.file : remove;
         remove(saveFileName);
@@ -213,13 +221,18 @@ class Game
     {
         auto g = new Game;
         int[4] startPos;
-        g.w = genNewGame([ 12, 12, 12, 12 ], startPos);
+        MapGenArgs args;
+        args.dim = [ 12, 12, 12, 12 ];
+        g.w = genNewGame(args, startPos);
         //game.w = newGame([ 9, 9, 9, 9 ]);
+
         g.player = g.w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),
             Agent(Agent.Type.player), Inventory(), BlocksMovement(), Climbs(),
             Swims(), Mortal(5,5)
         );
+
+        g.isNewGame = true;
         return g;
     }
 
@@ -459,6 +472,18 @@ class Game
         setupEventWatchers();
         setupAgentImpls();
 
+        if (isNewGame)
+        {
+            //ui.infoScreen(textStory001, "[Go forth!]");
+            ui.infoScreen(textGeneralIntro, "[Go forth!]");
+            ui.message("Welcome to Tetraworld!");
+        }
+        else
+            ui.message("Welcome back!");
+
+        // FIXME: shouldn't this be in the UI code instead??
+        ui.message("Press '?' for help.");
+
         while (!quit)
         {
             sysGravity.run(w);
@@ -468,5 +493,44 @@ class Game
         }
     }
 }
+
+// Temporary placeholder until we get alternative mapgens ready.
+private static immutable textGeneralIntro = [
+    "Welcome to Tetraworld Corp.!",
+
+    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
+    "Department to explore 4D space and retrieve any treasure you find.",
+
+    "You have been assigned to one of our mining areas, and your task is to "~
+    "locate and retrieve all of the gold ores therein, and bring them to the "~
+    "exit portal.  The exit portal will return you to Tetraworld Corp., "~
+    "where you will receive your next assignment.",
+
+    "Beware that there may be hazards awaiting therein, such as hidden pits "~
+    "and flooded areas.  In particular, we advise you to avoid by all means "~
+    "any native creatures that you might encounter, as they are likely to be "~
+    "hostile, and your 4D environmental suit is not equipped for combat and "~
+    "will not survive extensive damage.",
+
+    "We trust in the timely and competent completion of this assignment. "~
+    "Good luck!",
+];
+
+private static immutable textStory001 = [
+    "Welcome to Tetraworld Corp.!",
+
+    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
+    "Department to explore 4D space and retrieve any treasure you find.",
+
+    "As an initial orientation, you have been teleported to a training area "~
+    "consisting of a single tunnel in 4D space. Your task is to familiarize "~
+    "yourself with your 4D view, and to learn 4D movement by following this "~
+    "tunnel to the far end where you will find an exit portal.",
+
+    "The exit portal will return you to Tetraworld Corp., where you will "~
+    "receive your first assignment.",
+
+    "Good luck!",
+];
 
 // vim:set ai sw=4 ts=4 et:

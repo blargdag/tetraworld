@@ -638,6 +638,71 @@ class TextUi : GameUi
         quitMsg = "Game over.";
     }
 
+    void infoScreen(const(string)[] paragraphs, string endPrompt)
+    {
+        auto width = min(80, disp.width - 6);
+        auto padding = (disp.width - width) / 2;
+        auto scrn = subdisplay(&disp, region(vec(padding, 1),
+                                             vec(disp.width - padding,
+                                                 disp.height - 1)));
+
+        // Format paragraphs into lines
+        import lang : wordWrap;
+        auto lines = paragraphs.map!(p => p.wordWrap(scrn.width - 2))
+                               .joiner([""])
+                               .array;
+        const(char)[][] nextLines;
+
+        void displayPage()
+        {
+            scrn.hideCursor();
+            scrn.color(Color.white, Color.black);
+
+            // Can't use .clear 'cos it doesn't use color we set.
+            scrn.moveTo(0, 0);
+            scrn.clearToEos();
+
+            auto linesToPrint = min(scrn.height - 2, lines.length);
+            auto offsetY = (scrn.height - linesToPrint - 1)/2;
+            foreach (i; 0 .. linesToPrint)
+            {
+                // Vertically-center texts for better visual aesthetics.
+                scrn.moveTo(1, i + offsetY);
+                scrn.writef("%s", lines[i]);
+            }
+            nextLines = lines[linesToPrint .. $];
+
+            scrn.moveTo(1, linesToPrint + offsetY + 1);
+            scrn.color(Color.white, Color.blue);
+            scrn.writef("%s", nextLines.length > 0 ? "[More]" : endPrompt);
+            scrn.color(Color.white, Color.black);
+            scrn.showCursor();
+        }
+
+        auto infoMode = Mode(
+            () {
+                displayPage();
+            },
+            (dchar ch) {
+                if (nextLines.length > 0)
+                {
+                    lines = nextLines;
+                    displayPage();
+                }
+                else
+                {
+                    dispatch.pop();
+                    disp.color(Color.DEFAULT, Color.DEFAULT);
+                    disp.clear();
+                    gameFiber.call();
+                }
+            },
+        );
+
+        dispatch.push(infoMode);
+        Fiber.yield();
+    }
+
     /**
      * Like message(), but does not store the message into the log and does not
      * accumulate messages with a --MORE-- prompt.
@@ -821,7 +886,7 @@ class TextUi : GameUi
         statusview = createStatusView(screenRect);
     }
 
-    string play(Game game, string welcomeMsg)
+    string play(Game game)
     {
         auto _term = Terminal(ConsoleOutputType.cellular);
         if (cfg.tscriptFile.length > 0)
@@ -842,9 +907,6 @@ class TextUi : GameUi
         gameFiber = new Fiber({
             g.run(this);
         });
-
-        message(welcomeMsg);
-        message("Press '?' for help.");
 
         quit = false;
         gameFiber.call();

@@ -48,24 +48,17 @@ int main(string[] args)
     }
 
     Game game;
-    string welcomeMsg;
 
     import std.file : exists;
     if (saveFileName.exists)
-    {
         game = Game.loadGame();
-        welcomeMsg = "Welcome back!";
-    }
     else
-    {
         game = Game.newGame();
-        welcomeMsg = "Welcome to Tetraworld!";
-    }
 
     auto ui = new TextUi(uiConfig);
     try
     {
-        auto quitMsg = ui.play(game, welcomeMsg);
+        auto quitMsg = ui.play(game);
         writeln(quitMsg);
 
         version(Windows)

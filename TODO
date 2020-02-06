@@ -109,3 +109,5 @@ P Fold Vec!(4,int) into Pos. There are TOO MANY different types representing a
 X Fall-and-injure should not trigger unless object falls at least 1 tile! You
   can't just walk on top of an object and cause falling damage!
    * Actually you can, it's called trampling your enemies. :-D
++ [UI] Why is the cursor position for the info screen messed up??
+   * Because it's that stupid by-ref vs. by-value issue again. Sigh...

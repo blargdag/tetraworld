@@ -465,12 +465,20 @@ void genPitTraps(World w)
 }
 
 /**
+ * Map generation parameters.
+ */
+struct MapGenArgs
+{
+    int[4] dim;
+}
+
+/**
  * Generate new game world.
  */
-World genNewGame(int[4] dim, out int[4] startPos)
+World genNewGame(MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
-    w.map.bounds = region(vec(0, 0, 0, 0), vec(dim));
+    w.map.bounds = region(vec(0, 0, 0, 0), vec(args.dim));
 
     alias R = Region!(int,4);
     w.map.tree = genBsp!MapNode(w.map.bounds,
@@ -525,7 +533,9 @@ unittest
     foreach (i; 0 .. 12)
     {
         int[4] startPos;
-        auto w = genNewGame([ 10, 10, 10, 10 ], startPos);
+        MapGenArgs args;
+        args.dim = [ 10, 10, 10, 10 ];
+        auto w = genNewGame(args, startPos);
 
         // Door placement checks.
         foreachRoom(w.map.tree, w.map.bounds,
