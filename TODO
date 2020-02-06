@@ -1,4 +1,8 @@
 - Need a tutorial mode for new players!!!
+   - Decide on map(s) that are good for introducing 4D movements and other
+     mechanics.
+   - Extend mapgen to be able to generate these sorts of maps. Or maybe just
+     hard-code this for now?
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?

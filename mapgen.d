@@ -493,9 +493,9 @@ struct MapGenArgs
 }
 
 /**
- * Generate new game world.
+ * Generate new game world using the BSP tree algorithm.
  */
-World genNewGame(MapGenArgs args, out int[4] startPos)
+World genBspLevel(MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
     w.map.bounds = region(vec(0, 0, 0, 0), vec(args.dim));
@@ -554,7 +554,7 @@ unittest
         int[4] startPos;
         MapGenArgs args;
         args.dim = [ 10, 10, 10, 10 ];
-        auto w = genNewGame(args, startPos);
+        auto w = genBspLevel(args, startPos);
 
         // Door placement checks.
         foreachRoom(w.map.tree, w.map.bounds,
