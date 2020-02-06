@@ -642,9 +642,9 @@ class TextUi : GameUi
     {
         auto width = min(80, disp.width - 6);
         auto padding = (disp.width - width) / 2;
-        auto scrn = disp.subdisplay(region(vec(padding, 1),
-                                           vec(disp.width - padding,
-                                               disp.height - 1)));
+        auto scrn = subdisplay(&disp, region(vec(padding, 1),
+                                             vec(disp.width - padding,
+                                                 disp.height - 1)));
 
         // Format paragraphs into lines
         import lang : wordWrap;
@@ -655,6 +655,7 @@ class TextUi : GameUi
 
         void displayPage()
         {
+            scrn.hideCursor();
             scrn.color(Color.white, Color.black);
 
             // Can't use .clear 'cos it doesn't use color we set.
@@ -675,6 +676,7 @@ class TextUi : GameUi
             scrn.color(Color.white, Color.blue);
             scrn.writef("%s", nextLines.length > 0 ? "[More]" : endPrompt);
             scrn.color(Color.white, Color.black);
+            scrn.showCursor();
         }
 
         auto infoMode = Mode(
