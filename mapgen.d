@@ -416,10 +416,16 @@ Vec!(int,4) randomDryPos(World w)
 
 /**
  * Generate pits and pit traps.
+ *
+ * Params:
+ *  w = The game world.
+ *  count = The number of pit traps to attempt to place. Note that the actual
+ *      number of traps generated may be lower than this, if there are too many
+ *      failed attempts to find suitable locations for traps.
  */
-void genPitTraps(World w)
+void genPitTraps(World w, int count)
 {
-    genBackEdges(w.map.tree, w.map.bounds, uniform(8, 12), 20,
+    genBackEdges(w.map.tree, w.map.bounds, count, 50,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
 
@@ -465,11 +471,25 @@ void genPitTraps(World w)
 }
 
 /**
+ * A random variable bounded by a range.
+ */
+struct ValRange
+{
+    int min, max;
+    int pick() { return uniform(min, max); }
+}
+
+/**
  * Map generation parameters.
  */
 struct MapGenArgs
 {
     int[4] dim;
+    ValRange nBackEdges = ValRange(3, 5);
+    ValRange nPitTraps = ValRange(8, 12);
+
+    float goldPct = 0.2;
+    ValRange nMonstersA = ValRange(4, 6);
 }
 
 /**
@@ -492,8 +512,8 @@ World genNewGame(MapGenArgs args, out int[4] startPos)
     setRoomFloors(w.map.tree, w.map.bounds);
 
     // Add back edges, regular and pits/pit traps.
-    genBackEdges(w.map.tree, w.map.bounds, uniform(3, 5), 15);
-    genPitTraps(w);
+    genBackEdges(w.map.tree, w.map.bounds, args.nBackEdges.pick, 15);
+    genPitTraps(w, args.nPitTraps.pick);
 
     resizeRooms(w.map.tree, w.map.bounds);
 
@@ -508,8 +528,7 @@ World genNewGame(MapGenArgs args, out int[4] startPos)
     MapNode startRoom = randomDryRoom(w, startBounds);
     startPos = startRoom.randomLocation(startBounds);
 
-    enum goldPct = 0.2;
-    auto ngold = cast(int)(floorArea(w.map.tree) * goldPct / 100);
+    auto ngold = cast(int)(floorArea(w.map.tree) * args.goldPct / 100);
 
     foreach (i; 0 .. ngold)
     {
@@ -517,7 +536,7 @@ World genNewGame(MapGenArgs args, out int[4] startPos)
                           Tiled(TileId.gold), Name("gold"), Pickable());
     }
 
-    foreach (i; 0 .. uniform(4, 6))
+    foreach (i; 0 .. args.nMonstersA.pick())
     {
         w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
                           Tiled(TileId.creatureA, 1), Name("conical creature"),
