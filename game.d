@@ -474,7 +474,8 @@ class Game
 
         if (isNewGame)
         {
-            ui.infoScreen(storyText001, "[Go forth!]");
+            //ui.infoScreen(textStory001, "[Go forth!]");
+            ui.infoScreen(textGeneralIntro, "[Go forth!]");
             ui.message("Welcome to Tetraworld!");
         }
         else
@@ -493,7 +494,29 @@ class Game
     }
 }
 
-private static immutable storyText001 = [
+// Temporary placeholder until we get alternative mapgens ready.
+private static immutable textGeneralIntro = [
+    "Welcome to Tetraworld Corp.!",
+
+    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
+    "Department to explore 4D space and retrieve any treasure you find.",
+
+    "You have been assigned to one of our mining areas, and your task is to "~
+    "locate and retrieve all of the gold ores therein, and bring them to the "~
+    "exit portal.  The exit portal will return you to Tetraworld Corp., "~
+    "where you will receive your next assignment.",
+
+    "Beware that there may be hazards awaiting therein, such as hidden pits "~
+    "and flooded areas.  In particular, we advise you to avoid by all means "~
+    "any native creatures that you might encounter, as they are likely to be "~
+    "hostile, and your 4D environmental suit is not equipped for combat and "~
+    "will not survive extensive damage.",
+
+    "We trust in the timely and competent completion of this assignment. "~
+    "Good luck!",
+];
+
+private static immutable textStory001 = [
     "Welcome to Tetraworld Corp.!",
 
     "You have been hired as a 4D Treasure Hunter by our Field Operations "~
