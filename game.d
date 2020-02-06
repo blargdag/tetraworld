@@ -473,7 +473,13 @@ class Game
         if (isNewGame)
         {
             ui.infoScreen(storyText001, "Go forth!");
+            ui.message("Welcome to Tetraworld!");
         }
+        else
+            ui.message("Welcome back!");
+
+        // FIXME: shouldn't this be in the UI code instead??
+        ui.message("Press '?' for help.");
 
         while (!quit)
         {

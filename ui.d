@@ -884,7 +884,7 @@ class TextUi : GameUi
         statusview = createStatusView(screenRect);
     }
 
-    string play(Game game, string welcomeMsg)
+    string play(Game game)
     {
         auto _term = Terminal(ConsoleOutputType.cellular);
         if (cfg.tscriptFile.length > 0)
@@ -905,9 +905,6 @@ class TextUi : GameUi
         gameFiber = new Fiber({
             g.run(this);
         });
-
-        message(welcomeMsg);
-        message("Press '?' for help.");
 
         quit = false;
         gameFiber.call();
