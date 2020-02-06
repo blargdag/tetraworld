@@ -494,16 +494,16 @@ class Game
 private static immutable storyText001 = [
     "Welcome to Tetraworld Corp.!",
 
-    "You have been hired as a 4D treasure hunter by our Field Operations "~
+    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
     "Department to explore 4D space and retrieve any treasure you find.",
 
     "As an initial orientation, you have been teleported to a training area "~
-    "consisting of a single tunnel in 4D space. Your task here is to "~
-    "familiarize yourself with your 4D view, and to learn 4D movement by "~
-    "following this tunnel to the far end where you will find an exit portal.",
+    "consisting of a single tunnel in 4D space. Your task is to familiarize "~
+    "yourself with your 4D view, and to learn 4D movement by following this "~
+    "tunnel to the far end where you will find an exit portal.",
 
-    "The exit portal will return you to 4Maze Corp., where you will receive "~
-    "your first assignment.",
+    "The exit portal will return you to Tetraworld Corp., where you will "~
+    "receive your first assignment.",
 
     "Good luck!",
 ];
