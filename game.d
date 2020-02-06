@@ -223,7 +223,8 @@ class Game
         int[4] startPos;
         MapGenArgs args;
         args.dim = [ 12, 12, 12, 12 ];
-        g.w = genBspLevel(args, startPos);
+        //g.w = genBspLevel(args, startPos);
+        g.w = genTutorialLevel(startPos);
 
         g.player = g.w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),
