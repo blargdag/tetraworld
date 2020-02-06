@@ -221,7 +221,9 @@ class Game
     {
         auto g = new Game;
         int[4] startPos;
-        g.w = genNewGame([ 12, 12, 12, 12 ], startPos);
+        MapGenArgs args;
+        args.dim = [ 12, 12, 12, 12 ];
+        g.w = genNewGame(args, startPos);
         //game.w = newGame([ 9, 9, 9, 9 ]);
 
         g.player = g.w.store.createObj(
