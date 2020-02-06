@@ -59,7 +59,7 @@ int main(string[] args)
     else
     {
         game = Game.newGame();
-        welcomeMsg = "Welcome to Tetraworld!";
+        welcomeMsg = "";
     }
 
     auto ui = new TextUi(uiConfig);

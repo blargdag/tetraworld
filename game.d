@@ -110,6 +110,11 @@ interface GameUi
         import std.format : format;
         quitWithMsg(format(fmt, args));
     }
+
+    /**
+     * Display some info for the user and wait for keypress.
+     */
+    void infoScreen(const(string)[] paragraphs, string endPrompt = "[End]");
 }
 
 /**
@@ -134,6 +139,7 @@ class Game
 
     private Thing* player;
     private Vec!(int,4) lastPlPos;
+    private bool isNewGame;
     private bool quit;
 
     /**
@@ -202,6 +208,8 @@ class Game
         if (game.player is null)
             throw new Exception("Save file is corrupt!");
 
+        game.isNewGame = false;
+
         // Permadeath. :-D
         import std.file : remove;
         remove(saveFileName);
@@ -215,11 +223,14 @@ class Game
         int[4] startPos;
         g.w = genNewGame([ 12, 12, 12, 12 ], startPos);
         //game.w = newGame([ 9, 9, 9, 9 ]);
+
         g.player = g.w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),
             Agent(Agent.Type.player), Inventory(), BlocksMovement(), Climbs(),
             Swims(), Mortal(5,5)
         );
+
+        g.isNewGame = true;
         return g;
     }
 
@@ -459,6 +470,11 @@ class Game
         setupEventWatchers();
         setupAgentImpls();
 
+        if (isNewGame)
+        {
+            ui.infoScreen(storyText001, "Go forth!");
+        }
+
         while (!quit)
         {
             sysGravity.run(w);
@@ -468,5 +484,22 @@ class Game
         }
     }
 }
+
+private static immutable storyText001 = [
+    "Welcome to Tetraworld Corp.!",
+
+    "You have been hired as a 4D treasure hunter by our Field Operations "~
+    "Department to explore 4D space and retrieve any treasure you find.",
+
+    "As an initial orientation, you have been teleported to a training area "~
+    "consisting of a single tunnel in 4D space. Your task here is to "~
+    "familiarize yourself with your 4D view, and to learn 4D movement by "~
+    "following this tunnel to the far end where you will find an exit portal.",
+
+    "The exit portal will return you to 4Maze Corp., where you will receive "~
+    "your first assignment.",
+
+    "Good luck!",
+];
 
 // vim:set ai sw=4 ts=4 et:
