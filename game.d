@@ -472,7 +472,7 @@ class Game
 
         if (isNewGame)
         {
-            ui.infoScreen(storyText001, "Go forth!");
+            ui.infoScreen(storyText001, "[Go forth!]");
             ui.message("Welcome to Tetraworld!");
         }
         else

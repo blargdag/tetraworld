@@ -661,7 +661,7 @@ class TextUi : GameUi
             scrn.moveTo(0, 0);
             scrn.clearToEos();
 
-            auto linesToPrint = min(scrn.height - 1, lines.length);
+            auto linesToPrint = min(scrn.height - 2, lines.length);
             auto offsetY = (scrn.height - linesToPrint - 1)/2;
             foreach (i; 0 .. linesToPrint)
             {
@@ -671,7 +671,7 @@ class TextUi : GameUi
             }
             nextLines = lines[linesToPrint .. $];
 
-            scrn.moveTo(1, linesToPrint + offsetY);
+            scrn.moveTo(1, linesToPrint + offsetY + 1);
             scrn.color(Color.white, Color.blue);
             scrn.writef("%s", nextLines.length > 0 ? "[More]" : endPrompt);
             scrn.color(Color.white, Color.black);
