@@ -1,3 +1,6 @@
+- Underwater ladders are not considered underwater, no thanks to terrain hack.
+   - Looks like the only solution is to have multiple terrain objects per tile.
+     :-(
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
