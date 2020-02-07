@@ -1,5 +1,6 @@
-- BUG: after advancing a story node, UI code seems to have gone out of sync and
-  scrolling doesn't work anymore!
+- BUG: agent system, gravity system, all need to be reset upon transitioning to
+  a new World.
+   - Probably should encapsulate all of this in a separate object instead!!
 - Probably should have a way for advanced players to skip tutorial mode?
    - Either that, or make it short enough that it can be completed quickly.
 - Water-related issues:
@@ -121,3 +122,7 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      mechanics.
    + Extend mapgen to be able to generate these sorts of maps. Or maybe just
      hard-code this for now?
++ BUG: after advancing a story node, UI code seems to have gone out of sync and
+  scrolling doesn't work anymore!
+   * Haha, it's 'cos after replacing World you lost all your event watchers.
+     :-D

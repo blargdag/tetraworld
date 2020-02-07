@@ -260,6 +260,8 @@ class Game
         );
 
         ui.moveViewport(playerPos);
+        setupEventWatchers();
+        setupAgentImpls();
     }
 
     private void portalSystem()
@@ -478,10 +480,10 @@ class Game
 
             // FIXME: shouldn't this be in the UI code instead??
             ui.message("Press '?' for help.");
-        }
 
-        setupEventWatchers();
-        setupAgentImpls();
+            setupEventWatchers();
+            setupAgentImpls();
+        }
 
         // Hack to trigger autopickup / Messages at initial position.
         rawMove(w, player, Pos(playerPos), {});
