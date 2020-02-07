@@ -82,11 +82,6 @@ struct GameMap
         );
         return result;
     }
-
-    Vec!(int,4) randomLocation()
-    {
-        return .randomLocation(tree, bounds);
-    }
 }
 static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));
 
