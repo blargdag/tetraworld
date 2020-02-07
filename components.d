@@ -255,4 +255,13 @@ struct Mortal
     int hp; // FIXME: is there a better system than this lousy old thing?!
 }
 
+/**
+ * Component for objects that emit a message when an agent touches them.
+ */
+@Component
+struct Message
+{
+    string[] msgs;
+}
+
 // vim:set ai sw=4 ts=4 et:

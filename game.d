@@ -408,6 +408,12 @@ class Game
                 ui.quitWithMsg("YOU HAVE DIED.");
             }
         };
+        w.notify.message = (Pos pos, ThingId subj, string msg)
+        {
+            if (subj != player.id)
+                return;
+            ui.message(msg);
+        };
     }
 
     Action processPlayer()
@@ -474,15 +480,20 @@ class Game
 
         if (isNewGame)
         {
-            //ui.infoScreen(textStory001, "[Go forth!]");
-            ui.infoScreen(textGeneralIntro, "[Go forth!]");
+            ui.infoScreen(textStory001, "[Go forth!]");
+            //ui.infoScreen(textGeneralIntro, "[Go forth!]");
             ui.message("Welcome to Tetraworld!");
         }
         else
+        {
             ui.message("Welcome back!");
 
-        // FIXME: shouldn't this be in the UI code instead??
-        ui.message("Press '?' for help.");
+            // FIXME: shouldn't this be in the UI code instead??
+            ui.message("Press '?' for help.");
+        }
+
+        // Hack to trigger autopickup / Messages at initial position.
+        rawMove(w, player, Pos(playerPos), {});
 
         while (!quit)
         {

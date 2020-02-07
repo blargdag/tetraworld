@@ -94,6 +94,17 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
             w.notify.pickup(newPos, subj.id, t.id);
         }
     }
+
+    // Emit any Messages
+    foreach (msg; w.getAllAt(newPos)
+                   .map!(id => w.store.get!Message(id))
+                   .filter!(msg => msg !is null))
+    {
+        foreach (m; msg.msgs)
+        {
+            w.notify.message(newPos, subj.id, m);
+        }
+    }
 }
 
 /**

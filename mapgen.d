@@ -656,6 +656,7 @@ World genTutorialLevel(out int[4] startPos)
     room.interior = region(vec(2,3,3,1), vec(8,8,8,6));
     cor4.doors ~= Door(3, [7,7,7,6], Door.Type.normal);
 
+    // A BSP tree to put them all together.
     auto root = new MapNode;
     root.axis = 0;
     root.pivot = 2;
@@ -681,6 +682,7 @@ World genTutorialLevel(out int[4] startPos)
     w.map.bounds = region(vec(0,0,0,0), vec(8,8,8,8));
     w.map.waterLevel = int.max;
 
+    // Put some gold for the player to collect.
     enum goldPos = [
         Pos(7,4,4,5),
         Pos(7,4,7,2),
@@ -694,8 +696,37 @@ World genTutorialLevel(out int[4] startPos)
         w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable());
     }
 
+    // An exit portal to end the tutorial.
     w.store.createObj(Pos(7,4,4,2), Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal));
+
+    // Some in-game instructions to guide the player along.
+    w.store.createObj(Pos(1,1,1,1), NoGravity(), Message([
+        "This is the tutorial training area.",
+        "Use the 'j' and 'k' keys to move left/right.",
+    ]));
+    w.store.createObj(Pos(1,1,1,3), NoGravity(), Message([
+        "Go to the far right of the corridor for further instructions."
+    ]));
+    w.store.createObj(Pos(1,1,1,7), NoGravity(), Message([
+        "Good!",
+        "Now use the 'n' and 'o' keys to move forwards/backwards.",
+    ]));
+    w.store.createObj(Pos(1,1,7,7), NoGravity(), Message([
+        "Very good!",
+        "Next, use the 'h' and 'l' keys to move ana/kata.",
+    ]));
+    w.store.createObj(Pos(1,7,7,7), NoGravity(), Message([
+        "Excellent!",
+        "Use the 'i' and 'm' keys to climb up/down.",
+    ]));
+    w.store.createObj(Pos(7,7,7,7), NoGravity(), Message([
+        "Well done.",
+        "Now collect all the gold ores, then head to the portal.",
+    ]));
+    w.store.createObj(Pos(7,4,4,2), NoGravity(), Message([
+        "Press Enter to activate the portal.",
+    ]));
 
     return w;
 }
