@@ -906,7 +906,6 @@ class TextUi : GameUi
 
         quit = false;
         gameFiber.call();
-        viewport.centerOn(g.playerPos);
 
         // Main loop
         while (!quit)

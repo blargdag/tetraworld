@@ -147,7 +147,7 @@ class Game
      */
     Vec!(int,4) playerPos()
     {
-        auto posp = w.store.get!Pos(player.id);
+        auto posp = w ? w.store.get!Pos(player.id) : null;
         if (posp !is null)
             lastPlPos = posp.coors;
         return lastPlPos;
@@ -217,17 +217,7 @@ class Game
         return game;
     }
 
-    static Game newGame()
-    {
-        auto g = new Game;
-
-        //int[4] startPos;
-        //MapGenArgs args;
-        //args.dim = [ 12, 12, 12, 12 ];
-        //g.w = genBspLevel(args, startPos);
-
-        return g;
-    }
+    static Game newGame() { return new Game; }
 
     private Action movePlayer(int[4] displacement, ref string errmsg)
     {
@@ -257,6 +247,21 @@ class Game
         return (World w) => useItem(w, player, r.front);
     }
 
+    private void startStory()
+    {
+        ui.infoScreen(storyNodes[storyNode].infoScreen);
+
+        int[4] startPos;
+        w = storyNodes[storyNode].genMap(startPos);
+        player = w.store.createObj(
+            Pos(startPos), Tiled(TileId.player, 1), Name("you"),
+            Agent(Agent.Type.player), Inventory(), BlocksMovement(),
+            Climbs(), Swims(), Mortal(5,5)
+        );
+
+        ui.moveViewport(playerPos);
+    }
+
     private void portalSystem()
     {
         if (w.store.get!UsePortal(player.id) !is null)
@@ -273,10 +278,20 @@ class Game
             }
             else
             {
-                quit = true;
                 ui.message("You activate the exit portal!");
-                ui.quitWithMsg("Congratulations! You collected %d out of %d "~
-                               "gold.", ngold, maxgold);
+                ui.message("You collected %d out of %d gold.", ngold, maxgold);
+
+                storyNode++;
+                if (storyNode < storyNodes.length)
+                {
+                    startStory();
+                }
+                else
+                {
+                    quit = true;
+                    ui.quitWithMsg("Congratulations, you have finished the "~
+                                   "game!");
+                }
             }
         }
     }
@@ -454,18 +469,11 @@ class Game
 
         if (w is null)
         {
-            int[4] startPos;
-            w = storyNodes[storyNode].genMap(startPos);
-            player = w.store.createObj(
-                Pos(startPos), Tiled(TileId.player, 1), Name("you"),
-                Agent(Agent.Type.player), Inventory(), BlocksMovement(),
-                Climbs(), Swims(), Mortal(5,5)
-            );
-
-            ui.infoScreen(storyNodes[storyNode].infoScreen);
+            startStory();
         }
         else
         {
+            ui.moveViewport(playerPos);
             ui.message("Welcome back!");
 
             // FIXME: shouldn't this be in the UI code instead??
@@ -501,10 +509,11 @@ StoryNode[] storyNodes = [
         "You have been hired as a 4D Treasure Hunter by our Field Operations "~
         "Department to explore 4D space and retrieve any treasure you find.",
 
-        "As an initial orientation, you have been teleported to a training area "~
-        "consisting of a single tunnel in 4D space. Your task is to familiarize "~
-        "yourself with your 4D view, and to learn 4D movement by following this "~
-        "tunnel to the far end where you will find an exit portal.",
+        "As an initial orientation, you have been teleported to a training "~
+        "area consisting of a single tunnel in 4D space. Your task is to "~
+        "familiarize yourself with your 4D view, and to learn 4D movement by "~
+        "following this tunnel to the far end where you will find an exit "~
+        "portal.",
 
         "The exit portal will return you to Tetraworld Corp., where you will "~
         "receive your first assignment.",
@@ -512,6 +521,28 @@ StoryNode[] storyNodes = [
         "Good luck!",
     ], (ref int[4] startPos) {
         return genTutorialLevel(startPos);
+    }),
+
+    StoryNode([
+        "Excellent job!",
+
+        "Now that you have been adequately trained in 4D navigation, you "~
+        "shall now be assigned to one of our mining areas. Your job is to "~
+        "collect all gold ores in the area and bring them to the exit "~
+        "portal.",
+
+        "Beware that there may be hazards awaiting therein, such as hidden "~
+        "pits and flooded areas.  In particular, we advise you to avoid by "~
+        "all means any native creatures that you might encounter, as they "~
+        "are likely to be hostile, and your 4D environmental suit is not "~
+        "equipped for combat and will not survive extensive damage.",
+    
+        "We trust in the timely and competent completion of this assignment. "~
+        "Good luck!",
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 12, 12, 12, 12 ];
+        return genBspLevel(args, startPos);
     }),
 ];
 
