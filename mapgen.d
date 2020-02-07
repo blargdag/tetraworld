@@ -29,6 +29,7 @@ import bsp;
 import components;
 import gamemap;
 import rndutil;
+import terrain;
 import vector;
 import world;
 
@@ -318,6 +319,98 @@ void resizeRooms(R)(MapNode root, R region)
 }
 
 /**
+ * Generate ladders for reaching doors that are too high to reach from floor.
+ *
+ * Prerequisites: Room interiors must already have been set.
+ */
+void addLadders(World w)
+{
+    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node) {
+        foreach (d; node.doors)
+        {
+            if (d.axis == 0 && d.type == Door.Type.normal &&
+                d.pos[0] < node.interior.max[0])
+            {
+                // Vertical exits
+                foreach (i; d.pos[0] .. node.interior.max[0])
+                {
+                    createLadder(&w.store, Pos(i, d.pos[1], d.pos[2],
+                                               d.pos[3]));
+                }
+            }
+            else if (d.axis != 0 && d.pos[0] < node.interior.max[0] - 2)
+            {
+                // Horizontal exits
+                auto pos = d.pos;
+                pos[d.axis] = (d.pos[d.axis] == node.interior.min[d.axis]) ?
+                              d.pos[d.axis] + 1 : d.pos[d.axis] - 1;
+                foreach (i; d.pos[0] + 1 .. node.interior.max[0])
+                {
+                    createLadder(&w.store, Pos(i, pos[1], pos[2], pos[3]));
+                }
+            }
+        }
+        return 0;
+    });
+}
+
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //    0123456
+    //  0 ###=###
+    //  1 #  =  #
+    //  2 |_ =  #
+    //  3 #= =  |
+    //  4 #= =  #
+    //  5 #######
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,6,2,2));
+    root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
+    root.doors ~= Door(0, [0,3,1,1], Door.Type.normal);
+    root.doors ~= Door(1, [3,6,1,1], Door.Type.normal);
+
+    auto w = new World;
+    w.map.tree = root;
+
+    // Ladder placement should use interior, not bounding region.
+    w.map.bounds = region(vec(0,0,0,0), vec(9,9,9,9));
+
+    w.map.waterLevel = int.max;
+
+    addLadders(w);
+
+    bool hasLadder(Pos pos)
+    {
+        return w.getAllAt(pos)
+                .canFind!(id => w.store.get!Tiled(id).tileId == TileId.ladder);
+    }
+
+    assert(!hasLadder(Pos(0,1,1,1)));
+    assert(!hasLadder(Pos(1,1,1,1)));
+    assert(!hasLadder(Pos(2,1,1,1)));
+    assert( hasLadder(Pos(3,1,1,1)));
+    assert( hasLadder(Pos(4,1,1,1)));
+    assert(!hasLadder(Pos(5,1,1,1)));
+
+    assert( hasLadder(Pos(0,3,1,1)));
+    assert( hasLadder(Pos(1,3,1,1)));
+    assert( hasLadder(Pos(2,3,1,1)));
+    assert( hasLadder(Pos(3,3,1,1)));
+    assert( hasLadder(Pos(4,3,1,1)));
+    assert(!hasLadder(Pos(5,3,1,1)));
+
+    assert(!hasLadder(Pos(0,5,1,1)));
+    assert(!hasLadder(Pos(1,5,1,1)));
+    assert(!hasLadder(Pos(2,5,1,1)));
+    assert(!hasLadder(Pos(3,5,1,1)));
+    assert(!hasLadder(Pos(4,5,1,1)));
+    assert(!hasLadder(Pos(5,5,1,1)));
+}
+
+/**
  * Randomly assign room floors.
  */
 void setRoomFloors(R)(MapNode root, R bounds)
@@ -516,6 +609,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     genPitTraps(w, args.nPitTraps.pick);
 
     resizeRooms(w.map.tree, w.map.bounds);
+    addLadders(w);
 
     randomRoom(w.map.tree, w.map.bounds, (MapNode node, R r) {
         w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
@@ -636,26 +730,30 @@ World genTutorialLevel(out int[4] startPos)
     // Left/right corridor
     auto cor1 = new MapNode;
     cor1.interior = region(vec(0,0,0,0), vec(2,2,2,6));
+    cor1.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
 
     // Front/back corridor
     auto cor2 = new MapNode;
     cor2.interior = region(vec(0,0,2,4), vec(2,2,6,6));
     cor2.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
+    cor2.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
 
     // Ana/kata corridor
     auto cor3 = new MapNode;
     cor3.interior = region(vec(0,2,4,4), vec(2,6,6,6));
     cor3.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
+    cor3.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
 
     // Up/down shaft with ladder
     auto cor4 = new MapNode;
     cor4.interior = region(vec(2,4,4,4), vec(6,6,6,6));
     cor4.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
+    cor4.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
 
     // Final room
     auto room = new MapNode;
     room.interior = region(vec(2,2,2,0), vec(6,6,6,4));
-    cor4.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
+    room.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
 
     // A BSP tree to put them all together.
     auto root = new MapNode;
@@ -679,9 +777,13 @@ World genTutorialLevel(out int[4] startPos)
     root.right.left = room;
     root.right.right = cor4;
 
+    root.interior = region(vec(0,0,0,0), vec(6,6,6,6));
+
     w.map.tree = root;
-    w.map.bounds = region(vec(0,0,0,0), vec(6,6,6,6));
+    w.map.bounds = root.interior;
     w.map.waterLevel = int.max;
+
+    addLadders(w);
 
     // Put some gold for the player to collect.
     enum goldPos = [

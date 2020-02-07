@@ -26,21 +26,24 @@ import store_traits;
 
 Thing emptySpace = Thing(1);
 Thing doorway = Thing(2);
-Thing ladder = Thing(3);
-Thing blockBare = Thing(4);
-Thing blockGrassy = Thing(5);
-Thing blockMuddy = Thing(6);
-Thing water = Thing(7);
+Thing blockBare = Thing(3);
+Thing blockGrassy = Thing(4);
+Thing blockMuddy = Thing(5);
+Thing water = Thing(6);
+
+Thing* createLadder(Store* store, Pos pos)
+{
+    return store.createObj(Pos(pos), Tiled(TileId.ladder, -1), Name("ladder"),
+        TiledAbove(TileId.ladderTop, -1), NoGravity(),
+        SupportsWeight(SupportType.above | SupportType.within,
+                       SupportCond.climbing));
+}
 
 void registerTerrains(Store* store)
 {
     store.registerTerrain(emptySpace, Tiled(TileId.space, -2),
                           Name("Thin air"));
     store.registerTerrain(doorway, Tiled(TileId.doorway, -2), Name("door"));
-    store.registerTerrain(ladder, Tiled(TileId.ladder, -2), Name("ladder"),
-                          TiledAbove(TileId.ladderTop, -1),
-                          SupportsWeight(SupportType.above | SupportType.within,
-                                         SupportCond.climbing));
 
     store.registerTerrain(blockBare, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorBare, -1),

@@ -60,33 +60,6 @@ struct GameMap
                 if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
                                             pos[i] < rr.max[i])(true))
                 {
-                    // Generate ladders to doors.
-                    foreach (d; node.doors.filter!(d => d.type ==
-                                                        Door.Type.normal))
-                    {
-                        // Horizontal doors: add step ladders if too high.
-                        import std.math : abs;
-                        if (d.axis != 0 && rr.max[0] - d.pos[0] > 2 &&
-                            pos[0] > d.pos[0] &&
-                            abs(pos[d.axis] - d.pos[d.axis]) == 1 &&
-                            iota(1,4).filter!(i => i != d.axis)
-                                .fold!((b, i) => b && pos[i] == d.pos[i])
-                                      (true))
-                        {
-                            result = ladder.id;
-                            return 1;
-                        }
-
-                        // Vertical shafts: add ladder all the way up.
-                        if (d.axis == 0 && pos[0] > d.pos[0] &&
-                            iota(1,4).fold!((b, i) => b && pos[i] == d.pos[i])
-                                           (true))
-                        {
-                            result = ladder.id;
-                            return 1;
-                        }
-                    }
-
                     if (pos[0] > waterLevel)
                         result = water.id;
                     else
@@ -98,11 +71,7 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        // Normal vertical exits should have ladders that reach
-                        // up to the top (in the floor).
-                        result = (d.axis == 0 && d.type == Door.Type.normal) ?
-                                 ladder.id :
-                                 (pos[0] > waterLevel) ? water.id : doorway.id;
+                        result = (pos[0] > waterLevel) ? water.id : doorway.id;
                         return 1;
                     }
                 }
