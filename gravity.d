@@ -450,14 +450,15 @@ unittest
     //  4 #= #
     //  5 ####
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,3,2,2));
     root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
-    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(5,3,3,3));
+    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,3,3,3));
 
+    import mapgen : addLadders;
     auto w = new World;
     w.map.tree = root;
-    w.map.bounds = bounds;
+    w.map.bounds = root.interior;
     w.map.waterLevel = int.max;
+    addLadders(w);
 
     //dump(w);
 
@@ -504,27 +505,20 @@ unittest
 
     assert(*w.store.get!Pos(guy.id) == Pos(4,1,1,1));
 
-    // FIXME: this won't work until ladders are objects added on top of
-    // terrain.
-    version(none)
-    {
-        // Scenario 4: (water breaks fall)
-        //    0123        0123
-        //  0 ####      0 ####
-        //  1 #@ #  ==> 1 #  #
-        //  2 |_ #      2 |_ #
-        //  3 #=~#      3 #@~#
-        //  4 #=~#      4 #=~#
-        //  5 ####      5 ####
-        w.store.remove!Pos(guy);
-        w.store.add!Pos(guy, Pos(1,1,1,1));
-        w.map.waterLevel = 2;
-        dump(w);
-        grav.run(w);
+    // Scenario 4: (water breaks fall)
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #  #
+    //  2 |_ #      2 |_ #
+    //  3 #=~#      3 #@~#
+    //  4 #=~#      4 #=~#
+    //  5 ####      5 ####
+    w.store.remove!Pos(guy);
+    w.store.add!Pos(guy, Pos(1,1,1,1));
+    w.map.waterLevel = 2;
+    grav.run(w);
 
-//import std;writeln(*w.store.get!Pos(guy.id));
-        assert(*w.store.get!Pos(guy.id) == Pos(3,1,1,1));
-    }
+    assert(*w.store.get!Pos(guy.id) == Pos(3,1,1,1));
 }
 
 // vim:set ai sw=4 ts=4 et:
