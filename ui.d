@@ -558,7 +558,7 @@ class TextUi : GameUi
                 term.moveTo(cx, cy);
                 term.flush();
 
-                Thread.sleep(dur!"msecs"(100));
+                Thread.sleep(dur!"msecs"(50));
             }
             refreshNeedsPause = true;
         }
