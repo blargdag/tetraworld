@@ -635,27 +635,27 @@ World genTutorialLevel(out int[4] startPos)
 
     // Left/right corridor
     auto cor1 = new MapNode;
-    cor1.interior = region(vec(0,0,0,0), vec(2,2,2,8));
+    cor1.interior = region(vec(0,0,0,0), vec(2,2,2,6));
 
     // Front/back corridor
     auto cor2 = new MapNode;
-    cor2.interior = region(vec(0,0,2,6), vec(2,2,8,8));
-    cor2.doors ~= Door(2, [1,1,2,7], Door.Type.normal);
+    cor2.interior = region(vec(0,0,2,4), vec(2,2,6,6));
+    cor2.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
 
     // Ana/kata corridor
     auto cor3 = new MapNode;
-    cor3.interior = region(vec(0,2,6,6), vec(2,8,8,8));
-    cor3.doors ~= Door(1, [1,2,7,7], Door.Type.normal);
+    cor3.interior = region(vec(0,2,4,4), vec(2,6,6,6));
+    cor3.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
 
     // Up/down shaft with ladder
     auto cor4 = new MapNode;
-    cor4.interior = region(vec(2,6,6,6), vec(8,8,8,8));
-    cor4.doors ~= Door(0, [2,7,7,7], Door.Type.normal);
+    cor4.interior = region(vec(2,4,4,4), vec(6,6,6,6));
+    cor4.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
 
     // Final room
     auto room = new MapNode;
-    room.interior = region(vec(2,3,3,1), vec(8,8,8,6));
-    cor4.doors ~= Door(3, [7,7,7,6], Door.Type.normal);
+    room.interior = region(vec(2,2,2,0), vec(6,6,6,4));
+    cor4.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
 
     // A BSP tree to put them all together.
     auto root = new MapNode;
@@ -675,22 +675,22 @@ World genTutorialLevel(out int[4] startPos)
 
     root.right = new MapNode;
     root.right.axis = 3;
-    root.right.pivot = 6;
+    root.right.pivot = 4;
     root.right.left = room;
     root.right.right = cor4;
 
     w.map.tree = root;
-    w.map.bounds = region(vec(0,0,0,0), vec(8,8,8,8));
+    w.map.bounds = region(vec(0,0,0,0), vec(6,6,6,6));
     w.map.waterLevel = int.max;
 
     // Put some gold for the player to collect.
     enum goldPos = [
-        Pos(7,4,4,5),
-        Pos(7,4,7,2),
-        Pos(7,4,7,5),
-        Pos(7,7,4,2),
-        Pos(7,7,4,5),
-        Pos(7,7,7,2),
+        Pos(5,3,3,3),
+        Pos(5,3,5,1),
+        Pos(5,3,5,3),
+        Pos(5,5,3,1),
+        Pos(5,5,3,3),
+        Pos(5,5,5,1),
     ];
     foreach (pos; goldPos)
     {
@@ -702,25 +702,25 @@ World genTutorialLevel(out int[4] startPos)
         "This is the tutorial training area.",
         "Use the 'j' and 'k' keys to move left/right.",
     ]));
-    w.store.createObj(Pos(1,1,1,7), NoGravity(), Message([
+    w.store.createObj(Pos(1,1,1,5), NoGravity(), Message([
         "Good!",
         "Now use the 'n' and 'o' keys to move forwards/backwards.",
     ]));
-    w.store.createObj(Pos(1,1,7,7), NoGravity(), Message([
+    w.store.createObj(Pos(1,1,5,5), NoGravity(), Message([
         "Very good!",
         "Next, use the 'h' and 'l' keys to move ana/kata.",
     ]));
-    w.store.createObj(Pos(1,7,7,7), NoGravity(), Message([
+    w.store.createObj(Pos(1,5,5,5), NoGravity(), Message([
         "Excellent!",
         "Use the 'i' and 'm' keys to climb up/down.",
     ]));
-    w.store.createObj(Pos(7,7,7,7), NoGravity(), Message([
+    w.store.createObj(Pos(5,5,5,5), NoGravity(), Message([
         "Well done.",
         "Now collect all the gold ores, then head to the portal.",
     ]));
 
     // An exit portal to end the tutorial.
-    w.store.createObj(Pos(7,4,4,2), Tiled(TileId.portal), Name("exit portal"),
+    w.store.createObj(Pos(5,3,3,1), Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal),
                       Message([
                         "This is the exit portal.",
