@@ -139,7 +139,7 @@ class Game
 
     private Thing* player;
     private Vec!(int,4) lastPlPos;
-    private bool isNewGame;
+    private int storyNode;
     private bool quit;
 
     /**
@@ -189,6 +189,7 @@ class Game
     {
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
         sf.put("player", player.id);
+        sf.put("story", storyNode);
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
@@ -200,6 +201,7 @@ class Game
         ThingId playerId = lf.parse!ThingId("player");
 
         auto game = new Game;
+        game.storyNode = lf.parse!int("story");
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
@@ -207,8 +209,6 @@ class Game
         game.player = game.w.store.getObj(playerId);
         if (game.player is null)
             throw new Exception("Save file is corrupt!");
-
-        game.isNewGame = false;
 
         // Permadeath. :-D
         import std.file : remove;
@@ -222,9 +222,10 @@ class Game
         auto g = new Game;
         int[4] startPos;
         MapGenArgs args;
-        args.dim = [ 12, 12, 12, 12 ];
+        //args.dim = [ 12, 12, 12, 12 ];
         //g.w = genBspLevel(args, startPos);
-        g.w = genTutorialLevel(startPos);
+        g.storyNode = 0;
+        g.w = storyNodes[g.storyNode].genMap(startPos);
 
         g.player = g.w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),
@@ -232,7 +233,6 @@ class Game
             Swims(), Mortal(5,5)
         );
 
-        g.isNewGame = true;
         return g;
     }
 
@@ -461,11 +461,9 @@ class Game
         setupEventWatchers();
         setupAgentImpls();
 
-        if (isNewGame)
+        if (storyNode == 0)
         {
-            ui.infoScreen(textStory001, "[Go forth!]");
-            //ui.infoScreen(textGeneralIntro, "[Go forth!]");
-            ui.message("Welcome to Tetraworld!");
+            ui.infoScreen(storyNodes[storyNode].infoScreen);
         }
         else
         {
@@ -488,43 +486,31 @@ class Game
     }
 }
 
-// Temporary placeholder until we get alternative mapgens ready.
-private static immutable textGeneralIntro = [
-    "Welcome to Tetraworld Corp.!",
+struct StoryNode
+{
+    string[] infoScreen;
+    World function(ref int[4] startPos) genMap;
+}
 
-    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
-    "Department to explore 4D space and retrieve any treasure you find.",
+StoryNode[] storyNodes = [
+    StoryNode([
+        "Welcome to Tetraworld Corp.!",
 
-    "You have been assigned to one of our mining areas, and your task is to "~
-    "locate and retrieve all of the gold ores therein, and bring them to the "~
-    "exit portal.  The exit portal will return you to Tetraworld Corp., "~
-    "where you will receive your next assignment.",
+        "You have been hired as a 4D Treasure Hunter by our Field Operations "~
+        "Department to explore 4D space and retrieve any treasure you find.",
 
-    "Beware that there may be hazards awaiting therein, such as hidden pits "~
-    "and flooded areas.  In particular, we advise you to avoid by all means "~
-    "any native creatures that you might encounter, as they are likely to be "~
-    "hostile, and your 4D environmental suit is not equipped for combat and "~
-    "will not survive extensive damage.",
+        "As an initial orientation, you have been teleported to a training area "~
+        "consisting of a single tunnel in 4D space. Your task is to familiarize "~
+        "yourself with your 4D view, and to learn 4D movement by following this "~
+        "tunnel to the far end where you will find an exit portal.",
 
-    "We trust in the timely and competent completion of this assignment. "~
-    "Good luck!",
-];
+        "The exit portal will return you to Tetraworld Corp., where you will "~
+        "receive your first assignment.",
 
-private static immutable textStory001 = [
-    "Welcome to Tetraworld Corp.!",
-
-    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
-    "Department to explore 4D space and retrieve any treasure you find.",
-
-    "As an initial orientation, you have been teleported to a training area "~
-    "consisting of a single tunnel in 4D space. Your task is to familiarize "~
-    "yourself with your 4D view, and to learn 4D movement by following this "~
-    "tunnel to the far end where you will find an exit portal.",
-
-    "The exit portal will return you to Tetraworld Corp., where you will "~
-    "receive your first assignment.",
-
-    "Good luck!",
+        "Good luck!",
+    ], (ref int[4] startPos) {
+        return genTutorialLevel(startPos);
+    }),
 ];
 
 // vim:set ai sw=4 ts=4 et:
