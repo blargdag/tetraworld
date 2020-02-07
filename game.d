@@ -247,24 +247,7 @@ class Game
         }
 
         auto v = vec(displacement);
-        return (World w) {
-            auto result = move(w, player, v);
-
-            // TBD: this is a hack that should be replaced by a System,
-            // probably.
-            {
-                if (!w.store.getAllBy!Pos(Pos(playerPos))
-                            .map!(id => w.store.get!Tiled(id))
-                            .filter!(tp => tp !is null &&
-                                     tp.tileId == TileId.portal)
-                            .empty)
-                {
-                    ui.message("You see the exit portal here.");
-                }
-            }
-
-            return result;
-        };
+        return (World w) => move(w, player, v);
     }
 
     private Action applyFloorObj(ref string errmsg)

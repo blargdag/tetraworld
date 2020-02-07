@@ -522,7 +522,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     });
 
     w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
-                      Name("exit portal"), Usable(UseEffect.portal));
+                      Name("exit portal"), Usable(UseEffect.portal),
+                      Message(["You see the exit portal here."]));
 
     Region!(int,4) startBounds;
     MapNode startRoom = randomDryRoom(w, startBounds);
@@ -696,17 +697,10 @@ World genTutorialLevel(out int[4] startPos)
         w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable());
     }
 
-    // An exit portal to end the tutorial.
-    w.store.createObj(Pos(7,4,4,2), Tiled(TileId.portal), Name("exit portal"),
-                      Usable(UseEffect.portal));
-
     // Some in-game instructions to guide the player along.
     w.store.createObj(Pos(1,1,1,1), NoGravity(), Message([
         "This is the tutorial training area.",
         "Use the 'j' and 'k' keys to move left/right.",
-    ]));
-    w.store.createObj(Pos(1,1,1,3), NoGravity(), Message([
-        "Go to the far right of the corridor for further instructions."
     ]));
     w.store.createObj(Pos(1,1,1,7), NoGravity(), Message([
         "Good!",
@@ -724,9 +718,14 @@ World genTutorialLevel(out int[4] startPos)
         "Well done.",
         "Now collect all the gold ores, then head to the portal.",
     ]));
-    w.store.createObj(Pos(7,4,4,2), NoGravity(), Message([
-        "Press Enter to activate the portal.",
-    ]));
+
+    // An exit portal to end the tutorial.
+    w.store.createObj(Pos(7,4,4,2), Tiled(TileId.portal), Name("exit portal"),
+                      Usable(UseEffect.portal),
+                      Message([
+                        "This is the exit portal.",
+                        "Press Enter to activate it."
+                      ]));
 
     return w;
 }
