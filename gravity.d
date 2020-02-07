@@ -432,8 +432,7 @@ unittest
 {
     import gamemap, terrain;
 
-    version(none)
-    static void dump(World w)
+    static void dump()(World w)
     {
         import tile, std;
         writefln("%-(%-(%s%)\n%)",
@@ -504,6 +503,28 @@ unittest
     grav.run(w);
 
     assert(*w.store.get!Pos(guy.id) == Pos(4,1,1,1));
+
+    // FIXME: this won't work until ladders are objects added on top of
+    // terrain.
+    version(none)
+    {
+        // Scenario 4: (water breaks fall)
+        //    0123        0123
+        //  0 ####      0 ####
+        //  1 #@ #  ==> 1 #  #
+        //  2 |_ #      2 |_ #
+        //  3 #=~#      3 #@~#
+        //  4 #=~#      4 #=~#
+        //  5 ####      5 ####
+        w.store.remove!Pos(guy);
+        w.store.add!Pos(guy, Pos(1,1,1,1));
+        w.map.waterLevel = 2;
+        dump(w);
+        grav.run(w);
+
+//import std;writeln(*w.store.get!Pos(guy.id));
+        assert(*w.store.get!Pos(guy.id) == Pos(3,1,1,1));
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:

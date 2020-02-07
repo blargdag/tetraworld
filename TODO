@@ -1,6 +1,11 @@
 - Underwater ladders are not considered underwater, no thanks to terrain hack.
    - Looks like the only solution is to have multiple terrain objects per tile.
      :-(
+   - Either that, or turn ladders into actual objects. This will require
+     creating a lot of objects. :-/
+      - But on the bright side, destructible ladders become an option... :-D
+      - And randomized ladder styles.
+      - And simplification of that horrible GameMap.opIndex()!
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
