@@ -253,15 +253,19 @@ class Game
 
         int[4] startPos;
         w = storyNodes[storyNode].genMap(startPos);
+        sysAgent = SysAgent.init;
+        sysGravity = SysGravity.init;
+
         player = w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),
             Agent(Agent.Type.player), Inventory(), BlocksMovement(),
             Climbs(), Swims(), Mortal(5,5)
         );
 
-        ui.moveViewport(playerPos);
         setupEventWatchers();
         setupAgentImpls();
+
+        ui.moveViewport(playerPos);
     }
 
     private void portalSystem()
@@ -475,14 +479,14 @@ class Game
         }
         else
         {
+            setupEventWatchers();
+            setupAgentImpls();
+
             ui.moveViewport(playerPos);
             ui.message("Welcome back!");
 
             // FIXME: shouldn't this be in the UI code instead??
             ui.message("Press '?' for help.");
-
-            setupEventWatchers();
-            setupAgentImpls();
         }
 
         // Hack to trigger autopickup / Messages at initial position.

@@ -1,6 +1,3 @@
-- BUG: agent system, gravity system, all need to be reset upon transitioning to
-  a new World.
-   - Probably should encapsulate all of this in a separate object instead!!
 - Probably should have a way for advanced players to skip tutorial mode?
    - Either that, or make it short enough that it can be completed quickly.
 - Water-related issues:
@@ -126,3 +123,6 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
   scrolling doesn't work anymore!
    * Haha, it's 'cos after replacing World you lost all your event watchers.
      :-D
++ BUG: agent system, gravity system, all need to be reset upon transitioning to
+  a new World.
+   P Probably should encapsulate all of this in a separate object instead!!
