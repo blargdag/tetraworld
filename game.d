@@ -220,18 +220,11 @@ class Game
     static Game newGame()
     {
         auto g = new Game;
-        int[4] startPos;
-        MapGenArgs args;
+
+        //int[4] startPos;
+        //MapGenArgs args;
         //args.dim = [ 12, 12, 12, 12 ];
         //g.w = genBspLevel(args, startPos);
-        g.storyNode = 0;
-        g.w = storyNodes[g.storyNode].genMap(startPos);
-
-        g.player = g.w.store.createObj(
-            Pos(startPos), Tiled(TileId.player, 1), Name("you"),
-            Agent(Agent.Type.player), Inventory(), BlocksMovement(), Climbs(),
-            Swims(), Mortal(5,5)
-        );
 
         return g;
     }
@@ -458,11 +451,17 @@ class Game
     void run(GameUi _ui)
     {
         ui = _ui;
-        setupEventWatchers();
-        setupAgentImpls();
 
-        if (storyNode == 0)
+        if (w is null)
         {
+            int[4] startPos;
+            w = storyNodes[storyNode].genMap(startPos);
+            player = w.store.createObj(
+                Pos(startPos), Tiled(TileId.player, 1), Name("you"),
+                Agent(Agent.Type.player), Inventory(), BlocksMovement(),
+                Climbs(), Swims(), Mortal(5,5)
+            );
+
             ui.infoScreen(storyNodes[storyNode].infoScreen);
         }
         else
@@ -472,6 +471,9 @@ class Game
             // FIXME: shouldn't this be in the UI code instead??
             ui.message("Press '?' for help.");
         }
+
+        setupEventWatchers();
+        setupAgentImpls();
 
         // Hack to trigger autopickup / Messages at initial position.
         rawMove(w, player, Pos(playerPos), {});

@@ -893,13 +893,13 @@ class TextUi : GameUi
         }
         else
             term = displayObject(&_term);
-        g = game;
 
         auto _input = RealTimeConsoleInput(&_term, ConsoleInputFlags.raw);
         input = &_input;
         setupUi();
 
         // Run game engine thread in its own fiber.
+        g = game;
         gameFiber = new Fiber({
             g.run(this);
         });
@@ -907,6 +907,8 @@ class TextUi : GameUi
         quit = false;
         gameFiber.call();
         viewport.centerOn(g.playerPos);
+
+        // Main loop
         while (!quit)
         {
             disp.flush();
