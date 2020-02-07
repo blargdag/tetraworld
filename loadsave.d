@@ -111,7 +111,7 @@ struct SaveFile(R)
         {
             import std.traits : isAggregateType;
             alias U = ElementType!T;
-            static if (!isAggregateType!U)
+            static if (!isAggregateType!U && !is(U == V[], V))
             {
                 sink.formattedWrite("%s%s [ %(%s %) ]\n", indent, key, value);
             }
