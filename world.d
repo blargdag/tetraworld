@@ -180,6 +180,12 @@ struct EventWatcher
      */
     void delegate(Pos pos, ThingId killer, ThingId victim) kill =
         doNothing!(Pos, ThingId, ThingId);
+
+    /**
+     * A message is emitted by a Message object.
+     */
+    void delegate(Pos pos, ThingId subj, string msg) message =
+        doNothing!(Pos, ThingId, string);
 }
 
 /**

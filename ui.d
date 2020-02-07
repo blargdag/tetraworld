@@ -50,14 +50,12 @@ struct TextUiConfig
 struct ViewPort(Map)
     if (is4DArray!Map)
 {
-    World       w;
     Vec!(int,4) dim;
     Vec!(int,4) pos;
 
     /// Constructor.
-    this(World _w, Vec!(int,4) _dim, Vec!(int,4) _pos)
+    this(Vec!(int,4) _dim, Vec!(int,4) _pos)
     {
-        w = _w;
         dim = _dim;
         pos = _pos;
     }
@@ -66,7 +64,7 @@ struct ViewPort(Map)
      * Returns a 4D array of dchar representing the current view of the map
      * given the current viewport settings.
      */
-    @property auto curView()
+    @property auto curView(World w)
     {
         TileId getDisplayedTile(Vec!(int,4) pos, ThingId terrainId)
         {
@@ -348,6 +346,7 @@ Movement keys:
    h,l = ana/kata
 
    H,I,J,K,L,M,N,O = move viewport only, does not consume turn.
+   <space>         = center viewport back on player.
 
 Commands:
    p        Pass a turn.
@@ -357,7 +356,6 @@ Meta-commands:
    ?        Show this help.
    q        Save current progress and quit.
    Q        Delete current progress and quit.
-   <space>  Center player in map view.
    ^L       Repaint the screen.
 ENDTEXT"
     .split('\n');
@@ -404,11 +402,11 @@ class TextUi : GameUi
     private auto createViewport(Region!(int,2) screenRect)
     {
         auto optVPSize = optimalViewportSize(screenRect.max - vec(0,2));
-        return ViewPort!GameMap(g.w, optVPSize, vec(0,0,0,0));
+        return ViewPort!GameMap(optVPSize, vec(0,0,0,0));
     }
     private auto createMapView(Region!(int,2) screenRect)
     {
-        auto maprect = screenRect.centeredRegion(renderSize(viewport.curView));
+        auto maprect = screenRect.centeredRegion(renderSize(viewport.dim));
         return subdisplay(&disp, maprect);
     }
     private auto createStatusView(Region!(int,2) screenRect)
@@ -568,9 +566,9 @@ class TextUi : GameUi
             int dx = -diff[1];
             int dy = -diff[0];
 
-            auto scrollview = Viewport(g.w, viewport.dim + extension,
+            auto scrollview = Viewport(viewport.dim + extension,
                                        viewport.pos + offset)
-                .curView
+                .curView(g.w)
                 .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
 
             auto scrollSize = scrollview.renderSize;
@@ -818,7 +816,7 @@ class TextUi : GameUi
 
     private auto getCurView()
     {
-        return viewport.curView.fmap!((pos, tileId) =>
+        return viewport.curView(g.w).fmap!((pos, tileId) =>
             highlightAxialTiles(pos, tileId));
     }
 
@@ -876,9 +874,7 @@ class TextUi : GameUi
 
         auto msgRect = region(screenRect.min, vec(screenRect.max[0], 1));
         msgBox = createMsgBox(msgRect);
-
         viewport = createViewport(screenRect);
-        viewport.centerOn(g.playerPos);
 
         mapview = createMapView(screenRect);
         static assert(hasColor!(typeof(mapview)));
@@ -897,19 +893,21 @@ class TextUi : GameUi
         }
         else
             term = displayObject(&_term);
-        g = game;
 
         auto _input = RealTimeConsoleInput(&_term, ConsoleInputFlags.raw);
         input = &_input;
         setupUi();
 
         // Run game engine thread in its own fiber.
+        g = game;
         gameFiber = new Fiber({
             g.run(this);
         });
 
         quit = false;
         gameFiber.call();
+
+        // Main loop
         while (!quit)
         {
             disp.flush();

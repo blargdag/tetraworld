@@ -493,9 +493,9 @@ struct MapGenArgs
 }
 
 /**
- * Generate new game world.
+ * Generate new game world using the BSP tree algorithm.
  */
-World genNewGame(MapGenArgs args, out int[4] startPos)
+World genBspLevel(MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
     w.map.bounds = region(vec(0, 0, 0, 0), vec(args.dim));
@@ -522,7 +522,8 @@ World genNewGame(MapGenArgs args, out int[4] startPos)
     });
 
     w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
-                      Name("exit portal"), Usable(UseEffect.portal));
+                      Name("exit portal"), Usable(UseEffect.portal),
+                      Message(["You see the exit portal here."]));
 
     Region!(int,4) startBounds;
     MapNode startRoom = randomDryRoom(w, startBounds);
@@ -554,7 +555,7 @@ unittest
         int[4] startPos;
         MapGenArgs args;
         args.dim = [ 10, 10, 10, 10 ];
-        auto w = genNewGame(args, startPos);
+        auto w = genBspLevel(args, startPos);
 
         // Door placement checks.
         foreachRoom(w.map.tree, w.map.bounds,
@@ -618,6 +619,118 @@ unittest
                           w.map.waterLevel));
         }
     }
+}
+
+/**
+ * Generate tutorial level.
+ *
+ * For now, this returns a hard-coded level.  Later on we can extend this to
+ * have more randomized elements.
+ */
+World genTutorialLevel(out int[4] startPos)
+{
+    auto w = new World;
+
+    startPos = [1,1,1,1];
+
+    // Left/right corridor
+    auto cor1 = new MapNode;
+    cor1.interior = region(vec(0,0,0,0), vec(2,2,2,6));
+
+    // Front/back corridor
+    auto cor2 = new MapNode;
+    cor2.interior = region(vec(0,0,2,4), vec(2,2,6,6));
+    cor2.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
+
+    // Ana/kata corridor
+    auto cor3 = new MapNode;
+    cor3.interior = region(vec(0,2,4,4), vec(2,6,6,6));
+    cor3.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
+
+    // Up/down shaft with ladder
+    auto cor4 = new MapNode;
+    cor4.interior = region(vec(2,4,4,4), vec(6,6,6,6));
+    cor4.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
+
+    // Final room
+    auto room = new MapNode;
+    room.interior = region(vec(2,2,2,0), vec(6,6,6,4));
+    cor4.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
+
+    // A BSP tree to put them all together.
+    auto root = new MapNode;
+    root.axis = 0;
+    root.pivot = 2;
+
+    root.left = new MapNode;
+    root.left.axis = 1;
+    root.left.pivot = 2;
+    root.left.left = new MapNode;
+    root.left.right = cor3;
+
+    root.left.left.axis = 2;
+    root.left.left.pivot = 2;
+    root.left.left.left = cor1;
+    root.left.left.right = cor2;
+
+    root.right = new MapNode;
+    root.right.axis = 3;
+    root.right.pivot = 4;
+    root.right.left = room;
+    root.right.right = cor4;
+
+    w.map.tree = root;
+    w.map.bounds = region(vec(0,0,0,0), vec(6,6,6,6));
+    w.map.waterLevel = int.max;
+
+    // Put some gold for the player to collect.
+    enum goldPos = [
+        Pos(5,3,3,3),
+        Pos(5,3,5,1),
+        Pos(5,3,5,3),
+        Pos(5,5,3,1),
+        Pos(5,5,3,3),
+        Pos(5,5,5,1),
+    ];
+    foreach (pos; goldPos)
+    {
+        w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable());
+    }
+
+    // Some in-game instructions to guide the player along.
+    w.store.createObj(Pos(1,1,1,1), NoGravity(), Message([
+        "This is the tutorial training area.",
+        "Use the 'j' and 'k' keys to move left/right.",
+    ]));
+    w.store.createObj(Pos(1,1,1,5), NoGravity(), Message([
+        "Good!",
+        "Now use the 'n' and 'o' keys to move forwards/backwards.",
+    ]));
+    w.store.createObj(Pos(1,1,5,5), NoGravity(), Message([
+        "Very good!",
+        "Next, use the 'h' and 'l' keys to move ana/kata.",
+    ]));
+    w.store.createObj(Pos(1,5,5,5), NoGravity(), Message([
+        "Excellent!",
+        "Use the 'i' and 'm' keys to climb up/down.",
+    ]));
+    w.store.createObj(Pos(5,5,5,5), NoGravity(), Message([
+        "Well done.",
+        "Now collect all the gold ores, then head to the portal.",
+    ]));
+    w.store.createObj(Pos(5,5,5,3), NoGravity(), Message([
+        "At any time, press '?' for help.",
+    ]));
+
+    // An exit portal to end the tutorial.
+    w.store.createObj(Pos(5,3,3,1), Tiled(TileId.portal), Name("exit portal"),
+                      Usable(UseEffect.portal),
+                      Message([
+                        "This is the exit portal.",
+                        "Press Enter to activate it."
+                      ]));
+
+    return w;
 }
 
 // vim:set ai sw=4 ts=4 et:

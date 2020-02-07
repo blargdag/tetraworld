@@ -139,7 +139,7 @@ class Game
 
     private Thing* player;
     private Vec!(int,4) lastPlPos;
-    private bool isNewGame;
+    private int storyNode;
     private bool quit;
 
     /**
@@ -147,7 +147,7 @@ class Game
      */
     Vec!(int,4) playerPos()
     {
-        auto posp = w.store.get!Pos(player.id);
+        auto posp = w ? w.store.get!Pos(player.id) : null;
         if (posp !is null)
             lastPlPos = posp.coors;
         return lastPlPos;
@@ -189,6 +189,7 @@ class Game
     {
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
         sf.put("player", player.id);
+        sf.put("story", storyNode);
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
@@ -200,6 +201,7 @@ class Game
         ThingId playerId = lf.parse!ThingId("player");
 
         auto game = new Game;
+        game.storyNode = lf.parse!int("story");
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
@@ -208,8 +210,6 @@ class Game
         if (game.player is null)
             throw new Exception("Save file is corrupt!");
 
-        game.isNewGame = false;
-
         // Permadeath. :-D
         import std.file : remove;
         remove(saveFileName);
@@ -217,24 +217,7 @@ class Game
         return game;
     }
 
-    static Game newGame()
-    {
-        auto g = new Game;
-        int[4] startPos;
-        MapGenArgs args;
-        args.dim = [ 12, 12, 12, 12 ];
-        g.w = genNewGame(args, startPos);
-        //game.w = newGame([ 9, 9, 9, 9 ]);
-
-        g.player = g.w.store.createObj(
-            Pos(startPos), Tiled(TileId.player, 1), Name("you"),
-            Agent(Agent.Type.player), Inventory(), BlocksMovement(), Climbs(),
-            Swims(), Mortal(5,5)
-        );
-
-        g.isNewGame = true;
-        return g;
-    }
+    static Game newGame() { return new Game; }
 
     private Action movePlayer(int[4] displacement, ref string errmsg)
     {
@@ -247,24 +230,7 @@ class Game
         }
 
         auto v = vec(displacement);
-        return (World w) {
-            auto result = move(w, player, v);
-
-            // TBD: this is a hack that should be replaced by a System,
-            // probably.
-            {
-                if (!w.store.getAllBy!Pos(Pos(playerPos))
-                            .map!(id => w.store.get!Tiled(id))
-                            .filter!(tp => tp !is null &&
-                                     tp.tileId == TileId.portal)
-                            .empty)
-                {
-                    ui.message("You see the exit portal here.");
-                }
-            }
-
-            return result;
-        };
+        return (World w) => move(w, player, v);
     }
 
     private Action applyFloorObj(ref string errmsg)
@@ -279,6 +245,27 @@ class Game
         }
 
         return (World w) => useItem(w, player, r.front);
+    }
+
+    private void startStory()
+    {
+        ui.infoScreen(storyNodes[storyNode].infoScreen);
+
+        int[4] startPos;
+        w = storyNodes[storyNode].genMap(startPos);
+        sysAgent = SysAgent.init;
+        sysGravity = SysGravity.init;
+
+        player = w.store.createObj(
+            Pos(startPos), Tiled(TileId.player, 1), Name("you"),
+            Agent(Agent.Type.player), Inventory(), BlocksMovement(),
+            Climbs(), Swims(), Mortal(5,5)
+        );
+
+        setupEventWatchers();
+        setupAgentImpls();
+
+        ui.moveViewport(playerPos);
     }
 
     private void portalSystem()
@@ -297,10 +284,20 @@ class Game
             }
             else
             {
-                quit = true;
                 ui.message("You activate the exit portal!");
-                ui.quitWithMsg("Congratulations! You collected %d out of %d "~
-                               "gold.", ngold, maxgold);
+                ui.message("You collected %d out of %d gold.", ngold, maxgold);
+
+                storyNode++;
+                if (storyNode < storyNodes.length)
+                {
+                    startStory();
+                }
+                else
+                {
+                    quit = true;
+                    ui.quitWithMsg("Congratulations, you have finished the "~
+                                   "game!");
+                }
             }
         }
     }
@@ -408,6 +405,12 @@ class Game
                 ui.quitWithMsg("YOU HAVE DIED.");
             }
         };
+        w.notify.message = (Pos pos, ThingId subj, string msg)
+        {
+            if (subj != player.id)
+                return;
+            ui.message(msg);
+        };
     }
 
     Action processPlayer()
@@ -469,20 +472,25 @@ class Game
     void run(GameUi _ui)
     {
         ui = _ui;
-        setupEventWatchers();
-        setupAgentImpls();
 
-        if (isNewGame)
+        if (w is null)
         {
-            //ui.infoScreen(textStory001, "[Go forth!]");
-            ui.infoScreen(textGeneralIntro, "[Go forth!]");
-            ui.message("Welcome to Tetraworld!");
+            startStory();
         }
         else
+        {
+            setupEventWatchers();
+            setupAgentImpls();
+
+            ui.moveViewport(playerPos);
             ui.message("Welcome back!");
 
-        // FIXME: shouldn't this be in the UI code instead??
-        ui.message("Press '?' for help.");
+            // FIXME: shouldn't this be in the UI code instead??
+            ui.message("Press '?' for help.");
+        }
+
+        // Hack to trigger autopickup / Messages at initial position.
+        rawMove(w, player, Pos(playerPos), {});
 
         while (!quit)
         {
@@ -494,43 +502,54 @@ class Game
     }
 }
 
-// Temporary placeholder until we get alternative mapgens ready.
-private static immutable textGeneralIntro = [
-    "Welcome to Tetraworld Corp.!",
+struct StoryNode
+{
+    string[] infoScreen;
+    World function(ref int[4] startPos) genMap;
+}
 
-    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
-    "Department to explore 4D space and retrieve any treasure you find.",
+StoryNode[] storyNodes = [
+    StoryNode([
+        "Welcome to Tetraworld Corp.!",
 
-    "You have been assigned to one of our mining areas, and your task is to "~
-    "locate and retrieve all of the gold ores therein, and bring them to the "~
-    "exit portal.  The exit portal will return you to Tetraworld Corp., "~
-    "where you will receive your next assignment.",
+        "You have been hired as a 4D Treasure Hunter by our Field Operations "~
+        "Department to explore 4D space and retrieve any treasure you find.",
 
-    "Beware that there may be hazards awaiting therein, such as hidden pits "~
-    "and flooded areas.  In particular, we advise you to avoid by all means "~
-    "any native creatures that you might encounter, as they are likely to be "~
-    "hostile, and your 4D environmental suit is not equipped for combat and "~
-    "will not survive extensive damage.",
+        "As an initial orientation, you have been teleported to a training "~
+        "area consisting of a single tunnel in 4D space. Your task is to "~
+        "familiarize yourself with your 4D view, and to learn 4D movement by "~
+        "following this tunnel to the far end where you will find an exit "~
+        "portal.",
 
-    "We trust in the timely and competent completion of this assignment. "~
-    "Good luck!",
-];
+        "The exit portal will return you to Tetraworld Corp., where you will "~
+        "receive your first assignment.",
 
-private static immutable textStory001 = [
-    "Welcome to Tetraworld Corp.!",
+        "Good luck!",
+    ], (ref int[4] startPos) {
+        return genTutorialLevel(startPos);
+    }),
 
-    "You have been hired as a 4D Treasure Hunter by our Field Operations "~
-    "Department to explore 4D space and retrieve any treasure you find.",
+    StoryNode([
+        "Excellent job!",
 
-    "As an initial orientation, you have been teleported to a training area "~
-    "consisting of a single tunnel in 4D space. Your task is to familiarize "~
-    "yourself with your 4D view, and to learn 4D movement by following this "~
-    "tunnel to the far end where you will find an exit portal.",
+        "Now that you have been adequately trained in 4D navigation, you "~
+        "shall now be assigned to one of our mining areas. Your job is to "~
+        "collect all gold ores in the area and bring them to the exit "~
+        "portal.",
 
-    "The exit portal will return you to Tetraworld Corp., where you will "~
-    "receive your first assignment.",
-
-    "Good luck!",
+        "Beware that there may be hazards awaiting therein, such as hidden "~
+        "pits and flooded areas.  In particular, we advise you to avoid by "~
+        "all means any native creatures that you might encounter, as they "~
+        "are likely to be hostile, and your 4D environmental suit is not "~
+        "equipped for combat and will not survive extensive damage.",
+    
+        "We trust in the timely and competent completion of this assignment. "~
+        "Good luck!",
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 12, 12, 12, 12 ];
+        return genBspLevel(args, startPos);
+    }),
 ];
 
 // vim:set ai sw=4 ts=4 et:
