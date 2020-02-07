@@ -215,6 +215,19 @@ struct MessageBox(Disp)
         moreLen = morePrompt.displayLength;
     }
 
+    private void showPrompt(void delegate() waitForKeypress)
+    {
+        // FIXME: this assumes impl.height==1.
+        impl.moveTo(curX, 0);
+        impl.color(Color.white, Color.blue);
+        impl.writef("%s", morePrompt);
+        waitForKeypress();
+
+        impl.moveTo(0, 0);
+        impl.clearToEol();
+        curX = 0;
+    }
+
     /**
      * Post a message to this MessageBox. If it fits in the current space,
      * print it immediately. Otherwise, display a prompt for the user to
@@ -226,7 +239,7 @@ struct MessageBox(Disp)
         auto len = str.displayLength;
         if (curX + len + moreLen >= impl.width)
         {
-            forcePrompt(waitForKeypress);
+            showPrompt(waitForKeypress);
             assert(curX == 0);
         }
 
@@ -250,19 +263,16 @@ struct MessageBox(Disp)
     }
 
     /**
-     * Force a message prompt even if the message box isn't full yet.
+     * Prompt if the message box is not empty, otherwise do nothing.
+     *
+     * Basically, this is intended for when the game is about to quit, or the
+     * message box is about to get covered up by a different mode, and we want
+     * to ensure the player has read the current messages first.
      */
-    void forcePrompt(void delegate() waitForKeypress)
+    void flush(void delegate() waitForKeypress)
     {
-        // FIXME: this assumes impl.height==1.
-        impl.moveTo(curX, 0);
-        impl.color(Color.white, Color.blue);
-        impl.writef("%s", morePrompt);
-        waitForKeypress();
-
-        impl.moveTo(0, 0);
-        impl.clearToEol();
-        curX = 0;
+        if (curX > 0)
+            showPrompt(waitForKeypress);
     }
 }
 
@@ -627,7 +637,7 @@ class TextUi : GameUi
     void quitWithMsg(string msg)
     {
         message(msg);
-        msgBox.forcePrompt({
+        msgBox.flush({
             refresh();
             input.getch();
         });
@@ -696,6 +706,12 @@ class TextUi : GameUi
                 }
             },
         );
+
+        // Make sure player has read all current messages first.
+        msgBox.flush({
+            refresh();
+            input.getch();
+        });
 
         dispatch.push(infoMode);
         Fiber.yield();

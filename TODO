@@ -127,3 +127,4 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
    P Probably should encapsulate all of this in a separate object instead!!
 + Probably should have a way for advanced players to skip tutorial mode?
    + Either that, or make it short enough that it can be completed quickly.
++ Need pause before info screen if there are unread messages!
