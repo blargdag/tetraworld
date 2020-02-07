@@ -1,11 +1,3 @@
-- Underwater ladders are not considered underwater, no thanks to terrain hack.
-   - Looks like the only solution is to have multiple terrain objects per tile.
-     :-(
-   - Either that, or turn ladders into actual objects. This will require
-     creating a lot of objects. :-/
-      - But on the bright side, destructible ladders become an option... :-D
-      - And randomized ladder styles.
-      - And simplification of that horrible GameMap.opIndex()!
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -136,3 +128,11 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
    + Either that, or make it short enough that it can be completed quickly.
 + Need pause before info screen if there are unread messages!
 + Falling on a ladder should not cause ladder to support weight!
++ Underwater ladders are not considered underwater, no thanks to terrain hack.
+   X Looks like the only solution is to have multiple terrain objects per tile.
+     :-(
+   + Either that, or turn ladders into actual objects. This will require
+     creating a lot of objects. :-/
+      P But on the bright side, destructible ladders become an option... :-D
+      P And randomized ladder styles.
+      + And simplification of that horrible GameMap.opIndex()!
