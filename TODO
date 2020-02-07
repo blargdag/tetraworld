@@ -1,5 +1,3 @@
-- Probably should have a way for advanced players to skip tutorial mode?
-   - Either that, or make it short enough that it can be completed quickly.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -23,6 +21,7 @@
    - Pathfinding.
 - Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
   doesn't make sense. Maybe call it "diving equipment"?
+- Tutorial should include climb-ledge mechanics?
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
   number!
 - Implement water currents? :-D
@@ -126,3 +125,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
 + BUG: agent system, gravity system, all need to be reset upon transitioning to
   a new World.
    P Probably should encapsulate all of this in a separate object instead!!
++ Probably should have a way for advanced players to skip tutorial mode?
+   + Either that, or make it short enough that it can be completed quickly.
