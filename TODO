@@ -1,8 +1,7 @@
-- Need a tutorial mode for new players!!!
-   - Decide on map(s) that are good for introducing 4D movements and other
-     mechanics.
-   - Extend mapgen to be able to generate these sorts of maps. Or maybe just
-     hard-code this for now?
+- BUG: after advancing a story node, UI code seems to have gone out of sync and
+  scrolling doesn't work anymore!
+- Probably should have a way for advanced players to skip tutorial mode?
+   - Either that, or make it short enough that it can be completed quickly.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -117,3 +116,8 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
    * Actually you can, it's called trampling your enemies. :-D
 + [UI] Why is the cursor position for the info screen messed up??
    * Because it's that stupid by-ref vs. by-value issue again. Sigh...
++ Need a tutorial mode for new players!!!
+   + Decide on map(s) that are good for introducing 4D movements and other
+     mechanics.
+   + Extend mapgen to be able to generate these sorts of maps. Or maybe just
+     hard-code this for now?
