@@ -718,6 +718,9 @@ World genTutorialLevel(out int[4] startPos)
         "Well done.",
         "Now collect all the gold ores, then head to the portal.",
     ]));
+    w.store.createObj(Pos(5,5,5,3), NoGravity(), Message([
+        "At any time, press '?' for help.",
+    ]));
 
     // An exit portal to end the tutorial.
     w.store.createObj(Pos(5,3,3,1), Tiled(TileId.portal), Name("exit portal"),

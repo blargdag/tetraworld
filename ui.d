@@ -346,6 +346,7 @@ Movement keys:
    h,l = ana/kata
 
    H,I,J,K,L,M,N,O = move viewport only, does not consume turn.
+   <space>         = center viewport back on player.
 
 Commands:
    p        Pass a turn.
@@ -355,7 +356,6 @@ Meta-commands:
    ?        Show this help.
    q        Save current progress and quit.
    Q        Delete current progress and quit.
-   <space>  Center player in map view.
    ^L       Repaint the screen.
 ENDTEXT"
     .split('\n');
