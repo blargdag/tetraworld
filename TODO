@@ -15,7 +15,6 @@
       + So, looks like we need to attach a Sinking component to sinking
         objects, and register an agent that specifically deals with pulling
         down sinking objects.
-- Falling on a ladder should not cause ladder to support weight!
 - Implement FOV and player map memory.
 - Improve creature AI.
    - Pathfinding.
@@ -128,3 +127,4 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
 + Probably should have a way for advanced players to skip tutorial mode?
    + Either that, or make it short enough that it can be completed quickly.
 + Need pause before info screen if there are unread messages!
++ Falling on a ladder should not cause ladder to support weight!

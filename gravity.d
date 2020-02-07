@@ -49,8 +49,8 @@ struct SysGravity
         fall = 2,
     }
 
-    private FallType checkSupport(World w, ThingId id, SupportsWeight* sw,
-                                  SupportType type)
+    private FallType checkSupport(World w, ThingId id, bool alreadyFalling,
+                                  SupportsWeight* sw, SupportType type)
     {
         if (sw is null || (sw.type & type) == 0)
             return FallType.fall;
@@ -61,7 +61,7 @@ struct SysGravity
                 return FallType.none;
 
             case SupportCond.climbing:
-                if (w.store.get!Climbs(id) !is null)
+                if (!alreadyFalling && w.store.get!Climbs(id) !is null)
                     return FallType.none;
                 break;
 
@@ -75,8 +75,8 @@ struct SysGravity
         return FallType.fall;
     }
 
-    private FallType computeFallType()(World w, ThingId id, out Pos oldPos,
-                                       out Pos floorPos)
+    private FallType computeFallType(World w, ThingId id, bool alreadyFalling,
+                                     out Pos oldPos, out Pos floorPos)
     {
         // NOTE: race condition: a falling object may autopickup another
         // object and remove its Pos while we're still iterating, which
@@ -88,7 +88,7 @@ struct SysGravity
 
         // Check if something at current location is supporting this object.
         auto ft = w.getAllAt(oldPos)
-                   .map!(swid => checkSupport(w, id,
+                   .map!(swid => checkSupport(w, id, alreadyFalling,
                                             w.store.get!SupportsWeight(swid),
                                             SupportType.within))
                    .minElement;
@@ -98,7 +98,7 @@ struct SysGravity
         // Check if something on the floor is supporting this object.
         floorPos = Pos(oldPos + vec(1,0,0,0));
         ft = w.getAllAt(floorPos)
-              .map!(swid => checkSupport(w, id,
+              .map!(swid => checkSupport(w, id, alreadyFalling,
                                        w.store.get!SupportsWeight(swid),
                                        SupportType.above))
               .minElement;
@@ -160,7 +160,7 @@ struct SysGravity
                            .filter!(t => t !is null))
         {
             Pos oldPos, floorPos;
-            FallType type = computeFallType(w, t.id, oldPos, floorPos);
+            FallType type = computeFallType(w, t.id, false, oldPos, floorPos);
             OUTER: while (type != FallType.none)
             {
                 final switch (type)
@@ -197,7 +197,7 @@ struct SysGravity
                         }
                         break;
                 }
-                type = computeFallType(w, t.id, oldPos, floorPos);
+                type = computeFallType(w, t.id, true, oldPos, floorPos);
             }
         }
 
@@ -235,7 +235,7 @@ struct SysGravity
 
             if (w.locationHas!BlocksMovement(floorPos) ||
                 w.getAllAt(floorPos)
-                 .map!(id => checkSupport(w, obj.id,
+                 .map!(id => checkSupport(w, obj.id, false,
                                           w.store.get!SupportsWeight(id),
                                           SupportType.above))
                  .minElement == FallType.none)
@@ -425,6 +425,85 @@ unittest
     grav.run(w);
     grav.sinkObjects(w);
     assert(w.store.get!Sinking(rock.id) is null);
+}
+
+// Test for ladders not holding weight when you're already falling.
+unittest
+{
+    import gamemap, terrain;
+
+    version(none)
+    static void dump(World w)
+    {
+        import tile, std;
+        writefln("%-(%-(%s%)\n%)",
+            iota(6).map!(j =>
+                iota(4).map!(i =>
+                    tiles[w.store.get!Tiled(w.map[j,i,1,1]).tileId]
+                    .representation)));
+    }
+
+    // Test map:
+    //  0 ####
+    //  1 #  #
+    //  2 |_ #
+    //  3 #= #
+    //  4 #= #
+    //  5 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,3,2,2));
+    root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(5,3,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = int.max;
+
+    //dump(w);
+
+    SysGravity grav;
+
+    // Scenario 1: (ladders do not hold things that can't climb)
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #  #  ==> 1 #  #
+    //  2 |$ #      2 |_ #
+    //  3 #= #      3 #= #
+    //  4 #= #      4 #$ #
+    //  5 ####      5 ####
+    auto rock = w.store.createObj(Name("rock"), Pos(2,1,1,1));
+    grav.run(w);
+
+    assert(*w.store.get!Pos(rock.id) == Pos(4,1,1,1));
+
+    // Scenario 2: (ladders hold things that can climb)
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #  #  ==> 1 #  #
+    //  2 |@ #      2 |@ #
+    //  3 #= #      3 #= #
+    //  4 #= #      4 #= #
+    //  5 ####      5 ####
+    w.store.destroyObj(rock.id);
+    auto guy = w.store.createObj(Name("guy"), Pos(2,1,1,1), Climbs());
+    grav.run(w);
+
+    assert(*w.store.get!Pos(guy.id) == Pos(2,1,1,1));
+
+    // Scenario 3: (ladders don't hold climbers that are already falling)
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #  #
+    //  2 |_ #      2 |_ #
+    //  3 #= #      3 #= #
+    //  4 #= #      4 #@ #
+    //  5 ####      5 ####
+    w.store.remove!Pos(guy);
+    w.store.add!Pos(guy, Pos(1,1,1,1));
+    grav.run(w);
+
+    assert(*w.store.get!Pos(guy.id) == Pos(4,1,1,1));
 }
 
 // vim:set ai sw=4 ts=4 et:
