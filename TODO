@@ -20,6 +20,9 @@
         objects, and register an agent that specifically deals with pulling
         down sinking objects.
 - Implement FOV and player map memory.
+- [mapgen] Different styled rooms.
+   - Maybe occasionally block off leaf nodes?
+   - Maybe some rooms can turn into corridors.
 - Improve creature AI.
    - Pathfinding.
 - Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
@@ -32,6 +35,7 @@
      random mover in water tiles?
 - Per-room water levels?
 - Waterfalls? Rivers? :-D
+- [mapgen] Occasionally generate spiral staircases? :-D
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
   and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
