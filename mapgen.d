@@ -568,8 +568,14 @@ void genPitTraps(World w, int count)
  */
 struct ValRange
 {
-    int min, max;
+    int min, max=1;
     int pick() { return uniform(min, max); }
+
+    unittest
+    {
+        ValRange v;
+        assert(v.pick == 0);
+    }
 }
 
 /**
@@ -578,11 +584,12 @@ struct ValRange
 struct MapGenArgs
 {
     int[4] dim;
-    ValRange nBackEdges = ValRange(3, 5);
-    ValRange nPitTraps = ValRange(8, 12);
+    ValRange nBackEdges;
+    ValRange nPitTraps;
 
-    float goldPct = 0.2;
-    ValRange nMonstersA = ValRange(4, 6);
+    float goldPct;
+    bool mayHaveWater;
+    ValRange nMonstersA;
 }
 
 /**
@@ -611,9 +618,14 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     resizeRooms(w.map.tree, w.map.bounds);
     addLadders(w);
 
-    randomRoom(w.map.tree, w.map.bounds, (MapNode node, R r) {
-        w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
-    });
+    if (args.mayHaveWater)
+    {
+        randomRoom(w.map.tree, w.map.bounds, (MapNode node, R r) {
+            w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
+        });
+    }
+    else
+        w.map.waterLevel = int.max;
 
     w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
                       Name("exit portal"), Usable(UseEffect.portal),
@@ -633,9 +645,15 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
 
     foreach (i; 0 .. args.nMonstersA.pick())
     {
-        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                          Tiled(TileId.creatureA, 1), Name("conical creature"),
-                          BlocksMovement(), Agent(), Mortal(5,2), Climbs());
+        auto pos = randomLocation(w.map.tree, w.map.bounds);
+
+        // Avoid placing monsters in player's starting room.
+        while (startRoom.interior.contains(pos))
+            pos = randomLocation(w.map.tree, w.map.bounds);
+
+        w.store.createObj(Pos(pos), Tiled(TileId.creatureA, 1),
+                          Name("conical creature"), BlocksMovement(), Agent(),
+                          Mortal(5,2), Climbs());
     }
 
     return w;

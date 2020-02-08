@@ -1,3 +1,5 @@
+- Should not be able to walk sideways into a hidden pit trap! Instead, it
+  should trigger from above.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
