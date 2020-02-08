@@ -598,6 +598,27 @@ StoryNode[] storyNodes = [
         args.nMonstersA = ValRange(2, 5);
         return genBspLevel(args, startPos);
     }),
+
+    StoryNode([
+        "We are very pleased with your continuing performance.",
+
+        "The next area is a large one, and quite complex and potentially "~
+        "hazardous. You will probably have to take notes to keep track of "~
+        "where you are. But we are confident that this will present no "~
+        "problem to your current skills. Again, collect all the gold and "~
+        "bring them to the exit portal.  You know the protocol.",
+    
+        "Good luck!",
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 15, 15, 15, 15 ];
+        args.nBackEdges = ValRange(5, 8);
+        args.nPitTraps = ValRange(12, 18);
+        args.goldPct = 0.2;
+        args.mayHaveWater = true;
+        args.nMonstersA = ValRange(4, 6);
+        return genBspLevel(args, startPos);
+    }),
 ];
 
 // vim:set ai sw=4 ts=4 et:
