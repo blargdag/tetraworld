@@ -249,7 +249,7 @@ class Game
 
     private void startStory()
     {
-        ui.infoScreen(storyNodes[storyNode].infoScreen);
+        ui.infoScreen(storyNodes[storyNode].infoScreen, "[Proceed]");
 
         int[4] startPos;
         w = storyNodes[storyNode].genMap(startPos);
@@ -532,22 +532,91 @@ StoryNode[] storyNodes = [
     StoryNode([
         "Excellent job!",
 
-        "Now that you have been adequately trained in 4D navigation, you "~
-        "shall now be assigned to one of our mining areas. Your job is to "~
-        "collect all gold ores in the area and bring them to the exit "~
-        "portal.",
+        "Now that you have learned how to move around in 4D space, you will "~
+        "begin to learn how to perform your duties as a treasure hunter.",
 
-        "Beware that there may be hazards awaiting therein, such as hidden "~
-        "pits and flooded areas.  In particular, we advise you to avoid by "~
-        "all means any native creatures that you might encounter, as they "~
-        "are likely to be hostile, and your 4D environmental suit is not "~
-        "equipped for combat and will not survive extensive damage.",
+        "Your next assigned area is one of the smaller cave systems that "~
+        "Tetraworld Corp. has discovered in the course of its pioneering 4D "~
+        "exploration.  This is a simple area with a number of caves that "~
+        "have a branching structure.  You will need to explore the area "~
+        "and retrieve all the gold ore. This assignment will also acquiant "~
+        "you with navigating a non-linear maze in 4D.",
+
+        "Once you have collected all the gold ore, locate the exit portal "~
+        "and return."
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 9, 9, 9, 9 ];
+        args.goldPct = 0.2;
+        return genBspLevel(args, startPos);
+    }),
+
+    StoryNode([
+        "Excellent!",
+
+        "Now that you have learned the basics of 4D treasure-hunting, it is "~
+        "time for your first non-trivial assignment.",
+
+	    "Your task is to collect gold ore located in the ore mines. The area "~
+        "you will be responsible for is highly branching, and may require "~
+        "extra effort on your part to find all the ore that has been "~
+        "detected there.  Furthermore, the caves may loop, so careful "~
+        "thoroughness on your part will be required to ensure the successful "~
+        "completion of your assignment.",
+
+        "Good luck!"
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 10, 10, 10, 10 ];
+        args.nBackEdges = ValRange(3, 5);
+        args.goldPct = 0.2;
+        return genBspLevel(args, startPos);
+    }),
+
+    StoryNode([
+        "Outstanding!",
+
+        "The next area is similar to the previous one, and is also located "~
+        "in the ore mines. It is slightly larger and more complex, and, "~
+        "unfortunately, is also located in a more unstable zone, and there "~
+        "may be environmental hazards, such as hidden pits and flooded areas.",
+
+        "In particular, we advise you to avoid by all means any native "~
+        "creatures that you might encounter, as they are likely to be "~
+        "hostile, and your 4D environmental suit is not equipped for combat "~
+        "and will not survive extensive damage.",
     
         "We trust in the timely and competent completion of this assignment. "~
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
         args.dim = [ 12, 12, 12, 12 ];
+        args.nBackEdges = ValRange(3, 5);
+        args.nPitTraps = ValRange(8, 12);
+        args.goldPct = 0.2;
+        args.mayHaveWater = true;
+        args.nMonstersA = ValRange(2, 5);
+        return genBspLevel(args, startPos);
+    }),
+
+    StoryNode([
+        "We are very pleased with your continuing performance.",
+
+        "The next area is a large one, and quite complex and potentially "~
+        "hazardous. You will probably have to take notes to keep track of "~
+        "where you are. But we are confident that this will present no "~
+        "problem to your current skills. Again, collect all the gold and "~
+        "bring them to the exit portal.  You know the protocol.",
+    
+        "Good luck!",
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 15, 15, 15, 15 ];
+        args.nBackEdges = ValRange(5, 8);
+        args.nPitTraps = ValRange(12, 18);
+        args.goldPct = 0.2;
+        args.mayHaveWater = true;
+        args.nMonstersA = ValRange(4, 6);
         return genBspLevel(args, startPos);
     }),
 ];
