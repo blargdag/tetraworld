@@ -38,12 +38,14 @@ import world;
  *   agent will not immediately fall down again;
  * - There are no (known) obstacles that block movement in that direction.
  */
-bool isViableMove(World w, Pos curPos, int[4] dir)
+bool isViableMove(World w, ThingId agentId, Pos curPos, int[4] dir)
 {
     if (dir == [0,0,0,0])
         return false;
     if (dir == [-1,0,0,0] && !w.locationHas!SupportsWeight(curPos))
         return false;
+    if (w.store.get!Climbs(agentId) !is null && canClimb(w, curPos, vec(dir)))
+        return true;
     return canMove(w, curPos, vec(dir));
 }
 
@@ -55,13 +57,13 @@ bool isViableMove(World w, Pos curPos, int[4] dir)
  * viable move; false otherwise, in which case the contents of `dir` are
  * undefined.
  */
-bool findViableMove(World w, Pos curPos, int numTries,
+bool findViableMove(World w, ThingId agentId, Pos curPos, int numTries,
                     int[4] delegate() generator, out int[4] dir)
 {
     while (numTries-- > 0)
     {
         dir = generator();
-        if (isViableMove(w, curPos, dir))
+        if (isViableMove(w, agentId, curPos, dir))
             return true;
     }
     return false;
@@ -91,7 +93,8 @@ Action chooseAiAction(World w, ThingId agentId)
         else
         {
             int[4] dir;
-            if (findViableMove(w, curPos, 6, () => chooseDir(diff), dir))
+            if (findViableMove(w, agentId, curPos, 6,
+                               () => chooseDir(diff), dir))
                 return (World w) => move(w, agent, vec(dir));
             // Couldn't find a way to reach target, fallback to random move.
         }
@@ -99,7 +102,7 @@ Action chooseAiAction(World w, ThingId agentId)
 
     // Nothing to do, just wander aimlessly.
     int[4] dir;
-    if (findViableMove(w, curPos, 6, () => dir2vec(randomDir), dir))
+    if (findViableMove(w, agentId, curPos, 6, () => dir2vec(randomDir), dir))
         return (World w) => move(w, agent, vec(dir));
 
     // Can't even do that; give up.
