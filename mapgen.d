@@ -588,7 +588,7 @@ struct MapGenArgs
     ValRange nPitTraps;
 
     float goldPct;
-    bool mayHaveWater;
+    ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
 }
 
@@ -618,14 +618,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     resizeRooms(w.map.tree, w.map.bounds);
     addLadders(w);
 
-    if (args.mayHaveWater)
-    {
-        randomRoom(w.map.tree, w.map.bounds, (MapNode node, R r) {
-            w.map.waterLevel = uniform(r.max[0], w.map.bounds.max[0]+1);
-        });
-    }
-    else
-        w.map.waterLevel = int.max;
+    // Add water if necessary.
+    w.map.waterLevel = args.waterLevel.pick;
 
     w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
                       Name("exit portal"), Usable(UseEffect.portal),

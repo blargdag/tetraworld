@@ -585,7 +585,7 @@ StoryNode[] storyNodes = [
         "creatures that you might encounter, as they are likely to be "~
         "hostile, and your 4D environmental suit is not equipped for combat "~
         "and will not survive extensive damage.",
-    
+
         "We trust in the timely and competent completion of this assignment. "~
         "Good luck!",
     ], (ref int[4] startPos) {
@@ -594,7 +594,7 @@ StoryNode[] storyNodes = [
         args.nBackEdges = ValRange(3, 5);
         args.nPitTraps = ValRange(8, 12);
         args.goldPct = 0.2;
-        args.mayHaveWater = true;
+        args.waterLevel = ValRange(9, 15);
         args.nMonstersA = ValRange(2, 5);
         return genBspLevel(args, startPos);
     }),
@@ -607,7 +607,7 @@ StoryNode[] storyNodes = [
         "where you are. But we are confident that this will present no "~
         "problem to your current skills. Again, collect all the gold and "~
         "bring them to the exit portal.  You know the protocol.",
-    
+
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
@@ -615,8 +615,27 @@ StoryNode[] storyNodes = [
         args.nBackEdges = ValRange(5, 8);
         args.nPitTraps = ValRange(12, 18);
         args.goldPct = 0.2;
-        args.mayHaveWater = true;
+        args.waterLevel = ValRange(10, 15);
         args.nMonstersA = ValRange(4, 6);
+        return genBspLevel(args, startPos);
+    }),
+
+    StoryNode([
+        "Exceptional!",
+
+        "Clearly, you are more than capable of tackling the next area, "~
+        "which is even larger and more complex. As usual, find all the "~
+        "gold and bring them to the exit portal.",
+
+        "Keep up the good work!",
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 20, 20, 20, 20 ];
+        args.nBackEdges = ValRange(10, 15);
+        args.nPitTraps = ValRange(20, 25);
+        args.goldPct = 0.2;
+        args.waterLevel = ValRange(10, 20);
+        args.nMonstersA = ValRange(6, 8);
         return genBspLevel(args, startPos);
     }),
 ];

@@ -1,5 +1,4 @@
-- Mapgen should have better control over water gen, so that we can control it
-  from the story nodes.
+- Need better control over branchiness of second level.
 - Should not be able to walk sideways into a hidden pit trap! Instead, it
   should trigger from above.
 - Water-related issues:
@@ -144,3 +143,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
       P But on the bright side, destructible ladders become an option... :-D
       P And randomized ladder styles.
       + And simplification of that horrible GameMap.opIndex()!
++ Mapgen should have better control over water gen, so that we can control it
+  from the story nodes.
