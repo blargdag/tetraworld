@@ -32,7 +32,7 @@ struct Tile16
 }
 
 Tile16[TileId.max+1] tiles = [
-    TileId.blocked:     Tile16('?'),
+    TileId.blocked:     Tile16('#', Color.cyan),
     TileId.space:       Tile16(' '),
     TileId.wall:        Tile16('/'),
     TileId.floorBare:   Tile16('.'),
@@ -47,7 +47,7 @@ Tile16[TileId.max+1] tiles = [
     TileId.creatureA:   Tile16('A', Color.red),
 
     TileId.gold:        Tile16('$', Color.yellow),
-    TileId.portal:      Tile16('@', Color.magenta),
+    TileId.portal:      Tile16('@', Color.red),
     TileId.trapPit:     Tile16('^', Color.red),
 ];
 
