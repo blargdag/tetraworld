@@ -64,36 +64,9 @@ struct ViewPort(Map)
      * Returns a 4D array of dchar representing the current view of the map
      * given the current viewport settings.
      */
-    @property auto curView(World w)
+    @property auto curView(WorldView wv)
     {
-        TileId getDisplayedTile(Vec!(int,4) pos, ThingId terrainId)
-        {
-            auto r = w.store.getAllBy!Pos(Pos(pos))
-                            .map!(id => w.store.get!Tiled(id))
-                            .filter!(tilep => tilep !is null)
-                            .map!(tilep => *tilep);
-            if (!r.empty)
-                return r.maxElement!(tile => tile.stackOrder)
-                        .tileId;
-
-            import terrain : emptySpace;
-            if (terrainId == emptySpace.id)
-            {
-                // Empty space: check if tile below has TiledAbove; if so,
-                // render that instead.
-                auto ta = w.getAllAt(Pos(pos + vec(1,0,0,0)))
-                           .map!(id => w.store.get!TiledAbove(id))
-                           .filter!(ta => ta !is null);
-                if (!ta.empty)
-                    return ta.front.tileId;
-            }
-
-            return w.store.get!Tiled(terrainId).tileId;
-        }
-
-        return w.map
-                .fmap!((pos, terrainId) => getDisplayedTile(pos, terrainId))
-                .submap(region(pos, pos + dim));
+        return wv.submap(region(pos, pos + dim));
     }
 
     /**

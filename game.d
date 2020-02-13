@@ -128,6 +128,53 @@ struct PlayerStatus
 }
 
 /**
+ * The game world filtered through the eyes (and other senses, including
+ * knowledge) of an Agent.
+ */
+struct WorldView
+{
+    private World w;
+    private Vec!(int,4) refPos;
+
+    this(World _w, Vec!(int,4) _refPos)
+    {
+        w = _w;
+        refPos = _refPos;
+    }
+
+    TileId opIndex(int[4] pos...)
+    {
+        auto terrainId = w.map[pos];
+        auto r = w.store.getAllBy!Pos(Pos(pos))
+                        .map!(id => w.store.get!Tiled(id))
+                        .filter!(tilep => tilep !is null)
+                        .map!(tilep => *tilep);
+        if (!r.empty)
+            return r.maxElement!(tile => tile.stackOrder)
+                    .tileId;
+
+        import terrain : emptySpace;
+        if (terrainId == emptySpace.id)
+        {
+            // Empty space: check if tile below has TiledAbove; if so,
+            // render that instead.
+            auto ta = w.getAllAt(Pos(vec(pos) + vec(1,0,0,0)))
+                       .map!(id => w.store.get!TiledAbove(id))
+                       .filter!(ta => ta !is null);
+            if (!ta.empty)
+                return ta.front.tileId;
+        }
+
+        return w.store.get!Tiled(terrainId).tileId;
+    }
+
+    @property int opDollar(int i)() { return w.map.opDollar!i; }
+
+    import gamemap;
+    static assert(is4DArray!(typeof(this)));
+}
+
+/**
  * Game simulation.
  */
 class Game
@@ -157,10 +204,9 @@ class Game
      * Returns: The player's world view (a filtered version of World based on
      * what the player knows / can perceive).
      */
-    World playerView()
+    WorldView playerView()
     {
-        // TBD
-        return w;
+        return WorldView(w, playerPos);
     }
 
     PlayerStatus[] getStatuses()
