@@ -133,7 +133,7 @@ struct PlayerStatus
 class Game
 {
     private GameUi ui;
-    /*private*/ World w; // FIXME
+    private World w;
     private SysAgent sysAgent;
     private SysGravity sysGravity;
 
@@ -151,6 +151,16 @@ class Game
         if (posp !is null)
             lastPlPos = posp.coors;
         return lastPlPos;
+    }
+
+    /**
+     * Returns: The player's world view (a filtered version of World based on
+     * what the player knows / can perceive).
+     */
+    World playerView()
+    {
+        // TBD
+        return w;
     }
 
     PlayerStatus[] getStatuses()

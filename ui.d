@@ -578,7 +578,7 @@ class TextUi : GameUi
 
             auto scrollview = Viewport(viewport.dim + extension,
                                        viewport.pos + offset)
-                .curView(g.w)
+                .curView(g.playerView)
                 .fmap!((pos, tileId) => highlightAxialTiles(pos, tileId));
 
             auto scrollSize = scrollview.renderSize;
@@ -832,7 +832,7 @@ class TextUi : GameUi
 
     private auto getCurView()
     {
-        return viewport.curView(g.w).fmap!((pos, tileId) =>
+        return viewport.curView(g.playerView).fmap!((pos, tileId) =>
             highlightAxialTiles(pos, tileId));
     }
 
