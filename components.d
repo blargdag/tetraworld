@@ -68,6 +68,8 @@ unittest
 
 enum TileId
 {
+    blocked,
+
     space,
     wall,
     floorBare,

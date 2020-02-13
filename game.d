@@ -144,6 +144,9 @@ struct WorldView
 
     TileId opIndex(int[4] pos...)
     {
+        if ((refPos - vec(pos))[].map!(x => x*x).sum > 20)
+            return TileId.blocked;
+
         auto terrainId = w.map[pos];
         auto r = w.store.getAllBy!Pos(Pos(pos))
                         .map!(id => w.store.get!Tiled(id))

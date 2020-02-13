@@ -32,6 +32,7 @@ struct Tile16
 }
 
 Tile16[TileId.max+1] tiles = [
+    TileId.blocked:     Tile16('?'),
     TileId.space:       Tile16(' '),
     TileId.wall:        Tile16('/'),
     TileId.floorBare:   Tile16('.'),
