@@ -142,9 +142,34 @@ struct WorldView
         refPos = _refPos;
     }
 
+    /**
+     * Returns: true if the given tile is visible from the current reference
+     * position.
+     */
+    bool canSee(Vec!(int,4) pos)
+    {
+        import std.math : abs;
+
+        auto diff = pos - refPos;
+        auto basis = diff[].map!(x => abs(x)).maxElement;
+        auto accum = vec(0,0,0,0);
+
+        foreach (_; 0 .. basis)
+        {
+            if (w.locationHas!BlocksView(Pos(refPos + accum/basis)))
+                return false;   // hit an obstacle
+            accum += diff;
+        }
+        return true;
+    }
+
+    /**
+     * Returns: Tile at the given position, or TileId.blocked if it's not
+     * visible to the subject for whatever reason.
+     */
     TileId opIndex(int[4] pos...)
     {
-        if ((refPos - vec(pos))[].map!(x => x*x).sum > 20)
+        if (!canSee(vec(pos)))
             return TileId.blocked;
 
         auto terrainId = w.map[pos];

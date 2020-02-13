@@ -172,6 +172,12 @@ struct BlocksMovement
 }
 
 /**
+ * Component for objects that block visibility.
+ */
+@Component
+struct BlocksView { }
+
+/**
  * The type of weight support an object has.
  */
 @BitFlags
