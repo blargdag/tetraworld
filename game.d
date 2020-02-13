@@ -128,16 +128,166 @@ struct PlayerStatus
 }
 
 /**
+ * The player's memory of the map.
+ */
+struct MapMemory
+{
+    private TileId[] impl;
+    private Region!(int,4) reg;
+    private Vec!(int,4) dim;
+
+    this(Region!(int,4) bounds)
+    {
+        reg = bounds;
+        impl.length = reg.volume;
+        dim = reg.max - reg.min;
+    }
+
+    TileId opIndex(int[4] pos...)
+    {
+        if (reg.contains(vec(pos)))
+        {
+            auto off = vec(pos) - reg.min;
+            return impl[off[0] + dim[0]*(off[1] + dim[1]*(off[2] +
+                                                          dim[2]*off[3]))];
+        }
+        else
+            return TileId.blocked;
+    }
+
+    void opIndexAssign(TileId tile, int[4] pos...)
+    {
+        if (!reg.contains(vec(pos)))
+            return; // no-op
+        auto off = vec(pos) - reg.min;
+        impl[off[0] + dim[0]*(off[1] + dim[1]*(off[2] + dim[2]*off[3]))] =
+            tile;
+    }
+
+    void save(S)(ref S savefile)
+        if (isSaveFile!S)
+    {
+        savefile.put("reg", reg);
+
+        import std.base64 : Base64;
+        import std.zlib : compress;
+        savefile.put("data", Base64.encode(compress(impl)));
+    }
+
+    void load(L)(ref L loadfile)
+        if (isLoadFile!L)
+    {
+        reg = loadfile.parse!(Region!(int,4))("reg");
+        dim = reg.max - reg.min;
+
+        import std.base64 : Base64;
+        import std.zlib : uncompress;
+        auto len = reg.volume;
+        auto rawdata = loadfile.parse!string("data");
+        auto data = cast(TileId[]) uncompress(Base64.decode(rawdata), len);
+        if (data.length != len)
+            throw new LoadException("Map memory data corrupted");
+
+        impl = data;
+    }
+}
+
+/**
+ * The game world filtered through the eyes (and other senses, including
+ * knowledge) of an Agent.
+ */
+struct WorldView
+{
+    private World w;
+    private MapMemory mem;
+    private Vec!(int,4) refPos;
+
+    this(World _w, MapMemory memory, Vec!(int,4) _refPos)
+    {
+        w = _w;
+        mem = memory;
+        refPos = _refPos;
+    }
+
+    /**
+     * Returns: true if the given tile is visible from the current reference
+     * position.
+     */
+    bool canSee(Vec!(int,4) pos)
+    {
+        import std.math : abs;
+
+        auto diff = pos - refPos;
+        auto basis = diff[].map!(x => abs(x)).maxElement;
+        auto accum = vec(0,0,0,0);
+
+        foreach (_; 0 .. basis)
+        {
+            if (w.locationHas!BlocksView(Pos(refPos + accum/basis)))
+                return false;   // hit an obstacle
+            accum += diff;
+        }
+        return true;
+    }
+
+    /**
+     * Returns: Tile at the given position, or TileId.blocked if it's not
+     * visible to the subject for whatever reason.
+     */
+    TileId opIndex(int[4] pos...)
+    {
+        if (!canSee(vec(pos)))
+            return mem[pos];
+
+        auto result = opIndexImpl(pos);
+        mem[pos] = result;
+        return result;
+    }
+
+    private TileId opIndexImpl(int[4] pos)
+    {
+        auto terrainId = w.map[pos];
+        auto r = w.store.getAllBy!Pos(Pos(pos))
+                        .map!(id => w.store.get!Tiled(id))
+                        .filter!(tilep => tilep !is null)
+                        .map!(tilep => *tilep);
+        if (!r.empty)
+            return r.maxElement!(tile => tile.stackOrder)
+                    .tileId;
+
+        import terrain : emptySpace;
+        if (terrainId == emptySpace.id)
+        {
+            // Empty space: check if tile below has TiledAbove; if so,
+            // render that instead.
+            auto ta = w.getAllAt(Pos(vec(pos) + vec(1,0,0,0)))
+                       .map!(id => w.store.get!TiledAbove(id))
+                       .filter!(ta => ta !is null);
+            if (!ta.empty)
+                return ta.front.tileId;
+        }
+
+        return w.store.get!Tiled(terrainId).tileId;
+    }
+
+    @property int opDollar(int i)() { return w.map.opDollar!i; }
+
+    import gamemap;
+    static assert(is4DArray!(typeof(this)));
+}
+
+/**
  * Game simulation.
  */
 class Game
 {
     private GameUi ui;
-    /*private*/ World w; // FIXME
+    private World w;
     private SysAgent sysAgent;
     private SysGravity sysGravity;
 
     private Thing* player;
+    private MapMemory plMapMemory;
     private Vec!(int,4) lastPlPos;
     private int storyNode;
     private bool quit;
@@ -151,6 +301,15 @@ class Game
         if (posp !is null)
             lastPlPos = posp.coors;
         return lastPlPos;
+    }
+
+    /**
+     * Returns: The player's world view (a filtered version of World based on
+     * what the player knows / can perceive).
+     */
+    WorldView playerView()
+    {
+        return WorldView(w, plMapMemory, playerPos);
     }
 
     PlayerStatus[] getStatuses()
@@ -193,6 +352,7 @@ class Game
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
+        sf.put("memory", plMapMemory);
     }
 
     static Game loadGame()
@@ -205,6 +365,7 @@ class Game
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
+        game.plMapMemory = lf.parse!MapMemory("memory");
 
         game.player = game.w.store.getObj(playerId);
         if (game.player is null)
@@ -255,6 +416,11 @@ class Game
         w = storyNodes[storyNode].genMap(startPos);
         sysAgent = SysAgent.init;
         sysGravity = SysGravity.init;
+
+        // Player memory needs to cover outer walls to avoid strange artifacts
+        // like un-rememberable walls.
+        plMapMemory = MapMemory(region(w.map.bounds.min,
+                                       w.map.bounds.max + vec(1,1,1,1)));
 
         player = w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),

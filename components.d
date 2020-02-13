@@ -66,8 +66,10 @@ unittest
     assert(pos2 == pos);
 }
 
-enum TileId
+enum TileId : ushort
 {
+    blocked,
+
     space,
     wall,
     floorBare,
@@ -168,6 +170,12 @@ struct BlocksMovement
 {
     Climbable climbable;
 }
+
+/**
+ * Component for objects that block visibility.
+ */
+@Component
+struct BlocksView { }
 
 /**
  * The type of weight support an object has.

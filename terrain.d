@@ -47,19 +47,19 @@ void registerTerrains(Store* store)
 
     store.registerTerrain(blockBare, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorBare, -1),
-                          BlocksMovement(Climbable.yes),
+                          BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within));
 
     store.registerTerrain(blockGrassy, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorGrassy, -1),
-                          BlocksMovement(Climbable.yes),
+                          BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within));
 
     store.registerTerrain(blockMuddy, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorMuddy, -1),
-                          BlocksMovement(Climbable.yes),
+                          BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within));
 
