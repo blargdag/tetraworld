@@ -389,7 +389,11 @@ class Game
         w = storyNodes[storyNode].genMap(startPos);
         sysAgent = SysAgent.init;
         sysGravity = SysGravity.init;
-        plMapMemory = MapMemory(w.map.bounds);
+
+        // Player memory needs to cover outer walls to avoid strange artifacts
+        // like un-rememberable walls.
+        plMapMemory = MapMemory(region(w.map.bounds.min,
+                                       w.map.bounds.max + vec(1,1,1,1)));
 
         player = w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),

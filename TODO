@@ -1,3 +1,4 @@
+- Player memory should save in a more compressed format!
 - [loadsave] Components of special entities should NOT be saved!!!
    - Either that, or terrain component setup should be done AFTER the save file
      is loaded, so that old values are properly replaced.
@@ -21,7 +22,6 @@
       + So, looks like we need to attach a Sinking component to sinking
         objects, and register an agent that specifically deals with pulling
         down sinking objects.
-- Implement FOV and player map memory.
 - [mapgen] Different styled rooms.
    - Maybe occasionally block off leaf nodes?
    - Maybe some rooms can turn into corridors.
@@ -148,3 +148,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
       + And simplification of that horrible GameMap.opIndex()!
 + Mapgen should have better control over water gen, so that we can control it
   from the story nodes.
++ Implement FOV and player map memory.
++ Player memory needs to cover walls outside of map bounds!
