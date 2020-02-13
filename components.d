@@ -66,7 +66,7 @@ unittest
     assert(pos2 == pos);
 }
 
-enum TileId
+enum TileId : ushort
 {
     blocked,
 

@@ -128,17 +128,57 @@ struct PlayerStatus
 }
 
 /**
+ * The player's memory of the map.
+ */
+struct MapMemory
+{
+    private TileId[] impl;
+    private Region!(int,4) reg;
+    private Vec!(int,4) dim;
+
+    this(Region!(int,4) bounds)
+    {
+        reg = bounds;
+        impl.length = reg.volume;
+        dim = reg.max - reg.min;
+    }
+
+    TileId opIndex(int[4] pos...)
+    {
+        if (reg.contains(vec(pos)))
+        {
+            auto off = vec(pos) - reg.min;
+            return impl[off[0] + dim[0]*(off[1] + dim[1]*(off[2] +
+                                                          dim[2]*off[3]))];
+        }
+        else
+            return TileId.blocked;
+    }
+
+    void opIndexAssign(TileId tile, int[4] pos...)
+    {
+        if (!reg.contains(vec(pos)))
+            return; // no-op
+        auto off = vec(pos) - reg.min;
+        impl[off[0] + dim[0]*(off[1] + dim[1]*(off[2] + dim[2]*off[3]))] =
+            tile;
+    }
+}
+
+/**
  * The game world filtered through the eyes (and other senses, including
  * knowledge) of an Agent.
  */
 struct WorldView
 {
     private World w;
+    private MapMemory mem;
     private Vec!(int,4) refPos;
 
-    this(World _w, Vec!(int,4) _refPos)
+    this(World _w, MapMemory memory, Vec!(int,4) _refPos)
     {
         w = _w;
+        mem = memory;
         refPos = _refPos;
     }
 
@@ -170,8 +210,15 @@ struct WorldView
     TileId opIndex(int[4] pos...)
     {
         if (!canSee(vec(pos)))
-            return TileId.blocked;
+            return mem[pos];
 
+        auto result = opIndexImpl(pos);
+        mem[pos] = result;
+        return result;
+    }
+
+    private TileId opIndexImpl(int[4] pos)
+    {
         auto terrainId = w.map[pos];
         auto r = w.store.getAllBy!Pos(Pos(pos))
                         .map!(id => w.store.get!Tiled(id))
@@ -213,6 +260,7 @@ class Game
     private SysGravity sysGravity;
 
     private Thing* player;
+    private MapMemory plMapMemory;
     private Vec!(int,4) lastPlPos;
     private int storyNode;
     private bool quit;
@@ -234,7 +282,7 @@ class Game
      */
     WorldView playerView()
     {
-        return WorldView(w, playerPos);
+        return WorldView(w, plMapMemory, playerPos);
     }
 
     PlayerStatus[] getStatuses()
@@ -277,6 +325,7 @@ class Game
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
+        sf.put("memory", plMapMemory);
     }
 
     static Game loadGame()
@@ -289,6 +338,7 @@ class Game
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
+        game.plMapMemory = lf.parse!MapMemory("memory");
 
         game.player = game.w.store.getObj(playerId);
         if (game.player is null)
@@ -339,6 +389,7 @@ class Game
         w = storyNodes[storyNode].genMap(startPos);
         sysAgent = SysAgent.init;
         sysGravity = SysGravity.init;
+        plMapMemory = MapMemory(w.map.bounds);
 
         player = w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1), Name("you"),
