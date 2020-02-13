@@ -185,6 +185,22 @@ class World
         return !getAllAt(pos).filter!(id => store.get!Comp(id) !is null)
                              .empty;
     }
+
+    void load(L)(ref L loadfile)
+        if (isLoadFile!L)
+    {
+        map = loadfile.parse!GameMap("map");
+
+        // This needs to be done explicitly because we need to copy over
+        // registered terrains from World's initial state.
+        if (!loadfile.checkAndEnterBlock("store"))
+            throw new Exception("Missing 'store' block");
+
+        store.load(loadfile);
+
+        if (!loadfile.checkAndLeaveBlock())
+            throw new Exception("'store' block not closed");
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:

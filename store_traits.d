@@ -52,19 +52,6 @@ enum specialMaxId = 1024;
 enum Component;
 
 /**
- * UDA to mark components that upon load, needs entries filtered by _filter
- * from the old table to be merged into the new table.
- *
- * Typically, this UDA is used along with loadsave.SaveFilter (with a
- * complementary filter) for skipping over special entities during save and
- * copying them over from a preinitialized Store during load.
- */
-struct MergeOnLoad(alias _filter)
-{
-    alias filter = _filter;
-}
-
-/**
  * UDA to mark components that have an additional index mapping an instance of
  * the component to a list of ThingIds.
  *

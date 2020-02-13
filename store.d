@@ -336,8 +336,18 @@ struct Store
 
         static foreach (i, T; AllComponents)
         {
+            import std.conv : to;
             import std.uni : toLower;
-            savefile.put(T.stringof.toLower, pods[i]);
+
+            savefile.push(T.stringof.toLower);
+            foreach (p; pods[i].byKeyValue)
+            {
+                // Don't save components of special IDs, since those are
+                // re-created upon reloading.
+                if (p.key < specialMaxId) continue;
+                savefile.put(p.key.to!string, p.value);
+            }
+            savefile.pop();
 
             // (Note: no need to save indices; the component data itself is
             // already sufficient for us to rebuild the indices after loading.)
@@ -397,14 +407,11 @@ struct Store
         import std.uni : toLower;
 
         auto newdata = loadfile.parse!(StorageOf!T)(T.stringof.toLower);
-        static if (hasUDA!(T, MergeOnLoad))
+
+        // Merge special entries from old table to new table.
+        foreach (id; pods[i].byKey.filter!(id => id < specialMaxId))
         {
-            // Merge special entries from old table to new table.
-            alias filt = getUDAs!(T, MergeOnLoad)[0].filter;
-            foreach (id; pods[i].byKey.filter!filt)
-            {
-                newdata[id] = pods[i][id];
-            }
+            newdata[id] = pods[i][id];
         }
         pods[i] = newdata;
 

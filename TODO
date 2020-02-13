@@ -1,6 +1,3 @@
-- [loadsave] Components of special entities should NOT be saved!!!
-   - Either that, or terrain component setup should be done AFTER the save file
-     is loaded, so that old values are properly replaced.
 - Need better control over branchiness of second level.
 - Should not be able to walk sideways into a hidden pit trap! Instead, it
   should trigger from above.
@@ -150,3 +147,6 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
 + Implement FOV and player map memory.
 + Player memory needs to cover walls outside of map bounds!
 + Player memory should save in a more compressed format!
++ [loadsave] Components of special entities should NOT be saved!!!
+   X Either that, or terrain component setup should be done AFTER the save file
+     is loaded, so that old values are properly replaced.
