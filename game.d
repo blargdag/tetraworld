@@ -163,6 +163,33 @@ struct MapMemory
         impl[off[0] + dim[0]*(off[1] + dim[1]*(off[2] + dim[2]*off[3]))] =
             tile;
     }
+
+    void save(S)(ref S savefile)
+        if (isSaveFile!S)
+    {
+        savefile.put("reg", reg);
+
+        import std.base64 : Base64;
+        import std.zlib : compress;
+        savefile.put("data", Base64.encode(compress(impl)));
+    }
+
+    void load(L)(ref L loadfile)
+        if (isLoadFile!L)
+    {
+        reg = loadfile.parse!(Region!(int,4))("reg");
+        dim = reg.max - reg.min;
+
+        import std.base64 : Base64;
+        import std.zlib : uncompress;
+        auto len = reg.volume;
+        auto rawdata = loadfile.parse!string("data");
+        auto data = cast(TileId[]) uncompress(Base64.decode(rawdata), len);
+        if (data.length != len)
+            throw new LoadException("Map memory data corrupted");
+
+        impl = data;
+    }
 }
 
 /**
