@@ -193,6 +193,63 @@ struct MapMemory
 }
 
 /**
+ * Returns: true if the target tile is visible from the given reference
+ * position.
+ */
+bool canSee(World w, Vec!(int,4) eyePos, Vec!(int,4) targetPos)
+{
+    import std.math : abs;
+
+    auto diff = targetPos - eyePos;
+    auto basis = diff[].map!(x => abs(x)).maxElement;
+    auto accum = diff;
+
+    foreach (_; 1 .. basis)
+    {
+        if (w.locationHas!BlocksView(Pos(eyePos + accum/basis)))
+            return false;   // hit an obstacle
+        accum += diff;
+    }
+    return true;
+}
+
+unittest
+{
+    // Test map:
+    //    0123456
+    //  0 #######
+    //  1 #     #
+    //  2 #######
+    import gamemap;
+    auto root = new MapNode;
+    root.interior = region(vec(0,0,0,0), vec(3,6,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = root.interior;
+    w.map.waterLevel = int.max;
+
+    assert( canSee(w, vec(1,0,1,1), vec(1,0,1,1)));
+    assert( canSee(w, vec(1,0,1,1), vec(1,1,1,1)));
+    assert( canSee(w, vec(1,0,1,1), vec(1,2,1,1)));
+    assert( canSee(w, vec(1,0,1,1), vec(1,3,1,1)));
+    assert( canSee(w, vec(1,0,1,1), vec(1,4,1,1)));
+    assert( canSee(w, vec(1,0,1,1), vec(1,5,1,1)));
+    assert( canSee(w, vec(1,0,1,1), vec(1,6,1,1)));
+    assert(!canSee(w, vec(1,0,1,1), vec(1,7,1,1)));
+    assert(!canSee(w, vec(1,0,1,1), vec(1,8,1,1)));
+
+    assert( canSee(w, vec(1,1,1,1), vec(1,1,1,1)));
+    assert( canSee(w, vec(1,1,1,1), vec(1,2,1,1)));
+    assert( canSee(w, vec(1,1,1,1), vec(1,3,1,1)));
+    assert( canSee(w, vec(1,1,1,1), vec(1,4,1,1)));
+    assert( canSee(w, vec(1,1,1,1), vec(1,5,1,1)));
+    assert( canSee(w, vec(1,1,1,1), vec(1,6,1,1)));
+    assert(!canSee(w, vec(1,1,1,1), vec(1,7,1,1)));
+    assert(!canSee(w, vec(1,1,1,1), vec(1,8,1,1)));
+}
+
+/**
  * The game world filtered through the eyes (and other senses, including
  * knowledge) of an Agent.
  */
@@ -210,33 +267,12 @@ struct WorldView
     }
 
     /**
-     * Returns: true if the given tile is visible from the current reference
-     * position.
-     */
-    bool canSee(Vec!(int,4) pos)
-    {
-        import std.math : abs;
-
-        auto diff = pos - refPos;
-        auto basis = diff[].map!(x => abs(x)).maxElement;
-        auto accum = vec(0,0,0,0);
-
-        foreach (_; 0 .. basis)
-        {
-            if (w.locationHas!BlocksView(Pos(refPos + accum/basis)))
-                return false;   // hit an obstacle
-            accum += diff;
-        }
-        return true;
-    }
-
-    /**
      * Returns: Tile at the given position, or TileId.blocked if it's not
      * visible to the subject for whatever reason.
      */
     TileId opIndex(int[4] pos...)
     {
-        if (!canSee(vec(pos)))
+        if (!canSee(w, refPos, vec(pos)))
             return mem[pos];
 
         auto result = opIndexImpl(pos);

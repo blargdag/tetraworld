@@ -1,3 +1,5 @@
+- Player map memory should not track mobile entities like creatures that
+  clearly will not stay in place.
 - Clean up event/notify system:
    - Should not have so many redundant methods for every possible message!!
      Especially since programmatically most of them don't *need* to be
