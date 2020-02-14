@@ -645,9 +645,9 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
         while (startRoom.interior.contains(pos))
             pos = randomLocation(w.map.tree, w.map.bounds);
 
-        w.store.createObj(Pos(pos), Tiled(TileId.creatureA, 1),
-                          Name("conical creature"), BlocksMovement(), Agent(),
-                          Mortal(5,2), Climbs());
+        w.store.createObj(Pos(pos), Name("conical creature"),
+                          Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
+                          BlocksMovement(), Agent(), Mortal(5,2), Climbs());
     }
 
     return w;
