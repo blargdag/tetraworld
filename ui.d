@@ -621,18 +621,74 @@ class TextUi : GameUi
 
     void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
-        auto width = min(80, disp.width - 6);
-        auto padding = (disp.width - width) / 2;
-        auto scrn = subdisplay(&disp, region(vec(padding, 1),
-                                             vec(disp.width - padding,
-                                                 disp.height - 1)));
+        // Make sure player has read all current messages first.
+        msgBox.flush({
+            refresh();
+            input.getch();
+        });
+
+        auto scrn = pagerScreen();
 
         // Format paragraphs into lines
         import lang : wordWrap;
         auto lines = paragraphs.map!(p => p.wordWrap(scrn.width - 2))
                                .joiner([""])
                                .array;
-        const(char)[][] nextLines;
+
+        pager(scrn, lines, endPrompt, {
+            gameFiber.call();
+        });
+        Fiber.yield();
+    }
+
+    /**
+     * Like message(), but does not store the message into the log and does not
+     * accumulate messages with a --MORE-- prompt.
+     */
+    void echo(string str)
+    {
+        // FIXME: probably should be in a subdisplay?
+        disp.moveTo(0,0);
+        disp.writef(str);
+        disp.clearToEol();
+    }
+
+    /**
+     * Prompts the user for a response.  Keeps the cursor positioned
+     * immediately after the prompt.
+     */
+    void prompt(string str)
+    {
+        // FIXME: probably should be in a subdisplay?
+        disp.moveTo(0, 0);
+        disp.writef("%s", str);
+        auto x = disp.cursorX;
+        auto y = disp.cursorY;
+        disp.clearToEol();
+        disp.moveTo(x, y);
+    }
+
+    /**
+     * Create a subdisplay to be used as the canvas for pager().
+     */
+    private auto pagerScreen()
+    {
+        auto width = min(80, disp.width - 6);
+        auto padding = (disp.width - width) / 2;
+        return subdisplay(&disp, region(vec(padding, 1),
+                          vec(disp.width - padding, disp.height - 1)));
+    }
+
+    /**
+     * Pager for long text.
+     *
+     * This function should only be called from the UI fiber; use .infoScreen
+     * if calling from the Game fiber.
+     */
+    private void pager(S)(S scrn, const(char[])[] lines, string endPrompt,
+                          void delegate() exitHook)
+    {
+        const(char[])[] nextLines;
 
         void displayPage()
         {
@@ -675,46 +731,12 @@ class TextUi : GameUi
                     dispatch.pop();
                     disp.color(Color.DEFAULT, Color.DEFAULT);
                     disp.clear();
-                    gameFiber.call();
+                    exitHook();
                 }
             },
         );
 
-        // Make sure player has read all current messages first.
-        msgBox.flush({
-            refresh();
-            input.getch();
-        });
-
         dispatch.push(infoMode);
-        Fiber.yield();
-    }
-
-    /**
-     * Like message(), but does not store the message into the log and does not
-     * accumulate messages with a --MORE-- prompt.
-     */
-    void echo(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0,0);
-        disp.writef(str);
-        disp.clearToEol();
-    }
-
-    /**
-     * Prompts the user for a response.  Keeps the cursor positioned
-     * immediately after the prompt.
-     */
-    void prompt(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0, 0);
-        disp.writef("%s", str);
-        auto x = disp.cursorX;
-        auto y = disp.cursorY;
-        disp.clearToEol();
-        disp.moveTo(x, y);
     }
 
     /**
@@ -778,29 +800,8 @@ class TextUi : GameUi
 
     private void showHelp()
     {
-        auto helpMode = Mode(
-            {
-                disp.color(Color.DEFAULT, Color.DEFAULT);
-                disp.clear();
-                foreach (i; 0 .. helpText.length)
-                {
-                    disp.moveTo(0, cast(int)i);
-                    disp.writef("%s", helpText[i]);
-                }
-
-                disp.moveTo(0, disp.height - 1);
-                disp.color(Color.white, Color.blue);
-                disp.writef("Press any key to return to game");
-                disp.clearToEol();
-            },
-            (dchar ch) {
-                disp.color(Color.DEFAULT, Color.DEFAULT);
-                disp.clear();
-                dispatch.pop();
-            }
-        );
-
-        dispatch.push(helpMode);
+        auto scrn = pagerScreen();
+        pager(scrn, helpText[], "Press any key to return to game", {});
     }
 
     private auto getCurView()

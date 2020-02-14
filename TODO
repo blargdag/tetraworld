@@ -169,3 +169,4 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      is loaded, so that old values are properly replaced.
 + Player map memory should not track mobile entities like creatures that
   clearly will not stay in place.
++ BUG: help screen does not handle paging correctly!!!
