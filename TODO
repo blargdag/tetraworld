@@ -1,5 +1,3 @@
-- Player map memory should not track mobile entities like creatures that
-  clearly will not stay in place.
 - Clean up event/notify system:
    - Should not have so many redundant methods for every possible message!!
      Especially since programmatically most of them don't *need* to be
@@ -169,3 +167,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
 + [loadsave] Components of special entities should NOT be saved!!!
    X Either that, or terrain component setup should be done AFTER the save file
      is loaded, so that old values are properly replaced.
++ Player map memory should not track mobile entities like creatures that
+  clearly will not stay in place.

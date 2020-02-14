@@ -276,26 +276,18 @@ struct WorldView
             return mem[pos];
 
         auto result = opIndexImpl(pos);
-        mem[pos] = result;
-        return result;
+        mem[pos] = result[1];
+        return result[0];
     }
 
-    private TileId opIndexImpl(int[4] pos)
+    private TileId terrainTile(int[4] pos)
     {
-        auto terrainId = w.map[pos];
-        auto r = w.store.getAllBy!Pos(Pos(pos))
-                        .map!(id => w.store.get!Tiled(id))
-                        .filter!(tilep => tilep !is null)
-                        .map!(tilep => *tilep);
-        if (!r.empty)
-            return r.maxElement!(tile => tile.stackOrder)
-                    .tileId;
-
         import terrain : emptySpace;
+        auto terrainId = w.map[pos];
         if (terrainId == emptySpace.id)
         {
-            // Empty space: check if tile below has TiledAbove; if so,
-            // render that instead.
+            // Empty space: check if tile below has TiledAbove; if so, render
+            // that instead.
             auto ta = w.getAllAt(Pos(vec(pos) + vec(1,0,0,0)))
                        .map!(id => w.store.get!TiledAbove(id))
                        .filter!(ta => ta !is null);
@@ -304,6 +296,35 @@ struct WorldView
         }
 
         return w.store.get!Tiled(terrainId).tileId;
+    }
+
+    /**
+     * Returns: The top TileId and the TileId to be stored in map memory.
+     * Usually identical, except when the top TileId has Hint.dynamic
+     * (indicating an object that frequently moves and therefore should not be
+     * saved in map memory).
+     */
+    private TileId[2] opIndexImpl(int[4] pos)
+    {
+        TileId[2] result;
+        auto r = w.store.getAllBy!Pos(Pos(pos))
+                        .map!(id => w.store.get!Tiled(id))
+                        .filter!(tilep => tilep !is null)
+                        .map!(tilep => *tilep);
+        if (r.empty)
+        {
+            result[0] = result[1] = terrainTile(pos);
+            return result;
+        }
+
+        result[0] = r.save
+                     .maxElement!(tile => tile.stackOrder)
+                     .tileId;
+        auto s = r.filter!(tile => tile.hint != Tiled.Hint.dynamic);
+        result[1] = (!s.empty) ? s.maxElement!(tile => tile.stackOrder).tileId
+                               : terrainTile(pos);
+
+        return result;
     }
 
     @property int opDollar(int i)() { return w.map.opDollar!i; }
@@ -459,9 +480,9 @@ class Game
                                        w.map.bounds.max + vec(1,1,1,1)));
 
         player = w.store.createObj(
-            Pos(startPos), Tiled(TileId.player, 1), Name("you"),
-            Agent(Agent.Type.player), Inventory(), BlocksMovement(),
-            Climbs(), Swims(), Mortal(5,5)
+            Pos(startPos), Tiled(TileId.player, 1, Tiled.Hint.dynamic),
+            Name("you"), Agent(Agent.Type.player), Inventory(),
+            BlocksMovement(), Climbs(), Swims(), Mortal(5,5)
         );
 
         setupEventWatchers();

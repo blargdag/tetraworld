@@ -100,8 +100,10 @@ enum TileId : ushort
 @Component
 struct Tiled
 {
+    enum Hint : ubyte { memorable, dynamic }
     TileId tileId;
     int stackOrder;
+    Hint hint; // hints whether to save this TileId in map memory
 }
 
 /**
