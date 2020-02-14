@@ -47,9 +47,11 @@ src="2020-01-28a.gif" width="95%" alt="Sample play session"/></a></p>
 <p>No official releases available yet.</p>
 
 
-<h3>Latest developmental builds</h3>
+<h3>Developmental builds</h3>
 
 <ul>
+<li>2020-02-14a: [<a href="releases/tetraworld-2020-02-14a">Linux 64-bit</a>]
+	[<a href="releases/tetraworld-2020-02-14a.exe">Windows 64-bit</a>]</li>
 <li>2020-02-07a: [<a href="releases/tetraworld-2020-02-07a">Linux 64-bit</a>]
 	[<a href="releases/tetraworld-2020-02-07a.exe">Windows 64-bit</a>]</li>
 <li>2020-02-04a: [<a href="tetraworld-2020-02-04a">Linux 64-bit</a>]
@@ -65,6 +67,22 @@ saved games is not guaranteed.  Play at your own risk. :-P</p>
 <h2>News</h2>
 
 <ul>
+<li><b>2020-02-14:</b>
+  <ul>
+  <li>Add more story plot nodes. Now there's a sequence of gradually larger and
+    more difficult levels.</li>
+  <li>Conical monsters can now climb ledges.  Much harder to shake them off
+    now!</li>
+  <li>FOV is now implemented, along with player map memory. Now you cannot see
+    areas of the map you've not been to yet by panning. Panning <em>will</em>
+    show you your memory of previously-seen parts of the map; however be aware
+    that your memory of what was there may not necessarily reflect its present
+    state!</li>
+  <li>In-game help screen will now page correctly if it doesn't all fit in your
+    terminal. (Nevertheless, we <em>highly</em> recommend a terminal window
+    with as high a resolution as you can manage in order to have an adequate
+    view of your 4D surroundings!)</li>
+  </ul></li>
 <li><b>2020-02-07:</b>
   <ul>
   <li>In-game tutorial to teach you the basics of 4D movement.</li>
@@ -123,6 +141,9 @@ chunk of the world you're in.</p>
 <dt><tt>/</tt></dt>
 <dd>Walls that you cannot pass through.</dd>
 
+<dt><tt>#</tt></dt>
+<dd>Unrevealed area of the map you've not been to yet.</dd>
+
 <dt><tt>, : ;</tt></dt>
 <dd>These characters represent different types of floor. In this version,
 different types of floor do not yet have any difference in function.</dd>
@@ -137,7 +158,7 @@ subject to gravity while in water.</dd>
 <dt>&</dt>
 <dd>Your player character.</dd>
 
-<dt>#</dt>
+<dt>-</dt>
 <dd>Doorways that you can pass through.</dd>
 
 <dt><tt>=</tt></tt></dt>
@@ -331,13 +352,12 @@ get stuck without a way out, even if you do get totally lost in 4D space.
 :-D</p>
 
 <p>There are also enemies that you may run into (you will know them when you
-see them!).  Fortunately, in this version of the game they are pretty dumb and
-predictable; they will always try to home in to your location, but they cannot
-climb ledges, and have a tendency of falling off ladders if appropriately
-lured. With some practice you should be able to easily lose them as long as you
-have access to a ladder or ledge.  They are also poor swimmers and tend to get
-stuck at the bottom of pools; if you can lure them into one it will relieve you
-of them for a while.</p>
+see them!).  In this version of the game they are pretty dumb and predictable;
+they will always try to home in to your location, and have a tendency of
+falling off ladders if appropriately lured. With some practice you should be
+able to lose them as long as you have access to a ladder.  They are also poor
+swimmers and tend to get stuck at the bottom of pools; if you can lure them
+into one it will relieve you of them for a while.</p>
 
 <p>Be careful that what is adjacent in 4D may not be displayed adjacently on
 the screen, and these enemies are native to 4D space and facile with moving
