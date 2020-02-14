@@ -619,28 +619,76 @@ class TextUi : GameUi
         quitMsg = "Game over.";
     }
 
-    /**
-     * Display info screen.
-     *
-     * This function should only be called from the UI fiber; use .infoScreen
-     * if calling from the Game fiber.
-     */
-    private void internalInfoScreen(const(string)[] paragraphs,
-                                    string endPrompt,
-                                    void delegate() exitHook)
+    void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
-        auto width = min(80, disp.width - 6);
-        auto padding = (disp.width - width) / 2;
-        auto scrn = subdisplay(&disp, region(vec(padding, 1),
-                                             vec(disp.width - padding,
-                                                 disp.height - 1)));
+        // Make sure player has read all current messages first.
+        msgBox.flush({
+            refresh();
+            input.getch();
+        });
+
+        auto scrn = pagerScreen();
 
         // Format paragraphs into lines
         import lang : wordWrap;
         auto lines = paragraphs.map!(p => p.wordWrap(scrn.width - 2))
                                .joiner([""])
                                .array;
-        const(char)[][] nextLines;
+
+        pager(scrn, lines, endPrompt, {
+            gameFiber.call();
+        });
+        Fiber.yield();
+    }
+
+    /**
+     * Like message(), but does not store the message into the log and does not
+     * accumulate messages with a --MORE-- prompt.
+     */
+    void echo(string str)
+    {
+        // FIXME: probably should be in a subdisplay?
+        disp.moveTo(0,0);
+        disp.writef(str);
+        disp.clearToEol();
+    }
+
+    /**
+     * Prompts the user for a response.  Keeps the cursor positioned
+     * immediately after the prompt.
+     */
+    void prompt(string str)
+    {
+        // FIXME: probably should be in a subdisplay?
+        disp.moveTo(0, 0);
+        disp.writef("%s", str);
+        auto x = disp.cursorX;
+        auto y = disp.cursorY;
+        disp.clearToEol();
+        disp.moveTo(x, y);
+    }
+
+    /**
+     * Create a subdisplay to be used as the canvas for pager().
+     */
+    private auto pagerScreen()
+    {
+        auto width = min(80, disp.width - 6);
+        auto padding = (disp.width - width) / 2;
+        return subdisplay(&disp, region(vec(padding, 1),
+                          vec(disp.width - padding, disp.height - 1)));
+    }
+
+    /**
+     * Pager for long text.
+     *
+     * This function should only be called from the UI fiber; use .infoScreen
+     * if calling from the Game fiber.
+     */
+    private void pager(S)(S scrn, const(char[])[] lines, string endPrompt,
+                          void delegate() exitHook)
+    {
+        const(char[])[] nextLines;
 
         void displayPage()
         {
@@ -689,47 +737,6 @@ class TextUi : GameUi
         );
 
         dispatch.push(infoMode);
-    }
-
-    void infoScreen(const(string)[] paragraphs, string endPrompt)
-    {
-        // Make sure player has read all current messages first.
-        msgBox.flush({
-            refresh();
-            input.getch();
-        });
-
-        internalInfoScreen(paragraphs, endPrompt, {
-            gameFiber.call();
-        });
-        Fiber.yield();
-    }
-
-    /**
-     * Like message(), but does not store the message into the log and does not
-     * accumulate messages with a --MORE-- prompt.
-     */
-    void echo(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0,0);
-        disp.writef(str);
-        disp.clearToEol();
-    }
-
-    /**
-     * Prompts the user for a response.  Keeps the cursor positioned
-     * immediately after the prompt.
-     */
-    void prompt(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0, 0);
-        disp.writef("%s", str);
-        auto x = disp.cursorX;
-        auto y = disp.cursorY;
-        disp.clearToEol();
-        disp.moveTo(x, y);
     }
 
     /**
@@ -793,7 +800,8 @@ class TextUi : GameUi
 
     private void showHelp()
     {
-        internalInfoScreen(helpText, "Press any key to return to game", {});
+        auto scrn = pagerScreen();
+        pager(scrn, helpText[], "Press any key to return to game", {});
     }
 
     private auto getCurView()
