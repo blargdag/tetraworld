@@ -1,3 +1,4 @@
+- BUG: help screen does not handle paging correctly!!!
 - Clean up event/notify system:
    - Should not have so many redundant methods for every possible message!!
      Especially since programmatically most of them don't *need* to be

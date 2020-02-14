@@ -619,7 +619,15 @@ class TextUi : GameUi
         quitMsg = "Game over.";
     }
 
-    void infoScreen(const(string)[] paragraphs, string endPrompt)
+    /**
+     * Display info screen.
+     *
+     * This function should only be called from the UI fiber; use .infoScreen
+     * if calling from the Game fiber.
+     */
+    private void internalInfoScreen(const(string)[] paragraphs,
+                                    string endPrompt,
+                                    void delegate() exitHook)
     {
         auto width = min(80, disp.width - 6);
         auto padding = (disp.width - width) / 2;
@@ -675,18 +683,25 @@ class TextUi : GameUi
                     dispatch.pop();
                     disp.color(Color.DEFAULT, Color.DEFAULT);
                     disp.clear();
-                    gameFiber.call();
+                    exitHook();
                 }
             },
         );
 
+        dispatch.push(infoMode);
+    }
+
+    void infoScreen(const(string)[] paragraphs, string endPrompt)
+    {
         // Make sure player has read all current messages first.
         msgBox.flush({
             refresh();
             input.getch();
         });
 
-        dispatch.push(infoMode);
+        internalInfoScreen(paragraphs, endPrompt, {
+            gameFiber.call();
+        });
         Fiber.yield();
     }
 
@@ -778,29 +793,7 @@ class TextUi : GameUi
 
     private void showHelp()
     {
-        auto helpMode = Mode(
-            {
-                disp.color(Color.DEFAULT, Color.DEFAULT);
-                disp.clear();
-                foreach (i; 0 .. helpText.length)
-                {
-                    disp.moveTo(0, cast(int)i);
-                    disp.writef("%s", helpText[i]);
-                }
-
-                disp.moveTo(0, disp.height - 1);
-                disp.color(Color.white, Color.blue);
-                disp.writef("Press any key to return to game");
-                disp.clearToEol();
-            },
-            (dchar ch) {
-                disp.color(Color.DEFAULT, Color.DEFAULT);
-                disp.clear();
-                dispatch.pop();
-            }
-        );
-
-        dispatch.push(helpMode);
+        internalInfoScreen(helpText, "Press any key to return to game", {});
     }
 
     private auto getCurView()
