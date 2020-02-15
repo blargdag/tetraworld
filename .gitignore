@@ -1,5 +1,6 @@
 .*.swp
 .scons*
+.*-teststamp
 *.exe
 *.o
 *.obj

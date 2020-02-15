@@ -15,26 +15,18 @@ release = ARGUMENTS.get('release', 0)
 
 ldc = '/usr/src/d/ldc/latest/bin/ldc2'
 ldcflags = [ ]
+ldcoptflags = [ '-O' ]
 
 if release:
-	ldcflags += ['-O3']
-else:
-	ldcflags += ['-unittest']
+	ldcoptflags = ['-O3']
 
 if debug:
 	ldcflags += ['-g', '-gc', '-d-debug']
-else:
-	ldcflags += ['-O']
 
 
 #
 # Build rules
 #
-
-env = Environment(
-	LDC = ldc,
-	LDCFLAGS = ldcflags,
-)
 
 sources = Split("""
 	tetraworld.d
@@ -65,23 +57,47 @@ sources = Split("""
 	arsd/terminal.d
 """)
 
+env = Environment(
+	LDC = ldc,
+	LDCFLAGS = ldcflags,
+	LDCOPTFLAGS = ldcoptflags,
+	LDCTESTFLAGS = [ '--unittest' ],
+)
+
+# Convenience shorthand for building both the 'real' executable and a
+# unittest-only executable.
+def DProgram(env, target, sources):
+	# Build real executable
+	env.Command(target, sources, "$LDC $LDCFLAGS $LDCOPTFLAGS $SOURCES -of$TARGET")
+
+	# Build test executable
+	testprog = File(target + '-test').path
+	teststamp = '.' + target + '-teststamp'
+	env.Depends(target, teststamp)
+	env.Command(teststamp, sources, [
+		"$LDC $LDCFLAGS $LDCTESTFLAGS $SOURCES -of%s" % testprog,
+		"./%s" % testprog,
+		"\\rm -f %s*" % testprog,
+		"touch $TARGET"
+	])
+AddMethod(Environment, DProgram)
+
+
 # Tetraworld main program
-env.Command('tetraworld', sources, "$LDC $LDCFLAGS -of$TARGET $SOURCES")
+env.DProgram('tetraworld', sources)
 
 
 # Utilities
-env.Command('uniwidth', Split("""
-		uniwidth.d
-	"""),
-	"$LDC $LDCFLAGS -of$TARGET $SOURCES"
-)
+env.DProgram('uniwidth', Split("""
+	uniwidth.d
+"""))
 
-env.Command('upload', 'upload.d',
-	"$LDC $LDCFLAGS -of$TARGET $SOURCES"
-)
+# FIXME: upload.d has no unittests, and --unittest somehow runs main()?!
+env.Command('upload', 'upload.d', "$LDC $LDCFLAGS $SOURCES -of$TARGET")
+
 
 # Cross-compiled Windows build
 winenv = env.Clone()
 winenv.Append(LDCFLAGS = [ '-mtriple=x86_64-windows-msvc' ])
-winenv.Command('tetraworld.exe', sources, "$LDC $LDCFLAGS -of$TARGET $SOURCES")
+winenv.Command('tetraworld.exe', sources, "$LDC $LDCFLAGS $LDCOPTFLAGS -of$TARGET $SOURCES")
 
