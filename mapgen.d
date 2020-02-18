@@ -173,7 +173,7 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
 {
     import std.random : uniform;
     import rndutil : pickOne;
-    do
+    while (count > 0 && maxRetries > 0)
     {
         static struct RightRoom
         {
@@ -247,7 +247,7 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
             count--;
         else
             maxRetries--;
-    } while (count > 0 && maxRetries > 0);
+    }
 }
 
 /**
