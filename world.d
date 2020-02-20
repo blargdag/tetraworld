@@ -96,6 +96,14 @@ enum MoveType
 }
 
 /**
+ * Type of damage event.
+ */
+enum DmgType
+{
+    attack, kill,
+}
+
+/**
  * Set of hooks for external code to react to in-game events.
  */
 struct EventWatcher
@@ -130,16 +138,11 @@ struct EventWatcher
     void delegate(Pos pos, ThingId subj) pass = doNothing!(Pos, ThingId);
 
     /**
-     * An agent attacks something.
+     * An object damages another object.
      */
-    void delegate(Pos pos, ThingId subj, ThingId obj, ThingId weapon) attack =
-        doNothing!(Pos, ThingId, ThingId, ThingId);
-
-    /**
-     * A mortal is killed by something.
-     */
-    void delegate(Pos pos, ThingId killer, ThingId victim) kill =
-        doNothing!(Pos, ThingId, ThingId);
+    void delegate(DmgType type, Pos pos, ThingId subj, ThingId obj,
+                  ThingId weapon) damage =
+        doNothing!(DmgType, Pos, ThingId, ThingId, ThingId);
 
     /**
      * A message is emitted by a Message object.

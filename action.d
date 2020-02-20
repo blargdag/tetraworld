@@ -234,7 +234,7 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 
     // TBD: damage should be determined by weapon
     import damage;
-    w.notify.attack(*pos, subj.id, objId, weaponId);
+    w.notify.damage(DmgType.attack, *pos, subj.id, objId, weaponId);
     w.injure(subj.id, objId, weaponId, 1 /*FIXME*/);
 
     return ActionResult(true, 10);

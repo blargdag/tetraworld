@@ -617,23 +617,27 @@ class Game
                 ui.moveViewport(pos);
             }
         };
-        w.notify.attack = (Pos pos, ThingId subj, ThingId obj, ThingId weapon)
+        w.notify.damage = (DmgType type, Pos pos, ThingId subj, ThingId obj,
+                           ThingId weapon)
         {
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
-            ui.message("%s hits %s!", subjName.asCapitalized, objName);
-        };
-        w.notify.kill = (Pos pos, ThingId killer, ThingId victim)
-        {
-            auto subjName = w.store.get!Name(killer).name;
-            auto objName = (victim == player.id) ? "you" :
-                           w.store.get!Name(victim).name;
-            ui.message("%s killed %s!", subjName.asCapitalized, objName);
-            if (victim == player.id)
+            final switch (type)
             {
-                quit = true;
-                ui.quitWithMsg("YOU HAVE DIED.");
+                case DmgType.attack:
+                    ui.message("%s hits %s!", subjName.asCapitalized, objName);
+                    break;
+
+                case DmgType.kill:
+                    ui.message("%s killed %s!", subjName.asCapitalized,
+                               objName);
+                    if (obj == player.id)
+                    {
+                        quit = true;
+                        ui.quitWithMsg("YOU HAVE DIED.");
+                    }
+                    break;
             }
         };
         w.notify.message = (Pos pos, ThingId subj, string msg)
