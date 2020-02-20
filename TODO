@@ -1,21 +1,4 @@
 - BUG: swimming through underwater hidden pit does not reveal it.
-- Clean up event/notify system:
-   - Should not have so many redundant methods for every possible message!!
-     Especially since programmatically most of them don't *need* to be
-     distinguished except for the format of the message itself.
-   - Really, there should be just a small number of basic event types, like
-     visual, noise, smell, etc., and the exact message should be selected by
-     some enum type.
-      * Basically, we only need a separate method if a listener needs to react
-        in a different way to it.
-      - IOW, there's a user-facing component to it, i.e., we want to carry the
-        ThingId's of the involved parties to the event so that a future
-        language module can translate it appropriately into an on-screen
-        message.
-      - There's also an internal component to it: an abstract representation
-        that in-game entities may react to, like noise waking up sleeping
-        creatures, or picking up an object triggering a guarding creature's
-        anger, etc..
 - Need better control over branchiness of second level.
 - Should not be able to walk sideways into a hidden pit trap! Instead, it
   should trigger from above.
@@ -171,3 +154,20 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
 + Player map memory should not track mobile entities like creatures that
   clearly will not stay in place.
 + BUG: help screen does not handle paging correctly!!!
++ Clean up event/notify system:
+   + Should not have so many redundant methods for every possible message!!
+     Especially since programmatically most of them don't *need* to be
+     distinguished except for the format of the message itself.
+   + Really, there should be just a small number of basic event types, like
+     visual, noise, smell, etc., and the exact message should be selected by
+     some enum type.
+      + Basically, we only need a separate method if a listener needs to react
+        in a different way to it.
+      + IOW, there's a user-facing component to it, i.e., we want to carry the
+        ThingId's of the involved parties to the event so that a future
+        language module can translate it appropriately into an on-screen
+        message.
+      + There's also an internal component to it: an abstract representation
+        that in-game entities may react to, like noise waking up sleeping
+        creatures, or picking up an object triggering a guarding creature's
+        anger, etc..
