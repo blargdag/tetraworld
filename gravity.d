@@ -117,7 +117,7 @@ struct SysGravity
     {
         auto objId = obj.id;
 
-        w.notify.fallOn(oldPos, t.id, objId);
+        w.notify.damage(DmgType.fallOn, oldPos, t.id, objId, invalidId);
         if (w.store.get!Mortal(objId) !is null)
         {
             import damage;

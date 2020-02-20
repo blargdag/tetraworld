@@ -108,7 +108,7 @@ enum ItemActType
  */
 enum DmgType
 {
-    attack, kill,
+    attack, fallOn, kill,
 }
 
 /**
@@ -121,12 +121,6 @@ struct EventWatcher
      */
     void delegate(MoveType type, Pos oldPos, ThingId subj, Pos newPos, int seq)
         move = doNothing!(MoveType, Pos, ThingId, Pos, int);
-
-    /**
-     * An agent falls on top of something, possibly causing damage.
-     */
-    void delegate(Pos pos, ThingId subj, ThingId obj) fallOn =
-        doNothing!(Pos, ThingId, ThingId);
 
     /**
      * An agent interacts with an object.

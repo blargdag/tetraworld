@@ -582,22 +582,6 @@ class Game
                 ui.updateMap(pos, newPos);
             }
         };
-        w.notify.fallOn = (Pos pos, ThingId subj, ThingId obj)
-        {
-            if (subj == player.id)
-            {
-                ui.moveViewport(pos);
-                ui.message("You fall on top of %s!",
-                           w.store.get!Name(obj).name);
-            }
-            else
-            {
-                ui.updateMap(pos);
-                ui.message("%s falls on top of %s!",
-                           w.store.get!Name(subj).name.asCapitalized,
-                           w.store.get!Name(obj).name);
-            }
-        };
         w.notify.itemAct = (ItemActType type, Pos pos, ThingId subj,
                             ThingId obj)
         {
@@ -637,6 +621,22 @@ class Game
             {
                 case DmgType.attack:
                     ui.message("%s hits %s!", subjName.asCapitalized, objName);
+                    break;
+
+                case DmgType.fallOn:
+                    if (subj == player.id)
+                    {
+                        ui.moveViewport(pos);
+                        ui.message("You fall on top of %s!",
+                                   w.store.get!Name(obj).name);
+                    }
+                    else
+                    {
+                        ui.updateMap(pos);
+                        ui.message("%s falls on top of %s!",
+                                   w.store.get!Name(subj).name.asCapitalized,
+                                   w.store.get!Name(obj).name);
+                    }
                     break;
 
                 case DmgType.kill:
