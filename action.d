@@ -160,12 +160,12 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         {
             auto medPos = Pos(oldPos + vec(-1,0,0,0));
             rawMove(w, subj, medPos, {
-                w.notify.climbLedge(oldPos, subj.id, medPos, 0);
+                w.notify.move(MoveType.climbLedge, oldPos, subj.id, medPos, 0);
             });
 
             newPos = Pos(newPos + vec(-1,0,0,0));
             rawMove(w, subj, newPos, {
-                w.notify.climbLedge(medPos, subj.id, newPos, 1);
+                w.notify.move(MoveType.climbLedge, medPos, subj.id, newPos, 1);
             });
 
             return ActionResult(true, 15);
@@ -176,7 +176,11 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
     else
     {
         rawMove(w, subj, newPos, {
-            w.notify.move(oldPos, subj.id, newPos);
+            // FIXME: differentiate between walk, jump, climb.
+            if (displacement == vec(1,0,0,0) || displacement == vec(-1,0,0,0))
+                w.notify.move(MoveType.climb, oldPos, subj.id, newPos, 0);
+            else
+                w.notify.move(MoveType.walk, oldPos, subj.id, newPos, 0);
         });
     }
 

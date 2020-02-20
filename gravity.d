@@ -143,7 +143,7 @@ struct SysGravity
         rawMove(w, t, newPos, {
             // FIXME: replace with something else, like being thrown to the
             // side.
-            w.notify.fall(oldPos, t.id, newPos);
+            w.notify.move(MoveType.fall, oldPos, t.id, newPos, 0);
         });
         return true;
     }
@@ -192,7 +192,8 @@ struct SysGravity
                         else
                         {
                             rawMove(w, t, floorPos, {
-                                w.notify.fall(oldPos, t.id, floorPos);
+                                w.notify.move(MoveType.fall, oldPos, t.id,
+                                              floorPos, 0);
                             });
                         }
                         break;
@@ -246,8 +247,7 @@ struct SysGravity
             else
             {
                 rawMove(w, obj, floorPos, {
-                    // FIXME: notify sinking message here?
-                    w.notify.move(oldPos, obj.id, floorPos);
+                    w.notify.move(MoveType.sink, oldPos, obj.id, floorPos, 0);
                 });
             }
         }

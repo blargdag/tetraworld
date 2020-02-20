@@ -88,30 +88,26 @@ static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));
 enum void delegate(Args) doNothing(Args...) = (Args args) {};
 
 /**
+ * Type of movement event.
+ */
+enum MoveType
+{
+    walk, jump, climb, climbLedge, fall, sink,
+}
+
+/**
  * Set of hooks for external code to react to in-game events.
  */
 struct EventWatcher
 {
     /**
-     * An agent climbs a ledge.
+     * An agent moves.
      */
-    void delegate(Pos pos, ThingId subj, Pos newPos, int seq) climbLedge =
-        doNothing!(Pos, ThingId, Pos, int);
+    void delegate(MoveType type, Pos oldPos, ThingId subj, Pos newPos, int seq)
+        move = doNothing!(MoveType, Pos, ThingId, Pos, int);
 
     /**
-     * An agent or object moves (not necessarily on their own accord).
-     */
-    void delegate(Pos pos, ThingId subj, Pos newPos) move =
-        doNothing!(Pos, ThingId, Pos);
-
-    /**
-     * An object falls down.
-     */
-    void delegate(Pos pos, ThingId subj, Pos newPos) fall =
-        doNothing!(Pos, ThingId, Pos);
-
-    /**
-     * An object falls on top of another, possibly causing damage.
+     * An agent falls on top of something, possibly causing damage.
      */
     void delegate(Pos pos, ThingId subj, ThingId obj) fallOn =
         doNothing!(Pos, ThingId, ThingId);

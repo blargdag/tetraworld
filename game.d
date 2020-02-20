@@ -527,50 +527,55 @@ class Game
 
     void setupEventWatchers()
     {
-        w.notify.move = (Pos pos, ThingId subj, Pos newPos)
-        {
-            if (subj == player.id)
-                ui.moveViewport(newPos);
-            else
-                ui.updateMap(pos, newPos);
-        };
-        w.notify.climbLedge = (Pos pos, ThingId subj, Pos newPos, int seq)
+        w.notify.move = (MoveType type, Pos pos, ThingId subj, Pos newPos,
+                         int seq)
         {
             if (subj == player.id)
             {
-                if (seq == 0)
-                    ui.message("You climb up the ledge.");
-                ui.moveViewport(newPos);
-            }
-            else
-                ui.updateMap(pos, newPos);
-        };
-        w.notify.fall = (Pos pos, ThingId subj, Pos newPos)
-        {
-            if (subj == player.id)
-            {
-                ui.moveViewport(newPos);
-
-                // FIXME: this really should be done elsewhere!!!
-                // Reveal any pit traps that the player may have fallen
-                // through.
-                auto r = w.getAllAt(newPos)
-                          .filter!(id => w.store.get!PitTrap(id) !is null)
-                          .map!(id => w.store.getObj(id));
-                if (!r.empty)
+                final switch (type)
                 {
-                    if (r.front.systems & SysMask.tiledabove)
-                    {
-                        ui.message("You fall through a hidden pit!");
-                        w.store.remove!TiledAbove(r.front);
-                    }
-                    w.store.add!Tiled(r.front, Tiled(TileId.trapPit));
+                    case MoveType.walk:
+                    case MoveType.jump:
+                    case MoveType.climb:
+                    case MoveType.sink:
+                        ui.moveViewport(newPos);
+                        break;
+
+                    case MoveType.climbLedge:
+                        if (seq == 0)
+                            ui.message("You climb up the ledge.");
+                        goto case MoveType.walk;
+
+                    case MoveType.fall:
+                        ui.moveViewport(newPos);
+
+                        // FIXME: this really should be done elsewhere!!!
+                        // Reveal any pit traps that the player may have fallen
+                        // through.
+                        auto r = w.getAllAt(newPos)
+                                  .filter!(id => w.store.get!PitTrap(id) !is null)
+                                  .map!(id => w.store.getObj(id));
+                        if (!r.empty)
+                        {
+                            if (r.front.systems & SysMask.tiledabove)
+                            {
+                                ui.message("You fall through a hidden pit!");
+                                w.store.remove!TiledAbove(r.front);
+                            }
+                            w.store.add!Tiled(r.front, Tiled(TileId.trapPit));
+                        }
+                        else
+                            ui.message("You fall!");
+                        break;
                 }
-                else
-                    ui.message("You fall!");
             }
             else
+            {
+                if (type == MoveType.sink)
+                    ui.message("%s sinks in the water.",
+                               w.store.get!Name(subj).name.asCapitalized);
                 ui.updateMap(pos, newPos);
+            }
         };
         w.notify.fallOn = (Pos pos, ThingId subj, ThingId obj)
         {
