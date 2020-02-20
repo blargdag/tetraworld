@@ -141,9 +141,7 @@ struct SysGravity
             return false;
 
         rawMove(w, t, newPos, {
-            // FIXME: replace with something else, like being thrown to the
-            // side.
-            w.notify.move(MoveType.fall, oldPos, t.id, newPos, 0);
+            w.notify.move(MoveType.fallAside, oldPos, t.id, newPos, 0);
         });
         return true;
     }

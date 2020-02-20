@@ -567,6 +567,11 @@ class Game
                         else
                             ui.message("You fall!");
                         break;
+
+                    case MoveType.fallAside:
+                        ui.moveViewport(newPos);
+                        ui.message("The impact sends you rolling to the side!");
+                        break;
                 }
             }
             else

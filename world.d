@@ -92,7 +92,7 @@ enum void delegate(Args) doNothing(Args...) = (Args args) {};
  */
 enum MoveType
 {
-    walk, jump, climb, climbLedge, fall, sink,
+    walk, jump, climb, climbLedge, fall, fallAside, sink,
 }
 
 /**
