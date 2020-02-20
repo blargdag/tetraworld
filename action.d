@@ -91,7 +91,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
             w.store.remove!Pos(t);
             inven.contents ~= t.id;
 
-            w.notify.pickup(newPos, subj.id, t.id);
+            w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id);
         }
     }
 

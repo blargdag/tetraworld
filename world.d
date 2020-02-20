@@ -96,6 +96,14 @@ enum MoveType
 }
 
 /**
+ * Type of item interaction event.
+ */
+enum ItemActType
+{
+    pickup, drop, use,
+}
+
+/**
  * Type of damage event.
  */
 enum DmgType
@@ -121,16 +129,10 @@ struct EventWatcher
         doNothing!(Pos, ThingId, ThingId);
 
     /**
-     * An agent picks up an object.
+     * An agent interacts with an object.
      */
-    void delegate(Pos pos, ThingId subj, ThingId obj) pickup =
-        doNothing!(Pos, ThingId, ThingId);
-
-    /**
-     * An agent triggers an exit portal.
-     */
-    void delegate(Pos pos, ThingId subj, ThingId portal) usePortal =
-        doNothing!(Pos, ThingId, ThingId);
+    void delegate(ItemActType type, Pos pos, ThingId subj, ThingId obj)
+        itemAct = doNothing!(ItemActType, Pos, ThingId, ThingId);
 
     /**
      * An agent passes a turn.

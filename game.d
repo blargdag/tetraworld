@@ -598,13 +598,23 @@ class Game
                            w.store.get!Name(obj).name);
             }
         };
-        w.notify.pickup = (Pos pos, ThingId subj, ThingId obj)
+        w.notify.itemAct = (ItemActType type, Pos pos, ThingId subj,
+                            ThingId obj)
         {
             if (subj == player.id)
             {
                 auto name = w.store.get!Name(obj);
-                if (name !is null)
-                    ui.message("You pick up the " ~ name.name ~ ".");
+                final switch (type)
+                {
+                    case ItemActType.pickup:
+                        if (name !is null)
+                            ui.message("You pick up the " ~ name.name ~ ".");
+                        break;
+
+                    case ItemActType.use:
+                    case ItemActType.drop:
+                        assert(0); // TBD
+                }
             }
             else
                 ui.updateMap(pos);
