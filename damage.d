@@ -33,7 +33,8 @@ void injure(World w, ThingId inflictor, ThingId victim, ThingId weapon, int hp)
     m.hp -= hp;
     if (m.hp <= 0)
     {
-        w.notify.kill(*w.store.get!Pos(victim), inflictor, victim);
+        w.notify.damage(DmgType.kill, *w.store.get!Pos(victim), inflictor,
+                        victim, weapon);
 
         // TBD: drop corpses here
         // TBD: drop inventory items here

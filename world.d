@@ -88,45 +88,45 @@ static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));
 enum void delegate(Args) doNothing(Args...) = (Args args) {};
 
 /**
+ * Type of movement event.
+ */
+enum MoveType
+{
+    walk, jump, climb, climbLedge, fall, fallAside, sink,
+}
+
+/**
+ * Type of item interaction event.
+ */
+enum ItemActType
+{
+    pickup, drop, use,
+}
+
+/**
+ * Type of damage event.
+ */
+enum DmgType
+{
+    attack, fallOn, kill,
+}
+
+/**
  * Set of hooks for external code to react to in-game events.
  */
 struct EventWatcher
 {
     /**
-     * An agent climbs a ledge.
+     * An agent moves.
      */
-    void delegate(Pos pos, ThingId subj, Pos newPos, int seq) climbLedge =
-        doNothing!(Pos, ThingId, Pos, int);
+    void delegate(MoveType type, Pos oldPos, ThingId subj, Pos newPos, int seq)
+        move = doNothing!(MoveType, Pos, ThingId, Pos, int);
 
     /**
-     * An agent or object moves (not necessarily on their own accord).
+     * An agent interacts with an object.
      */
-    void delegate(Pos pos, ThingId subj, Pos newPos) move =
-        doNothing!(Pos, ThingId, Pos);
-
-    /**
-     * An object falls down.
-     */
-    void delegate(Pos pos, ThingId subj, Pos newPos) fall =
-        doNothing!(Pos, ThingId, Pos);
-
-    /**
-     * An object falls on top of another, possibly causing damage.
-     */
-    void delegate(Pos pos, ThingId subj, ThingId obj) fallOn =
-        doNothing!(Pos, ThingId, ThingId);
-
-    /**
-     * An agent picks up an object.
-     */
-    void delegate(Pos pos, ThingId subj, ThingId obj) pickup =
-        doNothing!(Pos, ThingId, ThingId);
-
-    /**
-     * An agent triggers an exit portal.
-     */
-    void delegate(Pos pos, ThingId subj, ThingId portal) usePortal =
-        doNothing!(Pos, ThingId, ThingId);
+    void delegate(ItemActType type, Pos pos, ThingId subj, ThingId obj)
+        itemAct = doNothing!(ItemActType, Pos, ThingId, ThingId);
 
     /**
      * An agent passes a turn.
@@ -134,16 +134,11 @@ struct EventWatcher
     void delegate(Pos pos, ThingId subj) pass = doNothing!(Pos, ThingId);
 
     /**
-     * An agent attacks something.
+     * An object damages another object.
      */
-    void delegate(Pos pos, ThingId subj, ThingId obj, ThingId weapon) attack =
-        doNothing!(Pos, ThingId, ThingId, ThingId);
-
-    /**
-     * A mortal is killed by something.
-     */
-    void delegate(Pos pos, ThingId killer, ThingId victim) kill =
-        doNothing!(Pos, ThingId, ThingId);
+    void delegate(DmgType type, Pos pos, ThingId subj, ThingId obj,
+                  ThingId weapon) damage =
+        doNothing!(DmgType, Pos, ThingId, ThingId, ThingId);
 
     /**
      * A message is emitted by a Message object.

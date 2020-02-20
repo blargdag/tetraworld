@@ -527,76 +527,78 @@ class Game
 
     void setupEventWatchers()
     {
-        w.notify.move = (Pos pos, ThingId subj, Pos newPos)
-        {
-            if (subj == player.id)
-                ui.moveViewport(newPos);
-            else
-                ui.updateMap(pos, newPos);
-        };
-        w.notify.climbLedge = (Pos pos, ThingId subj, Pos newPos, int seq)
+        w.notify.move = (MoveType type, Pos pos, ThingId subj, Pos newPos,
+                         int seq)
         {
             if (subj == player.id)
             {
-                if (seq == 0)
-                    ui.message("You climb up the ledge.");
-                ui.moveViewport(newPos);
-            }
-            else
-                ui.updateMap(pos, newPos);
-        };
-        w.notify.fall = (Pos pos, ThingId subj, Pos newPos)
-        {
-            if (subj == player.id)
-            {
-                ui.moveViewport(newPos);
-
-                // FIXME: this really should be done elsewhere!!!
-                // Reveal any pit traps that the player may have fallen
-                // through.
-                auto r = w.getAllAt(newPos)
-                          .filter!(id => w.store.get!PitTrap(id) !is null)
-                          .map!(id => w.store.getObj(id));
-                if (!r.empty)
+                final switch (type)
                 {
-                    if (r.front.systems & SysMask.tiledabove)
-                    {
-                        ui.message("You fall through a hidden pit!");
-                        w.store.remove!TiledAbove(r.front);
-                    }
-                    w.store.add!Tiled(r.front, Tiled(TileId.trapPit));
+                    case MoveType.walk:
+                    case MoveType.jump:
+                    case MoveType.climb:
+                    case MoveType.sink:
+                        ui.moveViewport(newPos);
+                        break;
+
+                    case MoveType.climbLedge:
+                        if (seq == 0)
+                            ui.message("You climb up the ledge.");
+                        goto case MoveType.walk;
+
+                    case MoveType.fall:
+                        ui.moveViewport(newPos);
+
+                        // FIXME: this really should be done elsewhere!!!
+                        // Reveal any pit traps that the player may have fallen
+                        // through.
+                        auto r = w.getAllAt(newPos)
+                                  .filter!(id => w.store.get!PitTrap(id) !is null)
+                                  .map!(id => w.store.getObj(id));
+                        if (!r.empty)
+                        {
+                            if (r.front.systems & SysMask.tiledabove)
+                            {
+                                ui.message("You fall through a hidden pit!");
+                                w.store.remove!TiledAbove(r.front);
+                            }
+                            w.store.add!Tiled(r.front, Tiled(TileId.trapPit));
+                        }
+                        else
+                            ui.message("You fall!");
+                        break;
+
+                    case MoveType.fallAside:
+                        ui.moveViewport(newPos);
+                        ui.message("The impact sends you rolling to the side!");
+                        break;
                 }
-                else
-                    ui.message("You fall!");
             }
-            else
+            else if (canSee(w, playerPos, pos) || canSee(w, playerPos, newPos))
+            {
+                if (type == MoveType.sink)
+                    ui.message("%s sinks in the water.",
+                               w.store.get!Name(subj).name.asCapitalized);
                 ui.updateMap(pos, newPos);
-        };
-        w.notify.fallOn = (Pos pos, ThingId subj, ThingId obj)
-        {
-            if (subj == player.id)
-            {
-                ui.moveViewport(pos);
-                // FIXME: reveal pit traps here? Though if we move that
-                // elsewhere, this ought to be already taken care of.
-                ui.message("You fall on top of %s!",
-                           w.store.get!Name(obj).name);
-            }
-            else
-            {
-                ui.updateMap(pos);
-                ui.message("%s falls on top of %s!",
-                           w.store.get!Name(subj).name.asCapitalized,
-                           w.store.get!Name(obj).name);
             }
         };
-        w.notify.pickup = (Pos pos, ThingId subj, ThingId obj)
+        w.notify.itemAct = (ItemActType type, Pos pos, ThingId subj,
+                            ThingId obj)
         {
             if (subj == player.id)
             {
                 auto name = w.store.get!Name(obj);
-                if (name !is null)
-                    ui.message("You pick up the " ~ name.name ~ ".");
+                final switch (type)
+                {
+                    case ItemActType.pickup:
+                        if (name !is null)
+                            ui.message("You pick up the " ~ name.name ~ ".");
+                        break;
+
+                    case ItemActType.use:
+                    case ItemActType.drop:
+                        assert(0); // TBD
+                }
             }
             else
                 ui.updateMap(pos);
@@ -609,23 +611,43 @@ class Game
                 ui.moveViewport(pos);
             }
         };
-        w.notify.attack = (Pos pos, ThingId subj, ThingId obj, ThingId weapon)
+        w.notify.damage = (DmgType type, Pos pos, ThingId subj, ThingId obj,
+                           ThingId weapon)
         {
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
-            ui.message("%s hits %s!", subjName.asCapitalized, objName);
-        };
-        w.notify.kill = (Pos pos, ThingId killer, ThingId victim)
-        {
-            auto subjName = w.store.get!Name(killer).name;
-            auto objName = (victim == player.id) ? "you" :
-                           w.store.get!Name(victim).name;
-            ui.message("%s killed %s!", subjName.asCapitalized, objName);
-            if (victim == player.id)
+            final switch (type)
             {
-                quit = true;
-                ui.quitWithMsg("YOU HAVE DIED.");
+                case DmgType.attack:
+                    ui.message("%s hits %s!", subjName.asCapitalized, objName);
+                    break;
+
+                case DmgType.fallOn:
+                    if (subj == player.id)
+                    {
+                        ui.moveViewport(pos);
+                        ui.message("You fall on top of %s!",
+                                   w.store.get!Name(obj).name);
+                    }
+                    else
+                    {
+                        ui.updateMap(pos);
+                        ui.message("%s falls on top of %s!",
+                                   w.store.get!Name(subj).name.asCapitalized,
+                                   w.store.get!Name(obj).name);
+                    }
+                    break;
+
+                case DmgType.kill:
+                    ui.message("%s killed %s!", subjName.asCapitalized,
+                               objName);
+                    if (obj == player.id)
+                    {
+                        quit = true;
+                        ui.quitWithMsg("YOU HAVE DIED.");
+                    }
+                    break;
             }
         };
         w.notify.message = (Pos pos, ThingId subj, string msg)
