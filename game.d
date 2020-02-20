@@ -587,8 +587,6 @@ class Game
             if (subj == player.id)
             {
                 ui.moveViewport(pos);
-                // FIXME: reveal pit traps here? Though if we move that
-                // elsewhere, this ought to be already taken care of.
                 ui.message("You fall on top of %s!",
                            w.store.get!Name(obj).name);
             }
