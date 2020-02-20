@@ -574,7 +574,7 @@ class Game
                         break;
                 }
             }
-            else
+            else if (canSee(w, playerPos, pos) || canSee(w, playerPos, newPos))
             {
                 if (type == MoveType.sink)
                     ui.message("%s sinks in the water.",
