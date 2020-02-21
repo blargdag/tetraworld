@@ -107,7 +107,7 @@ void genCorridors(R)(MapNode root, R region)
                 {
                     import std.random : uniform;
                     if (ir.max[i] - ir.min[i] >= 3)
-                        basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+                        basePos[i] = uniform(ir.min[i], ir.max[i]-2);
                     else
                     {
                         // Overlap is too small to place a door, skip.
@@ -132,7 +132,7 @@ void genCorridors(R)(MapNode root, R region)
         auto d = Door(root.axis);
 
         d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot;
+        d.pos[d.axis] = root.pivot - 1;
         leftRoom.node.doors ~= d;
 
         //d.pos = rightRoom.basePos;
@@ -199,7 +199,7 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
             auto axis = pickAxis(node, bounds);
             if (axis == invalidAxis)
                 return false;
-            wallFilt.min[axis] = wallFilt.max[axis]; 
+            wallFilt.min[axis] = wallFilt.max[axis];
 
             // Find an adjacent room that can be joined to this one via a door.
             RightRoom[] targets;
@@ -220,9 +220,9 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
                 foreach (i; 0 .. 4)
                 {
                     if (ir.max[i] - ir.min[i] >= 3)
-                        basePos[i] = uniform(ir.min[i]+1, ir.max[i]-1);
+                        basePos[i] = uniform(ir.min[i], ir.max[i]-2);
                     else if (i == axis)
-                        basePos[i] = ir.max[i];
+                        basePos[i] = ir.max[i]-1;
                     else
                     {
                         // Overlap is too small to place a door, skip.
@@ -262,6 +262,131 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
 }
 
 /**
+ * Returns: The minimum region of the given room node that covers all Doors.
+ */
+Region!(int,4) minCore(Region!(int,4) bounds, Door[] doors)
+    out(r; iota(4).all!(i => bounds.min[i] <= r.min[i] &&
+                             r.max[i] <= bounds.max[i]))
+{
+    auto core = region(bounds.max, bounds.min);
+    foreach (d; doors)
+    {
+        foreach (i; 0 .. 4)
+        {
+            if (i == d.axis)
+            {
+                if (core.min[i] > d.pos[i] + 1)
+                    core.min[i] = d.pos[i] + 1;
+                if (core.max[i] < d.pos[i] + 1)
+                    core.max[i] = d.pos[i] + 1;
+            }
+            else
+            {
+                if (core.min[i] > d.pos[i])
+                    core.min[i] = d.pos[i];
+                if (core.max[i] < d.pos[i] + 1)
+                    core.max[i] = d.pos[i] + 2;
+            }
+        }
+    }
+    return core;
+}
+
+unittest
+{
+    // Test case 1:
+    //   012345
+    // 0 ######
+    // 1 -....#
+    // 2 #....#
+    // 3 #....#
+    // 4 #....#
+    // 5 ##-###
+    auto r = region(vec(0,0,1,1), vec(2,2,6,6));
+    auto doors = [
+        Door(2, [0,0,0,1]),
+        Door(3, [0,0,2,5]),
+    ];
+
+    assert(minCore(r, doors) == region(vec(0,0,1,1), vec(2,2,4,6)));
+
+    // Test case 2:
+    //   012345
+    // 0 ######
+    // 1 #....#
+    // 2 #....#
+    // 3 -....#
+    // 4 #....#
+    // 5 ##-###
+    doors = [
+        Door(2, [0,0,0,3]),
+        Door(3, [0,0,2,5]),
+    ];
+
+    assert(minCore(r, doors) == region(vec(0,0,1,3), vec(2,2,4,6)));
+
+    // Test case 3:
+    //   012345
+    // 0 ######
+    // 1 #....#
+    // 2 #....-
+    // 3 #....#
+    // 4 #....#
+    // 5 ##-###
+    doors = [
+        Door(2, [0,0,5,2]),
+        Door(3, [0,0,2,5]),
+    ];
+
+    assert(minCore(r, doors) == region(vec(0,0,2,2), vec(2,2,6,6)));
+
+    // Test case 4:
+    //   012345
+    // 0 ###-##
+    // 1 #....#
+    // 2 #....-
+    // 3 #....#
+    // 4 #....#
+    // 5 ######
+    doors = [
+        Door(2, [0,0,5,2]),
+        Door(3, [0,0,3,0]),
+    ];
+
+    assert(minCore(r, doors) == region(vec(0,0,3,1), vec(2,2,6,4)));
+
+    // Test case 5:
+    //   012345
+    // 0 ###-##
+    // 1 #....#
+    // 2 #....#
+    // 3 #....#
+    // 4 #....#
+    // 5 ##-###
+    doors = [
+        Door(3, [0,0,3,0]),
+        Door(3, [0,0,2,5]),
+    ];
+
+    assert(minCore(r, doors) == region(vec(0,0,2,1), vec(2,2,5,6)));
+
+    // Test case 6:
+    //   012345
+    // 0 ###-##
+    // 1 #....#
+    // 2 -....#
+    // 3 #....#
+    // 4 #....#
+    // 5 ######
+    doors = [
+        Door(2, [0,0,0,2]),
+        Door(3, [0,0,3,0]),
+    ];
+
+    assert(minCore(r, doors) == region(vec(0,0,1,1), vec(2,2,5,4)));
+}
+
+/**
  * Iterate over leaf nodes in the given BSP tree and assign room interiors with
  * random sizes.
  *
@@ -275,27 +400,7 @@ void resizeRooms(R)(MapNode root, R region)
         import std.random : uniform;
 
         // Find minimum region room must cover in order for exits to connect.
-        auto core = R(bounds.max, bounds.min);
-        foreach (d; node.doors)
-        {
-            foreach (i; 0 .. 4)
-            {
-                if (i == d.axis)
-                {
-                    if (core.min[i] > d.pos[i])
-                        core.min[i] = d.pos[i];
-                    if (core.max[i] < d.pos[i])
-                        core.max[i] = d.pos[i];
-                }
-                else
-                {
-                    if (core.min[i] > d.pos[i] - 1)
-                        core.min[i] = d.pos[i] - 1;
-                    if (core.max[i] < d.pos[i] + 1)
-                        core.max[i] = d.pos[i] + 1;
-                }
-            }
-        }
+        auto core = minCore(bounds, node.doors);
 
         // Expand minimum region to be at least 3 tiles wide in each direction.
         foreach (i; 0 .. 4)
@@ -340,10 +445,10 @@ void addLadders(World w)
         foreach (d; node.doors)
         {
             if (d.axis == 0 && d.type == Door.Type.normal &&
-                d.pos[0] < node.interior.max[0])
+                d.pos[0] < node.interior.min[0])
             {
                 // Vertical exits
-                foreach (i; d.pos[0] .. node.interior.max[0])
+                foreach (i; d.pos[0] .. node.interior.max[0]-1)
                 {
                     createLadder(&w.store, Pos(i, d.pos[1], d.pos[2],
                                                d.pos[3]));
@@ -353,9 +458,9 @@ void addLadders(World w)
             {
                 // Horizontal exits
                 auto pos = d.pos;
-                pos[d.axis] = (d.pos[d.axis] == node.interior.min[d.axis]) ?
-                              d.pos[d.axis] + 1 : d.pos[d.axis] - 1;
-                foreach (i; d.pos[0] + 1 .. node.interior.max[0])
+                pos[d.axis] = (d.pos[d.axis] == node.interior.max[d.axis]) ?
+                              d.pos[d.axis] - 1 : d.pos[d.axis] + 1;
+                foreach (i; d.pos[0] + 1 .. node.interior.max[0] - 1)
                 {
                     createLadder(&w.store, Pos(i, pos[1], pos[2], pos[3]));
                 }
@@ -378,7 +483,7 @@ unittest
     //  4 #= =  #
     //  5 #######
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,6,2,2));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,7,2,2));
     root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
     root.doors ~= Door(0, [0,3,1,1], Door.Type.normal);
     root.doors ~= Door(1, [3,6,1,1], Door.Type.normal);
@@ -771,55 +876,55 @@ World genTutorialLevel(out int[4] startPos)
 
     // Left/right corridor
     auto cor1 = new MapNode;
-    cor1.interior = region(vec(0,0,0,0), vec(2,2,2,6));
+    cor1.interior = region(vec(1,1,1,1), vec(3,3,3,7));
     cor1.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
 
     // Front/back corridor
     auto cor2 = new MapNode;
-    cor2.interior = region(vec(0,0,2,4), vec(2,2,6,6));
+    cor2.interior = region(vec(1,1,3,5), vec(3,3,7,7));
     cor2.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
     cor2.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
 
     // Ana/kata corridor
     auto cor3 = new MapNode;
-    cor3.interior = region(vec(0,2,4,4), vec(2,6,6,6));
+    cor3.interior = region(vec(1,3,5,5), vec(3,7,7,7));
     cor3.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
     cor3.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
 
     // Up/down shaft with ladder
     auto cor4 = new MapNode;
-    cor4.interior = region(vec(2,4,4,4), vec(6,6,6,6));
+    cor4.interior = region(vec(3,5,5,5), vec(7,7,7,7));
     cor4.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
     cor4.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
 
     // Final room
     auto room = new MapNode;
-    room.interior = region(vec(2,2,2,0), vec(6,6,6,4));
+    room.interior = region(vec(3,3,3,1), vec(7,7,7,5));
     room.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
 
     // A BSP tree to put them all together.
     auto root = new MapNode;
     root.axis = 0;
-    root.pivot = 2;
+    root.pivot = 3;
 
     root.left = new MapNode;
     root.left.axis = 1;
-    root.left.pivot = 2;
+    root.left.pivot = 3;
     root.left.left = new MapNode;
     root.left.right = cor3;
 
     root.left.left.axis = 2;
-    root.left.left.pivot = 2;
+    root.left.left.pivot = 3;
     root.left.left.left = cor1;
     root.left.left.right = cor2;
 
     root.right = new MapNode;
     root.right.axis = 3;
-    root.right.pivot = 4;
+    root.right.pivot = 5;
     root.right.left = room;
     root.right.right = cor4;
 
-    root.interior = region(vec(0,0,0,0), vec(6,6,6,6));
+    root.interior = region(vec(0,0,0,0), vec(7,7,7,7));
 
     w.map.tree = root;
     w.map.bounds = root.interior;

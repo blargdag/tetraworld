@@ -576,31 +576,31 @@ version(unittest)
 
         void combineWall(int i, int j, uint bits)
         {
-            screen[i, j] = bits2wall(wall2bits(screen[i, j]) | bits,
-                                     dchar.init);
+            screen[i+1, j+1] = bits2wall(wall2bits(screen[i+1, j+1]) | bits,
+                                         dchar.init);
         }
 
         //enum walls = "│─.┌└┐┘"d;
         //enum walls = "|-:,`.'"d;
         auto interior = node.interior;
-        foreach (j; interior.min[1] .. interior.max[1]+1)
+        foreach (j; interior.min[1]-1 .. interior.max[1])
         {
-            foreach (i; interior.min[0] .. interior.max[0]+1)
+            foreach (i; interior.min[0]-1 .. interior.max[0])
             {
-                if (i == interior.min[0] && j == interior.min[1])
+                if (i == interior.min[0]-1 && j == interior.min[1]-1)
                     combineWall(i, j, 0b0011);
-                else if (i == interior.max[0] && j == interior.min[1])
+                else if (i == interior.max[0]-1 && j == interior.min[1]-1)
                     combineWall(i, j, 0b1001);
-                else if (i == interior.min[0] && j == interior.max[1])
+                else if (i == interior.min[0]-1 && j == interior.max[1]-1)
                     combineWall(i, j, 0b0110);
-                else if (i == interior.max[0] && j == interior.max[1])
+                else if (i == interior.max[0]-1 && j == interior.max[1]-1)
                     combineWall(i, j, 0b1100);
-                else if (i == interior.min[0] || i == interior.max[0])
+                else if (i == interior.min[0]-1 || i == interior.max[0]-1)
                     combineWall(i, j, 0b0101);
-                else if (j == interior.min[1] || j == interior.max[1])
+                else if (j == interior.min[1]-1 || j == interior.max[1]-1)
                     combineWall(i, j, 0b1010);
                 else
-                    screen[i, j] = ".,:"[node.style];
+                    screen[i+1, j+1] = ".,:"[node.style];
             }
         }
 
@@ -608,7 +608,7 @@ version(unittest)
         {
             auto doorSyms = (door.type == Door.Type.extra) ? "=\u256b**"d
                                                            : "-|**"d;
-            screen[door.pos[0], door.pos[1]] = doorSyms[door.axis];
+            screen[door.pos[0]+1, door.pos[1]+1] = doorSyms[door.axis];
         }
     }
 }

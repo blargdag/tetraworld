@@ -222,7 +222,7 @@ unittest
     //  2 #######
     import gamemap;
     auto root = new MapNode;
-    root.interior = region(vec(0,0,0,0), vec(3,6,3,3));
+    root.interior = region(vec(1,1,1,1), vec(3,7,3,3));
 
     auto w = new World;
     w.map.tree = root;

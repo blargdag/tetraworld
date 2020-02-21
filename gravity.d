@@ -278,13 +278,15 @@ unittest
     //  2 #  #
     //  3 ####
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(0,0,0,0), vec(3,3,2,2));
-    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(3,3,3,3));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(4,4,3,3));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(4,4,3,3));
 
     auto w = new World;
     w.map.tree = root;
     w.map.bounds = bounds;
     w.map.waterLevel = int.max;
+
+    //dump(w);
 
     SysGravity grav;
 
@@ -382,8 +384,8 @@ unittest
     //  4 #  #
     //  5 ####
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,3,2,2));
-    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(5,3,3,3));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,4,3,3));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,4,3,3));
 
     auto w = new World;
     w.map.tree = root;
@@ -449,7 +451,7 @@ unittest
     //  5 ####
     MapNode root = new MapNode;
     root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
-    root.interior = Region!(int,4)(vec(0,0,0,0), vec(5,3,3,3));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,4,3,3));
 
     import mapgen : addLadders;
     auto w = new World;
