@@ -146,6 +146,85 @@ void genCorridors(R)(MapNode root, R region)
 }
 
 /**
+ * Given the boundary between two nodes and a list of doors, returns true if
+ * there is at least one door in the list that lies on that boundary.
+ *
+ * Params:
+ *  boundary = The boundary to check. Note that this will be offset by 1
+ *      position from the door position along the door's axis.
+ *  axis = The axis of the connection (assumed to be the perpendicular of the
+ *      boundary).
+ *  doors = The list of doors to check.
+ */
+bool hasDoorAtBoundary(Region!(int,4) boundary, int axis, Door[] doors)
+{
+    alias bd = boundary;
+    foreach (d; doors)
+    {
+        if (d.axis != axis) continue;
+        if (iota(4).map!(i => (i == axis) ? d.pos[i] == bd.min[i]-1
+                                          : bd.min[i] <= d.pos[i] &&
+                                            d.pos[i] < bd.max[i])
+                   .fold!((a,b) => a && b)(true))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+unittest
+{
+    auto r = region(vec(0,0,5,0), vec(5,5,5,5));
+    assert( hasDoorAtBoundary(r, 2, [ Door(2, [1,1,4,1]) ]));
+    assert( hasDoorAtBoundary(r, 2, [ Door(2, [0,0,4,0]) ]));
+    assert( hasDoorAtBoundary(r, 2, [ Door(2, [4,4,4,4]) ]));
+
+    assert(!hasDoorAtBoundary(r, 2, [ Door(0, [1,1,4,1]) ]));
+    assert(!hasDoorAtBoundary(r, 2, [ Door(0, [1,1,1,1]) ]));
+    assert(!hasDoorAtBoundary(r, 2, [ Door(2, [1,1,1,1]) ]));
+    assert(!hasDoorAtBoundary(r, 2, [ Door(2, [4,4,3,4]) ]));
+    assert(!hasDoorAtBoundary(r, 2, [ Door(2, [4,4,5,4]) ]));
+
+    assert( hasDoorAtBoundary(r, 2, [ Door(2, [6,2,4,2]),
+                                      Door(2, [4,4,4,4]) ]));
+}
+
+/**
+ * Returns: true if the given door is valid for the given room bounds, false
+ * otherwise.
+ */
+bool isValidDoor()(Region!(int,4) bounds, Door d)
+{
+    return iota(4)
+        .map!(i => (i == d.axis) ? (d.pos[i] == bounds.min[i] - 1 ||
+                                    d.pos[i] == bounds.max[i] - 1)
+                                 : (bounds.min[i] <= d.pos[i] &&
+                                    d.pos[i] < bounds.max[i] - 1))
+        .fold!((a,b) => a && b)(true);
+}
+
+unittest
+{
+    auto bounds = region(vec(1,1,1,1), vec(4,4,4,4));
+
+    assert( isValidDoor(bounds, Door(0, [0,1,1,1])));
+    assert(!isValidDoor(bounds, Door(0, [1,1,1,1])));
+    assert(!isValidDoor(bounds, Door(0, [2,1,1,1])));
+    assert( isValidDoor(bounds, Door(0, [3,1,1,1])));
+
+    assert( isValidDoor(bounds, Door(1, [1,0,1,1])));
+    assert(!isValidDoor(bounds, Door(1, [1,1,1,1])));
+    assert(!isValidDoor(bounds, Door(1, [1,2,1,1])));
+    assert( isValidDoor(bounds, Door(1, [1,3,1,1])));
+
+    assert(!isValidDoor(bounds, Door(2, [2,2,0,0])));
+    assert( isValidDoor(bounds, Door(2, [2,2,0,1])));
+    assert( isValidDoor(bounds, Door(2, [2,2,0,2])));
+    assert(!isValidDoor(bounds, Door(2, [2,2,0,3])));
+}
+
+/**
  * Insert additional doors to randomly-picked rooms outside of the BSP
  * connectivity structure, so that non-trivial topology is generated.
  *
@@ -211,16 +290,14 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
 
                 // Check that there isn't already a door between these two
                 // rooms.
-                if (!allowMultiple && node.doors.canFind!(d =>
-                        iota(4).fold!((b,i) => b && ir.min[i] <= d.pos[i] &&
-                                               d.pos[i] <= ir.max[i])(true)))
+                if (!allowMultiple && hasDoorAtBoundary(ir, axis, node.doors))
                     return 0;
 
                 int[4] basePos;
                 foreach (i; 0 .. 4)
                 {
-                    if (ir.max[i] - ir.min[i] >= 3)
-                        basePos[i] = uniform(ir.min[i], ir.max[i]-2);
+                    if (ir.max[i] - ir.min[i] >= 2)
+                        basePos[i] = uniform(ir.min[i], ir.max[i]-1);
                     else if (i == axis)
                         basePos[i] = ir.max[i]-1;
                     else
@@ -247,6 +324,11 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
             d.pos = rightRoom.basePos;
             if (!doorFilter([node, rightRoom.node], d))
                 return false;
+
+            import std.format : format;
+            assert(isValidDoor(bounds, d) && isValidDoor(rightRoom.region, d),
+                   format("left.interior=%s right.interior=%s d=%s",
+                          bounds, rightRoom.region, d));
 
             node.doors ~= d;
             rightRoom.node.doors ~= d;
