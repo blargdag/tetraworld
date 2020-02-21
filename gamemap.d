@@ -679,9 +679,9 @@ Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
         {
             assert(node.interior.length(i) >= 3);
             if (i == 0 && !allowMidAir)
-                result[i] = node.interior.max[i] - 1;
+                result[i] = node.interior.max[i] - 2;
             else
-                result[i] = uniform(node.interior.min[i] + 1,
+                result[i] = uniform(node.interior.min[i],
                                     node.interior.max[i] - 1);
         }
         return result;
