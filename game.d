@@ -272,11 +272,17 @@ struct WorldView
      */
     TileId opIndex(int[4] pos...)
     {
+        // This is because the leftmost walls in a map are implicit (they are
+        // at the -1 coordinate), but we need to remember them, so we offset
+        // the real coordinates in order to map the leftmost walls to
+        // coordinate 0 in the memory.
+        auto mempos = vec(pos) + vec(1,1,1,1);
+
         if (!canSee(w, refPos, vec(pos)))
-            return mem[pos];
+            return mem[mempos];
 
         auto result = opIndexImpl(pos);
-        mem[pos] = result[1];
+        mem[mempos] = result[1];
         return result[0];
     }
 
