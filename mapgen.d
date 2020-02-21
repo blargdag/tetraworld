@@ -454,11 +454,11 @@ void addLadders(World w)
                                                d.pos[3]));
                 }
             }
-            else if (d.axis != 0 && d.pos[0] < node.interior.max[0] - 2)
+            else if (d.axis != 0 && d.pos[0] < node.interior.max[0] - 3)
             {
                 // Horizontal exits
                 auto pos = d.pos;
-                pos[d.axis] = (d.pos[d.axis] == node.interior.max[d.axis]) ?
+                pos[d.axis] = (d.pos[d.axis] == node.interior.max[d.axis]-1) ?
                               d.pos[d.axis] - 1 : d.pos[d.axis] + 1;
                 foreach (i; d.pos[0] + 1 .. node.interior.max[0] - 1)
                 {
@@ -523,6 +523,62 @@ unittest
     assert(!hasLadder(Pos(2,5,1,1)));
     assert(!hasLadder(Pos(3,5,1,1)));
     assert(!hasLadder(Pos(4,5,1,1)));
+    assert(!hasLadder(Pos(5,5,1,1)));
+}
+
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //    0123456
+    //  0 ###=###
+    //  1 #  =  #
+    //  2 #  = _|
+    //  3 |  = =#
+    //  4 #  = =#
+    //  5 #######
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,7,2,2));
+    root.doors ~= Door(1, [3,0,1,1], Door.Type.normal);
+    root.doors ~= Door(0, [0,3,1,1], Door.Type.normal);
+    root.doors ~= Door(1, [2,6,1,1], Door.Type.normal);
+
+    auto w = new World;
+    w.map.tree = root;
+
+    // Ladder placement should use interior, not bounding region.
+    w.map.bounds = region(vec(0,0,0,0), vec(9,9,9,9));
+
+    w.map.waterLevel = int.max;
+
+    addLadders(w);
+
+    bool hasLadder(Pos pos)
+    {
+        return w.getAllAt(pos)
+                .canFind!(id => w.store.get!Tiled(id).tileId == TileId.ladder);
+    }
+
+    assert(!hasLadder(Pos(0,1,1,1)));
+    assert(!hasLadder(Pos(1,1,1,1)));
+    assert(!hasLadder(Pos(2,1,1,1)));
+    assert(!hasLadder(Pos(3,1,1,1)));
+    assert(!hasLadder(Pos(4,1,1,1)));
+    assert(!hasLadder(Pos(5,1,1,1)));
+
+    assert( hasLadder(Pos(0,3,1,1)));
+    assert( hasLadder(Pos(1,3,1,1)));
+    assert( hasLadder(Pos(2,3,1,1)));
+    assert( hasLadder(Pos(3,3,1,1)));
+    assert( hasLadder(Pos(4,3,1,1)));
+    assert(!hasLadder(Pos(5,3,1,1)));
+
+    assert(!hasLadder(Pos(0,5,1,1)));
+    assert(!hasLadder(Pos(1,5,1,1)));
+    assert(!hasLadder(Pos(2,5,1,1)));
+    assert( hasLadder(Pos(3,5,1,1)));
+    assert( hasLadder(Pos(4,5,1,1)));
     assert(!hasLadder(Pos(5,5,1,1)));
 }
 
