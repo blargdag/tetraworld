@@ -45,8 +45,19 @@ int floorArea(MapNode node)
                        : floorArea(node.left) + floorArea(node.right);
 }
 
+private class GenCorridorsException : Exception
+{
+    this(string msg) { super(msg); }
+}
+
 /**
  * Generate corridors based on BSP tree structure.
+ *
+ * Throws: GenCorridorsException if the given BSP tree does not allow doors to
+ * be placed according to the BSP connectivity structure. This is pretty rare
+ * but *does* happen (2-8% for a 64^4 map, seems rarer on smaller maps), so the
+ * caller should catch this exception and rebuild with a different BSP tree
+ * instead.
  */
 void genCorridors(R)(MapNode root, R region)
     if (is(R == Region!(int,n), size_t n))
@@ -131,7 +142,7 @@ void genCorridors(R)(MapNode root, R region)
     }
 
     // If we got here, it means we're in trouble.
-    throw new Exception("No matching door placement found, give up");
+    throw new GenCorridorsException("No matching door placement found, give up");
 }
 
 /**
@@ -601,14 +612,33 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     w.map.bounds = region(vec(0, 0, 0, 0), vec(args.dim));
 
     alias R = Region!(int,4);
-    w.map.tree = genBsp!MapNode(w.map.bounds,
-        (R r) => r.volume > 24 + uniform(0, 80),
-        (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
-                        .pickOne(invalidAxis),
-        (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
-            invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
-    );
-    genCorridors(w.map.tree, w.map.bounds);
+    for (;;)
+    {
+        w.map.tree = genBsp!MapNode(w.map.bounds,
+            (R r) => r.volume > 24 + uniform(0, 80),
+            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+                            .pickOne(invalidAxis),
+            (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+                invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
+        );
+
+        try
+        {
+            genCorridors(w.map.tree, w.map.bounds);
+            break;
+        }
+        catch (GenCorridorsException e)
+        {
+            // This tree can't be properly connected; try again with a
+            // different tree.
+            version(none)
+            {
+                import std.stdio;
+                writefln("genCorridors failed (%s), retrying", e.msg);
+            }
+        }
+    }
+
     setRoomFloors(w.map.tree, w.map.bounds);
 
     // Add back edges, regular and pits/pit traps.
@@ -845,6 +875,38 @@ World genTutorialLevel(out int[4] startPos)
                       ]));
 
     return w;
+}
+
+version(none) // level gen stress test
+unittest
+{
+    import std.stdio;
+    MapGenArgs args;
+    args.dim = [ 64, 64, 64, 64 ];
+    args.nBackEdges = ValRange(20, 50);
+    args.nPitTraps = ValRange(50, 80);
+    args.goldPct = 0.2;
+    args.waterLevel = ValRange(16, 64);
+    args.nMonstersA = ValRange(20, 30);
+
+    foreach (i; 0 .. 100)
+    {
+        int[4] startPos;
+        World w;
+        for (;;)
+        {
+            try {
+                w = genBspLevel(args, startPos);
+                break;
+            } catch (Exception e) {
+                writefln("[%d] oops: %s", i, e.msg);
+            }
+        }
+        if (w is null)
+            writefln("[%d] WAT?!", i);
+        else
+            writefln("[%d] %d gold", i, w.store.getAll!Pickable().count);
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
