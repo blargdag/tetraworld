@@ -278,7 +278,7 @@ unittest
     //  2 #  #
     //  3 ####
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(4,4,3,3));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(3,3,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(4,4,3,3));
 
     auto w = new World;
@@ -384,7 +384,7 @@ unittest
     //  4 #  #
     //  5 ####
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,4,3,3));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,4,3,3));
 
     auto w = new World;
@@ -401,7 +401,7 @@ unittest
     //  3 #~~#      3 #@~#
     //  4 #~~#      4 #~~#
     //  5 ####      5 ####
-    w.map.waterLevel = 2;
+    w.map.waterLevel = 3;
     assert(w.map[2,1,1,1] == emptySpace.id);
     assert(w.map[3,1,1,1] == water.id);
     auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1));
@@ -451,12 +451,12 @@ unittest
     //  5 ####
     MapNode root = new MapNode;
     root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,4,3,3));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
 
     import mapgen : addLadders;
     auto w = new World;
     w.map.tree = root;
-    w.map.bounds = root.interior;
+    w.map.bounds = region(vec(1,1,1,1), vec(6,4,3,3));
     w.map.waterLevel = int.max;
     addLadders(w);
 
@@ -515,7 +515,7 @@ unittest
     //  5 ####      5 ####
     w.store.remove!Pos(guy);
     w.store.add!Pos(guy, Pos(1,1,1,1));
-    w.map.waterLevel = 2;
+    w.map.waterLevel = 3;
     grav.run(w);
 
     assert(*w.store.get!Pos(guy.id) == Pos(3,1,1,1));

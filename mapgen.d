@@ -1500,7 +1500,7 @@ World genTutorialLevel(out int[4] startPos)
     return w;
 }
 
-//version(none) // level gen stress test
+version(none) // level gen stress test
 unittest
 {
     import std.stdio;
