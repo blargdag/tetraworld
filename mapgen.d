@@ -1394,30 +1394,30 @@ World genTutorialLevel(out int[4] startPos)
 
     // Left/right corridor
     auto cor1 = new MapNode;
-    cor1.interior = region(vec(1,1,1,1), vec(3,3,3,7));
+    cor1.interior = region(vec(1,1,1,1), vec(2,2,2,6));
     cor1.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
 
     // Front/back corridor
     auto cor2 = new MapNode;
-    cor2.interior = region(vec(1,1,3,5), vec(3,3,7,7));
+    cor2.interior = region(vec(1,1,3,5), vec(2,2,6,6));
     cor2.doors ~= Door(2, [1,1,2,5], Door.Type.normal);
     cor2.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
 
     // Ana/kata corridor
     auto cor3 = new MapNode;
-    cor3.interior = region(vec(1,3,5,5), vec(3,7,7,7));
+    cor3.interior = region(vec(1,3,5,5), vec(2,6,6,6));
     cor3.doors ~= Door(1, [1,2,5,5], Door.Type.normal);
     cor3.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
 
     // Up/down shaft with ladder
     auto cor4 = new MapNode;
-    cor4.interior = region(vec(3,5,5,5), vec(7,7,7,7));
+    cor4.interior = region(vec(3,5,5,5), vec(6,6,6,6));
     cor4.doors ~= Door(0, [2,5,5,5], Door.Type.normal);
     cor4.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
 
     // Final room
     auto room = new MapNode;
-    room.interior = region(vec(3,3,3,1), vec(7,7,7,5));
+    room.interior = region(vec(3,3,3,1), vec(6,6,6,4));
     room.doors ~= Door(3, [5,5,5,4], Door.Type.normal);
 
     // A BSP tree to put them all together.
