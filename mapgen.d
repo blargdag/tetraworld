@@ -144,6 +144,7 @@ void genCorridors(R)(MapNode root, R region)
             return 0;
         });
 
+//import std;writefln("leftRooms=%s", leftRooms);
     int ntries=0;
     while (ntries++ < 2*leftRooms.length)
     {
@@ -151,6 +152,7 @@ void genCorridors(R)(MapNode root, R region)
         auto leftRoom = leftRooms.pickOne;
         R wallFilt = leftRoom.node.interior;
         wallFilt.min[root.axis] = wallFilt.max[root.axis] = root.pivot;
+//import std;writefln("wallFilt=%s", wallFilt);
 
         static struct RightRoom
         {
@@ -166,7 +168,9 @@ void genCorridors(R)(MapNode root, R region)
                 wallFilt2.min[root.axis] = wallFilt2.max[root.axis] =
                                            root.pivot;
 
+//import std;writefln("wallFilt2=%s", wallFilt2);
                 auto ir = wallFilt.intersect(wallFilt2);
+//import std;writefln("ir=%s", ir);
 
                 int[4] basePos;
                 foreach (i; 0 .. 4)
@@ -175,7 +179,10 @@ void genCorridors(R)(MapNode root, R region)
                     if (i == root.axis)
                     {
                         assert(ir.min[i] == ir.max[i]);
-                        basePos[i] = ir.min[i];
+                        assert(leftRoom.node.interior.max[i] ==
+                               node2.interior.min[i] - 1,
+                               "Interiors >1 tile apart, cannot place door");
+                        basePos[i] = leftRoom.node.interior.max[i];
                     }
                     else if (ir.max[i] - ir.min[i] > 0)
                         basePos[i] = uniform(ir.min[i], ir.max[i]);
@@ -186,6 +193,7 @@ void genCorridors(R)(MapNode root, R region)
                         return 0;
                     }
                 }
+//import std;writefln("basePos=%s", basePos);
 
                 rightRooms ~= RightRoom(node2, r2, basePos);
                 return 0;
@@ -203,6 +211,7 @@ void genCorridors(R)(MapNode root, R region)
         auto d = Door(root.axis);
 
         d.pos = rightRoom.basePos;
+//import std;writefln("door=%s", d);
         leftRoom.node.doors ~= d;
         rightRoom.node.doors ~= d;
         return;
@@ -238,6 +247,53 @@ unittest
     assert(root.doors == []);
     assert(root.left.doors == [ Door(2, [0,0,4,2]) ]);
     assert(root.right.doors == [ Door(2, [0,0,4,2]) ]);
+}
+
+/**
+ * Returns: true if the given door is valid for the given room interior, false
+ * otherwise.
+ */
+bool isValidDoor()(Region!(int,4) interior, Door d)
+{
+    return iota(4)
+        .map!(i => (i == d.axis) ? (d.pos[i] == interior.min[i] - 1 ||
+                                    d.pos[i] == interior.max[i])
+                                 : (interior.min[i] <= d.pos[i] &&
+                                    d.pos[i] < interior.max[i]))
+        .fold!((a,b) => a && b)(true);
+}
+
+unittest
+{
+    // Test case:
+    //   01234
+    // 0 #####
+    // 1 #   #
+    // 2 #   #
+    // 3 #   #
+    // 4 #####
+    auto interior = region(vec(1,1,1,1), vec(4,4,4,4));
+
+    assert( isValidDoor(interior, Door(0, [0,1,1,1])));
+    assert(!isValidDoor(interior, Door(0, [1,1,1,1])));
+    assert(!isValidDoor(interior, Door(0, [2,1,1,1])));
+    assert(!isValidDoor(interior, Door(0, [3,1,1,1])));
+    assert( isValidDoor(interior, Door(0, [4,1,1,1])));
+    assert(!isValidDoor(interior, Door(0, [5,1,1,1])));
+
+    assert( isValidDoor(interior, Door(1, [1,0,1,1])));
+    assert(!isValidDoor(interior, Door(1, [1,1,1,1])));
+    assert(!isValidDoor(interior, Door(1, [1,2,1,1])));
+    assert(!isValidDoor(interior, Door(1, [1,3,1,1])));
+    assert( isValidDoor(interior, Door(1, [1,4,1,1])));
+    assert(!isValidDoor(interior, Door(1, [1,5,1,1])));
+
+    assert(!isValidDoor(interior, Door(2, [2,2,0,0])));
+    assert( isValidDoor(interior, Door(2, [2,2,0,1])));
+    assert( isValidDoor(interior, Door(2, [2,2,0,2])));
+    assert( isValidDoor(interior, Door(2, [2,2,0,3])));
+    assert(!isValidDoor(interior, Door(2, [2,2,0,4])));
+    assert(!isValidDoor(interior, Door(2, [2,2,0,5])));
 
     assert(0);
 }
@@ -336,43 +392,6 @@ unittest
 
     assert( hasDoorAtBoundary(r, 2, [ Door(2, [6,2,4,2]),
                                       Door(2, [4,4,4,4]) ]));
-}
-
-/**
- * Returns: true if the given door is valid for the given room bounds, false
- * otherwise.
- */
-bool isValidDoor()(Region!(int,4) bounds, Door d)
-{
-    return iota(4)
-        .map!(i => (i == d.axis) ? (d.pos[i] == bounds.min[i] - 1 ||
-                                    d.pos[i] == bounds.max[i] - 1)
-                                 : (bounds.min[i] <= d.pos[i] &&
-                                    d.pos[i] < bounds.max[i] - 1))
-        .fold!((a,b) => a && b)(true);
-}
-
-unittest
-{
-    auto bounds = region(vec(1,1,1,1), vec(4,4,4,4));
-
-    assert( isValidDoor(bounds, Door(0, [0,1,1,1])));
-    assert(!isValidDoor(bounds, Door(0, [1,1,1,1])));
-    assert(!isValidDoor(bounds, Door(0, [2,1,1,1])));
-    assert( isValidDoor(bounds, Door(0, [3,1,1,1])));
-    assert(!isValidDoor(bounds, Door(0, [4,1,1,1])));
-
-    assert( isValidDoor(bounds, Door(1, [1,0,1,1])));
-    assert(!isValidDoor(bounds, Door(1, [1,1,1,1])));
-    assert(!isValidDoor(bounds, Door(1, [1,2,1,1])));
-    assert( isValidDoor(bounds, Door(1, [1,3,1,1])));
-    assert(!isValidDoor(bounds, Door(1, [1,4,1,1])));
-
-    assert(!isValidDoor(bounds, Door(2, [2,2,0,0])));
-    assert( isValidDoor(bounds, Door(2, [2,2,0,1])));
-    assert( isValidDoor(bounds, Door(2, [2,2,0,2])));
-    assert(!isValidDoor(bounds, Door(2, [2,2,0,3])));
-    assert(!isValidDoor(bounds, Door(2, [2,2,0,4])));
 }
 
 /**
