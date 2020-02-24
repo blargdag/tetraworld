@@ -589,18 +589,16 @@ unittest
     genBackEdges(root, bounds, 1, 99, (in MapNode[2], ref Door) => true,
                  (MapNode, Region!(int,4)) => 1, false);
     assert(root.right.left.doors.canFind(Door(1, [2,3,0,0])));
-
-    assert(false);
 }
 
 /**
  * Returns: The minimum region of the given room node that covers all Doors.
  */
-Region!(int,4) minCore(Region!(int,4) bounds, Door[] doors)
-    out(r; iota(4).all!(i => bounds.min[i] <= r.min[i] &&
-                             r.max[i] <= bounds.max[i]))
+Region!(int,4) minCore(Region!(int,4) interior, Door[] doors)
+    out(r; iota(4).all!(i => interior.min[i] <= r.min[i] &&
+                             r.max[i] <= interior.max[i]))
 {
-    auto core = region(bounds.max, bounds.min);
+    auto core = region(interior.max, interior.min);
     foreach (d; doors)
     {
         foreach (i; 0 .. 4)
@@ -609,15 +607,15 @@ Region!(int,4) minCore(Region!(int,4) bounds, Door[] doors)
             {
                 if (core.min[i] > d.pos[i] + 1)
                     core.min[i] = d.pos[i] + 1;
-                if (core.max[i] < d.pos[i] + 1)
-                    core.max[i] = d.pos[i] + 1;
+                if (core.max[i] < d.pos[i])
+                    core.max[i] = d.pos[i];
             }
             else
             {
                 if (core.min[i] > d.pos[i])
                     core.min[i] = d.pos[i];
                 if (core.max[i] < d.pos[i] + 1)
-                    core.max[i] = d.pos[i] + 2;
+                    core.max[i] = d.pos[i] + 1;
             }
         }
     }
@@ -634,13 +632,13 @@ unittest
     // 3 #....#
     // 4 #....#
     // 5 ##-###
-    auto r = region(vec(0,0,1,1), vec(2,2,6,6));
+    auto r = region(vec(0,0,1,1), vec(1,1,5,5));
     auto doors = [
         Door(2, [0,0,0,1]),
         Door(3, [0,0,2,5]),
     ];
 
-    assert(minCore(r, doors) == region(vec(0,0,1,1), vec(2,2,4,6)));
+    assert(minCore(r, doors) == region(vec(0,0,1,1), vec(1,1,3,5)));
 
     // Test case 2:
     //   012345
@@ -655,7 +653,7 @@ unittest
         Door(3, [0,0,2,5]),
     ];
 
-    assert(minCore(r, doors) == region(vec(0,0,1,3), vec(2,2,4,6)));
+    assert(minCore(r, doors) == region(vec(0,0,1,3), vec(1,1,3,5)));
 
     // Test case 3:
     //   012345
@@ -670,7 +668,7 @@ unittest
         Door(3, [0,0,2,5]),
     ];
 
-    assert(minCore(r, doors) == region(vec(0,0,2,2), vec(2,2,6,6)));
+    assert(minCore(r, doors) == region(vec(0,0,2,2), vec(1,1,5,5)));
 
     // Test case 4:
     //   012345
@@ -685,7 +683,7 @@ unittest
         Door(3, [0,0,3,0]),
     ];
 
-    assert(minCore(r, doors) == region(vec(0,0,3,1), vec(2,2,6,4)));
+    assert(minCore(r, doors) == region(vec(0,0,3,1), vec(1,1,5,3)));
 
     // Test case 5:
     //   012345
@@ -700,7 +698,7 @@ unittest
         Door(3, [0,0,2,5]),
     ];
 
-    assert(minCore(r, doors) == region(vec(0,0,2,1), vec(2,2,5,6)));
+    assert(minCore(r, doors) == region(vec(0,0,2,1), vec(1,1,4,5)));
 
     // Test case 6:
     //   012345
@@ -715,15 +713,16 @@ unittest
         Door(3, [0,0,3,0]),
     ];
 
-    assert(minCore(r, doors) == region(vec(0,0,1,1), vec(2,2,5,4)));
+    assert(minCore(r, doors) == region(vec(0,0,1,1), vec(1,1,4,3)));
 }
 
 /**
  * Iterate over leaf nodes in the given BSP tree and assign room interiors with
  * random sizes.
  *
- * Prerequisites: Doors must have already been computed, since minimum room
- * interior regions are computed based on the position of doors.
+ * Prerequisites: Initial (maximal) room interiors must have already been set.
+ * Doors must have already been computed, since minimum room interior regions
+ * are computed based on the position of doors.
  */
 void resizeRooms(R)(MapNode root, R region)
     if (is(R == Region!(int,n), size_t n))
@@ -732,38 +731,65 @@ void resizeRooms(R)(MapNode root, R region)
         import std.random : uniform;
 
         // Find minimum region room must cover in order for exits to connect.
-        auto core = minCore(bounds, node.doors);
+        auto core = minCore(node.interior, node.doors);
 
         // Expand minimum region to be at least 3 tiles wide in each direction.
         foreach (i; 0 .. 4)
         {
-            if (bounds.length(i) < 3)
+            if (node.interior.length(i) < 3)
                 continue;   // FIXME: should be an error
 
             while (core.length(i) < 3)
             {
                 if (uniform(0, 2) == 0)
                 {
-                    if (bounds.min[i] < core.min[i])
+                    if (node.interior.min[i] < core.min[i])
                         core.min[i]--;
                 }
                 else
                 {
-                    if (core.max[i] < bounds.max[i])
+                    if (core.max[i] < node.interior.max[i])
                         core.max[i]++;
                 }
             }
         }
 
         // Select random size between bounding region and minimum region.
+        R result;
         foreach (i; 0 .. 4)
         {
-            node.interior.min[i] = uniform!"[]"(bounds.min[i], core.min[i]);
-            node.interior.max[i] = uniform!"[]"(core.max[i], bounds.max[i]);
+            result.min[i] = uniform!"[]"(node.interior.min[i], core.min[i]);
+            result.max[i] = uniform!"[]"(core.max[i], node.interior.max[i]);
         }
 
+        node.interior = result;
         return 0;
     });
+}
+
+unittest
+{
+    // Test case: (base case)
+    //   012345
+    // 0 ####|#
+    // 1 -    #
+    // 2 #    -
+    // 3 #|####
+    auto bounds = region(vec(0,0,0,0), vec(6,4,2,2));
+    auto root = new MapNode;
+    root.interior = region(vec(1,1,0,0), vec(5,3,1,1));
+    root.doors = [
+        Door(0, [0,1,0,0]),
+        Door(1, [4,1,0,0]),
+        Door(0, [5,2,0,0]),
+        Door(1, [1,3,0,0]),
+    ];
+
+    resizeRooms(root, bounds);
+
+    assert(root.interior == region(vec(1,1,0,0), vec(5,3,1,1)));
+
+    assert(false);
 }
 
 /**
