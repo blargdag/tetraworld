@@ -56,9 +56,7 @@ struct GameMap
         auto result = blockBare.id;
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
             (MapNode node, R r) {
-                auto rr = node.interior;
-                if (iota(4).fold!((b, i) => b && rr.min[i] <= pos[i] &&
-                                            pos[i]+1 < rr.max[i])(true))
+                if (node.interior.contains(vec(pos)))
                 {
                     if (pos[0] > waterLevel)
                         result = water.id;
@@ -87,7 +85,7 @@ struct GameMap
     {
         GameMap map;
         map.tree = new MapNode();
-        map.tree.interior = region(vec(1,1,1,1), vec(3,3,3,3));
+        map.tree.interior = region(vec(1,1,1,1), vec(2,2,2,2));
         map.bounds = region(vec(0,0,0,0), vec(3,3,3,3));
         map.waterLevel = int.max;
 

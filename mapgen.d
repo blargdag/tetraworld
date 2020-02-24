@@ -368,7 +368,7 @@ bool doorsSanityCheck()(World w)
         {
             if (!isValidDoor(node.interior, d))
             {
-import std;writefln("Interior check failed: interior=%s d=%s", node.interior, d);
+//import std;writefln("Interior check failed: interior=%s d=%s", node.interior, d);
                 goto FAIL;
             }
 
@@ -377,7 +377,7 @@ import std;writefln("Interior check failed: interior=%s d=%s", node.interior, d)
             if (w.locationHas!BlocksMovement(Pos(vec(d.pos) + v)) ||
                 w.locationHas!BlocksMovement(Pos(vec(d.pos) - v)))
             {
-import std;writefln("Walkability test failed: interior=%s d=%s %s", node.interior, d, [w.map[vec(d.pos)+v], w.map[d.pos], w.map[vec(d.pos)-v]]);
+//import std;writefln("Walkability test failed: interior=%s d=%s %s", node.interior, d, [w.map[vec(d.pos)+v], w.map[d.pos], w.map[vec(d.pos)-v]]);
                 goto FAIL;
             }
         }
@@ -966,7 +966,7 @@ unittest
     import rndutil;
 
     // Generate base BSP tree
-    auto bounds = region(vec(1, 1, 0, 0), vec(wd, ht, 3, 3));
+    auto bounds = region(vec(1, 1, 0, 0), vec(wd, ht, 2, 2));
     alias R = typeof(bounds);
 
     auto tree = genBsp!MapNode(bounds,
@@ -986,7 +986,7 @@ unittest
     // Generate connecting corridors
     setRoomInteriors(w.map.tree, w.map.bounds);
     genCorridors(w.map.tree, w.map.bounds);
-    //assert(doorsSanityCheck(w));
+    assert(doorsSanityCheck(w));
 
     // Generate back edges
     genBackEdges!R(w.map.tree, w.map.bounds, 4, 15,
@@ -996,10 +996,10 @@ unittest
         },
         (MapNode node, R region) => uniform(0, 2), false
     );
-    //assert(doorsSanityCheck(w));
+    assert(doorsSanityCheck(w));
 
     resizeRooms(w.map.tree, w.map.bounds);
-    //assert(doorsSanityCheck(w));
+    assert(doorsSanityCheck(w));
 
     setRoomFloors(w.map.tree, w.map.bounds);
 
