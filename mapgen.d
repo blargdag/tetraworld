@@ -788,8 +788,6 @@ unittest
     resizeRooms(root, bounds);
 
     assert(root.interior == region(vec(1,1,0,0), vec(5,3,1,1)));
-
-    assert(false);
 }
 
 /**
@@ -806,19 +804,19 @@ void addLadders(World w)
                 d.pos[0] < node.interior.min[0])
             {
                 // Vertical exits
-                foreach (i; d.pos[0] .. node.interior.max[0]-1)
+                foreach (i; d.pos[0] .. node.interior.max[0])
                 {
                     createLadder(&w.store, Pos(i, d.pos[1], d.pos[2],
                                                d.pos[3]));
                 }
             }
-            else if (d.axis != 0 && d.pos[0] < node.interior.max[0] - 3)
+            else if (d.axis != 0 && d.pos[0] < node.interior.max[0] - 2)
             {
                 // Horizontal exits
                 auto pos = d.pos;
-                pos[d.axis] = (d.pos[d.axis] == node.interior.max[d.axis]-1) ?
+                pos[d.axis] = (d.pos[d.axis] == node.interior.max[d.axis]) ?
                               d.pos[d.axis] - 1 : d.pos[d.axis] + 1;
-                foreach (i; d.pos[0] + 1 .. node.interior.max[0] - 1)
+                foreach (i; d.pos[0] + 1 .. node.interior.max[0])
                 {
                     createLadder(&w.store, Pos(i, pos[1], pos[2], pos[3]));
                 }
@@ -841,7 +839,7 @@ unittest
     //  4 #= =  #
     //  5 #######
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,7,2,2));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,6,2,2));
     root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
     root.doors ~= Door(0, [0,3,1,1], Door.Type.normal);
     root.doors ~= Door(1, [3,6,1,1], Door.Type.normal);
@@ -897,7 +895,7 @@ unittest
     //  4 #  = =#
     //  5 #######
     MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(6,7,2,2));
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,6,2,2));
     root.doors ~= Door(1, [3,0,1,1], Door.Type.normal);
     root.doors ~= Door(0, [0,3,1,1], Door.Type.normal);
     root.doors ~= Door(1, [2,6,1,1], Door.Type.normal);
@@ -938,6 +936,8 @@ unittest
     assert( hasLadder(Pos(3,5,1,1)));
     assert( hasLadder(Pos(4,5,1,1)));
     assert(!hasLadder(Pos(5,5,1,1)));
+
+assert(0);
 }
 
 /**
