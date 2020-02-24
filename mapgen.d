@@ -936,8 +936,6 @@ unittest
     assert( hasLadder(Pos(3,5,1,1)));
     assert( hasLadder(Pos(4,5,1,1)));
     assert(!hasLadder(Pos(5,5,1,1)));
-
-assert(0);
 }
 
 /**
@@ -968,7 +966,7 @@ unittest
     import rndutil;
 
     // Generate base BSP tree
-    auto bounds = region(vec(0, 0, 0, 0), vec(wd-1, ht-1, 3, 3));
+    auto bounds = region(vec(1, 1, 0, 0), vec(wd, ht, 3, 3));
     alias R = typeof(bounds);
 
     auto tree = genBsp!MapNode(bounds,
@@ -988,7 +986,7 @@ unittest
     // Generate connecting corridors
     setRoomInteriors(w.map.tree, w.map.bounds);
     genCorridors(w.map.tree, w.map.bounds);
-    //assert(doorsSanityCheck!(1|2|4)(w));
+    //assert(doorsSanityCheck(w));
 
     // Generate back edges
     genBackEdges!R(w.map.tree, w.map.bounds, 4, 15,
@@ -998,14 +996,14 @@ unittest
         },
         (MapNode node, R region) => uniform(0, 2), false
     );
-    //assert(doorsSanityCheck!1(w));
+    //assert(doorsSanityCheck(w));
 
     resizeRooms(w.map.tree, w.map.bounds);
-    //assert(doorsSanityCheck!(2|4)(w));
+    //assert(doorsSanityCheck(w));
 
     setRoomFloors(w.map.tree, w.map.bounds);
 
-    version(none)
+    //version(none)
     {
         dumpBsp(result, w.map.tree, w.map.bounds);
         assert(0);
