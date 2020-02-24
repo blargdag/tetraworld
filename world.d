@@ -56,11 +56,9 @@ struct GameMap
         auto result = blockBare.id;
         foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
             (MapNode node, R r) {
-                auto rr = node.interior;
-                if (iota(4).fold!((b, i) => b && rr.min[i] < pos[i] &&
-                                            pos[i] < rr.max[i])(true))
+                if (node.interior.contains(vec(pos)))
                 {
-                    if (pos[0] > waterLevel)
+                    if (pos[0] >= waterLevel)
                         result = water.id;
                     else
                         result = emptySpace.id;
@@ -71,7 +69,8 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        result = (pos[0] > waterLevel) ? water.id : doorway.id;
+                        result = (pos[0] >= waterLevel) ? water.id
+                                                        : doorway.id;
                         return 1;
                     }
                 }
@@ -81,6 +80,20 @@ struct GameMap
             }
         );
         return result;
+    }
+
+    unittest
+    {
+        GameMap map;
+        map.tree = new MapNode();
+        map.tree.interior = region(vec(1,1,1,1), vec(2,2,2,2));
+        map.bounds = region(vec(0,0,0,0), vec(3,3,3,3));
+        map.waterLevel = int.max;
+
+        assert(map[0,0,0,0] == blockBare.id);
+        assert(map[1,1,1,1] == emptySpace.id);
+        assert(map[2,2,2,2] == blockBare.id);
+        assert(map[3,3,3,3] == blockBare.id);
     }
 }
 static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));

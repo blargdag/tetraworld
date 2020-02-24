@@ -583,21 +583,21 @@ version(unittest)
         //enum walls = "│─.┌└┐┘"d;
         //enum walls = "|-:,`.'"d;
         auto interior = node.interior;
-        foreach (j; interior.min[1] .. interior.max[1]+1)
+        foreach (j; interior.min[1]-1 .. interior.max[1]+1)
         {
-            foreach (i; interior.min[0] .. interior.max[0]+1)
+            foreach (i; interior.min[0]-1 .. interior.max[0]+1)
             {
-                if (i == interior.min[0] && j == interior.min[1])
+                if (i == interior.min[0]-1 && j == interior.min[1]-1)
                     combineWall(i, j, 0b0011);
-                else if (i == interior.max[0] && j == interior.min[1])
+                else if (i == interior.max[0] && j == interior.min[1]-1)
                     combineWall(i, j, 0b1001);
-                else if (i == interior.min[0] && j == interior.max[1])
+                else if (i == interior.min[0]-1 && j == interior.max[1])
                     combineWall(i, j, 0b0110);
                 else if (i == interior.max[0] && j == interior.max[1])
                     combineWall(i, j, 0b1100);
-                else if (i == interior.min[0] || i == interior.max[0])
+                else if (i == interior.min[0]-1 || i == interior.max[0])
                     combineWall(i, j, 0b0101);
-                else if (j == interior.min[1] || j == interior.max[1])
+                else if (j == interior.min[1]-1 || j == interior.max[1])
                     combineWall(i, j, 0b1010);
                 else
                     screen[i, j] = ".,:"[node.style];
@@ -681,11 +681,30 @@ Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
             if (i == 0 && !allowMidAir)
                 result[i] = node.interior.max[i] - 1;
             else
-                result[i] = uniform(node.interior.min[i] + 1,
-                                    node.interior.max[i] - 1);
+                result[i] = uniform(node.interior.min[i],
+                                    node.interior.max[i]);
         }
         return result;
     });
+}
+
+unittest
+{
+    auto bounds = region(vec(0,0,0,0), vec(4,4,4,4));
+    auto root = new MapNode;
+    root.interior = region(vec(0,0,0,0), vec(3,3,3,3));
+
+    foreach (_; 0 .. 5)
+    {
+        auto pos = randomLocation(root, bounds, true);
+        assert(pos[0] >= 0 && pos[0] < 3);
+    }
+
+    foreach (_; 0 .. 5)
+    {
+        auto pos = randomLocation(root, bounds, false);
+        assert(pos[0] == 2);
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:

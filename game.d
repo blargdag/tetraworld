@@ -222,7 +222,7 @@ unittest
     //  2 #######
     import gamemap;
     auto root = new MapNode;
-    root.interior = region(vec(0,0,0,0), vec(3,6,3,3));
+    root.interior = region(vec(1,1,1,1), vec(2,6,3,3));
 
     auto w = new World;
     w.map.tree = root;
@@ -272,11 +272,17 @@ struct WorldView
      */
     TileId opIndex(int[4] pos...)
     {
+        // This is because the leftmost walls in a map are implicit (they are
+        // at the -1 coordinate), but we need to remember them, so we offset
+        // the real coordinates in order to map the leftmost walls to
+        // coordinate 0 in the memory.
+        auto mempos = vec(pos) + vec(1,1,1,1);
+
         if (!canSee(w, refPos, vec(pos)))
-            return mem[pos];
+            return mem[mempos];
 
         auto result = opIndexImpl(pos);
-        mem[pos] = result[1];
+        mem[mempos] = result[1];
         return result[0];
     }
 

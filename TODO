@@ -1,6 +1,3 @@
-- Fix the single-room multiple-floor-types bug.
-   - *Should* just involve tweaking room interiors... but better be careful
-     just in case.
 - BUG: swimming through underwater hidden pit does not reveal it.
 - Need better control over branchiness of second level.
 - Should not be able to walk sideways into a hidden pit trap! Instead, it
@@ -174,3 +171,17 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
         that in-game entities may react to, like noise waking up sleeping
         creatures, or picking up an object triggering a guarding creature's
         anger, etc..
++ Fix the single-room multiple-floor-types bug.
+   + *Should* just involve tweaking room interiors... but better be careful
+     just in case.
+   * Whoa, what a mess!  There are SO MANY incredible assumptions in the code
+     that makes it super-flaky to change the original convention; and now the
+     lack of unittests is introducing tons of regressions. :-(
+   + Plan of attack:
+      + .interior really should be tweaked so that it *actually* represents the
+        proper interior of the room, i.e., it contains every empty space in the
+        room AND NOTHING ELSE, NO WALLS or any nonsense of that sort.
+      + Add more unittests.
+      + Write a global map sanitizer that checks for broken/disconnected doors,
+        and run the stress test through it until no more problems are found.
+      + Write more unittests for every error found!

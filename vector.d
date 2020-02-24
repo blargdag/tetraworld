@@ -319,8 +319,8 @@ struct Region(T, size_t _n)
 
     /**
      * Returns: true if the given vector lies within the region; false
-     * otherwise. Lying within means each component c of the vector satisfies l
-     * <= c < h, where l and h are the corresponding components from min and
+     * otherwise. Lying within means each component c of the vector satisfies
+     * l ≤ c < h, where l and h are the corresponding components from min and
      * max, respectively.
      */
     bool contains(U)(Vec!(U,n) v)
