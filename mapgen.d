@@ -1003,7 +1003,7 @@ unittest
 
     setRoomFloors(w.map.tree, w.map.bounds);
 
-    //version(none)
+    version(none)
     {
         dumpBsp(result, w.map.tree, w.map.bounds);
         assert(0);
@@ -1012,25 +1012,26 @@ unittest
 
 /**
  * Returns: A random room in the given BSP tree that's completely above the
- * water level.
+ * water level, null if all rooms are submerged (or partially so).
+ *
+ * Prerequisites: Room .interior's must have been set.
  */
-MapNode randomDryRoom(World w, out Region!(int,4) dryBounds)
-    out(node; node !is null && node.isLeaf())
+MapNode randomDryRoom(World w)
+    out(node; node is null || node.isLeaf())
 {
     auto dryRegion = w.map.bounds;
-    dryRegion.max[0] = w.map.waterLevel - 1;
+    dryRegion.max[0] = w.map.waterLevel;
 
     MapNode dryRoom;
     int n = 0;
     foreachFiltRoom(w.map.tree, w.map.bounds, dryRegion,
         (MapNode node, Region!(int,4) r) {
-            if (r.max[0] > w.map.waterLevel)
+            if (node.interior.max[0] > w.map.waterLevel)
                 return 0; // reject partially-submerged rooms
 
             if (n == 0 || uniform(0, n) == 0)
             {
                 dryRoom = node;
-                dryBounds = r;
             }
             n++;
             return 0;
@@ -1039,15 +1040,68 @@ MapNode randomDryRoom(World w, out Region!(int,4) dryBounds)
     return dryRoom;
 }
 
+unittest
+{
+    auto bounds = region(vec(0,0,0,0), vec(10,5,5,5));
+    auto root = new MapNode;
+    root.axis = 0;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.interior = region(vec(0,0,0,0), vec(4,4,4,4));
+
+    root.right = new MapNode;
+    root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+
+    w.map.waterLevel = 8;
+    assert(randomDryRoom(w) is root.left);
+
+    w.map.waterLevel = 5;
+    assert(randomDryRoom(w) is root.left);
+
+    w.map.waterLevel = 4;
+    assert(randomDryRoom(w) is root.left);
+
+    w.map.waterLevel = 3;
+    assert(randomDryRoom(w) is null);
+}
+
 /**
  * Returns: A random floor location in the given BSP tree that's above the
  * water level.
  */
 Vec!(int,4) randomDryPos(World w)
 {
-    Region!(int,4) dryBounds;
-    auto dryRoom = randomDryRoom(w, dryBounds);
-    return dryRoom.randomLocation(dryBounds);
+    auto dryRoom = randomDryRoom(w);
+    return dryRoom.randomLocation(dryRoom.interior);
+}
+
+unittest
+{
+    auto bounds = region(vec(0,0,0,0), vec(10,5,5,5));
+    auto root = new MapNode;
+    root.axis = 0;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.interior = region(vec(0,0,0,0), vec(4,4,4,4));
+
+    root.right = new MapNode;
+    root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+
+    w.map.waterLevel = 7;
+    auto pos = w.randomDryPos();
+    assert(root.left.interior.contains(pos));
+
+    assert(0);
 }
 
 /**
@@ -1187,9 +1241,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
                       Name("exit portal"), Usable(UseEffect.portal),
                       Message(["You see the exit portal here."]));
 
-    Region!(int,4) startBounds;
-    MapNode startRoom = randomDryRoom(w, startBounds);
-    startPos = startRoom.randomLocation(startBounds);
+    MapNode startRoom = randomDryRoom(w);
+    startPos = startRoom.randomLocation(startRoom.interior);
 
     auto ngold = cast(int)(floorArea(w.map.tree) * args.goldPct / 100);
 

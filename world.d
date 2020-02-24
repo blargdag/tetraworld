@@ -58,7 +58,7 @@ struct GameMap
             (MapNode node, R r) {
                 if (node.interior.contains(vec(pos)))
                 {
-                    if (pos[0] > waterLevel)
+                    if (pos[0] >= waterLevel)
                         result = water.id;
                     else
                         result = emptySpace.id;
@@ -69,7 +69,8 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        result = (pos[0] > waterLevel) ? water.id : doorway.id;
+                        result = (pos[0] >= waterLevel) ? water.id
+                                                        : doorway.id;
                         return 1;
                     }
                 }
