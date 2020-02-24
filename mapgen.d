@@ -15,19 +15,8 @@
  * connecting to leftmost doors.
  *
  * The actual size of the room may differ from the BSP node's bounding region;
- * the .interior of the room can be any region contained by the BSP node's
- * bounding region. However, it is subject to these assumptions:
- *
- * - .interior.min represents the lower bounds of the occupiable space in the
- *   room; the leftmost outer walls are *implicit*.
- *
- * - .interior.max represents one past the upper bounds of the rightmost
- *   *walls*; that is, if .interior.max is (5,5,5,5), then (4,4,4,4) is a wall,
- *   (5,5,5,5) is outside the room's region altogether, and (3,3,3,3) is the
- *   rightmost corner of occupiable space.
- *
- * - Accordingly, leftmost doors must lie 1 tile *behind* .interior.min along
- *   its axis, and rightmost doors must lie *on* .interior.max.
+ * the .interior of the room represents the actual interior of the room (NOT
+ * including any outer walls).
  *
  * Copyright: (C) 2012-2021  blargdag@quickfur.ath.cx
  *
@@ -62,6 +51,49 @@ import vector;
 import world;
 
 /**
+ * Initialize room interiors to the maximum size per BSP node, minus a 1-tile
+ * space for the inter-room walls.
+ */
+void setRoomInteriors(MapNode root, Region!(int,4) bounds)
+{
+    foreachRoom(root, bounds, (Region!(int,4) r, MapNode node) {
+        node.interior = region(r.min, r.max - vec(1,1,1,1));
+        return 0;
+    });
+}
+
+unittest
+{
+    // Test case 1:
+    //   0123456789
+    // 0 ##########
+    // 1 #   #    #
+    // 2 #   #    #
+    // 3 #####    #
+    // 4 #   #    #
+    // 5 #   #    #
+    // 6 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.axis = 3;
+    root.left.pivot = 4;
+    root.left.left = new MapNode;
+    root.left.right = new MapNode;
+
+    root.right = new MapNode;
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,10,7));
+    setRoomInteriors(root, bounds);
+
+    assert(root.left.left.interior == region(vec(0,0,1,1), vec(1,1,4,3)));
+    assert(root.left.right.interior == region(vec(0,0,1,4), vec(1,1,4,6)));
+    assert(root.right.interior == region(vec(0,0,5,1), vec(1,1,9,6)));
+}
+
+/**
  * Returns: The total interior volumes of the rooms in the given BSP tree.
  *
  * BUGS: This function is either misnamed, or wrongly implemented. It returns
@@ -80,6 +112,9 @@ private class GenCorridorsException : Exception
 
 /**
  * Generate corridors based on BSP tree structure.
+ *
+ * Prerequisites: The .interior bounds of each leaf node must have already been
+ * set, either by setRoomInteriors(), or some other means.
  *
  * Throws: GenCorridorsException if the given BSP tree does not allow doors to
  * be placed according to the BSP connectivity structure. This is pretty rare
@@ -102,7 +137,7 @@ void genCorridors(R)(MapNode root, R region)
     }
 
     LeftRoom[] leftRooms;
-    root.left.foreachFiltRoom(region,
+    root.left.foreachFiltRoom(leftRegion(region, root.axis, root.pivot),
         (R r) => r.max[root.axis] >= root.pivot,
         (MapNode node1, R r1) {
             leftRooms ~= LeftRoom(node1, r1);
@@ -114,9 +149,8 @@ void genCorridors(R)(MapNode root, R region)
     {
         import rndutil : pickOne;
         auto leftRoom = leftRooms.pickOne;
-        R wallFilt = leftRoom.region;
-        wallFilt.min[root.axis] = root.pivot;
-        wallFilt.max[root.axis] = root.pivot;
+        R wallFilt = leftRoom.node.interior;
+        wallFilt.min[root.axis] = wallFilt.max[root.axis] = root.pivot;
 
         static struct RightRoom
         {
@@ -126,16 +160,25 @@ void genCorridors(R)(MapNode root, R region)
         }
 
         RightRoom[] rightRooms;
-        root.right.foreachFiltRoom(region, wallFilt,
-            (MapNode node2, R r2) {
-                auto ir = leftRoom.region.intersect(r2);
+        root.right.foreachFiltRoom(rightRegion(region, root.axis, root.pivot),
+            wallFilt, (MapNode node2, R r2) {
+                auto wallFilt2 = node2.interior;
+                wallFilt2.min[root.axis] = wallFilt2.max[root.axis] =
+                                           root.pivot;
+
+                auto ir = wallFilt.intersect(wallFilt2);
 
                 int[4] basePos;
                 foreach (i; 0 .. 4)
                 {
                     import std.random : uniform;
-                    if (ir.max[i] - ir.min[i] >= 3)
-                        basePos[i] = uniform(ir.min[i], ir.max[i]-2);
+                    if (i == root.axis)
+                    {
+                        assert(ir.min[i] == ir.max[i]);
+                        basePos[i] = ir.min[i];
+                    }
+                    else if (ir.max[i] - ir.min[i] > 0)
+                        basePos[i] = uniform(ir.min[i], ir.max[i]);
                     else
                     {
                         // Overlap is too small to place a door, skip.
@@ -160,17 +203,94 @@ void genCorridors(R)(MapNode root, R region)
         auto d = Door(root.axis);
 
         d.pos = rightRoom.basePos;
-        d.pos[d.axis] = root.pivot - 1;
         leftRoom.node.doors ~= d;
-
-        //d.pos = rightRoom.basePos;
-        //d.pos[d.axis] = root.pivot;
         rightRoom.node.doors ~= d;
         return;
     }
 
     // If we got here, it means we're in trouble.
     throw new GenCorridorsException("No matching door placement found, give up");
+}
+
+unittest
+{
+    // Test case 1:
+    //   0123456789
+    // 0 ##########
+    // 1 #   ######
+    // 2 #   -    #
+    // 3 #####    #
+    // 4 #####    #
+    // 5 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.interior = region(vec(0,0,1,1), vec(1,1,4,3));
+
+    root.right = new MapNode;
+    root.right.interior = region(vec(0,0,5,2), vec(1,1,9,5));
+
+    auto bounds = region(vec(0,0,1,1), vec(1,1,10,6));
+    genCorridors(root, bounds);
+
+    assert(root.doors == []);
+    assert(root.left.doors == [ Door(2, [0,0,4,2]) ]);
+    assert(root.right.doors == [ Door(2, [0,0,4,2]) ]);
+
+    assert(0);
+}
+
+/**
+ * Sanity checker for door placements.
+ *
+ * Params:
+ *  stage = Bitmask of one or more of:
+ *      1: check BSP bounding box;
+ *      2: check .interior bounds;
+ *      4: check traversability on either side.
+ */
+bool doorsSanityCheck(int stage)(World w)
+{
+    bool result = true;
+    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node)
+    {
+        foreach (d; node.doors)
+        {
+            static if (stage & 1)
+                if (!isValidDoor(bounds, d))
+                {
+import std;writefln("Bounds check failed: bounds=%s d=%s", bounds, d);
+                    goto FAIL;
+                }
+
+            static if (stage & 2)
+                if (!isValidDoor(node.interior, d))
+                {
+import std;writefln("Interior check failed: interior=%s d=%s", node.interior, d);
+                    goto FAIL;
+                }
+
+            static if (stage & 4)
+            {{
+                auto v = vec(0,0,0,0);
+                v[d.axis] = 1;
+                if (w.locationHas!BlocksMovement(Pos(vec(d.pos) + v)) ||
+                    w.locationHas!BlocksMovement(Pos(vec(d.pos) - v)))
+                {
+import std;writefln("Walkability test failed: interior=%s d=%s %s", node.interior, d, [w.map[vec(d.pos)+v], w.map[d.pos], w.map[vec(d.pos)-v]]);
+                    goto FAIL;
+                }
+            }}
+        }
+        return 0;
+
+    FAIL:
+        result = false;
+        return 1;
+    });
+    return result;
 }
 
 /**
@@ -240,16 +360,19 @@ unittest
     assert(!isValidDoor(bounds, Door(0, [1,1,1,1])));
     assert(!isValidDoor(bounds, Door(0, [2,1,1,1])));
     assert( isValidDoor(bounds, Door(0, [3,1,1,1])));
+    assert(!isValidDoor(bounds, Door(0, [4,1,1,1])));
 
     assert( isValidDoor(bounds, Door(1, [1,0,1,1])));
     assert(!isValidDoor(bounds, Door(1, [1,1,1,1])));
     assert(!isValidDoor(bounds, Door(1, [1,2,1,1])));
     assert( isValidDoor(bounds, Door(1, [1,3,1,1])));
+    assert(!isValidDoor(bounds, Door(1, [1,4,1,1])));
 
     assert(!isValidDoor(bounds, Door(2, [2,2,0,0])));
     assert( isValidDoor(bounds, Door(2, [2,2,0,1])));
     assert( isValidDoor(bounds, Door(2, [2,2,0,2])));
     assert(!isValidDoor(bounds, Door(2, [2,2,0,3])));
+    assert(!isValidDoor(bounds, Door(2, [2,2,0,4])));
 }
 
 /**
@@ -711,8 +834,8 @@ void setRoomFloors(R)(MapNode root, R bounds)
 unittest
 {
     import testutil;
-    enum w = 48, h = 24;
-    auto result = TestScreen!(w,h)();
+    enum wd = 48, ht = 24;
+    auto result = TestScreen!(wd,ht)();
 
     import std.algorithm : filter, clamp;
     import std.random : uniform;
@@ -720,7 +843,7 @@ unittest
     import rndutil;
 
     // Generate base BSP tree
-    auto bounds = region(vec(0, 0, 0, 0), vec(w-1, h-1, 3, 3));
+    auto bounds = region(vec(0, 0, 0, 0), vec(wd-1, ht-1, 3, 3));
     alias R = typeof(bounds);
 
     auto tree = genBsp!MapNode(bounds,
@@ -733,18 +856,33 @@ unittest
             //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
     );
 
+    auto w = new World;
+    w.map.tree = tree;
+    w.map.bounds = bounds;
+
     // Generate connecting corridors
-    genCorridors(tree, bounds);
-    genBackEdges!R(tree, bounds, 4, 15, (in MapNode[2] rooms, ref Door d) {
-        d.type = Door.Type.extra;
-        return true;
-    }, (MapNode node, R region) => uniform(0, 2), false);
-    resizeRooms(tree, bounds);
-    setRoomFloors(tree, bounds);
+    setRoomInteriors(w.map.tree, w.map.bounds);
+    genCorridors(w.map.tree, w.map.bounds);
+    assert(doorsSanityCheck!(1|2|4)(w));
+
+    // Generate back edges
+    genBackEdges!R(w.map.tree, w.map.bounds, 4, 15,
+        (in MapNode[2] rooms, ref Door d) {
+            d.type = Door.Type.extra;
+            return true;
+        },
+        (MapNode node, R region) => uniform(0, 2), false
+    );
+    assert(doorsSanityCheck!1(w));
+
+    resizeRooms(w.map.tree, w.map.bounds);
+    assert(doorsSanityCheck!(2|4)(w));
+
+    setRoomFloors(w.map.tree, w.map.bounds);
 
     version(none)
     {
-        dumpBsp(result, tree, bounds);
+        dumpBsp(result, w.map.tree, w.map.bounds);
         assert(0);
     }
 }
@@ -1148,7 +1286,7 @@ World genTutorialLevel(out int[4] startPos)
     return w;
 }
 
-version(none) // level gen stress test
+//version(none) // level gen stress test
 unittest
 {
     import std.stdio;
@@ -1168,6 +1306,7 @@ unittest
         {
             try {
                 w = genBspLevel(args, startPos);
+                assert(doorsSanityCheck!(1|2|4)(w));
                 break;
             } catch (Exception e) {
                 writefln("[%d] oops: %s", i, e.msg);
