@@ -374,10 +374,10 @@ bool doorsSanityCheck()(World w)
 
             auto v = vec(0,0,0,0);
             v[d.axis] = 1;
-            if (w.locationHas!BlocksMovement(Pos(vec(d.pos) + v)) ||
-                w.locationHas!BlocksMovement(Pos(vec(d.pos) - v)))
+            if (w.store.get!BlocksMovement(w.map[vec(d.pos) + v]) !is null ||
+                w.store.get!BlocksMovement(w.map[vec(d.pos) - v]))
             {
-//import std;writefln("Walkability test failed: interior=%s d=%s %s", node.interior, d, [w.map[vec(d.pos)+v], w.map[d.pos], w.map[vec(d.pos)-v]]);
+//import std;writefln("Walkability test failed: interior=%s d=%s %s", node.interior, d, [vec(d.pos)+v, vec(d.pos), vec(d.pos)-v].map!(pos => w.getAllAt(Pos(pos)).map!(id => w.store.get!Name(id).name)));
                 goto FAIL;
             }
         }
@@ -388,6 +388,40 @@ bool doorsSanityCheck()(World w)
         return 1;
     });
     return result;
+}
+
+unittest
+{
+    // Test case:
+    //   0123456
+    // 0 #######
+    // 1 #  -  #
+    // 2 #  #  #
+    // 3 #######
+    auto bounds = region(vec(0,0,0,0), vec(4,7,2,2));
+    auto root = new MapNode;
+    root.axis = 1;
+    root.pivot = 4;
+
+    root.left = new MapNode;
+    root.left.interior = region(vec(1,1,0,0), vec(3,3,1,1));
+    root.left.doors = [ Door(1, [1,3,0,0]) ];
+
+    root.right = new MapNode;
+    root.right.interior = region(vec(1,4,0,0), vec(3,6,1,1));
+    root.right.doors = [ Door(1, [1,3,0,0]) ];
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+
+    assert(doorsSanityCheck(w));
+
+    // Blocking objects are NOT included in the doors check, because e.g.,
+    // creatures could be generated next to doors, but that does not make the
+    // door placement wrong.
+    w.store.createObj(Name("blocker"), BlocksMovement());
+    assert(doorsSanityCheck(w));
 }
 
 /**
@@ -1100,8 +1134,6 @@ unittest
     w.map.waterLevel = 7;
     auto pos = w.randomDryPos();
     assert(root.left.interior.contains(pos));
-
-    assert(0);
 }
 
 /**
@@ -1197,8 +1229,9 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     auto w = new World;
     w.map.bounds = region(vec(0, 0, 0, 0), vec(args.dim));
 
+    enum nRetries = 10;
     alias R = Region!(int,4);
-    for (;;)
+    foreach (_; 0 .. nRetries)
     {
         w.map.tree = genBsp!MapNode(w.map.bounds,
             (R r) => r.volume > 24 + uniform(0, 80),
@@ -1208,6 +1241,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
                 invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
         );
 
+        setRoomInteriors(w.map.tree, w.map.bounds);
         try
         {
             genCorridors(w.map.tree, w.map.bounds);
@@ -1217,13 +1251,17 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
         {
             // This tree can't be properly connected; try again with a
             // different tree.
-            version(none)
+            w.map.tree = null;
+            //version(none)
             {
                 import std.stdio;
                 writefln("genCorridors failed (%s), retrying", e.msg);
             }
         }
     }
+
+    if (w.map.tree is null)
+        throw new Exception("Unable to generate map");
 
     setRoomFloors(w.map.tree, w.map.bounds);
 
@@ -1474,7 +1512,7 @@ unittest
     args.waterLevel = ValRange(16, 64);
     args.nMonstersA = ValRange(20, 30);
 
-    foreach (i; 0 .. 100)
+    foreach (i; 0 .. 50)
     {
         int[4] startPos;
         World w;
@@ -1482,7 +1520,7 @@ unittest
         {
             try {
                 w = genBspLevel(args, startPos);
-                //assert(doorsSanityCheck!(1|2|4)(w));
+                assert(doorsSanityCheck(w));
                 break;
             } catch (Exception e) {
                 writefln("[%d] oops: %s", i, e.msg);
