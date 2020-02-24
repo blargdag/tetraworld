@@ -679,13 +679,32 @@ Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
         {
             assert(node.interior.length(i) >= 3);
             if (i == 0 && !allowMidAir)
-                result[i] = node.interior.max[i] - 2;
+                result[i] = node.interior.max[i] - 1;
             else
                 result[i] = uniform(node.interior.min[i],
-                                    node.interior.max[i] - 1);
+                                    node.interior.max[i]);
         }
         return result;
     });
+}
+
+unittest
+{
+    auto bounds = region(vec(0,0,0,0), vec(4,4,4,4));
+    auto root = new MapNode;
+    root.interior = region(vec(0,0,0,0), vec(3,3,3,3));
+
+    foreach (_; 0 .. 5)
+    {
+        auto pos = randomLocation(root, bounds, true);
+        assert(pos[0] >= 0 && pos[0] < 3);
+    }
+
+    foreach (_; 0 .. 5)
+    {
+        auto pos = randomLocation(root, bounds, false);
+        assert(pos[0] == 2);
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
