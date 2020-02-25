@@ -27,6 +27,7 @@ import std.range;
 import action;
 import components;
 import dir;
+import fov;
 import store_traits;
 import vector;
 import world;
@@ -84,20 +85,26 @@ Action chooseAiAction(World w, ThingId agentId)
     {
         auto targetId = r.front;
         auto targetPos = *w.store.get!Pos(targetId);
-        auto diff = targetPos - curPos;
-        if (diff[].map!(x => abs(x)).sum == 1)
+
+        if (w.canSee(curPos, targetPos))
         {
-            // Adjacent to player. Attack!
-            return (World w) => attack(w, agent, targetId, invalidId/*FIXME*/);
+            auto diff = targetPos - curPos;
+            if (diff[].map!(x => abs(x)).sum == 1)
+            {
+                // Adjacent to player. Attack!
+                return (World w) => attack(w, agent, targetId,
+                                           invalidId/*FIXME*/);
+            }
+            else
+            {
+                int[4] dir;
+                if (findViableMove(w, agentId, curPos, 6,
+                                   () => chooseDir(diff), dir))
+                    return (World w) => move(w, agent, vec(dir));
+            }
         }
-        else
-        {
-            int[4] dir;
-            if (findViableMove(w, agentId, curPos, 6,
-                               () => chooseDir(diff), dir))
-                return (World w) => move(w, agent, vec(dir));
-            // Couldn't find a way to reach target, fallback to random move.
-        }
+        // Couldn't find a way to reach target, or can't see target, fallback
+        // to random move.
     }
 
     // Nothing to do, just wander aimlessly.
