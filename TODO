@@ -1,4 +1,7 @@
 - BUG: swimming through underwater hidden pit does not reveal it.
+- BUG: pit traps don't block visibility, allowing player to infer their
+  location (which is a contradiction: if you could see through it, it's not
+  hidden anymore!).
 - Need better control over branchiness of second level.
 - Should not be able to walk sideways into a hidden pit trap! Instead, it
   should trigger from above.
