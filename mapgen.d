@@ -1144,8 +1144,10 @@ unittest
  *  count = The number of pit traps to attempt to place. Note that the actual
  *      number of traps generated may be lower than this, if there are too many
  *      failed attempts to find suitable locations for traps.
+ *  openPitPct = Percentage of pits that will be visible open pits, vs. hidden
+ *      traps.
  */
-void genPitTraps(World w, int count)
+void genPitTraps(World w, int count, int openPitPct = 30)
 {
     genBackEdges(w.map.tree, w.map.bounds, count, 50,
         (in MapNode[2] rooms, ref Door d) {
@@ -1172,7 +1174,7 @@ void genPitTraps(World w, int count)
                 }
             }
 
-            if (!nextToExisting && uniform(0, 100) < 30)
+            if (!nextToExisting && uniform(0, 100) < openPitPct)
             {
                 // Non-hidden open pit.
                 d.type = Door.Type.extra;
@@ -1180,7 +1182,7 @@ void genPitTraps(World w, int count)
             else
             {
                 d.type = Door.Type.trapdoor;
-                auto floorId = style2Terrain(rooms[1].style);
+                auto floorId = style2Terrain(rooms[0].style);
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
                     PitTrap(), NoGravity());
@@ -1190,6 +1192,41 @@ void genPitTraps(World w, int count)
         (MapNode node, Region!(int,4) bounds) => 0, // always pick vertical
         true,   // allow multiple pit traps on same wall as normal door
     );
+}
+
+unittest
+{
+    // Test case:
+    //   01234
+    // 0 #####
+    // 1 #   #
+    // 2 ##X##
+    // 3 #   #
+    // 4 #   #
+    // 5 #####
+    auto bounds = region(vec(0,0,0,0), vec(6,5,2,2));
+    auto root = new MapNode;
+    root.axis = 0;
+    root.pivot = 3;
+
+    root.left = new MapNode;
+    root.left.interior = region(vec(1,1,0,0), vec(2,4,1,1));
+    root.left.style = FloorStyle.grassy;
+
+    root.right = new MapNode;
+    root.right.interior = region(vec(3,1,0,0), vec(5,4,1,1));
+    root.right.style = FloorStyle.muddy;
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+
+    genPitTraps(w, 1, 0);
+
+    auto r = w.store.getAll!PitTrap()
+                    .map!(id => w.store.get!TiledAbove(id));
+    assert(!r.empty);
+    assert(r.front.tileId == TileId.floorGrassy);
 }
 
 /**
