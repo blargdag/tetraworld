@@ -125,6 +125,14 @@ enum DmgType
 }
 
 /**
+ * Type of map change.
+ */
+enum MapChgType
+{
+    revealPitTrap,
+}
+
+/**
  * Set of hooks for external code to react to in-game events.
  */
 struct EventWatcher
@@ -152,6 +160,12 @@ struct EventWatcher
     void delegate(DmgType type, Pos pos, ThingId subj, ThingId obj,
                   ThingId weapon) damage =
         doNothing!(DmgType, Pos, ThingId, ThingId, ThingId);
+
+    /**
+     * Part of the map changes.
+     */
+    void delegate(MapChgType type, Pos pos, ThingId subj, ThingId obj)
+        mapChange = doNothing!(MapChgType, Pos, ThingId, ThingId);
 
     /**
      * A message is emitted by a Message object.

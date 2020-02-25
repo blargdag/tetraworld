@@ -343,24 +343,7 @@ class Game
 
                     case MoveType.fall:
                         ui.moveViewport(newPos);
-
-                        // FIXME: this really should be done elsewhere!!!
-                        // Reveal any pit traps that the player may have fallen
-                        // through.
-                        auto r = w.getAllAt(newPos)
-                                  .filter!(id => w.store.get!PitTrap(id) !is null)
-                                  .map!(id => w.store.getObj(id));
-                        if (!r.empty)
-                        {
-                            if (r.front.systems & SysMask.tiledabove)
-                            {
-                                ui.message("You fall through a hidden pit!");
-                                w.store.remove!TiledAbove(r.front);
-                            }
-                            w.store.add!Tiled(r.front, Tiled(TileId.trapPit));
-                        }
-                        else
-                            ui.message("You fall!");
+                        ui.message("You fall!");
                         break;
 
                     case MoveType.fallAside:
@@ -442,6 +425,17 @@ class Game
                         quit = true;
                         ui.quitWithMsg("YOU HAVE DIED.");
                     }
+                    break;
+            }
+        };
+        w.notify.mapChange = (MapChgType type, Pos pos, ThingId subj,
+                              ThingId obj)
+        {
+            final switch (type)
+            {
+                case MapChgType.revealPitTrap:
+                    ui.message("A trap door opens up under %s!",
+                               w.store.get!Name(subj).name);
                     break;
             }
         };

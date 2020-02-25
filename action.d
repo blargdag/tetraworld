@@ -95,6 +95,23 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
         }
     }
 
+    // Pit traps (TBD: this should be generalized to a general onEntry trigger)
+    auto floorPos = Pos(newPos + vec(1,0,0,0));
+    foreach (t; w.store.getAllBy!Pos(floorPos)
+                 .map!(id => w.store.getObj(id))
+                 .filter!(t => t.systems & SysMask.pittrap))
+    {
+        auto pt = w.store.get!PitTrap(t.id);
+        if (pt.revealed) continue;
+        pt.revealed = true;
+
+        w.store.remove!BlocksMovement(t);
+        w.store.remove!BlocksView(t);
+        w.store.remove!TiledAbove(t);
+        w.store.add!Tiled(t, Tiled(TileId.trapPit));
+        w.notify.mapChange(MapChgType.revealPitTrap, floorPos, subj.id, t.id);
+    }
+
     // Emit any Messages
     foreach (msg; w.getAllAt(newPos)
                    .map!(id => w.store.get!Message(id))

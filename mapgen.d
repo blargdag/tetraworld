@@ -1185,7 +1185,8 @@ void genPitTraps(World w, int count, int openPitPct = 30)
                 auto floorId = style2Terrain(rooms[0].style);
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
-                    PitTrap(), NoGravity());
+                    PitTrap(), NoGravity(), BlocksMovement(Climbable.yes),
+                    BlocksView());
             }
             return true;
         },

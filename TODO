@@ -1,10 +1,4 @@
-- BUG: swimming through underwater hidden pit does not reveal it.
-- BUG: pit traps don't block visibility, allowing player to infer their
-  location (which is a contradiction: if you could see through it, it's not
-  hidden anymore!).
 - Need better control over branchiness of second level.
-- Should not be able to walk sideways into a hidden pit trap! Instead, it
-  should trigger from above.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -188,3 +182,11 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
       + Write a global map sanitizer that checks for broken/disconnected doors,
         and run the stress test through it until no more problems are found.
       + Write more unittests for every error found!
++ BUG: swimming through underwater hidden pit does not reveal it.
+   * Now pit traps are hidden and blocking; they only open up when triggered
+     from above.
++ BUG: pit traps don't block visibility, allowing player to infer their
+  location (which is a contradiction: if you could see through it, it's not
+  hidden anymore!).
++ Should not be able to walk sideways into a hidden pit trap! Instead, it
+  should trigger from above.

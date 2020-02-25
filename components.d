@@ -242,7 +242,10 @@ struct Sinking { }
  * Component for objects that negate weight support (e.g. pit traps).
  */
 @Component
-struct PitTrap { }
+struct PitTrap
+{
+    bool revealed;
+}
 
 /**
  * Component for agent objects.
