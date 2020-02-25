@@ -29,6 +29,7 @@ import arsd.terminal;
 
 import components;
 import display;
+import fov;
 import game;
 import gamemap;
 import store_traits;

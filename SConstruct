@@ -38,6 +38,7 @@ sources = Split("""
 	damage.d
 	dir.d
 	display.d
+	fov.d
 	lang.d
 	loadsave.d
 	mapgen.d
