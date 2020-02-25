@@ -206,7 +206,9 @@ struct SysAgent
     void save(S)(S savefile)
         if (isSaveFile!S)
     {
-        savefile.put("turnQueue", turnQueue.dup);
+        import std.algorithm : filter;
+        savefile.put("turnQueue",
+                     turnQueue.filter!(ent => ent.id >= specialMaxId));
     }
 
     /**

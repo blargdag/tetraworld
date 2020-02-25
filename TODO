@@ -190,3 +190,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
   hidden anymore!).
 + Should not be able to walk sideways into a hidden pit trap! Instead, it
   should trigger from above.
++ BUG: The sink agent (id=257) is not being filtered out from agent queue in
+  save file!
