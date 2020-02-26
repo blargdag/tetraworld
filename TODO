@@ -2,6 +2,8 @@
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
+   - Creatures that can't swim shouldn't be able to move up in water, unless
+     there's support from below!
    - A-monsters should fear water.
       - Create instead a water-dwelling creature that will terrorize the player
         in whole new 4D ways. :-D
