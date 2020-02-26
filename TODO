@@ -26,6 +26,8 @@
 - Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
   doesn't make sense. Maybe call it "diving equipment"?
 - Tutorial should include climb-ledge mechanics?
+- Should start encapsulating all uses of the RNG so that we can start
+  generating seedable levels.
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
   number!
 - Implement water currents? :-D
