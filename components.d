@@ -204,8 +204,6 @@ enum SupportCond
 
 /**
  * Component for objects that (conditionally) support weight.
- *
- * Not to be confused with BlocksMovement, which is unconditional.
  */
 @Component
 struct SupportsWeight
