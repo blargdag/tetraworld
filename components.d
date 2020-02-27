@@ -221,16 +221,18 @@ struct SupportsWeight
 struct NoGravity { }
 
 /**
- * Component for objects that can climb ladders.
+ * Components for objects that can move on their own accord.
  */
 @Component
-struct Climbs { }
+struct CanMove
+{
+    @BitFlags enum Type
+    {
+        walk, climb, jump, swim,
+    }
 
-/**
- * Component for objects that don't sink in water.
- */
-@Component
-struct Swims { }
+    Type types;
+}
 
 /**
  * Component attached by gravity system for objects that are sinking in water.

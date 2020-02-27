@@ -41,12 +41,23 @@ import world;
  */
 bool isViableMove(World w, ThingId agentId, Pos curPos, int[4] dir)
 {
+    auto cm = w.store.get!CanMove(agentId);
+    if (cm is null)
+        return false;
+
     if (dir == [0,0,0,0])
         return false;
-    if (dir == [-1,0,0,0] && !w.locationHas!SupportsWeight(curPos))
+
+    if (dir == [-1,0,0,0] && ((cm.types & CanMove.Type.jump) == 0 ||
+                              !w.locationHas!SupportsWeight(curPos)))
         return false;
-    if (w.store.get!Climbs(agentId) !is null && canClimb(w, curPos, vec(dir)))
+
+    if ((cm.types & CanMove.Type.climb) && canClimb(w, curPos, vec(dir)))
         return true;
+
+    if (!(cm.types & CanMove.Type.walk))
+        return false;
+
     return canMove(w, curPos, vec(dir));
 }
 
