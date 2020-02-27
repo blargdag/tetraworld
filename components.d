@@ -224,9 +224,13 @@ struct NoGravity { }
 @Component
 struct CanMove
 {
-    @BitFlags enum Type
+    @BitFlags
+    enum Type
     {
-        walk, climb, jump, swim,
+        walk    = 1 << 0,
+        climb   = 1 << 1,
+        jump    = 1 << 2,
+        swim    = 1 << 3,
     }
 
     Type types;

@@ -48,7 +48,7 @@ bool isViableMove(World w, ThingId agentId, Pos curPos, int[4] dir)
     if (dir == [0,0,0,0])
         return false;
 
-    if (dir == [-1,0,0,0] && ((cm.types & CanMove.Type.jump) == 0 ||
+    if (dir == [-1,0,0,0] && ((cm.types & CanMove.Type.jump) == 0 &&
                               !w.locationHas!SupportsWeight(curPos)))
         return false;
 
