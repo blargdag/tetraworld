@@ -1338,7 +1338,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
 
         w.store.createObj(Pos(pos), Name("conical creature"),
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
-                          BlocksMovement(), Agent(), Mortal(5,2), Climbs());
+                          BlocksMovement(), Agent(), Mortal(5,2),
+                          CanMove(CanMove.Type.walk | CanMove.Type.climb));
     }
 
     return w;

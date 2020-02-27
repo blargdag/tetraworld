@@ -55,18 +55,23 @@ struct SysGravity
         if (sw is null || (sw.type & type) == 0)
             return FallType.fall;
 
+        auto cm = w.store.get!CanMove(id);
+
         final switch (sw.cond)
         {
             case SupportCond.always:
                 return FallType.none;
 
             case SupportCond.climbing:
-                if (!alreadyFalling && w.store.get!Climbs(id) !is null)
+                if (!alreadyFalling && cm !is null &&
+                    (cm.types & CanMove.Type.climb))
+                {
                     return FallType.none;
+                }
                 break;
 
             case SupportCond.buoyant:
-                if (w.store.get!Swims(id) !is null)
+                if (cm !is null && (cm.types & CanMove.Type.swim))
                     return FallType.none;
 
                 // Non-buoyant objects will sink, but only slowly.
@@ -486,7 +491,7 @@ unittest
     //  4 #= #      4 #= #
     //  5 ####      5 ####
     w.store.destroyObj(rock.id);
-    auto guy = w.store.createObj(Name("guy"), Pos(2,1,1,1), Climbs());
+    auto guy = w.store.createObj(Name("guy"), Pos(2,1,1,1), CanMove(CanMove.Type.climb));
     grav.run(w);
 
     assert(*w.store.get!Pos(guy.id) == Pos(2,1,1,1));
