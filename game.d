@@ -672,6 +672,40 @@ StoryNode[] storyNodes = [
         args.nMonstersA = ValRange(6, 8);
         return genBspLevel(args, startPos);
     }),
+
+    StoryNode([
+        "Something is wrong.",
+
+        "As you step out of the portal, expecting to be back in Tetraworld "~
+        "Corp, you find yourself instead in a strange new location, with no "~
+        "indication as to what happened.  With a sudden loud, sizzling "~
+        "noise, the portal behind you vibrates violently and then explodes "~
+        "with a deafening pop.",
+
+        "When you recover from the shock, there is no trace left of the "~
+        "portal, nor any indication of any instructions or communications "~
+        "from Tetraworld Corp.  It seems that you are now stranded in an "~
+        "unknown 4D location, and you have to somehow find a way to survive "~
+        "long enough to find out what happened, and, hopefully, find a way "~
+        "out of here.",
+
+        "As you take your first steps forward, you hear faint echoes of "~
+        "unfriendly noises wafting from the distance.  This area seems even "~
+        "vaster than the one you have just been to, and fraught with new, "~
+        "unknown dangers. You will have to use every wit at your disposal to "~
+        "survive in this unfriendly terrain.",
+
+        "You brace yourself and prepare for the worst."
+    ], (ref int[4] startPos) {
+        MapGenArgs args;
+        args.dim = [ 64, 64, 64, 64 ];
+        args.nBackEdges = ValRange(100, 150);
+        args.nPitTraps = ValRange(250, 300);
+        args.goldPct = 0.2;
+        args.waterLevel = ValRange(32, 48);
+        args.nMonstersA = ValRange(30, 50);
+        return genBspLevel(args, startPos);
+    }),
 ];
 
 // vim:set ai sw=4 ts=4 et:
