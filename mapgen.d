@@ -1149,7 +1149,7 @@ unittest
  */
 void genPitTraps(World w, int count, int openPitPct = 30)
 {
-    genBackEdges(w.map.tree, w.map.bounds, count, 50,
+    genBackEdges(w.map.tree, w.map.bounds, count, count*5,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
 
@@ -1304,7 +1304,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     setRoomFloors(w.map.tree, w.map.bounds);
 
     // Add back edges, regular and pits/pit traps.
-    genBackEdges(w.map.tree, w.map.bounds, args.nBackEdges.pick, 15);
+    genBackEdges(w.map.tree, w.map.bounds, args.nBackEdges.pick,
+                 args.nBackEdges.max + 15);
     genPitTraps(w, args.nPitTraps.pick);
 
     resizeRooms(w.map.tree, w.map.bounds);
