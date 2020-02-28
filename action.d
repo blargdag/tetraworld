@@ -139,7 +139,7 @@ bool canMove(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
  * Check if moving in the given displacement from the given location qualifies
  * as a climb-ledge action.
  */
-bool canClimb(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
+bool canClimbLedge(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
 {
     auto newPos = Pos(pos + displacement);
 
@@ -173,7 +173,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
 
     if (!canMove(w, oldPos, displacement))
     {
-        if (canClimb(w, oldPos, displacement))
+        if (canClimbLedge(w, oldPos, displacement))
         {
             auto medPos = Pos(oldPos + vec(-1,0,0,0));
             rawMove(w, subj, medPos, {

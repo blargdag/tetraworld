@@ -52,7 +52,7 @@ bool isViableMove(World w, ThingId agentId, Pos curPos, int[4] dir)
                               !w.locationHas!SupportsWeight(curPos)))
         return false;
 
-    if ((cm.types & CanMove.Type.climb) && canClimb(w, curPos, vec(dir)))
+    if ((cm.types & CanMove.Type.climb) && canClimbLedge(w, curPos, vec(dir)))
         return true;
 
     if (!(cm.types & CanMove.Type.walk))

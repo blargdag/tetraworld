@@ -236,7 +236,7 @@ class Game
     {
         auto pos = playerPos;
         if (!canMove(w, pos, vec(displacement)) &&
-            !canClimb(w, pos, vec(displacement)))
+            !canClimbLedge(w, pos, vec(displacement)))
         {
             errmsg = "Your way is blocked.";
             return null;
