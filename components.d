@@ -244,12 +244,38 @@ struct CanMove
 struct Sinking { }
 
 /**
- * Component for objects that negate weight support (e.g. pit traps).
+ * Component for objects that trigger other objects.
  */
 @Component
-struct PitTrap
+struct Trigger
 {
-    bool revealed;
+    enum Type { onEnter }
+    Type type;
+    ulong triggerId;
+}
+
+/**
+ * The effect when an object is triggered.
+ */
+enum TriggerEffect
+{
+    trapDoor,
+}
+
+/**
+ * Component for objects that can be triggered.
+ */
+@Component @Indexed
+struct Triggerable
+{
+    ulong triggerId;
+    TriggerEffect effect;
+
+    size_t toHash() const @safe pure nothrow { return triggerId; }
+    bool opEquals(ref const Triggerable a) const @safe pure nothrow
+    {
+        return triggerId == a.triggerId;
+    }
 }
 
 /**

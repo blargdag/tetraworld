@@ -1166,6 +1166,7 @@ unittest
  */
 void genPitTraps(World w, int count, int openPitPct = 30)
 {
+    int triggerId = 1;
     genBackEdges(w.map.tree, w.map.bounds, count, count*5,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
@@ -1200,10 +1201,14 @@ void genPitTraps(World w, int count, int openPitPct = 30)
             {
                 d.type = Door.Type.trapdoor;
                 auto floorId = style2Terrain(rooms[0].style);
+                w.store.createObj(Pos(vec(d.pos) + vec(-1,0,0,0)), NoGravity(),
+                                  Trigger(Trigger.Type.onEnter, triggerId));
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
-                    PitTrap(), NoGravity(), BlocksMovement(Climbable.yes),
-                    BlocksView());
+                    NoGravity(), BlocksMovement(Climbable.yes), BlocksView(),
+                    Triggerable(triggerId, TriggerEffect.trapDoor));
+
+                triggerId++;
             }
             return true;
         },
@@ -1241,7 +1246,7 @@ unittest
 
     genPitTraps(w, 1, 0);
 
-    auto r = w.store.getAll!PitTrap()
+    auto r = w.store.getAll!Triggerable()
                     .map!(id => w.store.get!TiledAbove(id));
     assert(!r.empty);
     assert(r.front.tileId == TileId.floorGrassy);
