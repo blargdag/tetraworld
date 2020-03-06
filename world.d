@@ -129,7 +129,7 @@ enum DmgType
  */
 enum MapChgType
 {
-    revealPitTrap,
+    revealPitTrap, triggerRockTrap,
 }
 
 /**
@@ -181,7 +181,9 @@ class World
 {
     GameMap map;
     Store store;
+
     @NoSave EventWatcher notify;
+    @NoSave ulong triggerId; // TBD: does this need to be @NoSave??
 
     this()
     {

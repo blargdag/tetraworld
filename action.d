@@ -95,21 +95,41 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
         }
     }
 
-    // Pit traps (TBD: this should be generalized to a general onEntry trigger)
-    auto floorPos = Pos(newPos + vec(1,0,0,0));
-    foreach (t; w.store.getAllBy!Pos(floorPos)
-                 .map!(id => w.store.getObj(id))
-                 .filter!(t => t.systems & SysMask.pittrap))
+    // Triggers
+    foreach (trigObj; w.store.getAllBy!Pos(newPos)
+                    .map!(id => w.store.getObj(id)))
     {
-        auto pt = w.store.get!PitTrap(t.id);
-        if (pt.revealed) continue;
-        pt.revealed = true;
+        auto trig = w.store.get!Trigger(trigObj.id);
+        if (trig is null || trig.type != Trigger.Type.onEnter)
+            continue;
 
-        w.store.remove!BlocksMovement(t);
-        w.store.remove!BlocksView(t);
-        w.store.remove!TiledAbove(t);
-        w.store.add!Tiled(t, Tiled(TileId.trapPit));
-        w.notify.mapChange(MapChgType.revealPitTrap, floorPos, subj.id, t.id);
+        auto groupId = Triggerable(trig.triggerId);
+        foreach (t; w.store.getAllBy!Triggerable(groupId)
+                     .map!(id => w.store.getObj(id)))
+        {
+            auto tga = w.store.get!Triggerable(t.id);
+            assert(tga !is null);
+            final switch (tga.effect)
+            {
+                case TriggerEffect.trapDoor:
+                    w.store.remove!BlocksMovement(t);
+                    w.store.remove!BlocksView(t);
+                    w.store.remove!TiledAbove(t);
+                    w.store.remove!Triggerable(t); // trigger only once(?)
+                    w.store.add!Tiled(t, Tiled(TileId.trapPit));
+                    w.notify.mapChange(MapChgType.revealPitTrap, newPos,
+                                       subj.id, t.id);
+                    break;
+
+                case TriggerEffect.rockTrap:
+                    auto pos = *w.store.get!Pos(t.id);
+                    w.store.add!Tiled(trigObj, Tiled(TileId.trapRock));
+                    w.store.createObj(pos, Name("rock"), Tiled(TileId.rock));
+                    w.notify.mapChange(MapChgType.triggerRockTrap, pos,
+                                       subj.id, t.id);
+                    break;
+            }
+        }
     }
 
     // Emit any Messages

@@ -119,22 +119,12 @@ struct Store
         void add(U : T)(Thing* t, U comp)
             in (t !is null)
         {
-            addImpl(t, comp, false);
-        }
-
-        private void addImpl(U : T)(Thing* t, U comp, bool idxBeforeLast)
-        {
             t.systems |= 1 << i; // FIXME
             pods[i][t.id] = comp;
 
             static if (hasUDA!(T, Indexed))
             {
                 indices[i][comp] ~= t.id;
-                if (idxBeforeLast && indices[i][comp].length > 1)
-                {
-                    import std.algorithm : swap;
-                    swap(indices[i][comp][$-2], indices[i][comp][$-1]);
-                }
             }
 
             static if (hasUDA!(T, TrackNew))
@@ -168,22 +158,6 @@ struct Store
             }
 
             pods[i].remove(t.id);
-        }
-
-        static if (hasUDA!(T, Indexed))
-        {
-            /**
-             * Add component T to a Thing, but ensure it is inserted before the
-             * last element in the index.
-             *
-             * BUGS: This is an ugly hack that's really only useful for Pos,
-             * when we want to insert something under the top object in a map
-             * tile. Can't think of a better way to do this currently, though.
-             */
-            void insertBeforeLast(U : T)(Thing* t, U comp)
-            {
-                addImpl(t, comp, true);
-            }
         }
 
         /**

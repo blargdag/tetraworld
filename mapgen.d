@@ -101,8 +101,25 @@ unittest
  */
 int floorArea(MapNode node)
 {
-    return node.isLeaf ? node.interior.volume
-                       : floorArea(node.left) + floorArea(node.right);
+    if (node.isLeaf)
+        return iota(1, 4)
+            .map!(i => node.interior.max[i] - node.interior.min[i])
+            .fold!((a, b) => a*b)(1);
+    else
+        return floorArea(node.left) + floorArea(node.right);
+}
+
+unittest
+{
+    auto tree = new MapNode;
+    tree.interior = region(vec(1,1,1,1), vec(3,3,3,3));
+    assert(floorArea(tree) == 8);
+
+    tree.interior = region(vec(1,1,1,1), vec(20,3,3,3));
+    assert(floorArea(tree) == 8);
+
+    tree.interior = region(vec(1,1,1,1), vec(20,4,3,3));
+    assert(floorArea(tree) == 12);
 }
 
 private class GenCorridorsException : Exception
@@ -1183,10 +1200,13 @@ void genPitTraps(World w, int count, int openPitPct = 30)
             {
                 d.type = Door.Type.trapdoor;
                 auto floorId = style2Terrain(rooms[0].style);
+                w.store.createObj(Pos(vec(d.pos) + vec(-1,0,0,0)), NoGravity(),
+                                  Trigger(Trigger.Type.onEnter, w.triggerId));
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
-                    PitTrap(), NoGravity(), BlocksMovement(Climbable.yes),
-                    BlocksView());
+                    NoGravity(), BlocksMovement(Climbable.yes), BlocksView(),
+                    Triggerable(w.triggerId, TriggerEffect.trapDoor));
+                w.triggerId++;
             }
             return true;
         },
@@ -1224,10 +1244,53 @@ unittest
 
     genPitTraps(w, 1, 0);
 
-    auto r = w.store.getAll!PitTrap()
+    auto r = w.store.getAll!Triggerable()
                     .map!(id => w.store.get!TiledAbove(id));
     assert(!r.empty);
     assert(r.front.tileId == TileId.floorGrassy);
+}
+
+/**
+ * Generate rock traps.
+ *
+ * Prerequisites:
+ * - Must be called *after resizeRooms(), addLadders(), setting of water
+ *   levels, and placement of important level objects like portals, because
+ *   this will generate traps on any unoccupied floor tile. (But it's probably
+ *   OK to call this before placing gold, monsters, or other items: it will
+ *   just be trapped gold. :-P)
+ *
+ * Note: this is done separately from genPitTraps because it needs rooms'
+ * .interior to be already fixed.
+ */
+void genRockTraps(World w, int count)
+{
+    while (count > 0)
+    {
+        // Find unoccupied location.
+        auto room = randomDryRoom(w);
+        if (room is null)
+            return; // everything is underwater; don't bother.
+
+        auto pos = room.randomLocation(room.interior);
+        auto floorPos = pos + vec(1,0,0,0);
+        while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
+               !w.locationHas!BlocksMovement(floorPos))
+        {
+            pos = randomLocation(w.map.tree, w.map.bounds, false);
+            floorPos = pos + vec(1,0,0,0);
+        }
+
+        auto ceilingPos = pos;
+        ceilingPos[0] = room.interior.min[0];
+
+        w.store.createObj(Pos(pos), Trigger(Trigger.Type.onEnter,
+                                            w.triggerId));
+        w.store.createObj(Pos(ceilingPos), NoGravity(),
+                          Triggerable(w.triggerId, TriggerEffect.rockTrap));
+        w.triggerId++;
+        count--;
+    }
 }
 
 /**
@@ -1253,6 +1316,7 @@ struct MapGenArgs
     int[4] dim;
     ValRange nBackEdges;
     ValRange nPitTraps;
+    ValRange nRockTraps;
 
     float goldPct;
     ValRange waterLevel = ValRange(int.max-1, int.max);
@@ -1318,6 +1382,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
                       Name("exit portal"), Usable(UseEffect.portal),
                       Message(["You see the exit portal here."]));
 
+    genRockTraps(w, args.nRockTraps.pick);
+
     MapNode startRoom = randomDryRoom(w);
     startPos = startRoom.randomLocation(startRoom.interior);
 
@@ -1339,8 +1405,16 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
 
         w.store.createObj(Pos(pos), Name("conical creature"),
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
-                          BlocksMovement(), Agent(), Mortal(5,2),
+                          BlocksMovement(), Agent(), Mortal(5,5),
                           CanMove(CanMove.Type.walk | CanMove.Type.climb));
+    }
+
+    // Generate random rocks as additional deco.
+    // FIXME: this should be configurable.
+    foreach (i; 0 .. 1 + floorArea(w.map.tree) * 2 / 100)
+    {
+        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+                          Tiled(TileId.rock), Name("rock"));
     }
 
     return w;
