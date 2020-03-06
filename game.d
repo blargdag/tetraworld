@@ -583,7 +583,7 @@ StoryNode[] storyNodes = [
     ], (ref int[4] startPos) {
         MapGenArgs args;
         args.dim = [ 9, 9, 9, 9 ];
-        args.goldPct = 0.2;
+        args.goldPct = 1.8;
         return genBspLevel(args, startPos);
     }),
 
@@ -605,7 +605,7 @@ StoryNode[] storyNodes = [
         MapGenArgs args;
         args.dim = [ 10, 10, 10, 10 ];
         args.nBackEdges = ValRange(3, 5);
-        args.goldPct = 0.2;
+        args.goldPct = 1.8;
         return genBspLevel(args, startPos);
     }),
 
@@ -629,7 +629,7 @@ StoryNode[] storyNodes = [
         args.dim = [ 12, 12, 12, 12 ];
         args.nBackEdges = ValRange(3, 5);
         args.nPitTraps = ValRange(8, 12);
-        args.goldPct = 0.2;
+        args.goldPct = 1.0;
         args.waterLevel = ValRange(9, 15);
         args.nMonstersA = ValRange(2, 5);
         return genBspLevel(args, startPos);
@@ -650,7 +650,7 @@ StoryNode[] storyNodes = [
         args.dim = [ 15, 15, 15, 15 ];
         args.nBackEdges = ValRange(5, 8);
         args.nPitTraps = ValRange(12, 18);
-        args.goldPct = 0.2;
+        args.goldPct = 1.0;
         args.waterLevel = ValRange(10, 15);
         args.nMonstersA = ValRange(4, 6);
         return genBspLevel(args, startPos);
@@ -669,7 +669,7 @@ StoryNode[] storyNodes = [
         args.dim = [ 20, 20, 20, 20 ];
         args.nBackEdges = ValRange(10, 15);
         args.nPitTraps = ValRange(20, 25);
-        args.goldPct = 0.2;
+        args.goldPct = 1.0;
         args.waterLevel = ValRange(10, 20);
         args.nMonstersA = ValRange(6, 8);
         return genBspLevel(args, startPos);

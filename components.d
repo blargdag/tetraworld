@@ -84,6 +84,7 @@ enum TileId : ushort
     creatureA,
 
     gold,
+    rock,
     portal,
     trapPit,
 }

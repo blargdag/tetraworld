@@ -47,6 +47,7 @@ Tile16[TileId.max+1] tiles = [
     TileId.creatureA:   Tile16('A', Color.red),
 
     TileId.gold:        Tile16('$', Color.yellow),
+    TileId.rock:        Tile16('*'),
     TileId.portal:      Tile16('@', Color.red),
     TileId.trapPit:     Tile16('^', Color.red),
 ];

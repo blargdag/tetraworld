@@ -101,8 +101,25 @@ unittest
  */
 int floorArea(MapNode node)
 {
-    return node.isLeaf ? node.interior.volume
-                       : floorArea(node.left) + floorArea(node.right);
+    if (node.isLeaf)
+        return iota(1, 4)
+            .map!(i => node.interior.max[i] - node.interior.min[i])
+            .fold!((a, b) => a*b)(1);
+    else
+        return floorArea(node.left) + floorArea(node.right);
+}
+
+unittest
+{
+    auto tree = new MapNode;
+    tree.interior = region(vec(1,1,1,1), vec(3,3,3,3));
+    assert(floorArea(tree) == 8);
+
+    tree.interior = region(vec(1,1,1,1), vec(20,3,3,3));
+    assert(floorArea(tree) == 8);
+
+    tree.interior = region(vec(1,1,1,1), vec(20,4,3,3));
+    assert(floorArea(tree) == 12);
 }
 
 private class GenCorridorsException : Exception
@@ -1341,6 +1358,14 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
                           BlocksMovement(), Agent(), Mortal(5,2),
                           CanMove(CanMove.Type.walk | CanMove.Type.climb));
+    }
+
+    // Generate random rocks as additional deco.
+    // FIXME: this should be configurable.
+    foreach (i; 0 .. 1 + floorArea(w.map.tree) * 2 / 100)
+    {
+        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+                          Tiled(TileId.rock), Name("rock"));
     }
 
     return w;
