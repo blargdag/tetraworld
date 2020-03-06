@@ -251,6 +251,14 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
     {
         // Check if on floor and can jump.
         if (foreachSupport(w, agentId, SupportType.above, (id, sw) {
+                // Note: check for climbing is necessary for SupportType.above
+                // because ladders do support from below, otherwise agent will
+                // get stuck on the top of a ladder!
+                if (sw.cond == SupportCond.climbing &&
+                    (cm.types & CanMove.Type.climb))
+                {
+                    return 1;
+                }
                 if (sw.cond == SupportCond.always &&
                     (cm.types & CanMove.Type.jump))
                 {
@@ -285,11 +293,18 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
         // Horizontal movement: check if on floor and have walk/run ability, or
         // in water and can swim.
         if (foreachSupport(w, agentId, SupportType.above, (id, sw) {
-                if (sw.cond == SupportCond.always &&
+                if ((sw.cond == SupportCond.always ||
+                     sw.cond == SupportCond.climbing) &&
                     (cm.types & CanMove.Type.walk))
                 {
                     return 1;
                 }
+                return 0;
+            }))
+        {
+            return true;
+        }
+        if (foreachSupport(w, agentId, SupportType.within, (id, sw) {
                 if (sw.cond == SupportCond.buoyant &&
                     (cm.types & CanMove.Type.swim))
                 {
@@ -303,6 +318,161 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
     }
 
     return false;
+}
+
+unittest
+{
+    // Test environment:
+    //   01234567
+    // 0 ########
+    // 1 #  #   #
+    // 2 # _-_  #
+    // 3 # =#=  #
+    // 4 ####=~~#
+    // 5 ####=~~#
+    // 6 ########
+    import gamemap;
+    auto root = new MapNode;
+    root.axis = 1;
+    root.pivot = 4;
+
+    root.left = new MapNode;
+    root.left.interior = region(vec(1,1,0,0), vec(4,3,1,1));
+    root.left.doors = [ Door(1, [3,2,0,0]) ];
+
+    root.right = new MapNode;
+    root.right.interior = region(vec(1,4,0,0), vec(6,7,1,1));
+    root.right.doors = [ Door(1, [3,2,0,0]) ];
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = region(vec(0,0,0,0), vec(8,7,2,2));
+    w.map.waterLevel = 4;
+
+    import terrain : createLadder;
+    createLadder(&w.store, Pos(3,2,0,0));
+    createLadder(&w.store, Pos(3,4,0,0));
+    createLadder(&w.store, Pos(4,4,0,0));
+    createLadder(&w.store, Pos(5,4,0,0));
+
+    auto walker = w.store.createObj(Name("ходящий"),
+                                    CanMove(CanMove.Type.walk));
+    auto climber = w.store.createObj(Name("лазящий"),
+                                     CanMove(CanMove.Type.climb));
+    auto jumper = w.store.createObj(Name("прыгающий"),
+                                    CanMove(CanMove.Type.jump));
+    auto swimmer = w.store.createObj(Name("плавающий"),
+                                    CanMove(CanMove.Type.swim));
+
+    // Walker tests
+    w.store.add!Pos(walker, Pos(3,1,0,0)); // on floor
+    assert( canAgentMove(w, walker.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(1,0,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(walker, Pos(3,2,0,0)); // bottom of ladder
+    assert( canAgentMove(w, walker.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(1,0,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(walker, Pos(2,2,0,0)); // top of ladder
+    assert(!canAgentMove(w, walker.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(1,0,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(walker, Pos(2,3,0,0)); // in doorway
+    assert( canAgentMove(w, walker.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(1,0,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(walker, Pos(4,5,0,0)); // floating in water
+    assert(!canAgentMove(w, walker.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(1,0,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(walker, Pos(5,5,0,0)); // on floor in water
+    assert( canAgentMove(w, walker.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(1,0,0,0)));
+    assert(!canAgentMove(w, walker.id, vec(-1,0,0,0)));
+
+    // Climber tests
+    w.store.add!Pos(climber, Pos(3,1,0,0)); // on floor
+    assert(!canAgentMove(w, climber.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, climber.id, vec(1,0,0,0)));
+
+    w.store.add!Pos(climber, Pos(3,2,0,0)); // bottom of ladder
+    assert(!canAgentMove(w, climber.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, climber.id, vec(1,0,0,0)));
+
+    w.store.add!Pos(climber, Pos(2,2,0,0)); // top of ladder
+    assert(!canAgentMove(w, climber.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, climber.id, vec(1,0,0,0)));
+
+    w.store.add!Pos(climber, Pos(4,4,0,0)); // on ladder in water
+    assert(!canAgentMove(w, climber.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, climber.id, vec(1,0,0,0)));
+
+    w.store.add!Pos(climber, Pos(5,4,0,0)); // bottom of ladder in water
+    assert(!canAgentMove(w, climber.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, climber.id, vec(1,0,0,0)));
+
+    w.store.add!Pos(climber, Pos(4,5,0,0)); // in water
+    assert(!canAgentMove(w, climber.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, climber.id, vec(1,0,0,0)));
+
+    // Jumper tests
+    w.store.add!Pos(jumper, Pos(3,1,0,0)); // on floor
+    assert(!canAgentMove(w, jumper.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, jumper.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(jumper, Pos(2,1,0,0)); // in midair
+    assert(!canAgentMove(w, jumper.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, jumper.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(jumper, Pos(3,2,0,0)); // bottom of ladder
+    assert(!canAgentMove(w, jumper.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, jumper.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(jumper, Pos(2,2,0,0)); // top of ladder
+    assert(!canAgentMove(w, jumper.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, jumper.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(jumper, Pos(5,5,0,0)); // on floor in water
+    assert(!canAgentMove(w, jumper.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, jumper.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(jumper, Pos(4,5,0,0)); // in water
+    assert(!canAgentMove(w, jumper.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, jumper.id, vec(-1,0,0,0)));
+
+    // Swimmer tests
+    w.store.add!Pos(swimmer, Pos(3,1,0,0)); // on floor
+    assert(!canAgentMove(w, swimmer.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, swimmer.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(swimmer, Pos(3,2,0,0)); // bottom of ladder
+    assert(!canAgentMove(w, swimmer.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, swimmer.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(swimmer, Pos(2,2,0,0)); // top of ladder
+    assert(!canAgentMove(w, swimmer.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, swimmer.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(swimmer, Pos(4,5,0,0)); // in water
+    assert( canAgentMove(w, swimmer.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, swimmer.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(swimmer, Pos(5,5,0,0)); // on floor in water
+    assert( canAgentMove(w, swimmer.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, swimmer.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(swimmer, Pos(4,4,0,0)); // on ladder in water
+    assert( canAgentMove(w, swimmer.id, vec(0,1,0,0)));
+    assert( canAgentMove(w, swimmer.id, vec(-1,0,0,0)));
+
+    w.store.add!Pos(swimmer, Pos(3,4,0,0)); // on ladder above water
+    assert(!canAgentMove(w, swimmer.id, vec(0,1,0,0)));
+    assert(!canAgentMove(w, swimmer.id, vec(-1,0,0,0)));
 }
 
 /**

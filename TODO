@@ -6,8 +6,6 @@
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
-- BUG: monsters get trapped at top of ladder and stop moving. Also, while
-  chasing player on ladder, they seem to move erratically with many pauses.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -216,3 +214,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      above it.
       * Actually, this runs into several problems with the way trapdoors work.
         Better implement rock traps as a separate thing for now!
++ BUG: monsters get trapped at top of ladder and stop moving. Also, while
+  chasing player on ladder, they seem to move erratically with many pauses.
