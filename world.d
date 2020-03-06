@@ -192,7 +192,7 @@ class World
      * Returns: An input range of all objects at the specified location,
      * including floor tiles.
      */
-    auto getAllAt(Pos pos)
+    auto getAllAt(Vec!(int,4) pos)
     {
         return store.getAllBy!Pos(Pos(pos))
                     .chain(only(map[pos]));
@@ -202,7 +202,7 @@ class World
      * Returns: true if one or more objects in the given location contains the
      * component Comp; false otherwise.
      */
-    bool locationHas(Comp)(Pos pos)
+    bool locationHas(Comp)(Vec!(int,4) pos)
     {
         return !getAllAt(pos).filter!(id => store.get!Comp(id) !is null)
                              .empty;

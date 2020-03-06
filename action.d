@@ -125,6 +125,167 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
 }
 
 /**
+ * Iterates over the current supporters of the given agent's weight of the
+ * given type(s) and invokes the given delegate.
+ *
+ * Params:
+ *  w = The World object.
+ *  agentId = The agent ID.
+ *  type = The support types to check (can be multiple OR'd values).
+ *  dg = The delegate to invoke per support. It is invoked with the supporting
+ *      object's ID and SupportsWeight component. For conditional supporters,
+ *      only objects whose conditions are currently satisfied by the agent are
+ *      passed to the delegate. Normally, the delegate should return 0;
+ *      returning a non-zero value short-circuits the iteration and propagates
+ *      the value to the return value of this function.
+ *
+ * Returns: The first non-zero return value of dg, otherwise 0.
+ */
+int foreachSupport(World w, ThingId agentId, SupportType type,
+                   int delegate(ThingId support, SupportsWeight* sw) dg)
+{
+    auto pos = *w.store.get!Pos(agentId);
+    auto cm = w.store.get!CanMove(agentId);
+
+    bool agentSupportedBy(SupportsWeight* sw)
+    {
+        final switch (sw.cond)
+        {
+            case SupportCond.always:
+                return true;
+
+            case SupportCond.climbing:
+                if (cm !is null && (cm.types & CanMove.Type.climb))
+                    return true;
+                break;
+
+            case SupportCond.buoyant:
+                if (cm !is null && (cm.types & CanMove.Type.swim))
+                    return true;
+                break;
+        }
+        return false;
+    }
+
+    static struct Ent
+    {
+        ThingId id;
+        SupportsWeight* sw;
+    }
+
+    if (type & SupportType.above)
+    {
+        auto floorPos = *w.store.get!Pos(agentId) + vec(1,0,0,0);
+        foreach (e; w.getAllAt(floorPos)
+                     .map!(id => Ent(id, w.store.get!SupportsWeight(id)))
+                     .filter!(e => e.sw !is null &&
+                                   (e.sw.type & SupportType.above) &&
+                                   agentSupportedBy(e.sw)))
+        {
+            auto rc = dg(e.id, e.sw);
+            if (rc)
+                return rc;
+        }
+    }
+
+    if (type & SupportType.within)
+    {
+        foreach (e; w.getAllAt(pos)
+                     .map!(id => Ent(id, w.store.get!SupportsWeight(id)))
+                     .filter!(e => e.sw !is null &&
+                                   (e.sw.type & SupportType.within) &&
+                                   agentSupportedBy(e.sw)))
+        {
+            auto rc = dg(e.id, e.sw);
+            if (rc)
+                return rc;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Returns: true if the agent can move in the given direction, given the
+ * current agent state; false otherwise.
+ *
+ * Note: This function does NOT check for obstacles, merely whether the agent
+ * itself can move.
+ */
+bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
+{
+    if (displacement.rectNorm != 1)
+        return false; // TBD: check leaping ability
+
+    auto p = w.store.get!Pos(agentId);
+    if (p is null)
+        return false;
+
+    auto curPos = *p;
+    auto cm = w.store.get!CanMove(agentId);
+    if (cm is null)
+        return false;
+
+    // Vertical movement
+    if (displacement == vec(1,0,0,0) || displacement == vec(-1,0,0,0))
+    {
+        // Check if on floor and can jump.
+        if (foreachSupport(w, agentId, SupportType.above, (id, sw) {
+                if (sw.cond == SupportCond.always &&
+                    (cm.types & CanMove.Type.jump))
+                {
+                    return 1;
+                }
+                return 0;
+            }))
+        {
+            return true;
+        }
+
+        // Check if on ladder and can climb, or in water and can swim.
+        if (foreachSupport(w, agentId, SupportType.within, (id, sw) {
+                if (sw.cond == SupportCond.climbing &&
+                    (cm.types & CanMove.Type.climb))
+                {
+                    return 1;
+                }
+                if (sw.cond == SupportCond.buoyant &&
+                    (cm.types & CanMove.Type.swim))
+                {
+                    return 1;
+                }
+                return 0;
+            }))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        // Horizontal movement: check if on floor and have walk/run ability, or
+        // in water and can swim.
+        if (foreachSupport(w, agentId, SupportType.above, (id, sw) {
+                if (sw.cond == SupportCond.always &&
+                    (cm.types & CanMove.Type.walk))
+                {
+                    return 1;
+                }
+                if (sw.cond == SupportCond.buoyant &&
+                    (cm.types & CanMove.Type.swim))
+                {
+                    return 1;
+                }
+                return 0;
+            }))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Check if movement from the given location by the given displacement would be
  * blocked.
  */
@@ -139,7 +300,7 @@ bool canMove(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
  * Check if moving in the given displacement from the given location qualifies
  * as a climb-ledge action.
  */
-bool canClimb(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
+bool canClimbLedge(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
 {
     auto newPos = Pos(pos + displacement);
 
@@ -173,7 +334,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
 
     if (!canMove(w, oldPos, displacement))
     {
-        if (canClimb(w, oldPos, displacement))
+        if (canClimbLedge(w, oldPos, displacement))
         {
             auto medPos = Pos(oldPos + vec(-1,0,0,0));
             rawMove(w, subj, medPos, {
