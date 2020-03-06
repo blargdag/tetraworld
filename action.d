@@ -285,7 +285,8 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
         // Horizontal movement: check if on floor and have walk/run ability, or
         // in water and can swim.
         if (foreachSupport(w, agentId, SupportType.above, (id, sw) {
-                if (sw.cond == SupportCond.always &&
+                if ((sw.cond == SupportCond.always ||
+                     sw.cond == SupportCond.climbing) &&
                     (cm.types & CanMove.Type.walk))
                 {
                     return 1;
