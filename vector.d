@@ -110,7 +110,7 @@ struct Vec(T, size_t n)
             mixin("x " ~ op ~ "= v[i];");
     }
 
-    void toString(W)(W sink)
+    void toString(W)(W sink) const
         if (isOutputRange!(W, char))
     {
         import std.format : formattedWrite;
@@ -423,7 +423,7 @@ struct Region(T, size_t _n)
         return Region(lb, lb + size);
     }
 
-    void toString(W)(W sink)
+    void toString(W)(W sink) const
         if (isOutputRange!(W, char))
     {
         import std.format : formattedWrite;
