@@ -1316,6 +1316,7 @@ struct MapGenArgs
     int[4] dim;
     ValRange nBackEdges;
     ValRange nPitTraps;
+    ValRange nRockTraps;
 
     float goldPct;
     ValRange waterLevel = ValRange(int.max-1, int.max);
@@ -1381,7 +1382,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
                       Name("exit portal"), Usable(UseEffect.portal),
                       Message(["You see the exit portal here."]));
 
-    genRockTraps(w, args.nPitTraps.pick /*FIXME*/);
+    genRockTraps(w, args.nRockTraps.pick);
 
     MapNode startRoom = randomDryRoom(w);
     startPos = startRoom.randomLocation(startRoom.interior);
