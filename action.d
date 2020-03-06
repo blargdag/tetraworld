@@ -251,6 +251,14 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
     {
         // Check if on floor and can jump.
         if (foreachSupport(w, agentId, SupportType.above, (id, sw) {
+                // Note: check for climbing is necessary for SupportType.above
+                // because ladders do support from below, otherwise agent will
+                // get stuck on the top of a ladder!
+                if (sw.cond == SupportCond.climbing &&
+                    (cm.types & CanMove.Type.climb))
+                {
+                    return 1;
+                }
                 if (sw.cond == SupportCond.always &&
                     (cm.types & CanMove.Type.jump))
                 {
