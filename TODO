@@ -2,11 +2,18 @@
    - Instead of doing this from scratch, what about adapting the current pit
      traps? A rock trap is essentially a pit trap that is triggered from below
      instead of above, and has a pile of rocks above it.
-   - First things first, implement rocks as items.
+   + First things first, implement rocks as items.
    - Refactor pit traps to have a separate trigger object that can be
      separately placed.
    - Create rock traps as something triggered from below, with rocks generated
      above it.
+- Implement pickup action.
+   - Gold count should no longer be based on Pickable; gold should have a
+     separate QuestToken component for counting purposes.
+   - Implement inventory screen.
+   - Implement item stacking.
+- Implement throwing rocks at monsters. :-D
+   - Implement UI targeting mode.
 - Need better control over branchiness of second level.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
