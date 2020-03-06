@@ -257,6 +257,7 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
                 return 0;
             }))
         {
+            return true;
         }
     }
     else

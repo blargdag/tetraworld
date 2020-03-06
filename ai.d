@@ -33,35 +33,6 @@ import vector;
 import world;
 
 /**
- * Returns: true if dir passes the following checks:
- * - It's not zero (not staying still);
- * - If it's moving up, the current position can support weight so that the
- *   agent will not immediately fall down again;
- * - There are no (known) obstacles that block movement in that direction.
- */
-bool isViableMove(World w, ThingId agentId, Pos curPos, int[4] dir)
-{
-    auto cm = w.store.get!CanMove(agentId);
-    if (cm is null)
-        return false;
-
-    if (dir == [0,0,0,0])
-        return false;
-
-    if (dir == [-1,0,0,0] && ((cm.types & CanMove.Type.jump) == 0 &&
-                              !w.locationHas!SupportsWeight(curPos)))
-        return false;
-
-    if ((cm.types & CanMove.Type.climb) && canClimbLedge(w, curPos, vec(dir)))
-        return true;
-
-    if (!(cm.types & CanMove.Type.walk))
-        return false;
-
-    return canMove(w, curPos, vec(dir));
-}
-
-/**
  * Tries to call the given move generator up to numTries times until a viable
  * move is found.
  *
@@ -75,8 +46,12 @@ bool findViableMove(World w, ThingId agentId, Pos curPos, int numTries,
     while (numTries-- > 0)
     {
         dir = generator();
-        if (isViableMove(w, agentId, curPos, dir))
+        if (canAgentMove(w, agentId, vec(dir)) &&
+            (canMove(w, curPos, vec(dir)) ||
+             canClimbLedge(w, curPos, vec(dir))))
+        {
             return true;
+        }
     }
     return false;
 }
