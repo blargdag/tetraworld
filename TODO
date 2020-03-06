@@ -1,4 +1,6 @@
 - Need better control over branchiness of second level.
+- BUG: monsters get trapped at top of ladder and stop moving. Also, while
+  chasing player on ladder, they seem to move erratically with many pauses.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
