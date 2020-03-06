@@ -50,6 +50,7 @@ Tile16[TileId.max+1] tiles = [
     TileId.rock:        Tile16('*'),
     TileId.portal:      Tile16('@', Color.red),
     TileId.trapPit:     Tile16('^', Color.red),
+    TileId.trapRock:    Tile16('^', Color.red),
 ];
 
 // vim:set ai sw=4 ts=4 et:

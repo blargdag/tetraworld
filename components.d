@@ -87,6 +87,7 @@ enum TileId : ushort
     rock,
     portal,
     trapPit,
+    trapRock,
 }
 
 /**
@@ -259,7 +260,7 @@ struct Trigger
  */
 enum TriggerEffect
 {
-    trapDoor,
+    trapDoor, rockTrap,
 }
 
 /**

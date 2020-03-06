@@ -1166,7 +1166,6 @@ unittest
  */
 void genPitTraps(World w, int count, int openPitPct = 30)
 {
-    int triggerId = 1;
     genBackEdges(w.map.tree, w.map.bounds, count, count*5,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
@@ -1202,13 +1201,12 @@ void genPitTraps(World w, int count, int openPitPct = 30)
                 d.type = Door.Type.trapdoor;
                 auto floorId = style2Terrain(rooms[0].style);
                 w.store.createObj(Pos(vec(d.pos) + vec(-1,0,0,0)), NoGravity(),
-                                  Trigger(Trigger.Type.onEnter, triggerId));
+                                  Trigger(Trigger.Type.onEnter, w.triggerId));
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
                     NoGravity(), BlocksMovement(Climbable.yes), BlocksView(),
-                    Triggerable(triggerId, TriggerEffect.trapDoor));
-
-                triggerId++;
+                    Triggerable(w.triggerId, TriggerEffect.trapDoor));
+                w.triggerId++;
             }
             return true;
         },
@@ -1250,6 +1248,49 @@ unittest
                     .map!(id => w.store.get!TiledAbove(id));
     assert(!r.empty);
     assert(r.front.tileId == TileId.floorGrassy);
+}
+
+/**
+ * Generate rock traps.
+ *
+ * Prerequisites:
+ * - Must be called *after resizeRooms(), addLadders(), setting of water
+ *   levels, and placement of important level objects like portals, because
+ *   this will generate traps on any unoccupied floor tile. (But it's probably
+ *   OK to call this before placing gold, monsters, or other items: it will
+ *   just be trapped gold. :-P)
+ *
+ * Note: this is done separately from genPitTraps because it needs rooms'
+ * .interior to be already fixed.
+ */
+void genRockTraps(World w, int count)
+{
+    while (count > 0)
+    {
+        // Find unoccupied location.
+        auto room = randomDryRoom(w);
+        if (room is null)
+            return; // everything is underwater; don't bother.
+
+        auto pos = room.randomLocation(room.interior);
+        auto floorPos = pos + vec(1,0,0,0);
+        while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
+               !w.locationHas!BlocksMovement(floorPos))
+        {
+            pos = randomLocation(w.map.tree, w.map.bounds, false);
+            floorPos = pos + vec(1,0,0,0);
+        }
+
+        auto ceilingPos = pos;
+        ceilingPos[0] = room.interior.min[0];
+
+        w.store.createObj(Pos(pos), Trigger(Trigger.Type.onEnter,
+                                            w.triggerId));
+        w.store.createObj(Pos(ceilingPos), NoGravity(),
+                          Triggerable(w.triggerId, TriggerEffect.rockTrap));
+        w.triggerId++;
+        count--;
+    }
 }
 
 /**
@@ -1339,6 +1380,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
                       Name("exit portal"), Usable(UseEffect.portal),
                       Message(["You see the exit portal here."]));
+
+    genRockTraps(w, args.nPitTraps.pick /*FIXME*/);
 
     MapNode startRoom = randomDryRoom(w);
     startPos = startRoom.randomLocation(startRoom.interior);

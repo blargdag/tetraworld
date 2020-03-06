@@ -433,11 +433,24 @@ class Game
         w.notify.mapChange = (MapChgType type, Pos pos, ThingId subj,
                               ThingId obj)
         {
+            auto subjName = w.store.get!Name(subj);
             final switch (type)
             {
                 case MapChgType.revealPitTrap:
-                    ui.message("A trap door opens up under %s!",
-                               w.store.get!Name(subj).name);
+                    if (subjName)
+                        ui.message("A trap door opens up under %s!",
+                                   w.store.get!Name(subj).name);
+                    else
+                        ui.message("A trap door opens up!");
+                    break;
+
+                case MapChgType.triggerRockTrap:
+                    if (subjName)
+                        ui.message("A trap door opens up above %s and a rock "~
+                                   "falls out!", w.store.get!Name(subj).name);
+                    else
+                        ui.message("A trap door opens in the ceiling and a "~
+                                   "rock falls out!");
                     break;
             }
         };

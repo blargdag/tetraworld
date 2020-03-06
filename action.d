@@ -96,11 +96,13 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     }
 
     // Triggers
-    foreach (trig; w.store.getAllBy!Pos(newPos)
-                    .map!(id => w.store.get!Trigger(id))
-                    .filter!(tr => tr !is null &&
-                                   tr.type == Trigger.Type.onEnter))
+    foreach (trigObj; w.store.getAllBy!Pos(newPos)
+                    .map!(id => w.store.getObj(id)))
     {
+        auto trig = w.store.get!Trigger(trigObj.id);
+        if (trig is null || trig.type != Trigger.Type.onEnter)
+            continue;
+
         auto groupId = Triggerable(trig.triggerId);
         foreach (t; w.store.getAllBy!Triggerable(groupId)
                      .map!(id => w.store.getObj(id)))
@@ -116,6 +118,14 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
                     w.store.remove!Triggerable(t); // trigger only once(?)
                     w.store.add!Tiled(t, Tiled(TileId.trapPit));
                     w.notify.mapChange(MapChgType.revealPitTrap, newPos,
+                                       subj.id, t.id);
+                    break;
+
+                case TriggerEffect.rockTrap:
+                    auto pos = *w.store.get!Pos(t.id);
+                    w.store.add!Tiled(trigObj, Tiled(TileId.trapRock));
+                    w.store.createObj(pos, Name("rock"), Tiled(TileId.rock));
+                    w.notify.mapChange(MapChgType.triggerRockTrap, pos,
                                        subj.id, t.id);
                     break;
             }
