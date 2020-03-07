@@ -6,6 +6,9 @@
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
+- What about a crab creature (slow-moving, but tough, cannot climb, cannot swim
+  but can breathe underwater) that, once killed, leaves a shell that you can
+  don to serve as protection against falling rocks? :-P
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
