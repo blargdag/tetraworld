@@ -32,6 +32,9 @@
    - Pathfinding.
 - Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
   doesn't make sense. Maybe call it "diving equipment"?
+- Implement locked doors and keys?
+   - Basically, reserve the first n levels of the BSP tree (or separately
+     generate them) for disjoint areas, then insert locked doors between them.
 - Tutorial should include climb-ledge mechanics?
 - Should start encapsulating all uses of the RNG so that we can start
   generating seedable levels.
@@ -43,6 +46,8 @@
 - Per-room water levels?
 - Waterfalls? Rivers? :-D
 - [mapgen] Occasionally generate spiral staircases? :-D
+- Implement uncrossable pits and ropes for crossing them?
+   - Alternatively, opposite ladderless ledges that require a rope to traverse.
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
   and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
