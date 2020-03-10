@@ -677,7 +677,7 @@ Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
 
         foreach (i; 0 .. 4)
         {
-            assert(node.interior.length(i) >= 3);
+            assert(node.interior.length(i) >= 1);
             if (i == 0 && !allowMidAir)
                 result[i] = node.interior.max[i] - 1;
             else

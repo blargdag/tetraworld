@@ -224,3 +224,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
         Better implement rock traps as a separate thing for now!
 + BUG: monsters get trapped at top of ladder and stop moving. Also, while
   chasing player on ladder, they seem to move erratically with many pauses.
++ BUG: portals can sometimes spawn on top of a pit trap, making it impossible
+  to win the game. :-(

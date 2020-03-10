@@ -1294,6 +1294,50 @@ void genRockTraps(World w, int count)
 }
 
 /**
+ * Places an exit portal.
+ */
+void genPortal(World w)
+{
+    // Pick a tile that isn't empty or has no floor support.
+    auto pos = randomDryPos(w);
+    while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
+           !w.locationHas!BlocksMovement(pos + vec(1,0,0,0)))
+        pos = randomDryPos(w);
+
+    w.store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
+                      Usable(UseEffect.portal),
+                      Message(["You see the exit portal here."]));
+}
+
+unittest
+{
+    auto node = new MapNode;
+    node.interior = region(vec(0,0,0,0), vec(2,2,1,1));
+    node.doors = [ Door(0, [2,0,0,0], Door.Type.trapdoor) ];
+
+    auto w = new World;
+    w.map.tree = node;
+    w.map.bounds = region(vec(0,0,0,0), vec(3,3,2,2));
+    w.map.waterLevel = int.max;
+
+    foreach (_; 0 .. 10)
+    {
+        genPortal(w);
+
+        auto r = w.store.getAll!Usable();
+        assert(!r.empty);
+        auto id = r.front;
+        auto pos = *w.store.get!Pos(id);
+        assert(pos == Pos(1,1,0,0));
+
+        r.popFront;
+        assert(r.empty);
+
+        w.store.destroyObj(id);
+    }
+}
+
+/**
  * A random variable bounded by a range.
  */
 struct ValRange
@@ -1378,10 +1422,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     // Add water if necessary.
     w.map.waterLevel = args.waterLevel.pick;
 
-    w.store.createObj(Pos(randomDryPos(w)), Tiled(TileId.portal),
-                      Name("exit portal"), Usable(UseEffect.portal),
-                      Message(["You see the exit portal here."]));
-
+    genPortal(w);
     genRockTraps(w, args.nRockTraps.pick);
 
     MapNode startRoom = randomDryRoom(w);
