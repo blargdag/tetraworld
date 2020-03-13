@@ -57,6 +57,53 @@ struct ActionResult
     string failureMsg;
 }
 
+private void runTriggerEffect(World w, Thing* subj, Pos newPos,
+                              Thing* trigger, Thing* triggered,
+                              Triggerable tga)
+{
+    final switch (tga.effect)
+    {
+        case TriggerEffect.trapDoor:
+            w.store.remove!BlocksMovement(triggered);
+            w.store.remove!BlocksView(triggered);
+            w.store.remove!TiledAbove(triggered);
+            w.store.remove!Triggerable(triggered); // trigger only once(?)
+            w.store.add!Tiled(triggered, Tiled(TileId.trapPit));
+            w.notify.mapChange(MapChgType.revealPitTrap, newPos,
+                               subj.id, triggered.id);
+            break;
+
+        case TriggerEffect.rockTrap:
+            auto pos = *w.store.get!Pos(triggered.id);
+            w.store.add!Tiled(trigger, Tiled(TileId.trapRock));
+            w.store.createObj(pos, Name("rock"), Tiled(TileId.rock),
+                              Weight(50));
+            w.notify.mapChange(MapChgType.triggerRockTrap, pos,
+                               subj.id, triggered.id);
+            break;
+    }
+}
+
+private void runEnterTriggers(World w, Thing* subj, Pos newPos)
+{
+    foreach (trigObj; w.store.getAllBy!Pos(newPos)
+                    .map!(id => w.store.getObj(id)))
+    {
+        auto trig = w.store.get!Trigger(trigObj.id);
+        if (trig is null || trig.type != Trigger.Type.onEnter)
+            continue;
+
+        auto groupId = Triggerable(trig.triggerId);
+        foreach (t; w.store.getAllBy!Triggerable(groupId)
+                     .map!(id => w.store.getObj(id)))
+        {
+            auto tga = w.store.get!Triggerable(t.id);
+            assert(tga !is null);
+            runTriggerEffect(w, subj, newPos, trigObj, t, *tga);
+        }
+    }
+}
+
 /**
  * A low-level movement routine that handles terrain exit/enter conditions,
  * autopickup, and other per-tile effects.
@@ -96,42 +143,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     }
 
     // Triggers
-    foreach (trigObj; w.store.getAllBy!Pos(newPos)
-                    .map!(id => w.store.getObj(id)))
-    {
-        auto trig = w.store.get!Trigger(trigObj.id);
-        if (trig is null || trig.type != Trigger.Type.onEnter)
-            continue;
-
-        auto groupId = Triggerable(trig.triggerId);
-        foreach (t; w.store.getAllBy!Triggerable(groupId)
-                     .map!(id => w.store.getObj(id)))
-        {
-            auto tga = w.store.get!Triggerable(t.id);
-            assert(tga !is null);
-            final switch (tga.effect)
-            {
-                case TriggerEffect.trapDoor:
-                    w.store.remove!BlocksMovement(t);
-                    w.store.remove!BlocksView(t);
-                    w.store.remove!TiledAbove(t);
-                    w.store.remove!Triggerable(t); // trigger only once(?)
-                    w.store.add!Tiled(t, Tiled(TileId.trapPit));
-                    w.notify.mapChange(MapChgType.revealPitTrap, newPos,
-                                       subj.id, t.id);
-                    break;
-
-                case TriggerEffect.rockTrap:
-                    auto pos = *w.store.get!Pos(t.id);
-                    w.store.add!Tiled(trigObj, Tiled(TileId.trapRock));
-                    w.store.createObj(pos, Name("rock"), Tiled(TileId.rock),
-                                      Weight(50));
-                    w.notify.mapChange(MapChgType.triggerRockTrap, pos,
-                                       subj.id, t.id);
-                    break;
-            }
-        }
-    }
+    runEnterTriggers(w, subj, newPos);
 
     // Emit any Messages
     foreach (msg; w.getAllAt(newPos)
