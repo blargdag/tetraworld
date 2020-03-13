@@ -3,7 +3,7 @@
    - Possible solution: add a Weight component that can be used to distinguish
      between rocks hitting the trigger vs. presumably heavier agents walking on
      it.
-   - The Weight component can also take the place of NoGravity, which is kinda
+   + The Weight component can also take the place of NoGravity, which is kinda
      an ugly hack right now.
 - Need to start implement event filtering based on visibility / audibility!
 - Implement pickup action.
