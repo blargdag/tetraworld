@@ -215,10 +215,13 @@ struct SupportsWeight
 }
 
 /**
- * Component for objects that are not subject to gravity.
+ * Component for objects that are subject to gravity.
  */
 @Component
-struct NoGravity { }
+struct Weight
+{
+    int value = 1;
+}
 
 /**
  * Components for objects that can move on their own accord.

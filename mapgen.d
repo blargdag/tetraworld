@@ -1200,11 +1200,11 @@ void genPitTraps(World w, int count, int openPitPct = 30)
             {
                 d.type = Door.Type.trapdoor;
                 auto floorId = style2Terrain(rooms[0].style);
-                w.store.createObj(Pos(vec(d.pos) + vec(-1,0,0,0)), NoGravity(),
+                w.store.createObj(Pos(vec(d.pos) + vec(-1,0,0,0)),
                                   Trigger(Trigger.Type.onEnter, w.triggerId));
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
-                    NoGravity(), BlocksMovement(Climbable.yes), BlocksView(),
+                    BlocksMovement(Climbable.yes), BlocksView(),
                     Triggerable(w.triggerId, TriggerEffect.trapDoor));
                 w.triggerId++;
             }
@@ -1284,9 +1284,9 @@ void genRockTraps(World w, int count)
         auto ceilingPos = pos;
         ceilingPos[0] = room.interior.min[0];
 
-        w.store.createObj(Pos(pos), Trigger(Trigger.Type.onEnter,
-                                            w.triggerId));
-        w.store.createObj(Pos(ceilingPos), NoGravity(),
+        w.store.createObj(Pos(pos), Weight(1) /*FIXME:this is a hack*/,
+                          Trigger(Trigger.Type.onEnter, w.triggerId));
+        w.store.createObj(Pos(ceilingPos),
                           Triggerable(w.triggerId, TriggerEffect.rockTrap));
         w.triggerId++;
         count--;
@@ -1305,7 +1305,7 @@ void genPortal(World w)
         pos = randomDryPos(w);
 
     w.store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
-                      Usable(UseEffect.portal),
+                      Usable(UseEffect.portal), Weight(1),
                       Message(["You see the exit portal here."]));
 }
 
@@ -1433,7 +1433,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     foreach (i; 0 .. ngold)
     {
         w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                          Tiled(TileId.gold), Name("gold"), Pickable());
+                          Tiled(TileId.gold), Name("gold"), Pickable(),
+                          Weight(1));
     }
 
     foreach (i; 0 .. args.nMonstersA.pick())
@@ -1444,7 +1445,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
         while (startRoom.interior.contains(pos))
             pos = randomLocation(w.map.tree, w.map.bounds);
 
-        w.store.createObj(Pos(pos), Name("conical creature"),
+        w.store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
                           BlocksMovement(), Agent(), Mortal(5,5),
                           CanMove(CanMove.Type.walk | CanMove.Type.climb));
@@ -1455,7 +1456,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     foreach (i; 0 .. 1 + floorArea(w.map.tree) * 2 / 100)
     {
         w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                          Tiled(TileId.rock), Name("rock"));
+                          Tiled(TileId.rock), Name("rock"), Weight(50));
     }
 
     return w;
@@ -1616,31 +1617,32 @@ World genTutorialLevel(out int[4] startPos)
     ];
     foreach (pos; goldPos)
     {
-        w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable());
+        w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable(),
+                          Weight(1));
     }
 
     // Some in-game instructions to guide the player along.
-    w.store.createObj(Pos(1,1,1,1), NoGravity(), Message([
+    w.store.createObj(Pos(1,1,1,1), Message([
         "This is the tutorial training area.",
         "Use the 'j' and 'k' keys to move left/right.",
     ]));
-    w.store.createObj(Pos(1,1,1,5), NoGravity(), Message([
+    w.store.createObj(Pos(1,1,1,5), Message([
         "Good!",
         "Now use the 'n' and 'o' keys to move forwards/backwards.",
     ]));
-    w.store.createObj(Pos(1,1,5,5), NoGravity(), Message([
+    w.store.createObj(Pos(1,1,5,5), Message([
         "Very good!",
         "Next, use the 'h' and 'l' keys to move ana/kata.",
     ]));
-    w.store.createObj(Pos(1,5,5,5), NoGravity(), Message([
+    w.store.createObj(Pos(1,5,5,5), Message([
         "Excellent!",
         "Use the 'i' and 'm' keys to climb up/down.",
     ]));
-    w.store.createObj(Pos(5,5,5,5), NoGravity(), Message([
+    w.store.createObj(Pos(5,5,5,5), Message([
         "Well done.",
         "Now collect all the gold ores, then head to the portal.",
     ]));
-    w.store.createObj(Pos(5,5,5,3), NoGravity(), Message([
+    w.store.createObj(Pos(5,5,5,3), Message([
         "At any time, press '?' for help.",
     ]));
 

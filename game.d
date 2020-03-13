@@ -276,7 +276,7 @@ class Game
 
         player = w.store.createObj(
             Pos(startPos), Tiled(TileId.player, 1, Tiled.Hint.dynamic),
-            Name("you"), Agent(Agent.Type.player), Inventory(),
+            Name("you"), Agent(Agent.Type.player), Inventory(), Weight(1000),
             BlocksMovement(), Mortal(5,5),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)

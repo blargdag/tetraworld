@@ -157,7 +157,10 @@ struct SysGravity
     void run(World w)
     {
         auto targets = w.store.getAllNew!Pos()
-                        .filter!(id => w.store.get!NoGravity(id) is null)
+                        .filter!((id) {
+                            auto wgt = w.store.get!Weight(id);
+                            return (wgt !is null) ? wgt.value > 0 : 0;
+                        })
                         .array;
         foreach (t; targets.map!(id => w.store.getObj(id))
                            .filter!(t => t !is null))
@@ -301,8 +304,8 @@ unittest
     //  1 #@ #  ==> 1 #  #
     //  2 #A #      2 #A@#
     //  3 ####      3 ####
-    auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1));
-    auto victim = w.store.createObj(Name("victim"), Pos(2,1,1,1),
+    auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1), Weight(10));
+    auto victim = w.store.createObj(Name("victim"), Pos(2,1,1,1), Weight(100),
                                     Mortal(2, 2), BlocksMovement());
     assert(!w.locationHas!BlocksMovement(Pos(1,2,1,1)));
     grav.run(w);
@@ -332,10 +335,10 @@ unittest
     //  3 ####      3 ####
     w.store.remove!Pos(rock);
     w.store.add!Pos(rock, Pos(1,1,1,1));
-    victim = w.store.createObj(Name("victim"), Pos(2,1,1,1),
+    victim = w.store.createObj(Name("victim"), Pos(2,1,1,1), Weight(100),
                                Mortal(3, 3), BlocksMovement());
     auto corner = w.store.createObj(Name("artificial wall"), Pos(1,2,1,1),
-                                    BlocksMovement(), NoGravity());
+                                    BlocksMovement());
     assert(w.locationHas!BlocksMovement(Pos(1,2,1,1)));
     grav.run(w);
 
@@ -409,7 +412,7 @@ unittest
     w.map.waterLevel = 3;
     assert(w.map[2,1,1,1] == emptySpace.id);
     assert(w.map[3,1,1,1] == water.id);
-    auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1));
+    auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1), Weight(10));
     grav.run(w);
 
     assert(*w.store.get!Pos(rock.id) == Pos(3,1,1,1));
@@ -477,7 +480,7 @@ unittest
     //  3 #= #      3 #= #
     //  4 #= #      4 #$ #
     //  5 ####      5 ####
-    auto rock = w.store.createObj(Name("rock"), Pos(2,1,1,1));
+    auto rock = w.store.createObj(Name("rock"), Pos(2,1,1,1), Weight(10));
     grav.run(w);
 
     assert(*w.store.get!Pos(rock.id) == Pos(4,1,1,1));
@@ -491,7 +494,8 @@ unittest
     //  4 #= #      4 #= #
     //  5 ####      5 ####
     w.store.destroyObj(rock.id);
-    auto guy = w.store.createObj(Name("guy"), Pos(2,1,1,1), CanMove(CanMove.Type.climb));
+    auto guy = w.store.createObj(Name("guy"), Pos(2,1,1,1), Weight(100),
+                                 CanMove(CanMove.Type.climb));
     grav.run(w);
 
     assert(*w.store.get!Pos(guy.id) == Pos(2,1,1,1));

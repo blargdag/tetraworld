@@ -124,7 +124,8 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
                 case TriggerEffect.rockTrap:
                     auto pos = *w.store.get!Pos(t.id);
                     w.store.add!Tiled(trigObj, Tiled(TileId.trapRock));
-                    w.store.createObj(pos, Name("rock"), Tiled(TileId.rock));
+                    w.store.createObj(pos, Name("rock"), Tiled(TileId.rock),
+                                      Weight(50));
                     w.notify.mapChange(MapChgType.triggerRockTrap, pos,
                                        subj.id, t.id);
                     break;
@@ -355,13 +356,13 @@ unittest
     createLadder(&w.store, Pos(4,4,0,0));
     createLadder(&w.store, Pos(5,4,0,0));
 
-    auto walker = w.store.createObj(Name("ходящий"),
+    auto walker = w.store.createObj(Name("ходящий"), Weight(1000),
                                     CanMove(CanMove.Type.walk));
-    auto climber = w.store.createObj(Name("лазящий"),
+    auto climber = w.store.createObj(Name("лазящий"), Weight(1000),
                                      CanMove(CanMove.Type.climb));
-    auto jumper = w.store.createObj(Name("прыгающий"),
+    auto jumper = w.store.createObj(Name("прыгающий"), Weight(1000),
                                     CanMove(CanMove.Type.jump));
-    auto swimmer = w.store.createObj(Name("плавающий"),
+    auto swimmer = w.store.createObj(Name("плавающий"), Weight(1000),
                                     CanMove(CanMove.Type.swim));
 
     // Walker tests

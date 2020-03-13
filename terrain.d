@@ -34,7 +34,7 @@ Thing water = Thing(6);
 Thing* createLadder(Store* store, Pos pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.ladder, -1), Name("ladder"),
-        TiledAbove(TileId.ladderTop, -1), NoGravity(),
+        TiledAbove(TileId.ladderTop, -1),
         SupportsWeight(SupportType.above | SupportType.within,
                        SupportCond.climbing));
 }
