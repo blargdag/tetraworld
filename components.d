@@ -253,9 +253,10 @@ struct Sinking { }
 @Component
 struct Trigger
 {
-    enum Type { onEnter }
+    enum Type { onEnter, onWeight }
     Type type;
     ulong triggerId;
+    int minWeight;
 }
 
 /**

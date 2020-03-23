@@ -84,22 +84,46 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
     }
 }
 
+private bool isTriggered(World w, Pos pos, Trigger trig)
+{
+    final switch (trig.type)
+    {
+        case Trigger.Type.onEnter:
+            return true;
+
+        case Trigger.Type.onWeight:
+            auto weight = w.getAllAt(pos)
+                           .map!(id => w.store.get!Weight(id))
+                           .filter!(wgt => wgt !is null)
+                           .map!(wgt => wgt.value)
+                           .sum;
+            if (weight >= trig.minWeight)
+                return true;
+            break;
+    }
+    return false;
+}
+
 private void runEnterTriggers(World w, Thing* subj, Pos newPos)
 {
     foreach (trigObj; w.store.getAllBy!Pos(newPos)
-                    .map!(id => w.store.getObj(id)))
+                       .map!(id => w.store.getObj(id)))
     {
         auto trig = w.store.get!Trigger(trigObj.id);
-        if (trig is null || trig.type != Trigger.Type.onEnter)
+        if (trig is null)
             continue;
 
-        auto groupId = Triggerable(trig.triggerId);
-        foreach (t; w.store.getAllBy!Triggerable(groupId)
-                     .map!(id => w.store.getObj(id)))
+        if (isTriggered(w, newPos, *trig))
         {
-            auto tga = w.store.get!Triggerable(t.id);
-            assert(tga !is null);
-            runTriggerEffect(w, subj, newPos, trigObj, t, *tga);
+            auto groupId = Triggerable(trig.triggerId);
+            foreach (t; w.store.getAllBy!Triggerable(groupId)
+                         .map!(id => w.store.getObj(id)))
+            {
+                auto tga = w.store.get!Triggerable(t.id);
+                assert(tga !is null);
+                runTriggerEffect(w, subj, newPos, trigObj, t, *tga);
+            }
+            break;
         }
     }
 }
