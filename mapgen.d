@@ -1166,7 +1166,7 @@ unittest
  */
 void genPitTraps(World w, int count, int openPitPct = 30)
 {
-    genBackEdges(w.map.tree, w.map.bounds, count, count*5,
+    genBackEdges(w.map.tree, w.map.bounds, count, count*8,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
 
