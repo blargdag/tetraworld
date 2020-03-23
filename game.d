@@ -129,6 +129,16 @@ struct PlayerStatus
 }
 
 /**
+ * Inventory item.
+ */
+struct InventoryItem
+{
+    ThingId id;
+    string name;
+    int count;
+}
+
+/**
  * Game simulation.
  */
 class Game
@@ -164,6 +174,9 @@ class Game
         return WorldView(w, plMapMemory, playerPos);
     }
 
+    /**
+     * Returns: The player's current statuses.
+     */
     PlayerStatus[] getStatuses()
     {
         PlayerStatus[] result;
@@ -175,6 +188,21 @@ class Game
             result ~= PlayerStatus("hp", m.hp, m.maxhp);
 
         return result;
+    }
+
+    /**
+     * Returns: Items currently in the player's inventory.
+     */
+    InventoryItem[] getInventory()
+    {
+        auto inven = w.store.get!Inventory(player.id);
+        if (inven is null)
+            return [];
+
+        return inven.contents
+                    .map!(id => InventoryItem(id, w.store.get!Name(id).name,
+                                              1 /*TBD*/))
+                    .array;
     }
 
     private int numGold()

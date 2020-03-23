@@ -334,6 +334,7 @@ Movement keys:
 
 Commands:
    p        Pass a turn.
+   z        Show inventory (does not consume a turn).
    <enter>  Activate object in current location.
 
 Meta-commands:
@@ -452,6 +453,7 @@ class TextUi : GameUi
                     case 'J': moveView(vec(0,0,0,-1));  break;
                     case 'K': moveView(vec(0,0,0,1));   break;
                     case ' ': viewport.centerOn(g.playerPos);   break;
+                    case 'z': showInventory();          break;
                     case 'q':
                         g.saveGame();
                         quit = true;
@@ -803,6 +805,53 @@ class TextUi : GameUi
     {
         auto scrn = pagerScreen();
         pager(scrn, helpText[], "Press any key to return to game", {});
+    }
+
+    private void showInventory()
+    {
+        auto inven = g.getInventory();
+        if (inven.length == 0)
+        {
+            echo("You are not carrying anything right now.");
+            return;
+        }
+
+        auto scrn = pagerScreen();
+        auto invenMode = Mode(
+            () {
+                scrn.hideCursor();
+                scrn.color(Color.white, Color.black);
+
+                // Can't use .clear 'cos it doesn't use color we set.
+                scrn.moveTo(0, 0);
+                scrn.clearToEos();
+
+                scrn.moveTo(1, 1);
+                scrn.writef("You are carrying:");
+
+                foreach (i; 0 .. inven.length)
+                {
+                    import std.conv : to;
+                    scrn.moveTo(2, (3 + i).to!int);
+                    scrn.writef("%d %s", inven[i].count, inven[i].name);
+                }
+            },
+            (dchar ch) {
+                switch (ch)
+                {
+                    case 'q', ' ':
+                        dispatch.pop();
+                        disp.color(Color.DEFAULT, Color.DEFAULT);
+                        disp.clear();
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        );
+
+        dispatch.push(invenMode);
     }
 
     private auto getCurView()
