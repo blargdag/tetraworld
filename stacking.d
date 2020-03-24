@@ -137,4 +137,61 @@ unittest
     assert(store.get!Stackable(a4.id).count == 1);
 }
 
+/**
+ * Splits `count` items off the given stack and returns it as a new object.
+ *
+ * Returns: The current stack, if the requested number of objects is identical
+ * to its current count; null if the given object is not a stack, or its count
+ * is less than the requested number of items; otherwise a new object
+ * representing a stack of the requested number of items. All components from
+ * the old stack are copied over to the new stack, and the two stacks will be
+ * identical except possibly for the count in their Stackable component.
+ */
+Thing* splitStack(ref Store store, ThingId oldStack, int count)
+{
+    auto stk = store.get!Stackable(oldStack);
+    if (stk is null || stk.count < count)
+        return null;
+
+    if (stk.count == count)
+        return store.getObj(oldStack);
+
+    assert(stk.count > count);
+    auto result = store.createObj();
+    static foreach (i, T; AllComponents)
+    {{
+        // Copy components of old stack over.
+        auto p = store.get!T(oldStack);
+        if (p !is null)
+        {
+            auto comp = *p;
+            static if (is(T == Stackable))
+            {
+                comp.count = count;
+            }
+            store.add!T(result, comp);
+        }
+    }}
+
+    stk.count -= count;
+    return result;
+}
+
+unittest
+{
+    Store store;
+    auto s1 = store.createObj(Name("apple"), Stackable(10));
+
+    auto s2 = store.splitStack(s1.id, 11);
+    assert(s2 is null && store.get!Stackable(s1.id).count == 10);
+
+    auto s3 = store.splitStack(s1.id, 10);
+    assert(s3 is s1);
+
+    auto s4 = store.splitStack(s1.id, 6);
+    assert(*store.get!Name(s4.id) == Name("apple"));
+    assert(store.get!Stackable(s4.id).count == 6);
+    assert(store.get!Stackable(s1.id).count == 4);
+}
+
 // vim:set ai sw=4 ts=4 et:
