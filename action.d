@@ -86,7 +86,10 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
         // modify-while-iterating container issue.
         foreach (t; w.store.getAllBy!Pos(newPos).dup
                            .map!(id => w.store.getObj(id))
-                           .filter!(t => w.store.get!Pickable(t.id) !is null))
+                           .filter!(t => (t.systems & (SysMask.pickable |
+                                                       SysMask.questitem)) ==
+                                         (SysMask.pickable |
+                                          SysMask.questitem)))
         {
             w.store.remove!Pos(t);
             inven.contents ~= t.id;

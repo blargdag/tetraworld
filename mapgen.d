@@ -1433,7 +1433,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     foreach (i; 0 .. ngold)
     {
         w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                          Tiled(TileId.gold), Name("gold"), Pickable());
+                          Tiled(TileId.gold), Name("gold"), Pickable(),
+                          QuestItem(1));
     }
 
     foreach (i; 0 .. args.nMonstersA.pick())
@@ -1455,7 +1456,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     foreach (i; 0 .. 1 + floorArea(w.map.tree) * 2 / 100)
     {
         w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
-                          Tiled(TileId.rock), Name("rock"));
+                          Tiled(TileId.rock), Name("rock"), Pickable());
     }
 
     return w;
@@ -1616,7 +1617,8 @@ World genTutorialLevel(out int[4] startPos)
     ];
     foreach (pos; goldPos)
     {
-        w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable());
+        w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable(),
+                          QuestItem(1));
     }
 
     // Some in-game instructions to guide the player along.

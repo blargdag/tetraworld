@@ -209,17 +209,17 @@ class Game
     {
         auto inv = w.store.get!Inventory(player.id);
         return inv.contents
-                  .map!(id => w.store.get!Tiled(id))
-                  .filter!(tp => tp !is null && tp.tileId == TileId.gold)
+                  .map!(id => w.store.get!QuestItem(id))
+                  .filter!(qi => qi !is null && qi.questId == 1)
                   .count
                   .to!int;
     }
 
     private int maxGold()
     {
-        return w.store.getAll!Tiled
-                      .map!(id => w.store.get!Tiled(id))
-                      .filter!(tp => tp.tileId == TileId.gold)
+        return w.store.getAll!QuestItem
+                      .map!(id => w.store.get!QuestItem(id))
+                      .filter!(qi => qi.questId == 1)
                       .count
                       .to!int;
     }

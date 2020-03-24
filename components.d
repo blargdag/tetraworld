@@ -164,6 +164,15 @@ struct Inventory
 @Component
 struct Pickable { }
 
+/**
+ * Component for quest items.
+ */
+@Component
+struct QuestItem
+{
+    int questId;
+}
+
 enum Climbable : bool { no, yes }
 
 /**
