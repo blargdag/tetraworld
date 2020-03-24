@@ -56,7 +56,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, pass,
+    apply, pickup, pass,
 }
 
 /**
@@ -272,6 +272,21 @@ class Game
 
         auto v = vec(displacement);
         return (World w) => move(w, player, v);
+    }
+
+    private Action pickupObj(ref string errmsg)
+    {
+        auto pos = *w.store.get!Pos(player.id);
+        auto r = w.store.getAllBy!Pos(pos)
+                        .filter!(id => w.store.get!Pickable(id) !is null);
+        if (r.empty)
+        {
+            errmsg = "Nothing here to pick up.";
+            return null;
+        }
+
+        // TBD: if more than one object, present player a choice.
+        return (World w) => pickupItem(w, player, r.front);
     }
 
     private Action applyFloorObj(ref string errmsg)
@@ -506,7 +521,8 @@ class Game
                 case front: act = movePlayer([0,0,1,0],  errmsg); break;
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
-                case apply: act = applyFloorObj(errmsg); break;
+                case pickup: act = pickupObj(errmsg);             break;
+                case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;
                 case none:  assert(0, "Internal error");
             }

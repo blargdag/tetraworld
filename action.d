@@ -556,6 +556,33 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
 }
 
 /**
+ * Pickup an object from the subject's location.
+ */
+ActionResult pickupItem(World w, Thing* subj, ThingId objId)
+{
+    auto subjPos = w.store.get!Pos(subj.id);
+    auto objPos = w.store.get!Pos(objId);
+    auto inven = w.store.get!Inventory(subj.id);
+
+    if (inven is null)
+        return ActionResult(false, 10, "You can't carry anything!");
+
+    // TBD: pos check should be canReach(subj,obj).
+    if (subjPos is null || objPos is null || *subjPos != *objPos)
+        return ActionResult(false, 10, "You can't reach that object!");
+
+    if (w.store.get!Pickable(objId) is null)
+        return ActionResult(false, 10, "You can't pick that up!");
+
+    auto obj = w.store.getObj(objId);
+    w.store.remove!Pos(obj);
+    inven.contents ~= objId;
+    w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId);
+
+    return ActionResult(true, 10);
+}
+
+/**
  * Use an item.
  */
 ActionResult useItem(World w, Thing* subj, ThingId objId)
