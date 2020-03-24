@@ -2,9 +2,9 @@
   and trigger a second rock.
 - Need to start implement event filtering based on visibility / audibility!
 - Implement pickup action.
-   - Gold count should no longer be based on Pickable; gold should have a
+   + Gold count should no longer be based on Pickable; gold should have a
      separate QuestToken component for counting purposes.
-   - Implement inventory screen.
+   + Implement inventory screen.
    - Implement item stacking.
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
