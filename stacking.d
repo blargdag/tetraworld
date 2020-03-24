@@ -34,17 +34,17 @@ import store_traits;
  */
 bool canStack(ref Store store, ThingId stack1, ThingId stack2)
 {
-    // Objects to be merged must be stackable.
-    auto s1 = store.get!Stackable(stack1);
-    auto s2 = store.get!Stackable(stack2);
-
-    if (s1 is null || s2 is null)
-        return false;
-
-    // Objects must have an identical set of components.
     auto obj1 = store.getObj(stack1);
     auto obj2 = store.getObj(stack2);
 
+    // Objects to be merged must be stackable.
+    if ((obj1.systems & SysMask.stackable) == 0 ||
+        (obj2.systems & SysMask.stackable) == 0)
+    {
+        return false;
+    }
+
+    // Objects must have an identical set of components.
     if (((obj1.systems ^ obj2.systems) & ~SysMask.pos) != 0)
         return false;
 
@@ -96,6 +96,45 @@ unittest
 
     assert(!store.canStack(a1.id, o1.id));
     assert( store.canStack(o1.id, o2.id));
+}
+
+/**
+ * Merge stack1 to stack2.
+ *
+ * Returns: true if the merge succeeded; false otherwise. Note that if true is
+ * returned, stack1 will NO LONGER BE VALID (it will be destroyed from the
+ * store).
+ */
+bool stackObjs(ref Store store, ThingId stack1, ThingId stack2)
+{
+    if (!canStack(store, stack1, stack2))
+        return false;
+
+    store.get!Stackable(stack2).count += store.get!Stackable(stack1).count;
+    store.destroyObj(stack1);
+    return true;
+}
+
+unittest
+{
+    Store store;
+
+    auto a1 = store.createObj(Name("apple"), Stackable(1));
+    auto a2 = store.createObj(Name("apple"), Stackable(1));
+    auto a3 = store.createObj(Name("apple"), Stackable(3));
+    auto a4 = store.createObj(Name("apple"), Stackable(1), QuestItem(1));
+
+    assert(store.stackObjs(a1.id, a2.id));
+    assert(store.get!Stackable(a2.id).count == 2);
+    assert(store.getObj(a1.id) is null);
+
+    assert(store.stackObjs(a2.id, a3.id));
+    assert(store.get!Stackable(a3.id).count == 5);
+    assert(store.getObj(a2.id) is null);
+
+    assert(!store.stackObjs(a3.id, a4.id));
+    assert(store.get!Stackable(a3.id).count == 5);
+    assert(store.get!Stackable(a4.id).count == 1);
 }
 
 // vim:set ai sw=4 ts=4 et:
