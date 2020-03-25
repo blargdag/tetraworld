@@ -1,3 +1,9 @@
+- Gravity bug: due to the way the gravity system clears the new queue for Pos
+  at the end of run(), if any objects are spawned in midair due to
+  gravity-related triggers, they will not be noticed by the gravity system and
+  will get stuck in midair.
+   - The gravity system should probably be actively monitoring any new objects
+     that might acquire Pos during the falling loop.
 - Stacking bugs:
    - Should (try to) stack when an object moves into a new location.
    + Game.numGold() should count stacked items properly.
