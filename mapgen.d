@@ -1285,7 +1285,7 @@ void genRockTraps(World w, int count)
         ceilingPos[0] = room.interior.min[0];
 
         w.store.createObj(Pos(pos), Weight(1) /*FIXME:this is a hack*/,
-                          Trigger(Trigger.Type.onEnter, w.triggerId));
+                          Trigger(Trigger.Type.onWeight, w.triggerId, 500));
         w.store.createObj(Pos(ceilingPos),
                           Triggerable(w.triggerId, TriggerEffect.rockTrap));
         w.triggerId++;
