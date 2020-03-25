@@ -91,24 +91,10 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
                                          (SysMask.pickable |
                                           SysMask.questitem)))
         {
-            w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id);
-
-            bool merged = false;
+            import stacking;
             w.store.remove!Pos(t);
-            foreach (i; 0 .. inven.contents.length)
-            {
-                // Merge into existing item if it's mergeable.
-                import stacking;
-                if (w.store.stackObjs(t.id, inven.contents[i]))
-                {
-                    merged = true;
-                    break;
-                }
-            }
-
-            // Not mergeable; add it as a separate item.
-            if (!merged)
-                inven.contents ~= t.id;
+            w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id);
+            w.store.mergeToArray(t.id, inven.contents);
         }
     }
 
@@ -591,10 +577,11 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     if (w.store.get!Pickable(objId) is null)
         return ActionResult(false, 10, "You can't pick that up!");
 
+    import stacking;
     auto obj = w.store.getObj(objId);
     w.store.remove!Pos(obj);
-    inven.contents ~= objId;
     w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId);
+    w.store.mergeToArray(objId, inven.contents);
 
     return ActionResult(true, 10);
 }

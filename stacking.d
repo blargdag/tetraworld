@@ -194,4 +194,34 @@ unittest
     assert(store.get!Stackable(s1.id).count == 4);
 }
 
+/**
+ * Merge the given item stack to the given target array.
+ *
+ * If the array contains a mergeable object that can merge with the given
+ * stack, the stack is merged into the target (and becomes invalidated);
+ * otherwise, it's appended to the end of the array.
+ *
+ * WARNING: The input stack will become invalidated if it was merged, so the
+ * caller should not depend on it still being a valid object after calling this
+ * function!
+ */
+void mergeToArray(ref Store store, ThingId stack, ref ThingId[] target)
+{
+    bool merged = false;
+    foreach (i; 0 .. target.length)
+    {
+        // Merge into existing item if it's mergeable.
+        import stacking;
+        if (store.stackObjs(stack, target[i]))
+        {
+            merged = true;
+            break;
+        }
+    }
+
+    // Not mergeable; add it as a separate item.
+    if (!merged)
+        target ~= stack;
+}
+
 // vim:set ai sw=4 ts=4 et:
