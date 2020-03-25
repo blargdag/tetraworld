@@ -200,8 +200,11 @@ class Game
             return [];
 
         return inven.contents
-                    .map!(id => InventoryItem(id, w.store.get!Name(id).name,
-                                              1 /*TBD*/))
+                    .map!((id) {
+                        auto stk = w.store.get!Stackable(id);
+                        return InventoryItem(id, w.store.get!Name(id).name,
+                                             stk ? stk.count : 1);
+                    })
                     .array;
     }
 

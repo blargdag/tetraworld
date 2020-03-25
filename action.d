@@ -91,10 +91,24 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
                                          (SysMask.pickable |
                                           SysMask.questitem)))
         {
-            w.store.remove!Pos(t);
-            inven.contents ~= t.id;
-
             w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id);
+
+            bool merged = false;
+            w.store.remove!Pos(t);
+            foreach (i; 0 .. inven.contents.length)
+            {
+                // Merge into existing item if it's mergeable.
+                import stacking;
+                if (w.store.stackObjs(t.id, inven.contents[i]))
+                {
+                    merged = true;
+                    break;
+                }
+            }
+
+            // Not mergeable; add it as a separate item.
+            if (!merged)
+                inven.contents ~= t.id;
         }
     }
 

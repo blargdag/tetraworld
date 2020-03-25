@@ -22,6 +22,7 @@ if release:
 
 if debug:
 	ldcflags += ['-g', '-gc', '-d-debug']
+	ldcoptflags = [ ]
 
 
 #
@@ -46,6 +47,7 @@ sources = Split("""
 	gamemap.d
 	gravity.d
 	rndutil.d
+	stacking.d
 	store.d
 	store_traits.d
 	terrain.d
