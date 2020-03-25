@@ -1,11 +1,6 @@
 - BUG: a rock from a rock trap that kills a creature will land on the trigger
   and trigger a second rock.
 - Need to start implement event filtering based on visibility / audibility!
-- Implement pickup action.
-   - Gold count should no longer be based on Pickable; gold should have a
-     separate QuestToken component for counting purposes.
-   - Implement inventory screen.
-   - Implement item stacking.
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
@@ -229,3 +224,8 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
   chasing player on ladder, they seem to move erratically with many pauses.
 + BUG: portals can sometimes spawn on top of a pit trap, making it impossible
   to win the game. :-(
++ Implement pickup action.
+   + Gold count should no longer be based on Pickable; gold should have a
+     separate QuestToken component for counting purposes.
+   + Implement inventory screen.
+   + Implement item stacking.

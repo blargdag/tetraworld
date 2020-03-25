@@ -86,12 +86,15 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
         // modify-while-iterating container issue.
         foreach (t; w.store.getAllBy!Pos(newPos).dup
                            .map!(id => w.store.getObj(id))
-                           .filter!(t => w.store.get!Pickable(t.id) !is null))
+                           .filter!(t => (t.systems & (SysMask.pickable |
+                                                       SysMask.questitem)) ==
+                                         (SysMask.pickable |
+                                          SysMask.questitem)))
         {
+            import stacking;
             w.store.remove!Pos(t);
-            inven.contents ~= t.id;
-
             w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id);
+            w.store.mergeToArray(t.id, inven.contents);
         }
     }
 
@@ -551,6 +554,34 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
                 w.notify.move(MoveType.walk, oldPos, subj.id, newPos, 0);
         });
     }
+
+    return ActionResult(true, 10);
+}
+
+/**
+ * Pickup an object from the subject's location.
+ */
+ActionResult pickupItem(World w, Thing* subj, ThingId objId)
+{
+    auto subjPos = w.store.get!Pos(subj.id);
+    auto objPos = w.store.get!Pos(objId);
+    auto inven = w.store.get!Inventory(subj.id);
+
+    if (inven is null)
+        return ActionResult(false, 10, "You can't carry anything!");
+
+    // TBD: pos check should be canReach(subj,obj).
+    if (subjPos is null || objPos is null || *subjPos != *objPos)
+        return ActionResult(false, 10, "You can't reach that object!");
+
+    if (w.store.get!Pickable(objId) is null)
+        return ActionResult(false, 10, "You can't pick that up!");
+
+    import stacking;
+    auto obj = w.store.getObj(objId);
+    w.store.remove!Pos(obj);
+    w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId);
+    w.store.mergeToArray(objId, inven.contents);
 
     return ActionResult(true, 10);
 }

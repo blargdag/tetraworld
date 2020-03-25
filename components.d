@@ -164,6 +164,24 @@ struct Inventory
 @Component
 struct Pickable { }
 
+/**
+ * Component for quest items.
+ */
+@Component
+struct QuestItem
+{
+    int questId;
+}
+
+/**
+ * Component for items that can be stacked.
+ */
+@Component
+struct Stackable
+{
+    int count;
+}
+
 enum Climbable : bool { no, yes }
 
 /**

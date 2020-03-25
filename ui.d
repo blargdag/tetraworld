@@ -335,6 +335,7 @@ Movement keys:
 Commands:
    p        Pass a turn.
    z        Show inventory (does not consume a turn).
+   ,        Pick up an object from the current location.
    <enter>  Activate object in current location.
 
 Meta-commands:
@@ -434,6 +435,7 @@ class TextUi : GameUi
             'j': PlayerAction.left,
             'k': PlayerAction.right,
             keyEnter: PlayerAction.apply,
+            ',': PlayerAction.pickup,
             'p': PlayerAction.pass,
         ];
 
