@@ -212,18 +212,23 @@ class Game
     {
         auto inv = w.store.get!Inventory(player.id);
         return inv.contents
-                  .map!(id => w.store.get!QuestItem(id))
-                  .filter!(qi => qi !is null && qi.questId == 1)
-                  .count
+                  .filter!((id) {
+                      auto qi = w.store.get!QuestItem(id);
+                      return qi !is null && qi.questId == 1;
+                  })
+                  .map!(id => w.store.get!Stackable(id))
+                  .map!(stk => (stk is null) ? 1 : stk.count)
+                  .sum
                   .to!int;
     }
 
     private int maxGold()
     {
         return w.store.getAll!QuestItem
-                      .map!(id => w.store.get!QuestItem(id))
-                      .filter!(qi => qi.questId == 1)
-                      .count
+                      .filter!(id => w.store.get!QuestItem(id).questId == 1)
+                      .map!(id => w.store.get!Stackable(id))
+                      .map!(stk => (stk is null) ? 1 : stk.count)
+                      .sum
                       .to!int;
     }
 

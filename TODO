@@ -1,6 +1,6 @@
 - Stacking bugs:
    - Should (try to) stack when an object moves into a new location.
-   - Game.numGold() should count stacked items properly.
+   + Game.numGold() should count stacked items properly.
 - BUG: a rock from a rock trap that kills a creature will land on the trigger
   and trigger a second rock.
 - Need to start implement event filtering based on visibility / audibility!
