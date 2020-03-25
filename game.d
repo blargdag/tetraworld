@@ -56,7 +56,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, pass,
+    apply, pickup, pass,
 }
 
 /**
@@ -129,6 +129,16 @@ struct PlayerStatus
 }
 
 /**
+ * Inventory item.
+ */
+struct InventoryItem
+{
+    ThingId id;
+    string name;
+    int count;
+}
+
+/**
  * Game simulation.
  */
 class Game
@@ -164,6 +174,9 @@ class Game
         return WorldView(w, plMapMemory, playerPos);
     }
 
+    /**
+     * Returns: The player's current statuses.
+     */
     PlayerStatus[] getStatuses()
     {
         PlayerStatus[] result;
@@ -177,22 +190,45 @@ class Game
         return result;
     }
 
+    /**
+     * Returns: Items currently in the player's inventory.
+     */
+    InventoryItem[] getInventory()
+    {
+        auto inven = w.store.get!Inventory(player.id);
+        if (inven is null)
+            return [];
+
+        return inven.contents
+                    .map!((id) {
+                        auto stk = w.store.get!Stackable(id);
+                        return InventoryItem(id, w.store.get!Name(id).name,
+                                             stk ? stk.count : 1);
+                    })
+                    .array;
+    }
+
     private int numGold()
     {
         auto inv = w.store.get!Inventory(player.id);
         return inv.contents
-                  .map!(id => w.store.get!Tiled(id))
-                  .filter!(tp => tp !is null && tp.tileId == TileId.gold)
-                  .count
+                  .filter!((id) {
+                      auto qi = w.store.get!QuestItem(id);
+                      return qi !is null && qi.questId == 1;
+                  })
+                  .map!(id => w.store.get!Stackable(id))
+                  .map!(stk => (stk is null) ? 1 : stk.count)
+                  .sum
                   .to!int;
     }
 
     private int maxGold()
     {
-        return w.store.getAll!Tiled
-                      .map!(id => w.store.get!Tiled(id))
-                      .filter!(tp => tp.tileId == TileId.gold)
-                      .count
+        return w.store.getAll!QuestItem
+                      .filter!(id => w.store.get!QuestItem(id).questId == 1)
+                      .map!(id => w.store.get!Stackable(id))
+                      .map!(stk => (stk is null) ? 1 : stk.count)
+                      .sum
                       .to!int;
     }
 
@@ -244,6 +280,21 @@ class Game
 
         auto v = vec(displacement);
         return (World w) => move(w, player, v);
+    }
+
+    private Action pickupObj(ref string errmsg)
+    {
+        auto pos = *w.store.get!Pos(player.id);
+        auto r = w.store.getAllBy!Pos(pos)
+                        .filter!(id => w.store.get!Pickable(id) !is null);
+        if (r.empty)
+        {
+            errmsg = "Nothing here to pick up.";
+            return null;
+        }
+
+        // TBD: if more than one object, present player a choice.
+        return (World w) => pickupItem(w, player, r.front);
     }
 
     private Action applyFloorObj(ref string errmsg)
@@ -478,7 +529,8 @@ class Game
                 case front: act = movePlayer([0,0,1,0],  errmsg); break;
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
-                case apply: act = applyFloorObj(errmsg); break;
+                case pickup: act = pickupObj(errmsg);             break;
+                case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;
                 case none:  assert(0, "Internal error");
             }
