@@ -1,8 +1,12 @@
+- Gravity bug: due to the way the gravity system clears the new queue for Pos
+  at the end of run(), if any objects are spawned in midair due to
+  gravity-related triggers, they will not be noticed by the gravity system and
+  will get stuck in midair.
+   - The gravity system should probably be actively monitoring any new objects
+     that might acquire Pos during the falling loop.
 - Stacking bugs:
    - Should (try to) stack when an object moves into a new location.
    + Game.numGold() should count stacked items properly.
-- BUG: a rock from a rock trap that kills a creature will land on the trigger
-  and trigger a second rock.
 - Need to start implement event filtering based on visibility / audibility!
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
@@ -232,3 +236,10 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      separate QuestToken component for counting purposes.
    + Implement inventory screen.
    + Implement item stacking.
++ BUG: a rock from a rock trap that kills a creature will land on the trigger
+  and trigger a second rock.
+   + Possible solution: add a Weight component that can be used to distinguish
+     between rocks hitting the trigger vs. presumably heavier agents walking on
+     it.
+   + The Weight component can also take the place of NoGravity, which is kinda
+     an ugly hack right now.

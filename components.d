@@ -233,10 +233,13 @@ struct SupportsWeight
 }
 
 /**
- * Component for objects that are not subject to gravity.
+ * Component for objects that are subject to gravity.
  */
 @Component
-struct NoGravity { }
+struct Weight
+{
+    int value = 1;
+}
 
 /**
  * Components for objects that can move on their own accord.
@@ -268,9 +271,10 @@ struct Sinking { }
 @Component
 struct Trigger
 {
-    enum Type { onEnter }
+    enum Type { onEnter, onWeight }
     Type type;
     ulong triggerId;
+    int minWeight;
 }
 
 /**
