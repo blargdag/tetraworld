@@ -1,3 +1,9 @@
+- Implement post-move message to observe contents of current tile.
+- Implement look command to examine current tile.
+- Implement drop action.
+   - First stab: just drop the entire stack.
+   - Allow player to specify how many of a stacked item to drop.
+      - Implement rudimentary string input UI.
 - Gravity bug: due to the way the gravity system clears the new queue for Pos
   at the end of run(), if any objects are spawned in midair due to
   gravity-related triggers, they will not be noticed by the gravity system and
