@@ -1,4 +1,3 @@
-- Implement post-move message to observe contents of current tile.
 - Implement look command to examine current tile.
 - Implement drop action.
    - First stab: just drop the entire stack.
@@ -253,3 +252,4 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      otherwise once a rock trap has enough load on its trigger, the next
      falling rock will trigger an infinite loop of the falling rock causing yet
      another rock to spawn.
++ Implement post-move message to observe contents of current tile.

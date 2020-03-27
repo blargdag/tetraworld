@@ -1305,8 +1305,7 @@ void genPortal(World w)
         pos = randomDryPos(w);
 
     w.store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
-                      Usable(UseEffect.portal), Weight(1),
-                      Message(["You see the exit portal here."]));
+                      Usable(UseEffect.portal), Weight(1));
 }
 
 unittest

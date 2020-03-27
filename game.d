@@ -513,8 +513,29 @@ class Game
         };
     }
 
-    Action processPlayer()
+    private void observeSurroundings()
     {
+        auto objs = w.store.getAllBy!Pos(Pos(playerPos))
+                     .filter!(id => id != player.id)
+                     .map!(id => w.store.get!Name(id))
+                     .filter!(nm => nm !is null)
+                     .map!(nm => nm.name)
+                     .array;
+        if (objs.empty)
+            return;
+
+        if (objs.length == 1)
+            ui.message("You see a %s here.", objs[0]);
+        else if (objs.length == 2)
+            ui.message("You see a %s and a %s here.", objs[0], objs[1]);
+        else
+            ui.message("There's a pile of things here.");
+    }
+
+    private Action processPlayer()
+    {
+        observeSurroundings();
+
         Action act;
         string errmsg;
         while (act is null)
