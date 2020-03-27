@@ -4,12 +4,6 @@
    - First stab: just drop the entire stack.
    - Allow player to specify how many of a stacked item to drop.
       - Implement rudimentary string input UI.
-- Gravity bug: due to the way the gravity system clears the new queue for Pos
-  at the end of run(), if any objects are spawned in midair due to
-  gravity-related triggers, they will not be noticed by the gravity system and
-  will get stuck in midair.
-   - The gravity system should probably be actively monitoring any new objects
-     that might acquire Pos during the falling loop.
 - Stacking bugs:
    - Should (try to) stack when an object moves into a new location.
    + Game.numGold() should count stacked items properly.
@@ -249,3 +243,13 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      it.
    + The Weight component can also take the place of NoGravity, which is kinda
      an ugly hack right now.
++ Gravity bug: due to the way the gravity system clears the new queue for Pos
+  at the end of run(), if any objects are spawned in midair due to
+  gravity-related triggers, they will not be noticed by the gravity system and
+  will get stuck in midair.
+   + The gravity system should probably be actively monitoring any new objects
+     that might acquire Pos during the falling loop.
+   + BP: weight triggers need to be edge-triggered rather than event-triggered,
+     otherwise once a rock trap has enough load on its trigger, the next
+     falling rock will trigger an infinite loop of the falling rock causing yet
+     another rock to spawn.

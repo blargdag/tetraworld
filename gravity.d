@@ -151,17 +151,8 @@ struct SysGravity
         return true;
     }
 
-    /**
-     * Run main gravity system.
-     */
-    void run(World w)
+    private void runOnce(World w, ThingId[] targets)
     {
-        auto targets = w.store.getAllNew!Pos()
-                        .filter!((id) {
-                            auto wgt = w.store.get!Weight(id);
-                            return (wgt !is null) ? wgt.value > 0 : 0;
-                        })
-                        .array;
         foreach (t; targets.map!(id => w.store.getObj(id))
                            .filter!(t => t !is null))
         {
@@ -207,11 +198,36 @@ struct SysGravity
                 type = computeFallType(w, t.id, true, oldPos, floorPos);
             }
         }
+    }
 
-        // We clear here rather than in enqueueTargets because objects that we
-        // move around above should not be added back unless we explicitly put
-        // them in newTargets.
-        w.store.clearNew!Pos();
+    /**
+     * Run main gravity system.
+     */
+    void run(World w)
+    {
+        auto getTargets()
+        {
+            auto result = w.store.getAllNew!Pos()
+                           .filter!((id) {
+                                auto wgt = w.store.get!Weight(id);
+                                return (wgt !is null) ? wgt.value > 0 : 0;
+                           })
+                           .array;
+
+            // We clear now so that any newly-spawned objects or objects that
+            // got moved due to gravity-initiated triggers will be noticed in
+            // the next iteration.
+            w.store.clearNew!Pos();
+
+            return result;
+        }
+
+        auto targets = getTargets();
+        while (targets.length > 0)
+        {
+            runOnce(w, targets);
+            targets = getTargets();
+        }
     }
 
     /**
@@ -528,6 +544,52 @@ unittest
     grav.run(w);
 
     assert(*w.store.get!Pos(guy.id) == Pos(3,1,1,1));
+}
+
+// Test for gravity-triggered spawns of objects that must subsequently fall
+// down.
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //    0123
+    //  0 ####
+    //  1 #? #  ? = spawn location
+    //  2 #  #
+    //  3 #  #
+    //  4 #T #  T = trigger
+    //  5 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = region(vec(1,1,1,1), vec(6,4,3,3));
+    w.map.waterLevel = int.max;
+
+    SysGravity grav;
+    auto trigger = w.store.createObj(Pos(4,1,1,1), Name("trap"),
+                                     Trigger(Trigger.Type.onWeight,
+                                             w.triggerId, 10));
+    auto rocktrap = w.store.createObj(Pos(1,1,1,1),
+                                      Triggerable(w.triggerId,
+                                                  TriggerEffect.rockTrap));
+    w.triggerId++;
+
+    auto rock = w.store.createObj(Name("big rock"), Weight(50), Pos(1,1,1,1));
+    grav.run(w);
+
+    // No rock should be left hanging.
+    assert(w.store.getAllBy!Pos(Pos(1,1,1,1)) == [ rocktrap.id ]);
+
+    // Should be exactly two rocks on the floor.
+    auto objs = w.store.getAllBy!Pos(Pos(4,1,1,1));
+    assert(objs.length == 3);
+    auto names = objs.map!(id => w.store.get!Name(id).name)
+                     .array;
+    names.sort();
+    assert(names == [ "big rock", "rock", "trap" ]);
 }
 
 // vim:set ai sw=4 ts=4 et:

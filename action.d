@@ -84,7 +84,7 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
     }
 }
 
-private bool isTriggered(World w, Pos pos, Trigger trig)
+private bool isTriggered(World w, Thing* subj, Pos pos, Trigger trig)
 {
     final switch (trig.type)
     {
@@ -92,12 +92,18 @@ private bool isTriggered(World w, Pos pos, Trigger trig)
             return true;
 
         case Trigger.Type.onWeight:
-            auto weight = w.getAllAt(pos)
-                           .map!(id => w.store.get!Weight(id))
-                           .filter!(wgt => wgt !is null)
-                           .map!(wgt => wgt.value)
-                           .sum;
-            if (weight >= trig.minWeight)
+            auto wgt = w.store.get!Weight(subj.id);
+            auto oldWeight = w.getAllAt(pos)
+                              .filter!(id => id != subj.id)
+                              .map!(id => w.store.get!Weight(id))
+                              .filter!(wgt => wgt !is null)
+                              .map!(wgt => wgt.value)
+                              .sum;
+            auto newWeight = oldWeight + (wgt !is null) ? wgt.value : 0;
+
+            // Need to be edge-triggered, not event-triggered, to prevent
+            // infinite loops.
+            if (oldWeight < trig.minWeight && newWeight >= trig.minWeight)
                 return true;
             break;
     }
@@ -113,7 +119,7 @@ private void runEnterTriggers(World w, Thing* subj, Pos newPos)
         if (trig is null)
             continue;
 
-        if (isTriggered(w, newPos, *trig))
+        if (isTriggered(w, subj, newPos, *trig))
         {
             auto groupId = Triggerable(trig.triggerId);
             foreach (t; w.store.getAllBy!Triggerable(groupId)
