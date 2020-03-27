@@ -77,7 +77,7 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
             auto pos = *w.store.get!Pos(triggered.id);
             w.store.add!Tiled(trigger, Tiled(TileId.trapRock));
             w.store.createObj(pos, Name("rock"), Tiled(TileId.rock),
-                              Weight(50));
+                              Weight(50), Pickable());
             w.notify.mapChange(MapChgType.triggerRockTrap, pos,
                                subj.id, triggered.id);
             break;
