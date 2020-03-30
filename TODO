@@ -1,5 +1,3 @@
-- BUG: on restore game, on-enter triggers are fired again. This is desirable
-  for Message objects, but NOT for things like rock traps. :-P
 - Implement drop action.
    - First stab: just drop the entire stack.
    - Allow player to specify how many of a stacked item to drop.
@@ -255,3 +253,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
 + Stacking bugs:
    + Should (try to) stack when an object moves into a new location.
    + Game.numGold() should count stacked items properly.
++ BUG: on restore game, on-enter triggers are fired again. This is desirable
+  for Message objects, but NOT for things like rock traps. :-P

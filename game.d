@@ -326,8 +326,8 @@ class Game
                                        w.map.bounds.max + vec(1,1,1,1)));
 
         player = w.store.createObj(
-            Pos(startPos), Tiled(TileId.player, 1, Tiled.Hint.dynamic),
-            Name("you"), Agent(Agent.Type.player), Inventory(), Weight(1000),
+            Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
+            Agent(Agent.Type.player), Inventory(), Weight(1000),
             BlocksMovement(), Mortal(5,5),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
@@ -336,6 +336,8 @@ class Game
         setupEventWatchers();
         setupAgentImpls();
 
+        // Move player to starting position.
+        rawMove(w, player, Pos(startPos), {});
         ui.moveViewport(playerPos);
     }
 
@@ -621,9 +623,6 @@ class Game
             // FIXME: shouldn't this be in the UI code instead??
             ui.message("Press '?' for help.");
         }
-
-        // Hack to trigger autopickup / Messages at initial position.
-        rawMove(w, player, Pos(playerPos), {});
 
         while (!quit)
         {
