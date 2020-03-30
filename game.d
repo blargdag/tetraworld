@@ -513,21 +513,32 @@ class Game
         };
     }
 
+    private auto objectsOnFloor()
+    {
+        import std.format : format;
+        return w.store.getAllBy!Pos(Pos(playerPos))
+                .filter!(id => id != player.id)
+                .map!(id => w.store.getObj(id))
+                .filter!(t => (t.systems & SysMask.name) != 0)
+                .map!((Thing* t) {
+                    auto nm = w.store.get!Name(t.id);
+                    auto stk = w.store.get!Stackable(t.id);
+                    if (stk is null || stk.count == 1)
+                        return format("a %s", nm.name);
+                    return format("%d %s", stk.count, nm.name);
+                });
+    }
+
     private void observeSurroundings()
     {
-        auto objs = w.store.getAllBy!Pos(Pos(playerPos))
-                     .filter!(id => id != player.id)
-                     .map!(id => w.store.get!Name(id))
-                     .filter!(nm => nm !is null)
-                     .map!(nm => nm.name)
-                     .array;
+        auto objs = objectsOnFloor().array;
         if (objs.empty)
             return;
 
         if (objs.length == 1)
-            ui.message("You see a %s here.", objs[0]);
+            ui.message("You see %s here.", objs[0]);
         else if (objs.length == 2)
-            ui.message("You see a %s and a %s here.", objs[0], objs[1]);
+            ui.message("You see %s and %s here.", objs[0], objs[1]);
         else
             ui.message("There's a pile of things here.");
     }
