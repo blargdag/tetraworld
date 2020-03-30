@@ -8,3 +8,15 @@ Motivation:
   unreliable templates; just write straight D code and use introspection to
   auto-serialize stuff. Whoa! D just acquired whole new levels of cool!
 
+//
+
+Mapgen ideas:
+
+- Tiered map generation:
+   - First n levels of BSP tree can be used for generating large-scale
+     topological features, such as disjoint regions connected by locked doors.
+   - Middle levels of BSP can be used for thematic regions, like different
+     terrain styles, vertically-oriented regions with largely climbing-related
+     play styles, experience-oriented regions / mini-puzzles/challenges.
+   - Lowest levels of BSP are individual rooms.
+
