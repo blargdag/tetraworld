@@ -77,7 +77,7 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
             auto pos = *w.store.get!Pos(triggered.id);
             w.store.add!Tiled(trigger, Tiled(TileId.trapRock));
             w.store.createObj(pos, Name("rock"), Tiled(TileId.rock),
-                              Weight(50), Pickable());
+                              Weight(50), Pickable(), Stackable(1));
             w.notify.mapChange(MapChgType.triggerRockTrap, pos,
                                subj.id, triggered.id);
             break;
@@ -151,8 +151,31 @@ private void runEnterTriggers(World w, Thing* subj, Pos newPos)
  */
 void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
 {
+    import stacking;
+
     w.store.remove!Pos(subj);
-    w.store.add!Pos(subj, newPos);
+
+    // If subject is stackable, try to merge it into an existing stack in the
+    // target location.
+    bool merged;
+    if ((subj.systems & SysMask.stackable) != 0)
+    {
+        auto curObjs = w.store.getAllBy!Pos(newPos);
+        foreach (target; curObjs)
+        {
+            if (stackObjs(w.store, subj.id, target))
+            {
+                subj = w.store.getObj(target);
+                merged = true;
+                break;
+            }
+        }
+    }
+
+    // If subject was not merged, explicitly move it to the new location.
+    if (!merged)
+        w.store.add!Pos(subj, newPos);
+
     notifyMove();
 
     // Autopickup
@@ -168,7 +191,6 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
                                          (SysMask.pickable |
                                           SysMask.questitem)))
         {
-            import stacking;
             w.store.remove!Pos(t);
             w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id);
             w.store.mergeToArray(t.id, inven.contents);

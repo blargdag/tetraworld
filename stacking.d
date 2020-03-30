@@ -211,7 +211,6 @@ void mergeToArray(ref Store store, ThingId stack, ref ThingId[] target)
     foreach (i; 0 .. target.length)
     {
         // Merge into existing item if it's mergeable.
-        import stacking;
         if (store.stackObjs(stack, target[i]))
         {
             merged = true;
