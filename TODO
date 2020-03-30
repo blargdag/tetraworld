@@ -4,9 +4,6 @@
    - First stab: just drop the entire stack.
    - Allow player to specify how many of a stacked item to drop.
       - Implement rudimentary string input UI.
-- Stacking bugs:
-   - Should (try to) stack when an object moves into a new location.
-   + Game.numGold() should count stacked items properly.
 - Need to start implement event filtering based on visibility / audibility!
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
@@ -255,3 +252,6 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      another rock to spawn.
 + Implement post-move message to observe contents of current tile.
 + Implement look command to examine current tile.
++ Stacking bugs:
+   + Should (try to) stack when an object moves into a new location.
+   + Game.numGold() should count stacked items properly.
