@@ -1,3 +1,5 @@
+- BUG: on restore game, on-enter triggers are fired again. This is desirable
+  for Message objects, but NOT for things like rock traps. :-P
 - Implement look command to examine current tile.
 - Implement drop action.
    - First stab: just drop the entire stack.
