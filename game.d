@@ -513,7 +513,7 @@ class Game
         };
     }
 
-    private auto objectsOnFloor()
+    auto objectsOnFloor()
     {
         import std.format : format;
         return w.store.getAllBy!Pos(Pos(playerPos))

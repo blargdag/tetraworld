@@ -334,6 +334,7 @@ Movement keys:
 Commands:
    p        Pass a turn.
    z        Show inventory (does not consume a turn).
+   ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
    <enter>  Activate object in current location.
 
@@ -454,6 +455,7 @@ class TextUi : GameUi
                     case 'J': moveView(vec(0,0,0,-1));  break;
                     case 'K': moveView(vec(0,0,0,1));   break;
                     case ' ': viewport.centerOn(g.playerPos);   break;
+                    case ';': lookAtFloor();            break;
                     case 'z': showInventory();          break;
                     case 'q':
                         g.saveGame();
@@ -806,6 +808,26 @@ class TextUi : GameUi
     {
         auto scrn = pagerScreen();
         pager(scrn, helpText[], "Press any key to return to game", {});
+    }
+
+    private void lookAtFloor()
+    {
+        auto objs = g.objectsOnFloor().array;
+        if (objs.length == 0)
+        {
+            message("There's nothing of interest here.");
+            return;
+        }
+
+        if (objs.length == 1)
+        {
+            import std.format : format;
+            message("There's %s here.".format(objs[0]));
+            return;
+        }
+
+        auto scrn = pagerScreen();
+        pager(scrn, [ "You see here:" ] ~ objs, "Go back", {});
     }
 
     private void showInventory()
