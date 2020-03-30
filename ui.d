@@ -32,7 +32,6 @@ import display;
 import fov;
 import game;
 import gamemap;
-import store_traits;
 import vector;
 import world;
 
