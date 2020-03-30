@@ -1,6 +1,5 @@
 - BUG: on restore game, on-enter triggers are fired again. This is desirable
   for Message objects, but NOT for things like rock traps. :-P
-- Implement look command to examine current tile.
 - Implement drop action.
    - First stab: just drop the entire stack.
    - Allow player to specify how many of a stacked item to drop.
@@ -255,3 +254,4 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
      falling rock will trigger an infinite loop of the falling rock causing yet
      another rock to spawn.
 + Implement post-move message to observe contents of current tile.
++ Implement look command to examine current tile.
