@@ -320,7 +320,9 @@ class Game
         auto objId = ui.pickInventoryObj("What would you like to drop?");
         if (objId == invalidId)
         {
-            errmsg = "You have nothing to drop.";
+            errmsg = (getInventory().length == 0) ?
+                     "You have nothing to drop." :
+                     "You decide against dropping anything.";
             return null;
         }
         return (World w) => dropItem(w, player, objId);

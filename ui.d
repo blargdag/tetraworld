@@ -515,15 +515,16 @@ class TextUi : GameUi
     ThingId pickInventoryObj(string prompt)
     {
         ThingId result = invalidId;
-        inventoryUi("What do you want to drop?", (InventoryItem item) {
+        if (inventoryUi("What do you want to drop?", (InventoryItem item) {
                 result = item.id;
                 return true;
             }, {
                 // Return result to game fiber.
                 gameFiber.call();
-            }
-        );
-        Fiber.yield();
+            }))
+        {
+            Fiber.yield();
+        }
 
         return result;
     }
@@ -858,20 +859,23 @@ class TextUi : GameUi
      *  onExit = Hook to run upon leaving the inventory UI. Primarily needed
      *      for Fiber context switches if the interaction started from the Game
      *      fiber.
+     *
+     * Returns: true if inventory UI mode is pushed on stack, otherwise false
+     * (e.g., if inventory is empty).
      */
-    private void inventoryUi(string promptStr,
+    private bool inventoryUi(string promptStr,
                              bool delegate(InventoryItem) selectAction,
                              void delegate() onExit = null)
     {
         auto inven = g.getInventory();
         if (inven.length == 0)
         {
-            echo("You are not carrying anything right now.");
-            return;
+            return false;
         }
 
         auto scrn = pagerScreen();
         int curIdx = (selectAction !is null) ? 0 : -1;
+        int yStart = (selectAction !is null) ? 4 : 3;
 
         auto invenMode = Mode(
             () {
@@ -884,11 +888,17 @@ class TextUi : GameUi
 
                 scrn.moveTo(1, 1);
                 scrn.writef(promptStr);
+                if (selectAction !is null)
+                {
+                    scrn.moveTo(1, 2);
+                    scrn.writef("(Use j/k to select, Enter to pick, "~
+                                "q to abort)");
+                }
 
                 foreach (i; 0 .. inven.length)
                 {
                     import std.conv : to;
-                    scrn.moveTo(2, (3 + i).to!int);
+                    scrn.moveTo(2, (yStart + i).to!int);
                     if (i == curIdx)
                         scrn.color(Color.black, Color.white);
                     else
@@ -936,11 +946,15 @@ class TextUi : GameUi
         );
 
         dispatch.push(invenMode);
+        return true;
     }
 
     private void showInventory()
     {
-        inventoryUi("You are carrying:", null /*TBD: show item details*/);
+        if (!inventoryUi("You are carrying:", null /*TBD: show item details*/))
+        {
+            message("You are not carrying anything right now.");
+        }
     }
 
     private auto getCurView()
