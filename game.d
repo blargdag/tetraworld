@@ -268,6 +268,16 @@ class Game
 
     static Game newGame() { return new Game; }
 
+    debug static Game testLevel()
+    {
+        int[4] startPos;
+        auto g = new Game;
+        g.w = genTestLevel(startPos);
+        g.setupLevel();
+        rawMove(g.w, g.player, Pos(startPos), {});
+        return g;
+    }
+
     private Action movePlayer(int[4] displacement, ref string errmsg)
     {
         auto pos = playerPos;
@@ -311,15 +321,8 @@ class Game
         return (World w) => useItem(w, player, r.front);
     }
 
-    private void startStory()
+    private void setupLevel()
     {
-        ui.infoScreen(storyNodes[storyNode].infoScreen, "[Proceed]");
-
-        int[4] startPos;
-        w = storyNodes[storyNode].genMap(startPos);
-        sysAgent = SysAgent.init;
-        sysGravity = SysGravity.init;
-
         // Player memory needs to cover outer walls to avoid strange artifacts
         // like un-rememberable walls.
         plMapMemory = MapMemory(region(w.map.bounds.min,
@@ -332,6 +335,17 @@ class Game
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
         );
+    }
+
+    private void startStory()
+    {
+        ui.infoScreen(storyNodes[storyNode].infoScreen, "[Proceed]");
+
+        int[4] startPos;
+        w = storyNodes[storyNode].genMap(startPos);
+        sysAgent = SysAgent.init;
+        sysGravity = SysGravity.init;
+        setupLevel();
 
         setupEventWatchers();
         setupAgentImpls();

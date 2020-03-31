@@ -1690,4 +1690,30 @@ unittest
     }
 }
 
+/**
+ * Scratch pad function for generating various test levels.
+ */
+World genTestLevel()(out int[4] startPos)
+{
+    auto w = new World;
+
+    startPos = [1,1,1,1];
+    auto root = new MapNode;
+    root.interior = region(vec(1,1,1,1), vec(5,4,6,6));
+
+    w.map.tree = root;
+    w.map.bounds = region(vec(0,0,0,0), vec(6,5,7,7));
+    w.map.waterLevel = 2;
+
+    auto trigger = w.store.createObj(Pos(4,2,3,3), Name("trap"),
+                                     Trigger(Trigger.Type.onWeight,
+                                             w.triggerId, 50));
+    auto rocktrap = w.store.createObj(Pos(1,2,3,3),
+                                      Triggerable(w.triggerId,
+                                                  TriggerEffect.rockTrap));
+    w.triggerId++;
+
+    return w;
+}
+
 // vim:set ai sw=4 ts=4 et:

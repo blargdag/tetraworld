@@ -32,6 +32,8 @@ import ui;
 int main(string[] args)
 {
     TextUiConfig uiConfig;
+    bool testLevel;
+
     auto optInfo = getopt(args,
         "smoothscroll|S",
             "Set smooth scroll total time in msec (0 to disable).",
@@ -39,6 +41,9 @@ int main(string[] args)
         "record|R",
             "Record session in specified playterm transcript.",
             &uiConfig.tscriptFile,
+        "test|T",
+            "(Debug version only) Play test level instead of main game.",
+            &testLevel,
     );
 
     if (optInfo.helpWanted)
@@ -50,7 +55,19 @@ int main(string[] args)
     Game game;
 
     import std.file : exists;
-    if (saveFileName.exists)
+    if (testLevel)
+    {
+        debug
+        {
+            game = Game.testLevel();
+        }
+        else
+        {
+            stderr.writeln("Test level only available in debug builds");
+            return 1;
+        }
+    }
+    else if (saveFileName.exists)
         game = Game.loadGame();
     else
         game = Game.newGame();
