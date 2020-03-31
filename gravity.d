@@ -592,4 +592,60 @@ unittest
     assert(names == [ "big rock", "rock", "trap" ]);
 }
 
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //    0123
+    //  0 ####
+    //  1 #? #  ? = spawn location
+    //  2 #  #
+    //  3 #~~#
+    //  4 #T~#  T = trigger
+    //  5 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = region(vec(1,1,1,1), vec(6,4,3,3));
+    w.map.waterLevel = 3;
+
+    SysGravity grav;
+
+    auto trigger = w.store.createObj(Pos(4,1,1,1), Name("trap"),
+                                     Trigger(Trigger.Type.onWeight,
+                                             w.triggerId, 10));
+    auto rocktrap = w.store.createObj(Pos(1,1,1,1),
+                                      Triggerable(w.triggerId,
+                                                  TriggerEffect.rockTrap));
+    w.triggerId++;
+
+    // Test #1: test sinking mechanic.
+    auto rock = w.store.createObj(Name("big rock"), Weight(50), Pos(1,1,1,1));
+    grav.run(w);
+    assert(*w.store.get!Pos(rock.id) == Pos(3,1,1,1));
+
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(rock.id) == Pos(4,1,1,1));
+
+    // Find rock spawned by rock trap.
+    auto r = w.getAllAt(vec(1,1,1,1))
+              .map!(id => w.store.getObj(id))
+              .filter!(t => (t.systems & SysMask.name) &&
+                            w.store.get!Name(t.id).name == "rock");
+    assert(!r.empty);
+    auto newrock = r.front;
+    r.popFront();
+    assert(r.empty);
+
+    // Test #2: test sink mechanics of spawned rock.
+    grav.run(w);
+    assert(*w.store.get!Pos(newrock.id) == Pos(3,1,1,1));
+
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(newrock.id) == Pos(4,1,1,1));
+}
+
 // vim:set ai sw=4 ts=4 et:
