@@ -4,10 +4,6 @@
      gravity system's to-check list.
 - To investigate: underwater rock trap spawns rock that seems to vanish into
   thin air?
-- Implement drop action.
-   + First stab: just drop the entire stack.
-   - Allow player to specify how many of a stacked item to drop.
-      - Implement rudimentary string input UI.
 - Need to start implement event filtering based on visibility / audibility!
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
@@ -261,3 +257,7 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
    + Game.numGold() should count stacked items properly.
 + BUG: on restore game, on-enter triggers are fired again. This is desirable
   for Message objects, but NOT for things like rock traps. :-P
++ Implement drop action.
+   + First stab: just drop the entire stack.
+   + Allow player to specify how many of a stacked item to drop.
+      + Implement rudimentary string input UI.
