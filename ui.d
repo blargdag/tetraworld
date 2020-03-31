@@ -525,7 +525,7 @@ class TextUi : GameUi
                       void delegate(int) dg)
     {
         import std.format : format;
-        auto fullPrompt = format("%s (%d-%d)", promptStr, minVal, maxVal);
+        auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
         auto width = min(fullPrompt.displayLength() + 2, disp.width);
         auto height = 5;
         auto scrnX = (disp.width - width)/2;
@@ -566,11 +566,18 @@ class TextUi : GameUi
                 scrn.showCursor();
             },
             (dchar ch) {
+                import std.conv : to, ConvException;
                 switch (ch)
                 {
                     case '0': .. case '9':
                         if (curPos + 1 < input.length)
                             input[curPos++] = ch;
+                        break;
+
+                    case '*':
+                        auto maxStr = format("%s", maxVal);
+                        maxStr.copy(input[]);
+                        curPos = maxStr.length.to!int;
                         break;
 
                     case '\b':
@@ -579,7 +586,6 @@ class TextUi : GameUi
                         break;
 
                     case '\n':
-                        import std.conv : to, ConvException;
                         try
                         {
                             auto result = input[0 .. curPos].to!int;
