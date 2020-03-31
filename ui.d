@@ -32,6 +32,7 @@ import display;
 import fov;
 import game;
 import gamemap;
+import store_traits;
 import vector;
 import world;
 
@@ -332,6 +333,7 @@ Movement keys:
    <space>         = center viewport back on player.
 
 Commands:
+   d        Drop an object from your inventory.
    p        Pass a turn.
    z        Show inventory (does not consume a turn).
    ;        Look at objects on the floor where you are.
@@ -436,6 +438,7 @@ class TextUi : GameUi
             'k': PlayerAction.right,
             keyEnter: PlayerAction.apply,
             ',': PlayerAction.pickup,
+            'd': PlayerAction.drop,
             'p': PlayerAction.pass,
         ];
 
@@ -506,6 +509,23 @@ class TextUi : GameUi
         Fiber.yield();
 
         assert(result != PlayerAction.none);
+        return result;
+    }
+
+    ThingId pickInventoryObj(string prompt)
+    {
+        ThingId result = invalidId;
+        if (inventoryUi("What do you want to drop?", (InventoryItem item) {
+                result = item.id;
+                return true;
+            }, {
+                // Return result to game fiber.
+                gameFiber.call();
+            }))
+        {
+            Fiber.yield();
+        }
+
         return result;
     }
 
@@ -830,16 +850,33 @@ class TextUi : GameUi
         pager(scrn, [ "You see here:" ] ~ objs, "Go back", {});
     }
 
-    private void showInventory()
+    /**
+     * Params:
+     *  promptStr = Heading to display on inventory screen.
+     *  selectAction = Optional action to execute when user selects an item.
+     *      Should return true if inventory UI interaction should stop
+     *      immediately, false if it should continue.
+     *  onExit = Hook to run upon leaving the inventory UI. Primarily needed
+     *      for Fiber context switches if the interaction started from the Game
+     *      fiber.
+     *
+     * Returns: true if inventory UI mode is pushed on stack, otherwise false
+     * (e.g., if inventory is empty).
+     */
+    private bool inventoryUi(string promptStr,
+                             bool delegate(InventoryItem) selectAction,
+                             void delegate() onExit = null)
     {
         auto inven = g.getInventory();
         if (inven.length == 0)
         {
-            echo("You are not carrying anything right now.");
-            return;
+            return false;
         }
 
         auto scrn = pagerScreen();
+        int curIdx = (selectAction !is null) ? 0 : -1;
+        int yStart = (selectAction !is null) ? 4 : 3;
+
         auto invenMode = Mode(
             () {
                 scrn.hideCursor();
@@ -850,13 +887,25 @@ class TextUi : GameUi
                 scrn.clearToEos();
 
                 scrn.moveTo(1, 1);
-                scrn.writef("You are carrying:");
+                scrn.writef(promptStr);
+                if (selectAction !is null)
+                {
+                    scrn.moveTo(1, 2);
+                    scrn.writef("(Use j/k to select, Enter to pick, "~
+                                "q to abort)");
+                }
 
                 foreach (i; 0 .. inven.length)
                 {
                     import std.conv : to;
-                    scrn.moveTo(2, (3 + i).to!int);
+                    scrn.moveTo(2, (yStart + i).to!int);
+                    if (i == curIdx)
+                        scrn.color(Color.black, Color.white);
+                    else
+                        scrn.color(Color.white, Color.black);
+
                     scrn.writef("%d %s", inven[i].count, inven[i].name);
+                    scrn.clearToEol();
                 }
             },
             (dchar ch) {
@@ -866,6 +915,28 @@ class TextUi : GameUi
                         dispatch.pop();
                         disp.color(Color.DEFAULT, Color.DEFAULT);
                         disp.clear();
+                        if (onExit !is null)
+                            onExit();
+                        break;
+
+                    case 'i', 'k':
+                        if (selectAction !is null && curIdx > 0)
+                            curIdx--;
+                        break;
+
+                    case 'j', 'm':
+                        if (selectAction !is null && curIdx + 1 < inven.length)
+                            curIdx++;
+                        break;
+
+                    case '\n':
+                        if (selectAction !is null &&
+                            selectAction(inven[curIdx]))
+                        {
+                            // selectAction want to stop interaction now, go
+                            // back to previous mode.
+                            goto case 'q';
+                        }
                         break;
 
                     default:
@@ -875,6 +946,15 @@ class TextUi : GameUi
         );
 
         dispatch.push(invenMode);
+        return true;
+    }
+
+    private void showInventory()
+    {
+        if (!inventoryUi("You are carrying:", null /*TBD: show item details*/))
+        {
+            message("You are not carrying anything right now.");
+        }
     }
 
     private auto getCurView()
