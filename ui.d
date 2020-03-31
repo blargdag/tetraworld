@@ -514,12 +514,18 @@ class TextUi : GameUi
 
     ThingId pickInventoryObj(string prompt)
     {
-        // FIXME: for now, just select first item from inventory.
-        // TBD: implement proper selection UI.
-        auto inven = g.getInventory();
-        if (inven.length == 0)
-            return invalidId;
-        return inven[0].id;
+        ThingId result = invalidId;
+        inventoryUi("What do you want to drop?", (InventoryItem item) {
+                result = item.id;
+                return true;
+            }, {
+                // Return result to game fiber.
+                gameFiber.call();
+            }
+        );
+        Fiber.yield();
+
+        return result;
     }
 
     void updateMap(Pos[] where...)
@@ -843,7 +849,19 @@ class TextUi : GameUi
         pager(scrn, [ "You see here:" ] ~ objs, "Go back", {});
     }
 
-    private void showInventory()
+    /**
+     * Params:
+     *  promptStr = Heading to display on inventory screen.
+     *  selectAction = Optional action to execute when user selects an item.
+     *      Should return true if inventory UI interaction should stop
+     *      immediately, false if it should continue.
+     *  onExit = Hook to run upon leaving the inventory UI. Primarily needed
+     *      for Fiber context switches if the interaction started from the Game
+     *      fiber.
+     */
+    private void inventoryUi(string promptStr,
+                             bool delegate(InventoryItem) selectAction,
+                             void delegate() onExit = null)
     {
         auto inven = g.getInventory();
         if (inven.length == 0)
@@ -853,6 +871,8 @@ class TextUi : GameUi
         }
 
         auto scrn = pagerScreen();
+        int curIdx = (selectAction !is null) ? 0 : -1;
+
         auto invenMode = Mode(
             () {
                 scrn.hideCursor();
@@ -863,13 +883,19 @@ class TextUi : GameUi
                 scrn.clearToEos();
 
                 scrn.moveTo(1, 1);
-                scrn.writef("You are carrying:");
+                scrn.writef(promptStr);
 
                 foreach (i; 0 .. inven.length)
                 {
                     import std.conv : to;
                     scrn.moveTo(2, (3 + i).to!int);
+                    if (i == curIdx)
+                        scrn.color(Color.black, Color.white);
+                    else
+                        scrn.color(Color.white, Color.black);
+
                     scrn.writef("%d %s", inven[i].count, inven[i].name);
+                    scrn.clearToEol();
                 }
             },
             (dchar ch) {
@@ -879,6 +905,28 @@ class TextUi : GameUi
                         dispatch.pop();
                         disp.color(Color.DEFAULT, Color.DEFAULT);
                         disp.clear();
+                        if (onExit !is null)
+                            onExit();
+                        break;
+
+                    case 'i', 'k':
+                        if (selectAction !is null && curIdx > 0)
+                            curIdx--;
+                        break;
+
+                    case 'j', 'm':
+                        if (selectAction !is null && curIdx + 1 < inven.length)
+                            curIdx++;
+                        break;
+
+                    case '\n':
+                        if (selectAction !is null &&
+                            selectAction(inven[curIdx]))
+                        {
+                            // selectAction want to stop interaction now, go
+                            // back to previous mode.
+                            goto case 'q';
+                        }
                         break;
 
                     default:
@@ -888,6 +936,11 @@ class TextUi : GameUi
         );
 
         dispatch.push(invenMode);
+    }
+
+    private void showInventory()
+    {
+        inventoryUi("You are carrying:", null /*TBD: show item details*/);
     }
 
     private auto getCurView()
