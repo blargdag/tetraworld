@@ -5,7 +5,7 @@
 - To investigate: underwater rock trap spawns rock that seems to vanish into
   thin air?
 - Implement drop action.
-   - First stab: just drop the entire stack.
+   + First stab: just drop the entire stack.
    - Allow player to specify how many of a stacked item to drop.
       - Implement rudimentary string input UI.
 - Need to start implement event filtering based on visibility / audibility!
