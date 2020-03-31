@@ -652,6 +652,32 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
 }
 
 /**
+ * Drop an object in the subject's inventory.
+ */
+ActionResult dropItem(World w, Thing* subj, ThingId objId)
+{
+    auto subjPos = w.store.get!Pos(subj.id);
+    auto inven = w.store.get!Inventory(subj.id);
+
+    // Shouldn't happen, but just in case...
+    if (subjPos is null)
+        return ActionResult(false, 10, "You've nowhere to drop it to!");
+
+    auto idx = inven.contents[].countUntil(objId);
+    if (idx == -1)
+        return ActionResult(false, 10, "You're not carrying that!");
+
+    auto obj = w.store.getObj(objId);
+    inven.contents = inven.contents[].remove(idx);
+
+    rawMove(w, obj, *subjPos, {
+        w.notify.itemAct(ItemActType.drop, *subjPos, subj.id, objId);
+    });
+
+    return ActionResult(true, 10);
+}
+
+/**
  * Use an item.
  */
 ActionResult useItem(World w, Thing* subj, ThingId objId)

@@ -56,7 +56,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, pickup, pass,
+    apply, pickup, drop, pass,
 }
 
 /**
@@ -81,6 +81,14 @@ interface GameUi
      * Read player action from user input.
      */
     PlayerAction getPlayerAction();
+
+    /**
+     * Prompt the user to select an inventory item to perform an action on.
+     * Returns: invalidId if the user cancels the action.
+     *
+     * FIXME: should include count too.
+     */
+    ThingId pickInventoryObj(string prompt);
 
     /**
      * Notify UI that a map change has occurred.
@@ -307,6 +315,17 @@ class Game
         return (World w) => pickupItem(w, player, r.front);
     }
 
+    private Action dropObj(ref string errmsg)
+    {
+        auto objId = ui.pickInventoryObj("What would you like to drop?");
+        if (objId == invalidId)
+        {
+            errmsg = "You have nothing to drop.";
+            return null;
+        }
+        return (World w) => dropItem(w, player, objId);
+    }
+
     private Action applyFloorObj(ref string errmsg)
     {
         auto pos = *w.store.get!Pos(player.id);
@@ -442,8 +461,12 @@ class Game
                             ui.message("You pick up the " ~ name.name ~ ".");
                         break;
 
-                    case ItemActType.use:
                     case ItemActType.drop:
+                        if (name !is null)
+                            ui.message("You drop the " ~ name.name ~ ".");
+                        break;
+
+                    case ItemActType.use:
                         assert(0); // TBD
                 }
             }
@@ -578,6 +601,7 @@ class Game
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
                 case pickup: act = pickupObj(errmsg);             break;
+                case drop:  act = dropObj(errmsg);                break;
                 case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;
                 case none:  assert(0, "Internal error");

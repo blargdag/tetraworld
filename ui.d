@@ -32,6 +32,7 @@ import display;
 import fov;
 import game;
 import gamemap;
+import store_traits;
 import vector;
 import world;
 
@@ -332,6 +333,7 @@ Movement keys:
    <space>         = center viewport back on player.
 
 Commands:
+   d        Drop an object from your inventory.
    p        Pass a turn.
    z        Show inventory (does not consume a turn).
    ;        Look at objects on the floor where you are.
@@ -436,6 +438,7 @@ class TextUi : GameUi
             'k': PlayerAction.right,
             keyEnter: PlayerAction.apply,
             ',': PlayerAction.pickup,
+            'd': PlayerAction.drop,
             'p': PlayerAction.pass,
         ];
 
@@ -507,6 +510,16 @@ class TextUi : GameUi
 
         assert(result != PlayerAction.none);
         return result;
+    }
+
+    ThingId pickInventoryObj(string prompt)
+    {
+        // FIXME: for now, just select first item from inventory.
+        // TBD: implement proper selection UI.
+        auto inven = g.getInventory();
+        if (inven.length == 0)
+            return invalidId;
+        return inven[0].id;
     }
 
     void updateMap(Pos[] where...)
