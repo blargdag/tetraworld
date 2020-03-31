@@ -1,10 +1,10 @@
+- Need to start implement event filtering based on visibility / audibility!
 - Bug: a sinking object that lands on something else that subsequently moves
   away will get frozen in place instead of sinking farther.
    - When an object moves, need to add objects it previously supported to the
      gravity system's to-check list.
 - To investigate: underwater rock trap spawns rock that seems to vanish into
   thin air?
-- Need to start implement event filtering based on visibility / audibility!
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
