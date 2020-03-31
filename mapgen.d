@@ -1686,7 +1686,7 @@ unittest
         if (w is null)
             writefln("[%d] WAT?!", i);
         else
-            writefln("[%d] %d gold", i, w.store.getAll!Pickable().count);
+            writefln("[%d] %d gold", i, w.store.getAll!QuestItem().count);
     }
 }
 
