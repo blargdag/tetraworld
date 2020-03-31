@@ -512,11 +512,113 @@ class TextUi : GameUi
         return result;
     }
 
-    ThingId pickInventoryObj(string prompt)
+    /**
+     * Prompt the user to enter a number within the given range.
+     *
+     * Params:
+     *  promptStr = The prompt string.
+     *  min = The minimum allowed value.
+     *  max = The maximum allowed value.
+     *  dg = Callback to invoke with the inputted number.
+     */
+    void promptNumber(string promptStr, int minVal, int maxVal,
+                      void delegate(int) dg)
     {
-        ThingId result = invalidId;
-        if (inventoryUi("What do you want to drop?", (InventoryItem item) {
-                result = item.id;
+        import std.format : format;
+        auto fullPrompt = format("%s (%d-%d)", promptStr, minVal, maxVal);
+        auto width = min(fullPrompt.displayLength() + 2, disp.width);
+        auto height = 5;
+        auto scrnX = (disp.width - width)/2;
+        auto scrnY = (disp.height - height)/2;
+        auto scrn = subdisplay(&disp, region(
+            vec(scrnX, scrnY), vec(scrnX + width, scrnY + height)));
+
+        string err;
+        dchar[12] input;
+        int curPos;
+
+        auto promptMode = Mode(
+            () {
+                scrn.hideCursor();
+                scrn.color(Color.white, Color.black);
+
+                // Can't use .clear 'cos it doesn't use color we set.
+                scrn.moveTo(0, 0);
+                scrn.clearToEos();
+
+                scrn.moveTo(1, 1);
+                scrn.writef("%s", fullPrompt);
+
+                scrn.moveTo(2, 3);
+                scrn.writef("%s", input[0 .. curPos]);
+                scrn.clearToEol();
+
+                if (err.length > 0)
+                {
+                    scrn.moveTo(2, 4);
+                    scrn.color(Color.red, Color.black);
+                    scrn.writef("%s", err);
+                    scrn.clearToEol();
+                    scrn.color(Color.white, Color.black);
+                }
+
+                scrn.moveTo(2 + curPos, 3);
+                scrn.showCursor();
+            },
+            (dchar ch) {
+                switch (ch)
+                {
+                    case '0': .. case '9':
+                        if (curPos + 1 < input.length)
+                            input[curPos++] = ch;
+                        break;
+
+                    case '\b':
+                        if (curPos > 0)
+                            curPos--;
+                        break;
+
+                    case '\n':
+                        import std.conv : to, ConvException;
+                        try
+                        {
+                            auto result = input[0 .. curPos].to!int;
+                            if (result < minVal || result > maxVal)
+                            {
+                                err = "Please enter a number between %d and %d"
+                                      .format(minVal, maxVal);
+                                curPos = 0;
+                            }
+                            else
+                            {
+                                dispatch.pop();
+                                disp.color(Color.DEFAULT, Color.DEFAULT);
+                                disp.clear();
+
+                                dg(result);
+                                break;
+                            }
+                        }
+                        catch (ConvException e)
+                        {
+                            err = "That doesn't look like a number!";
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        );
+
+        dispatch.push(promptMode);
+    }
+
+    InventoryItem pickInventoryObj(string whatPrompt, string countPromptFmt)
+    {
+        InventoryItem result;
+        if (inventoryUi(whatPrompt, (InventoryItem item) {
+                result = item;
                 return true;
             }, {
                 // Return result to game fiber.
@@ -524,6 +626,17 @@ class TextUi : GameUi
             }))
         {
             Fiber.yield();
+
+            if (result.id != invalidId && result.count > 1)
+            {
+                import std.format : format;
+                promptNumber(countPromptFmt.format(result.name), 0,
+                             result.count, (count) {
+                                result.count = count;
+                                gameFiber.call();
+                             });
+                Fiber.yield();
+            }
         }
 
         return result;
@@ -887,7 +1000,7 @@ class TextUi : GameUi
                 scrn.clearToEos();
 
                 scrn.moveTo(1, 1);
-                scrn.writef(promptStr);
+                scrn.writef("%s", promptStr);
                 if (selectAction !is null)
                 {
                     scrn.moveTo(1, 2);
@@ -933,7 +1046,7 @@ class TextUi : GameUi
                         if (selectAction !is null &&
                             selectAction(inven[curIdx]))
                         {
-                            // selectAction want to stop interaction now, go
+                            // selectAction wants to stop interaction now, go
                             // back to previous mode.
                             goto case 'q';
                         }

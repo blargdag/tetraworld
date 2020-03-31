@@ -88,7 +88,7 @@ interface GameUi
      *
      * FIXME: should include count too.
      */
-    ThingId pickInventoryObj(string prompt);
+    InventoryItem pickInventoryObj(string whatPrompt, string countPromptFmt);
 
     /**
      * Notify UI that a map change has occurred.
@@ -317,15 +317,16 @@ class Game
 
     private Action dropObj(ref string errmsg)
     {
-        auto objId = ui.pickInventoryObj("What would you like to drop?");
-        if (objId == invalidId)
+        auto item = ui.pickInventoryObj("What do you want to drop?",
+                                        "How many %s do you want to drop?");
+        if (item.id == invalidId || item.count == 0)
         {
             errmsg = (getInventory().length == 0) ?
                      "You have nothing to drop." :
                      "You decide against dropping anything.";
             return null;
         }
-        return (World w) => dropItem(w, player, objId);
+        return (World w) => dropItem(w, player, item.id, item.count);
     }
 
     private Action applyFloorObj(ref string errmsg)
