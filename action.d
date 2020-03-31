@@ -654,7 +654,7 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
 /**
  * Drop an object in the subject's inventory.
  */
-ActionResult dropItem(World w, Thing* subj, ThingId objId)
+ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
 {
     auto subjPos = w.store.get!Pos(subj.id);
     auto inven = w.store.get!Inventory(subj.id);
@@ -667,12 +667,30 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId)
     if (idx == -1)
         return ActionResult(false, 10, "You're not carrying that!");
 
-    auto obj = w.store.getObj(objId);
-    inven.contents = inven.contents[].remove(idx);
+    if (count <= 0)
+        return ActionResult(false, 10,
+                            "You hesitate, and end up dropping nothing.");
 
-    rawMove(w, obj, *subjPos, {
-        w.notify.itemAct(ItemActType.drop, *subjPos, subj.id, objId);
-    });
+    import stacking : splitStack;
+    auto obj = w.store.getObj(objId);
+    auto droppedObj = splitStack(w.store, objId, count);
+    if (droppedObj is null || droppedObj is obj)
+    {
+        // Drop entire stack
+        inven.contents = inven.contents[].remove(idx);
+
+        rawMove(w, obj, *subjPos, {
+            w.notify.itemAct(ItemActType.drop, *subjPos, subj.id, objId);
+        });
+    }
+    else
+    {
+        // Drop partial stack
+        rawMove(w, droppedObj, *subjPos, {
+            w.notify.itemAct(ItemActType.drop, *subjPos, subj.id,
+                             droppedObj.id);
+        });
+    }
 
     return ActionResult(true, 10);
 }
