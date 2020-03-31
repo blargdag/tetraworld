@@ -540,7 +540,7 @@ class TextUi : GameUi
         auto promptMode = Mode(
             () {
                 scrn.hideCursor();
-                scrn.color(Color.white, Color.black);
+                scrn.color(Color.black, Color.white);
 
                 // Can't use .clear 'cos it doesn't use color we set.
                 scrn.moveTo(0, 0);
@@ -556,10 +556,10 @@ class TextUi : GameUi
                 if (err.length > 0)
                 {
                     scrn.moveTo(2, 4);
-                    scrn.color(Color.red, Color.black);
+                    scrn.color(Color.red, Color.white);
                     scrn.writef("%s", err);
                     scrn.clearToEol();
-                    scrn.color(Color.white, Color.black);
+                    scrn.color(Color.black, Color.white);
                 }
 
                 scrn.moveTo(2 + curPos, 3);
@@ -838,7 +838,7 @@ class TextUi : GameUi
         void displayPage()
         {
             scrn.hideCursor();
-            scrn.color(Color.white, Color.black);
+            scrn.color(Color.black, Color.white);
 
             // Can't use .clear 'cos it doesn't use color we set.
             scrn.moveTo(0, 0);
@@ -857,7 +857,7 @@ class TextUi : GameUi
             scrn.moveTo(1, linesToPrint + offsetY + 1);
             scrn.color(Color.white, Color.blue);
             scrn.writef("%s", nextLines.length > 0 ? "[More]" : endPrompt);
-            scrn.color(Color.white, Color.black);
+            scrn.color(Color.black, Color.white);
             scrn.showCursor();
         }
 
@@ -999,7 +999,7 @@ class TextUi : GameUi
         auto invenMode = Mode(
             () {
                 scrn.hideCursor();
-                scrn.color(Color.white, Color.black);
+                scrn.color(Color.black, Color.white);
 
                 // Can't use .clear 'cos it doesn't use color we set.
                 scrn.moveTo(0, 0);
@@ -1019,9 +1019,9 @@ class TextUi : GameUi
                     import std.conv : to;
                     scrn.moveTo(2, (yStart + i).to!int);
                     if (i == curIdx)
-                        scrn.color(Color.black, Color.white);
+                        scrn.color(Color.white, Color.blue);
                     else
-                        scrn.color(Color.white, Color.black);
+                        scrn.color(Color.black, Color.white);
 
                     scrn.writef("%d %s", inven[i].count, inven[i].name);
                     scrn.clearToEol();
