@@ -965,8 +965,17 @@ class TextUi : GameUi
             return;
         }
 
-        auto scrn = pagerScreen();
-        pager(scrn, [ "You see here:" ] ~ objs, "Go back", {});
+        import std.conv : to;
+        static immutable heading = "You see here:";
+        auto width = max(heading.displayLength + 2,
+                         objs.map!(s => s.displayLength).maxElement).to!int;
+        auto height = 6 + objs.length.to!int;
+        auto scrnX = (disp.width - width)/2;
+        auto scrnY = (disp.height - height)/2;
+        auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                             vec(scrnX + width,
+                                                 scrnY + height)));
+        pager(scrn, [ "You see here:", "" ] ~ objs, "Go back", {});
     }
 
     /**

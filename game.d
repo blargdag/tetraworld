@@ -561,8 +561,10 @@ class Game
         return w.store.getAllBy!Pos(Pos(playerPos))
                 .filter!(id => id != player.id)
                 .map!(id => w.store.getObj(id))
-                .filter!(t => (t.systems & SysMask.name) != 0)
+                .filter!(t => (t.systems & SysMask.name) != 0 &&
+                              (t.systems & SysMask.tiled) != 0)
                 .map!((Thing* t) {
+                    auto tiled = w.store.get!Tiled(t.id);
                     auto nm = w.store.get!Name(t.id);
                     auto stk = w.store.get!Stackable(t.id);
                     if (stk is null || stk.count == 1)
