@@ -20,3 +20,34 @@ Mapgen ideas:
      play styles, experience-oriented regions / mini-puzzles/challenges.
    - Lowest levels of BSP are individual rooms.
 
+//
+
+Language handling ideas:
+
+- The obvious way to handle different noun forms, etc., is to represent all
+  nouns by an abstract ID that gets looked up in a language-specific
+  dictionary, yielding an object that encodes its various forms.
+- This is cumbersome, though; since every new object will need modification in
+  several files just to add a single word.
+- What about using string literals as the dictionary key?
+   - The key will by default always be English. But that does not preclude
+     dictionaries that yield entries that translate the English noun into the
+     target language.
+      - If translations lag behind, the English word will be substituted as a
+        placeholder until translators catch up. This will prevent the impasse
+        in Elephant! where every language has to be updated with every form of
+        every newly added word.
+   - Furthermore, to alleviate the tedium and redundancy of defining every form
+     of every noun, make it a rule that if a key is not found, then the code
+     falls back to a default, language-specific declension pattern.
+   - In fact, the noun definition can arbitarily omit any form if the default
+     declension pattern derives the correct form. So you only have to
+     explicitly define the exceptions to the rule, rather than every single
+     word.
+   - A more sophisticated system would be to have a tag in the noun definition
+     to indicate things like declension class, so you could have multiple
+     default declension that cover 90% of the cases, leaving only few
+     exceptions to be explicitly coded for.
+
+
+// vim:set sw=3 ts=3 et ai:
