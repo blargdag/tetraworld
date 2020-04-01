@@ -24,6 +24,7 @@ import std.algorithm;
 import std.array;
 import std.conv : to;
 import std.random : uniform;
+import std.range.primitives;
 import std.stdio;
 import std.uni : asCapitalized;
 
@@ -145,6 +146,25 @@ struct InventoryItem
     TileId tileId;
     string name;
     int count;
+
+    void toString(W)(W sink)
+    {
+        import std.format : formattedWrite;
+        if (count == 1)
+            put(sink, "a ");
+        else
+            sink.formattedWrite("%d ", count);
+        put(sink, name);
+    }
+
+    unittest
+    {
+        import std.array : appender;
+        auto app = appender!string;
+        auto item = InventoryItem(1, TileId.unknown, "thingie", 1);
+        item.toString(app);
+        assert(app.data == "a thingie");
+    }
 }
 
 /**
@@ -572,9 +592,10 @@ class Game
                     auto tiled = w.store.get!Tiled(t.id);
                     auto nm = w.store.get!Name(t.id);
                     auto stk = w.store.get!Stackable(t.id);
-                    if (stk is null || stk.count == 1)
-                        return format("a %s", nm.name);
-                    return format("%d %s", stk.count, nm.name);
+                    return InventoryItem(t.id, tiled ? tiled.tileId :
+                                                       TileId.unknown,
+                                         nm ? nm.name : "???",
+                                         stk ? stk.count : 1);
                 });
     }
 
