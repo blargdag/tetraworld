@@ -992,7 +992,20 @@ class TextUi : GameUi
             return false;
         }
 
-        auto scrn = pagerScreen();
+        import std.conv : to;
+        static immutable hintString = "(Use j/k to select, Enter to pick, "~
+                                      "q to abort)";
+        auto hintStringLen = (selectAction is null) ? 0 :
+                             hintString.displayLength;
+        auto width = (3 + max(promptStr.displayLength, hintStringLen,
+                              inven.map!(item => item.name.displayLength)
+                                   .maxElement)).to!int;
+        auto height = min(disp.height, 5 + inven.length.to!int);
+        auto scrnX = (disp.width - width)/2;
+        auto scrnY = (disp.height - height)/2;
+        auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                             vec(scrnX + width,
+                                                 scrnY + height)));
         int curIdx = (selectAction !is null) ? 0 : -1;
         int yStart = (selectAction !is null) ? 4 : 3;
 
