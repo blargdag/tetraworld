@@ -24,6 +24,7 @@ import std.algorithm;
 import std.array;
 import std.conv : to;
 import std.random : uniform;
+import std.range.primitives;
 import std.stdio;
 import std.uni : asCapitalized;
 
@@ -142,8 +143,28 @@ struct PlayerStatus
 struct InventoryItem
 {
     ThingId id;
+    TileId tileId;
     string name;
     int count;
+
+    void toString(W)(W sink)
+    {
+        import std.format : formattedWrite;
+        if (count == 1)
+            put(sink, "a ");
+        else
+            sink.formattedWrite("%d ", count);
+        put(sink, name);
+    }
+
+    unittest
+    {
+        import std.array : appender;
+        auto app = appender!string;
+        auto item = InventoryItem(1, TileId.unknown, "thingie", 1);
+        item.toString(app);
+        assert(app.data == "a thingie");
+    }
 }
 
 /**
@@ -209,8 +230,12 @@ class Game
 
         return inven.contents
                     .map!((id) {
+                        auto tl = w.store.get!Tiled(id);
+                        auto nm = w.store.get!Name(id);
                         auto stk = w.store.get!Stackable(id);
-                        return InventoryItem(id, w.store.get!Name(id).name,
+                        return InventoryItem(id, tl ? tl.tileId :
+                                                      TileId.unknown,
+                                             nm ? nm.name : "???",
                                              stk ? stk.count : 1);
                     })
                     .array;
@@ -561,13 +586,16 @@ class Game
         return w.store.getAllBy!Pos(Pos(playerPos))
                 .filter!(id => id != player.id)
                 .map!(id => w.store.getObj(id))
-                .filter!(t => (t.systems & SysMask.name) != 0)
+                .filter!(t => (t.systems & SysMask.name) != 0 &&
+                              (t.systems & SysMask.tiled) != 0)
                 .map!((Thing* t) {
+                    auto tiled = w.store.get!Tiled(t.id);
                     auto nm = w.store.get!Name(t.id);
                     auto stk = w.store.get!Stackable(t.id);
-                    if (stk is null || stk.count == 1)
-                        return format("a %s", nm.name);
-                    return format("%d %s", stk.count, nm.name);
+                    return InventoryItem(t.id, tiled ? tiled.tileId :
+                                                       TileId.unknown,
+                                         nm ? nm.name : "???",
+                                         stk ? stk.count : 1);
                 });
     }
 

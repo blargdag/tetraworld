@@ -965,8 +965,66 @@ class TextUi : GameUi
             return;
         }
 
-        auto scrn = pagerScreen();
-        pager(scrn, [ "You see here:" ] ~ objs, "Go back", {});
+        import std.conv : to;
+        static immutable heading = "You see here:";
+        auto width = max(heading.displayLength + 2,
+                         objs.map!(item => item.name.displayLength + 6)
+                             .maxElement).to!int;
+        auto height = 6 + objs.length.to!int;
+        auto scrnX = (disp.width - width)/2;
+        auto scrnY = (disp.height - height)/2;
+        auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                             vec(scrnX + width,
+                                                 scrnY + height)));
+        auto lookMode = Mode(
+            () {
+                scrn.hideCursor();
+                scrn.color(Color.black, Color.white);
+
+                scrn.moveTo(0, 0);
+                scrn.clearToEos();
+
+                scrn.moveTo(1, 1);
+                scrn.writef("You see here:");
+
+                foreach (i; 0 .. objs.length)
+                {
+                    import std.conv : to;
+                    scrn.moveTo(1, (3 + i).to!int);
+                    renderItem(scrn, objs[i], Color.black, Color.white);
+                }
+
+                scrn.moveTo(1, height-2);
+                scrn.color(Color.white, Color.blue);
+                scrn.writef("[OK]");
+                scrn.showCursor();
+            },
+            (dchar ch) {
+                switch (ch)
+                {
+                    case 'q', ' ':
+                        dispatch.pop();
+                        disp.color(Color.DEFAULT, Color.DEFAULT);
+                        disp.clear();
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+        );
+
+        dispatch.push(lookMode);
+    }
+
+    private void renderItem(S)(S scrn, InventoryItem item, Color fg, Color bg)
+    {
+        import tile : tiles;
+
+        scrn.renderCell(tiles[item.tileId]);
+        scrn.color(fg, bg);
+        scrn.writef(" %s", item);
+        scrn.clearToEol();
     }
 
     /**
@@ -993,11 +1051,12 @@ class TextUi : GameUi
         }
 
         import std.conv : to;
+
         static immutable hintString = "(Use j/k to select, Enter to pick, "~
                                       "q to abort)";
         auto hintStringLen = (selectAction is null) ? 0 :
                              hintString.displayLength;
-        auto width = (3 + max(promptStr.displayLength, hintStringLen,
+        auto width = (5 + max(promptStr.displayLength, hintStringLen,
                               inven.map!(item => item.name.displayLength)
                                    .maxElement)).to!int;
         auto height = min(disp.height, 5 + inven.length.to!int);
@@ -1030,14 +1089,17 @@ class TextUi : GameUi
                 foreach (i; 0 .. inven.length)
                 {
                     import std.conv : to;
-                    scrn.moveTo(2, (yStart + i).to!int);
-                    if (i == curIdx)
-                        scrn.color(Color.white, Color.blue);
-                    else
-                        scrn.color(Color.black, Color.white);
+                    scrn.moveTo(1, (yStart + i).to!int);
 
-                    scrn.writef("%d %s", inven[i].count, inven[i].name);
-                    scrn.clearToEol();
+                    auto fg = Color.black;
+                    auto bg = Color.white;
+                    if (i == curIdx)
+                    {
+                        fg = Color.white;
+                        bg = Color.blue;
+                    }
+
+                    renderItem(scrn, inven[i], fg, bg);
                 }
             },
             (dchar ch) {
