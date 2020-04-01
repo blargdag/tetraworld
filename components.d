@@ -69,6 +69,7 @@ unittest
 enum TileId : ushort
 {
     blocked,
+    unknown,
 
     space,
     wall,

@@ -1002,11 +1002,13 @@ class TextUi : GameUi
         }
 
         import std.conv : to;
+        import tile : tiles;
+
         static immutable hintString = "(Use j/k to select, Enter to pick, "~
                                       "q to abort)";
         auto hintStringLen = (selectAction is null) ? 0 :
                              hintString.displayLength;
-        auto width = (3 + max(promptStr.displayLength, hintStringLen,
+        auto width = (5 + max(promptStr.displayLength, hintStringLen,
                               inven.map!(item => item.name.displayLength)
                                    .maxElement)).to!int;
         auto height = min(disp.height, 5 + inven.length.to!int);
@@ -1039,13 +1041,18 @@ class TextUi : GameUi
                 foreach (i; 0 .. inven.length)
                 {
                     import std.conv : to;
-                    scrn.moveTo(2, (yStart + i).to!int);
+                    scrn.moveTo(1, (yStart + i).to!int);
+                    auto fg = Color.black;
+                    auto bg = Color.white;
                     if (i == curIdx)
-                        scrn.color(Color.white, Color.blue);
-                    else
-                        scrn.color(Color.black, Color.white);
+                    {
+                        fg = Color.white;
+                        bg = Color.blue;
+                    }
 
-                    scrn.writef("%d %s", inven[i].count, inven[i].name);
+                    scrn.renderCell(tiles[inven[i].tileId]);
+                    scrn.color(fg, bg);
+                    scrn.writef(" %d %s", inven[i].count, inven[i].name);
                     scrn.clearToEol();
                 }
             },

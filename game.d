@@ -142,6 +142,7 @@ struct PlayerStatus
 struct InventoryItem
 {
     ThingId id;
+    TileId tileId;
     string name;
     int count;
 }
@@ -209,8 +210,12 @@ class Game
 
         return inven.contents
                     .map!((id) {
+                        auto tl = w.store.get!Tiled(id);
+                        auto nm = w.store.get!Name(id);
                         auto stk = w.store.get!Stackable(id);
-                        return InventoryItem(id, w.store.get!Name(id).name,
+                        return InventoryItem(id, tl ? tl.tileId :
+                                                      TileId.unknown,
+                                             nm ? nm.name : "???",
                                              stk ? stk.count : 1);
                     })
                     .array;
