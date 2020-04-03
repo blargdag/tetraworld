@@ -23,6 +23,9 @@ h1,h2 {
 .displayed {
 	text-align: center;
 }
+tt {
+	background: #e0e0e0;
+}
 </style>
 </head><body><main>
 
@@ -36,8 +39,8 @@ of space.</p>
 time. What we have here 4D space, or, if you like, <em>5D space-time</em>: 4D
 space + 1D time.  No, there is no time travel here, sorry.)</p>
 
-<p class="displayed"><a href="2020-01-28a.gif" target="_blank"><img
-src="2020-01-28a.gif" width="95%" alt="Sample play session"/></a></p>
+<p class="displayed"><a href="2020-04-03a.gif" target="_blank"><img
+src="2020-04-03a.gif" width="95%" alt="Sample play session"/></a></p>
 
 
 <h2>Download</h2>
@@ -50,12 +53,8 @@ src="2020-01-28a.gif" width="95%" alt="Sample play session"/></a></p>
 <h3>Developmental builds</h3>
 
 <ul>
-<li>2020-03-06a: [<a href="releases/tetraworld-2020-03-06a">Linux 64-bit</a>]
-	[<a href="releases/tetraworld-2020-03-06a.exe">Windows 64-bit</a>]</li>
-<li>2020-02-14a: [<a href="releases/tetraworld-2020-02-14a">Linux 64-bit</a>]
-	[<a href="releases/tetraworld-2020-02-14a.exe">Windows 64-bit</a>]</li>
-<li>2020-02-07a: [<a href="releases/tetraworld-2020-02-07a">Linux 64-bit</a>]
-	[<a href="releases/tetraworld-2020-02-07a.exe">Windows 64-bit</a>]</li>
+<li>2020-04-03a: [<a href="tetraworld-2020-04-03a">Linux 64-bit</a>]
+	[<a href="tetraworld-2020-04-03a.exe">Windows 64-bit</a>]</li>
 <li>2020-02-04a: [<a href="tetraworld-2020-02-04a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-02-04a.exe">Windows 64-bit</a>]</li>
 </ul>
@@ -69,6 +68,23 @@ saved games is not guaranteed.  Play at your own risk. :-P</p>
 <h2>News</h2>
 
 <ul>
+<li><b>2020-04-03:</b>
+  <ul>
+  <li>Objects like gold and rocks now stack.</li>
+  <li>Added command to look at items on the current tile, keyed to
+    <tt>;</tt>.</li>
+  <li>Added drop command, keyed to <tt>d</tt>.</li>
+  <li>Added pickup command, keyed to <tt>,</tt>.</li>
+  <li>Added an inventory screen. Press <tt>z</tt> to access it.</li>
+  <li>Various bug fixes and UI improvements.</li>
+  <li>Known issues:
+     <ul>
+     <li>In-game messages are often ungrammatical. A comprehensive language
+       module is currently in the works.</li>
+     <li>Rocks sinking into water sometimes will get stuck and stop
+       sinking.</li>
+     </ul></li>
+  </ul></li>
 <li><b>2020-03-06:</b>
   <ul>
   <li>Added very large last level.  This is intended to be a future long-term
@@ -119,8 +135,6 @@ saved games is not guaranteed.  Play at your own risk. :-P</p>
 <p>Run the program from a terminal (cmd.exe on Windows). Run with <tt>-h</tt>
 for a list of command-line options.</p>
 
-<p>Currently there is only one option:</p>
-
 <dl>
 <dt><tt>-S</tt>, <tt>--smoothscroll</tt></dt>
 <dd>Controls the timing delay when scrolling up/down or ana/kata, in msec. The
@@ -159,21 +173,21 @@ chunk of the world you're in.</p>
 <dt><tt>#</tt></dt>
 <dd>Unrevealed area of the map you've not been to yet.</dd>
 
-<dt><tt>, : ;</tt></dt>
+<dt><tt>,</tt> <tt>:</tt> <tt>;</tt></dt>
 <dd>These characters represent different types of floor. In this version,
 different types of floor do not yet have any difference in function.</dd>
 
-<dt>~</dt>
+<dt><tt>~</tt></dt>
 <dd>Water. In this version, you can freely swim through water, and will not be
 subject to gravity while in water.</dd>
 
 <dt>(blank)</dt>
 <dd>Blanks represent empty space that you will fall through.</dd>
 
-<dt>&</dt>
+<dt><tt>&</tt></dt>
 <dd>Your player character.</dd>
 
-<dt>-</dt>
+<dt><tt>-</tt></dt>
 <dd>Doorways that you can pass through.</dd>
 
 <dt><tt>=</tt></tt></dt>
@@ -182,19 +196,19 @@ subject to gravity while in water.</dd>
 <dt><tt>_</tt></tt></dt>
 <dd>Top of a ladder.</dd>
 
-<dt>*</dt>
+<dt><tt>*</tt></dt>
 <dd>A rock. In the current version, it's just random debris.</dd>
 
-<dt>$</dt>
+<dt><tt>$</tt></dt>
 <dd>Collectible gold ores. In this version of the game, you're supposed to
 collect all the gold in the level and then find and activate the exit
 portal.</dd>
 
-<dt>@</dt>
+<dt><tt>@</tt></dt>
 <dd>The exit portal. Activate this after collecting all the gold in order to
 finish the level.</dd>
 
-<dt>^</dt>
+<dt><tt>^</tt></dt>
 <dd>A trap of some kind. Currently the game has two types of traps: hidden
 trapdoors, and falling rock traps.</dd>
 
@@ -291,11 +305,12 @@ but currently not yet implemented.</p>
 
 <dl>
 
-<dt>?</dt>
+<dt><tt>?</tt></dt>
 <dd>The most important key of all, this shows the in-game help screen that
 	describes the various controls.</dd>
 
-<dt>h, i, j, k, l, m, n, o</dt>
+<dt><tt>h</tt>, <tt>i</tt>, <tt>j</tt>, <tt>k</tt>, <tt>l</tt>, <tt>m</tt>,
+	<tt>n</tt>, <tt>o</tt></dt>
 <dd>Movement keys.  These keys were chosen to approximate the movement
 	direction they represent on-screen, at least on Qwerty layout keyboards
 	(Dvorak layout support will eventually be included).  So:
@@ -322,7 +337,8 @@ but currently not yet implemented.</p>
 	be diagonal).</dd>
 	</dl>
 
-<dt>H, I, J, K, L, M, N, O</dt>
+<dt><tt>H</tt>, <tt>I</tt>, <tt>J</tt>, <tt>K</tt>, <tt>L</tt>, <tt>M</tt>,
+	<tt>N</tt>, <tt>O</tt></dt>
 <dd>Keys for panning the current 4D viewport around without moving your player
 	character. These keys directly correspond with the movement keys, but
 	instead of moving the player character they pan the 4D viewpoint only.
@@ -335,32 +351,45 @@ but currently not yet implemented.</p>
 
 <dt>(space)</dt>
 <dd>Recenter the 4D viewport on the player character. Useful after you've moved
-	the viewport with <tt>H, I, J, K, L, M, N, O</tt>.</dd>
+	the viewport with <tt>H</tt>, <tt>I</tt>, <tt>J</tt>, <tt>K</tt>,
+	<tt>L</tt>, <tt>M</tt>, <tt>N</tt>, <tt>O</tt>.</dd>
 
-<dt>p</dt>
+<dt><tt>d</tt></dt>
+<dd>Drop something from your inventory.</dd>
+
+<dt><tt>p</tt></dt>
 <dd>Pass a turn. Can be useful in tactical movement around enemies.</dd>
 
+<dt><tt>z</tt></dt>
+<dd>Open the inventory screen, if you're carrying something.</dd>
+
+<dt><tt>,</tt></dt>
+<dd>Pick up an item from the current tile.</dd>
+
+<dt><tt>;</tt></dt>
+<dd>Look at the objects on the current tile.</dd>
+
 <dt>(enter)</dt>
-<dd>Activate an object in the tile you're standing on. Currently only useful
-for the exit portal.</dd>
+<dd>Activate an object on the current tile. Currently only useful for the exit
+	portal.</dd>
 
-<dt>q</dt>
+<dt><tt>q</tt></dt>
 <dd>Save current game and quit. The game will automatically continue where you
-left off the next time you start the program. <strong>Warning:</strong> always
-exit the game with 'q' if you want to keep your current character; if the game
-terminates for any other reason, you will permanently lose your character.
-Welcome to permadeath.  :-D</dd>
+	left off the next time you start the program. <strong>Warning:</strong>
+	always exit the game with <tt>q</tt> if you want to keep your current
+	character; if the game terminates for any other reason, you will
+	permanently lose your character.  Welcome to permadeath.  :-D</dd>
 
-<dt>Q</dt>
+<dt><tt>Q</tt></dt>
 <dd>Delete current game and quit. <strong>Warning:</strong> once deleted, it is
-impossible to get your character back.</dd>
+	impossible to get your character back.</dd>
 
 </dl>
 
 
 <h2>How to win</h2>
 
-<p>In the latest version of the game, you have to find and collect all of the
+<p>In the current version of the game, you have to find and collect all of the
 gold ores scattered around each level, then find the exit portal and activate
 it.  Repeat for all levels.  Currently, the last level is very large, and
 you're not expected to be able to complete it.  It is intended to be a
@@ -385,8 +414,8 @@ located in the row immediately above the middle one in the display.</p>
 
 <p>There are also enemies that you may run into (you will know them when you
 see them!).  In this version of the game they can be quite dangerous, but their
-movement is predictable and they stop following you once you're out of their
-sight.  With some practice you should be able to lose them.  They are also poor
+movement is predictable and they stop following you once you're out of sight.
+With some practice you should be able to lose them.  They are also poor
 swimmers and tend to get stuck at the bottom of pools; if you can lure them
 into one it should relieve you of them for a while.</p>
 
