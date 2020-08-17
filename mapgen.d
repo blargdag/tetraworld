@@ -1359,8 +1359,69 @@ unittest
  */
 void sinkDoors(World w)
 {
-    //foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node) {
-    //});
+    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node)
+    {
+        foreach (i, ref d; node.doors)
+        {
+            if (d.axis == 0) continue;
+            auto ngbr = findNgbr(w.map.tree, w.map.bounds, node, cast(uint) i);
+            auto upperFloor = min(node.interior.max[0], ngbr.interior.max[0]);
+            d.pos[0] = upperFloor - 1;
+        }
+        return 0;
+    });
+}
+
+unittest
+{
+    //   0123456789
+    // 0 ##########
+    // 1 #3  #4   #
+    // 2 #   #    #
+    // 3 ##|##    #
+    // 4 #5  -    #
+    // 5 #   #    #
+    // 6 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.axis = 3;
+    root.left.pivot = 4;
+    root.left.left = new MapNode;
+    root.left.left.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right = new MapNode;
+    root.left.right.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    root.right = new MapNode;
+    root.right.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    auto bounds = region(vec(0,0,1,1), vec(5,2,10,7));
+    setRoomInteriors(root, bounds);
+
+    // Set floor heights
+    root.left.left.interior.max[0] = 3;
+    root.left.right.interior.max[0] = 5;
+    root.right.interior.max[0] = 4;
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+
+    sinkDoors(w);
+
+    assert(root.left.left.doors == [
+        Door(3, [ 2, 1, 2, 3 ]),
+    ]);
+    assert(root.left.right.doors == [
+        Door(3, [ 2, 1, 2, 3 ]),
+        Door(2, [ 3, 1, 4, 4 ]),
+    ]);
+    assert(root.right.doors == [
+        Door(2, [ 3, 1, 4, 4 ]),
+    ]);
 }
 
 /**
