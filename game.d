@@ -747,7 +747,7 @@ StoryNode[] storyNodes = [
         "and return."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.dim = [ 9, 9, 9, 9 ];
+        args.region = region(vec(0,0,0,0), vec(9,9,9,9));
         args.goldPct = 1.8;
         return genBspLevel(args, startPos);
     }),
@@ -768,7 +768,7 @@ StoryNode[] storyNodes = [
         "Good luck!"
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.dim = [ 10, 10, 10, 10 ];
+        args.region = region(vec(0,0,0,0), vec(10,10,10,10));
         args.nBackEdges = ValRange(3, 5);
         args.goldPct = 1.8;
         return genBspLevel(args, startPos);
@@ -791,7 +791,7 @@ StoryNode[] storyNodes = [
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.dim = [ 12, 12, 12, 12 ];
+        args.region = region(vec(0,0,0,0), vec(12,12,12,12));
         args.nBackEdges = ValRange(3, 5);
         args.nPitTraps = ValRange(8, 12);
         args.nRockTraps = ValRange(1, 4);
@@ -813,7 +813,7 @@ StoryNode[] storyNodes = [
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.dim = [ 15, 15, 15, 15 ];
+        args.region = region(vec(0,0,0,0), vec(15,15,15,15));
         args.nBackEdges = ValRange(5, 8);
         args.nPitTraps = ValRange(12, 18);
         args.nRockTraps = ValRange(6, 15);
@@ -833,7 +833,7 @@ StoryNode[] storyNodes = [
         "Keep up the good work!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.dim = [ 20, 20, 20, 20 ];
+        args.region = region(vec(0,0,0,0), vec(20,20,20,20));
         args.nBackEdges = ValRange(10, 15);
         args.nPitTraps = ValRange(20, 25);
         args.nRockTraps = ValRange(20, 25);
@@ -868,7 +868,7 @@ StoryNode[] storyNodes = [
         "You brace yourself and prepare for the worst."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.dim = [ 32, 32, 32, 32 ];
+        args.region = region(vec(0,0,0,0), vec(32,32,32,32));
         args.nBackEdges = ValRange(200, 300);
         args.nPitTraps = ValRange(200, 300);
         args.nRockTraps = ValRange(200, 300);

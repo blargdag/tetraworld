@@ -1487,7 +1487,7 @@ struct ValRange
  */
 struct MapGenArgs
 {
-    int[4] dim;
+    Region!(int,4) region;
     ValRange nBackEdges;
     ValRange nPitTraps;
     ValRange nRockTraps;
@@ -1505,7 +1505,7 @@ struct MapGenArgs
 World genBspLevel(MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
-    w.map.bounds = region(vec(0, 0, 0, 0), vec(args.dim));
+    w.map.bounds = args.region;
 
     enum nRetries = 10;
     alias R = Region!(int,4);
@@ -1604,7 +1604,7 @@ unittest
     {
         int[4] startPos;
         MapGenArgs args;
-        args.dim = [ 10, 10, 10, 10 ];
+        args.region = region(vec(0,0,0,0), vec(10,10,10,10));
         auto w = genBspLevel(args, startPos);
 
         // Door placement checks.
@@ -1797,7 +1797,7 @@ unittest
 {
     import std.stdio;
     MapGenArgs args;
-    args.dim = [ 64, 64, 64, 64 ];
+    args.region = region(vec(0,0,0,0), vec(64,64,64,64));
     args.nBackEdges = ValRange(20, 50);
     args.nPitTraps = ValRange(50, 80);
     args.goldPct = 0.2;
