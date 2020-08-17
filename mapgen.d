@@ -1496,7 +1496,7 @@ struct MapGenArgs
     ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
 
-    bool sinkDoors;
+    bool sinkDoors = true;
 }
 
 /**
