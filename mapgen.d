@@ -1294,6 +1294,76 @@ void genRockTraps(World w, int count)
 }
 
 /**
+ * Locates the neighbour of the given node connected by the given door.
+ */
+MapNode findNgbr(R)(MapNode tree, R bounds, MapNode node, uint doorIdx)
+    in (doorIdx < node.doors.length)
+{
+    // Compute coordinates of the other side of the door.
+    auto d = node.doors[doorIdx];
+    auto otherSide = vec(d.pos);
+    otherSide[d.axis] += (d.pos[d.axis] == node.interior.max[d.axis]) ? 1 : -1;
+
+    MapNode ngbr;
+    Region!(int,4) ngbrBounds;
+    foreachFiltRoom(tree, bounds, (R r) => r.contains(otherSide),
+                    (MapNode n, R r1) {
+                        assert(ngbr is null);
+                        ngbr = n;
+                        ngbrBounds = r1;
+                        return 1;
+                    });
+
+    assert(ngbr !is null);
+    return ngbr;
+}
+
+unittest
+{
+    //   0123456789
+    // 0 ##########
+    // 1 #   #    #
+    // 2 #   #    #
+    // 3 ##|##    #
+    // 4 #   -    #
+    // 5 #   #    #
+    // 6 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.axis = 3;
+    root.left.pivot = 4;
+    root.left.left = new MapNode;
+    root.left.left.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right = new MapNode;
+    root.left.right.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    root.right = new MapNode;
+    root.right.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,10,7));
+    setRoomInteriors(root, bounds);
+
+    assert(findNgbr(root, bounds, root.right, 0) == root.left.right);
+    assert(findNgbr(root, bounds, root.left.right, 0) == root.left.left);
+    assert(findNgbr(root, bounds, root.left.right, 1) == root.right);
+    assert(findNgbr(root, bounds, root.left.left, 0) == root.left.right);
+}
+
+/**
+ * Adjusts doors heights to be flush against the highest floor they connect, so
+ * that we avoid unnecessary ladders.
+ */
+void sinkDoors(World w)
+{
+    //foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node) {
+    //});
+}
+
+/**
  * Places an exit portal.
  */
 void genPortal(World w)
@@ -1364,6 +1434,8 @@ struct MapGenArgs
     float goldPct;
     ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
+
+    bool sinkDoors;
 }
 
 /**
@@ -1416,6 +1488,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     genPitTraps(w, args.nPitTraps.pick);
 
     resizeRooms(w.map.tree, w.map.bounds);
+    if (args.sinkDoors)
+        sinkDoors(w);
     addLadders(w);
 
     // Add water if necessary.
