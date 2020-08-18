@@ -1278,7 +1278,7 @@ void genRockTraps(World w, int count)
         while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
                !w.locationHas!BlocksMovement(floorPos))
         {
-            pos = randomLocation(w.map.tree, w.map.bounds, false);
+            pos = room.randomLocation(room.interior);
             floorPos = pos + vec(1,0,0,0);
         }
 
