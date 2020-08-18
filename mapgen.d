@@ -1114,9 +1114,9 @@ unittest
  * Returns: A random floor location in the given BSP tree that's above the
  * water level.
  */
-Vec!(int,4) randomDryPos(World w)
+Vec!(int,4) randomDryPos(MapNode tree, Region!(int,4) bounds, int waterLevel)
 {
-    auto dryRoom = randomDryRoom(w.map.tree, w.map.bounds, w.map.waterLevel);
+    auto dryRoom = randomDryRoom(tree, bounds, waterLevel);
     return dryRoom.randomLocation(dryRoom.interior);
 }
 
@@ -1133,12 +1133,7 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    auto w = new World;
-    w.map.tree = root;
-    w.map.bounds = bounds;
-
-    w.map.waterLevel = 7;
-    auto pos = w.randomDryPos();
+    auto pos = randomDryPos(root, bounds, 7);
     assert(root.left.interior.contains(pos));
 }
 
@@ -1424,10 +1419,10 @@ unittest
 void genPortal(World w)
 {
     // Pick a tile that isn't empty or has no floor support.
-    auto pos = randomDryPos(w);
+    auto pos = randomDryPos(w.map.tree, w.map.bounds, w.map.waterLevel);
     while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
            !w.locationHas!BlocksMovement(pos + vec(1,0,0,0)))
-        pos = randomDryPos(w);
+        pos = randomDryPos(w.map.tree, w.map.bounds, w.map.waterLevel);
 
     w.store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal), Weight(1));
