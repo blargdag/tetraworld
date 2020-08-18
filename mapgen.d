@@ -1266,7 +1266,7 @@ unittest
  */
 void genRockTraps(World w, int count)
 {
-    while (count > 0)
+    OUTER: while (count > 0)
     {
         // Find unoccupied location.
         auto room = randomDryRoom(w);
@@ -1275,11 +1275,15 @@ void genRockTraps(World w, int count)
 
         auto pos = room.randomLocation(room.interior);
         auto floorPos = pos + vec(1,0,0,0);
+        auto nTries = room.floorArea;
         while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
                !w.locationHas!BlocksMovement(floorPos))
         {
             pos = room.randomLocation(room.interior);
             floorPos = pos + vec(1,0,0,0);
+
+            if (--nTries <= 0)
+                continue OUTER; // insure against infinite loop
         }
 
         auto ceilingPos = pos;
