@@ -1248,12 +1248,12 @@ unittest
  * Note: this is done separately from genPitTraps because it needs rooms'
  * .interior to be already fixed.
  */
-void genRockTraps(World w, int count)
+void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
 {
     OUTER: while (count > 0)
     {
         // Find unoccupied location.
-        auto room = randomDryRoom(w.map.tree, w.map.bounds, w.map.waterLevel);
+        auto room = randomDryRoom(tree, bounds, w.map.waterLevel);
         if (room is null)
             return; // everything is underwater; don't bother.
 
@@ -1546,7 +1546,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     w.map.waterLevel = args.waterLevel.pick;
 
     genPortal(w, w.map.tree, w.map.bounds);
-    genRockTraps(w, args.nRockTraps.pick);
+    genRockTraps(w, w.map.tree, w.map.bounds, args.nRockTraps.pick);
 
     MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
                                       w.map.waterLevel);
