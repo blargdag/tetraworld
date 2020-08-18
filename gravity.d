@@ -482,7 +482,7 @@ unittest
     w.map.tree = root;
     w.map.bounds = region(vec(1,1,1,1), vec(6,4,3,3));
     w.map.waterLevel = int.max;
-    addLadders(w);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     //dump(w);
 

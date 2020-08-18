@@ -846,9 +846,9 @@ unittest
  *
  * Prerequisites: Room interiors must already have been set.
  */
-void addLadders(World w)
+void addLadders(World w, MapNode tree, Region!(int,4) bounds)
 {
-    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node) {
+    foreachRoom(tree, bounds, (Region!(int,4) bounds, MapNode node) {
         foreach (d; node.doors)
         {
             if (d.axis == 0 && d.type == Door.Type.normal &&
@@ -903,7 +903,7 @@ unittest
 
     w.map.waterLevel = int.max;
 
-    addLadders(w);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     bool hasLadder(Pos pos)
     {
@@ -959,7 +959,7 @@ unittest
 
     w.map.waterLevel = int.max;
 
-    addLadders(w);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     bool hasLadder(Pos pos)
     {
@@ -1164,9 +1164,10 @@ unittest
  *  openPitPct = Percentage of pits that will be visible open pits, vs. hidden
  *      traps.
  */
-void genPitTraps(World w, int count, int openPitPct = 30)
+void genPitTraps(World w, MapNode tree, Region!(int,4) bounds, int count,
+                 int openPitPct = 30)
 {
-    genBackEdges(w.map.tree, w.map.bounds, count, count*8,
+    genBackEdges(tree, bounds, count, count*8,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
 
@@ -1242,7 +1243,7 @@ unittest
     w.map.tree = root;
     w.map.bounds = bounds;
 
-    genPitTraps(w, 1, 0);
+    genPitTraps(w, root, bounds, 1, 0);
 
     auto r = w.store.getAll!Triggerable()
                     .map!(id => w.store.get!TiledAbove(id));
@@ -1357,14 +1358,14 @@ unittest
  * Adjusts doors heights to be flush against the highest floor they connect, so
  * that we avoid unnecessary ladders.
  */
-void sinkDoors(World w)
+void sinkDoors(MapNode tree, Region!(int,4) region)
 {
-    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node)
+    foreachRoom(tree, region, (Region!(int,4) bounds, MapNode node)
     {
         foreach (i, ref d; node.doors)
         {
             if (d.axis == 0) continue;
-            auto ngbr = findNgbr(w.map.tree, w.map.bounds, node, cast(uint) i);
+            auto ngbr = findNgbr(tree, region, node, cast(uint) i);
             auto upperFloor = min(node.interior.max[0], ngbr.interior.max[0]);
             d.pos[0] = upperFloor - 1;
         }
@@ -1410,7 +1411,7 @@ unittest
     w.map.tree = root;
     w.map.bounds = bounds;
 
-    sinkDoors(w);
+    sinkDoors(w.map.tree, w.map.bounds);
 
     assert(root.left.left.doors == [
         Door(3, [ 2, 1, 2, 3 ]),
@@ -1546,12 +1547,12 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     // Add back edges, regular and pits/pit traps.
     genBackEdges(w.map.tree, w.map.bounds, args.nBackEdges.pick,
                  args.nBackEdges.max + 15);
-    genPitTraps(w, args.nPitTraps.pick);
+    genPitTraps(w, w.map.tree, w.map.bounds, args.nPitTraps.pick);
 
     resizeRooms(w.map.tree, w.map.bounds);
     if (args.sinkDoors)
-        sinkDoors(w);
-    addLadders(w);
+        sinkDoors(w.map.tree, w.map.bounds);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     // Add water if necessary.
     w.map.waterLevel = args.waterLevel.pick;
@@ -1739,7 +1740,7 @@ World genTutorialLevel(out int[4] startPos)
     w.map.bounds = root.interior;
     w.map.waterLevel = int.max;
 
-    addLadders(w);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     // Put some gold for the player to collect.
     enum goldPos = [
