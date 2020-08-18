@@ -1067,17 +1067,17 @@ unittest
  *
  * Prerequisites: Room .interior's must have been set.
  */
-MapNode randomDryRoom(World w)
+MapNode randomDryRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
     out(node; node is null || node.isLeaf())
 {
-    auto dryRegion = w.map.bounds;
-    dryRegion.max[0] = w.map.waterLevel;
+    auto dryRegion = bounds;
+    dryRegion.max[0] = waterLevel;
 
     MapNode dryRoom;
     int n = 0;
-    foreachFiltRoom(w.map.tree, w.map.bounds, dryRegion,
+    foreachFiltRoom(tree, bounds, dryRegion,
         (MapNode node, Region!(int,4) r) {
-            if (node.interior.max[0] > w.map.waterLevel)
+            if (node.interior.max[0] > waterLevel)
                 return 0; // reject partially-submerged rooms
 
             if (n == 0 || uniform(0, n) == 0)
@@ -1104,21 +1104,10 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    auto w = new World;
-    w.map.tree = root;
-    w.map.bounds = bounds;
-
-    w.map.waterLevel = 8;
-    assert(randomDryRoom(w) is root.left);
-
-    w.map.waterLevel = 5;
-    assert(randomDryRoom(w) is root.left);
-
-    w.map.waterLevel = 4;
-    assert(randomDryRoom(w) is root.left);
-
-    w.map.waterLevel = 3;
-    assert(randomDryRoom(w) is null);
+    assert(randomDryRoom(root, bounds, 8) is root.left);
+    assert(randomDryRoom(root, bounds, 5) is root.left);
+    assert(randomDryRoom(root, bounds, 4) is root.left);
+    assert(randomDryRoom(root, bounds, 3) is null);
 }
 
 /**
@@ -1127,7 +1116,7 @@ unittest
  */
 Vec!(int,4) randomDryPos(World w)
 {
-    auto dryRoom = randomDryRoom(w);
+    auto dryRoom = randomDryRoom(w.map.tree, w.map.bounds, w.map.waterLevel);
     return dryRoom.randomLocation(dryRoom.interior);
 }
 
@@ -1269,7 +1258,7 @@ void genRockTraps(World w, int count)
     OUTER: while (count > 0)
     {
         // Find unoccupied location.
-        auto room = randomDryRoom(w);
+        auto room = randomDryRoom(w.map.tree, w.map.bounds, w.map.waterLevel);
         if (room is null)
             return; // everything is underwater; don't bother.
 
@@ -1564,7 +1553,8 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     genPortal(w);
     genRockTraps(w, args.nRockTraps.pick);
 
-    MapNode startRoom = randomDryRoom(w);
+    MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
+                                      w.map.waterLevel);
     startPos = startRoom.randomLocation(startRoom.interior);
 
     auto ngold = cast(int)(floorArea(w.map.tree) * args.goldPct / 100);
