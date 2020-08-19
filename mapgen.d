@@ -363,77 +363,29 @@ void genCorridors(R)(MapNode root, R region)
     genCorridors(root.left, leftRegion(region, root.axis, root.pivot));
     genCorridors(root.right, rightRegion(region, root.axis, root.pivot));
 
-    static struct LeftRoom
+    MapNode[2] candidate;
+    int[4] basePos;
+    int n;
+
+    foreachCandidateDoor(root, region, (MapNode left, MapNode right,
+                                        int[4] pos)
     {
-        MapNode node;
-        R region;
-    }
-
-    LeftRoom[] leftRooms;
-    root.left.foreachFiltRoom(leftRegion(region, root.axis, root.pivot),
-        (R r) => r.max[root.axis] >= root.pivot,
-        (MapNode node1, R r1) {
-            leftRooms ~= LeftRoom(node1, r1);
-            return 0;
-        });
-
-//import std;writefln("leftRooms=%s", leftRooms);
-    int ntries=0;
-    while (ntries++ < 2*leftRooms.length)
-    {
-        import rndutil : pickOne;
-        auto leftRoom = leftRooms.pickOne;
-        R wallFilt = rightWallFilt(leftRoom.node, leftRoom.region, root.axis);
-//import std;writefln("wallFilt=%s", wallFilt);
-
-        static struct RightRoom
+        if (uniform(0, ++n) == 0)
         {
-            MapNode node;
-            R region;
-            int[4] basePos;
+            candidate[0] = left;
+            candidate[1] = right;
+            basePos = pos;
         }
+        return 0;
+    });
 
-        RightRoom[] rightRooms;
-        root.right.foreachFiltRoom(rightRegion(region, root.axis, root.pivot),
-            wallFilt, (MapNode node2, R r2) {
-                auto wallFilt2 = leftWallFilt(node2, r2, root.axis);
-//import std;writefln("wallFilt2=%s", wallFilt2);
-                auto ir = wallFilt.intersect(wallFilt2);
-//import std;writefln("ir=%s", ir);
+    if (n == 0)
+        throw new GenCorridorsException("No viable door placement found");
 
-                int[4] basePos;
-                if (!randomEdgePos(ir, root.axis, basePos))
-                {
-//import std.stdio;writefln("left=%s right=%s TOO NARROW, SKIPPING", leftRoom.region, r2);
-                    return 0;
-                }
-
-//import std;writefln("basePos=%s", basePos);
-
-                rightRooms ~= RightRoom(node2, r2, basePos);
-                return 0;
-            });
-
-        // If can't find a suitable door placement, try picking a different
-        // left room.
-        if (rightRooms.empty)
-        {
-//import std.stdio;writefln("left=%s NO MATCH, SKIPPING", leftRoom.region);
-            continue;
-        }
-
-        auto rightRoom = rightRooms.pickOne;
-        auto d = Door(root.axis);
-
-        d.pos = rightRoom.basePos;
-//import std;writefln("door=%s", d);
-        leftRoom.node.doors ~= d;
-        rightRoom.node.doors ~= d;
-        return;
-    }
-
-    // If we got here, it means we're in trouble.
-    throw new GenCorridorsException("No matching door placement found, give up");
+    auto d = Door(root.axis);
+    d.pos = basePos;
+    candidate[0].doors ~= d;
+    candidate[1].doors ~= d;
 }
 
 unittest
