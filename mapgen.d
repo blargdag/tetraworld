@@ -1625,7 +1625,7 @@ MapNode genTree(Region!(int,4) bounds)
     return tree;
 }
 
-MapNode genGeometry(World w, MapGenArgs args, out int[4] startPos)
+MapNode genGeometry(World w, MapGenArgs args)
 {
     auto bounds = args.region;
     auto tree = genTree(bounds);
@@ -1647,7 +1647,8 @@ MapNode genGeometry(World w, MapGenArgs args, out int[4] startPos)
     return tree;
 }
 
-void genObjects(World w, MapNode tree, MapGenArgs args, MapNode startRoom)
+void genObjects(World w, MapNode tree, MapGenArgs args,
+                MapNode startRoom = null)
 {
     auto bounds = args.region;
 
@@ -1666,7 +1667,7 @@ void genObjects(World w, MapNode tree, MapGenArgs args, MapNode startRoom)
         auto pos = randomLocation(tree, bounds);
 
         // Avoid placing monsters in player's starting room.
-        while (startRoom.interior.contains(pos))
+        while (startRoom && startRoom.interior.contains(pos))
             pos = randomLocation(tree, bounds);
 
         w.store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
@@ -1693,7 +1694,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     auto w = new World;
 
     w.map.waterLevel = args.waterLevel.pick;
-    w.map.tree = genGeometry(w, args, startPos);
+    w.map.tree = genGeometry(w, args);
     w.map.bounds = args.region;
 
     MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
@@ -1939,23 +1940,48 @@ unittest
  */
 World genTestLevel()(out int[4] startPos)
 {
+    auto r = region(vec(0,0,0,0), vec(12,12,12,12));
+    auto axis = uniform(1, 3);
+    auto pivot = 6;
+
+    // Two halves of a map with distinct parameters.
+    MapGenArgs args1, args2;
+
+    args1.region = r;
+    args1.region.max[axis] = pivot;
+    args1.nBackEdges = ValRange(1, 5);
+    args1.goldPct = 0.0;
+    args1.nMonstersA = ValRange(1, 2);
+
+    args2.region = r;
+    args2.region.min[axis] = pivot;
+    args2.nPitTraps = ValRange(1, 5);
+    args2.nRockTraps = ValRange(3, 10);
+    args2.goldPct = 0.5;
+    args2.nMonstersA = ValRange(3, 4);
+
+    auto tree1 = genGeometry(w, args1);
+    auto tree2 = genGeometry(w, args2);
+
+    // Stitch two halves of map together
     auto w = new World;
+    w.map.waterLevel = args.waterLevel.pick;
+    w.map.tree = new MapNode;
+    w.map.tree.axis = axis;
+    w.map.tree.pivot = pivot;
+    w.map.tree.left = tree1;
+    w.map.tree.right = tree2;
+    w.map.bounds = r;
 
-    startPos = [1,1,1,1];
-    auto root = new MapNode;
-    root.interior = region(vec(1,1,1,1), vec(5,4,6,6));
+    // Generate startPos in first half of level.
+    MapNode startRoom = randomDryRoom(tree1, args1.region, w.map.waterLevel);
+    startPos = startRoom.randomLocation(startRoom.interior);
+    genPortal(w, tree1, args1.region);
 
-    w.map.tree = root;
-    w.map.bounds = region(vec(0,0,0,0), vec(6,5,7,7));
-    w.map.waterLevel = 2;
+    genObjects(w, tree1, args1, startRoom);
+    genObjects(w, tree2, args2, null);
 
-    auto trigger = w.store.createObj(Pos(4,2,3,3), Name("trap"),
-                                     Trigger(Trigger.Type.onWeight,
-                                             w.triggerId, 50));
-    auto rocktrap = w.store.createObj(Pos(1,2,3,3),
-                                      Triggerable(w.triggerId,
-                                                  TriggerEffect.rockTrap));
-    w.triggerId++;
+    // TBD: Generate locked door between rooms.
 
     return w;
 }
