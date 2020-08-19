@@ -1247,6 +1247,9 @@ unittest
  *
  * Note: this is done separately from genPitTraps because it needs rooms'
  * .interior to be already fixed.
+ *
+ * BUGS: Unfortunately, this function is not 100% World-agnostic; it requires
+ * w.map to be initialized otherwise it will crash.
  */
 void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
 {
@@ -1532,56 +1535,27 @@ MapNode genGeometry(Region!(int,4) bounds)
     return tree;
 }
 
-/**
- * Generate new game world using the BSP tree algorithm.
- */
-World genBspLevel(MapGenArgs args, out int[4] startPos)
+void genObjects(World w, MapNode tree, MapGenArgs args, MapNode startRoom)
 {
-    auto w = new World;
+    auto bounds = args.region;
 
-    w.map.bounds = args.region;
-    w.map.tree = genGeometry(w.map.bounds);
-    if (w.map.tree is null)
-        throw new Exception("Unable to generate map");
+    genRockTraps(w, tree, bounds, args.nRockTraps.pick);
 
-    setRoomFloors(w.map.tree, w.map.bounds);
-
-    // Add back edges, regular and pits/pit traps.
-    genBackEdges(w.map.tree, w.map.bounds, args.nBackEdges.pick,
-                 args.nBackEdges.max + 15);
-    genPitTraps(w, w.map.tree, w.map.bounds, args.nPitTraps.pick);
-
-    resizeRooms(w.map.tree, w.map.bounds);
-    if (args.sinkDoors)
-        sinkDoors(w.map.tree, w.map.bounds);
-    addLadders(w, w.map.tree, w.map.bounds);
-
-    // Add water if necessary.
-    w.map.waterLevel = args.waterLevel.pick;
-
-    genPortal(w, w.map.tree, w.map.bounds);
-    genRockTraps(w, w.map.tree, w.map.bounds, args.nRockTraps.pick);
-
-    MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
-                                      w.map.waterLevel);
-    startPos = startRoom.randomLocation(startRoom.interior);
-
-    auto ngold = cast(int)(floorArea(w.map.tree) * args.goldPct / 100);
-
+    auto ngold = cast(int)(floorArea(tree) * args.goldPct / 100);
     foreach (i; 0 .. ngold)
     {
-        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+        w.store.createObj(Pos(randomLocation(tree, bounds)),
                           Tiled(TileId.gold), Name("gold"), Pickable(),
                           QuestItem(1), Stackable(1), Weight(1));
     }
 
     foreach (i; 0 .. args.nMonstersA.pick())
     {
-        auto pos = randomLocation(w.map.tree, w.map.bounds);
+        auto pos = randomLocation(tree, bounds);
 
         // Avoid placing monsters in player's starting room.
         while (startRoom.interior.contains(pos))
-            pos = randomLocation(w.map.tree, w.map.bounds);
+            pos = randomLocation(tree, bounds);
 
         w.store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
@@ -1591,14 +1565,55 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
 
     // Generate random rocks as additional deco.
     // FIXME: this should be configurable.
-    foreach (i; 0 .. 1 + floorArea(w.map.tree) * 2 / 100)
+    foreach (i; 0 .. 1 + floorArea(tree) * 2 / 100)
     {
-        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+        w.store.createObj(Pos(randomLocation(tree, bounds)),
                           Tiled(TileId.rock), Name("rock"), Pickable(),
                           Stackable(1), Weight(50));
     }
+}
+
+/**
+ * Generate new game world using the BSP tree algorithm.
+ */
+World genBspLevel(MapGenArgs args, out int[4] startPos)
+{
+    auto w = new World;
+
+    w.map.waterLevel = args.waterLevel.pick;
+    w.map.tree = genBspLevel(w, args, startPos);
+    w.map.bounds = args.region;
+
+    MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
+                                      w.map.waterLevel);
+    startPos = startRoom.randomLocation(startRoom.interior);
+    genPortal(w, w.map.tree, w.map.bounds);
+
+    genObjects(w, w.map.tree, args, startRoom);
 
     return w;
+}
+
+MapNode genBspLevel(World w, MapGenArgs args, out int[4] startPos)
+{
+    auto bounds = args.region;
+    auto tree = genGeometry(bounds);
+    if (tree is null)
+        throw new Exception("Unable to generate map");
+
+    setRoomFloors(tree, bounds);
+
+    // Add back edges, regular and pits/pit traps.
+    genBackEdges(tree, bounds, args.nBackEdges.pick,
+                 args.nBackEdges.max + 15);
+    genPitTraps(w, tree, bounds, args.nPitTraps.pick);
+
+    resizeRooms(tree, bounds);
+    if (args.sinkDoors)
+        sinkDoors(tree, bounds);
+    addLadders(w, tree, bounds);
+
+    return tree;
 }
 
 // Mapgen sanity tests.
