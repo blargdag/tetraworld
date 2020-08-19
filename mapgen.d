@@ -1489,18 +1489,20 @@ struct MapGenArgs
 }
 
 /**
- * Generate new game world using the BSP tree algorithm.
+ * Generate raw level geometry.
+ *
+ * NOTE: May return null if bounds are too small to generate geometry that
+ * satisfies map constraints.
  */
-World genBspLevel(MapGenArgs args, out int[4] startPos)
+MapNode genGeometry(Region!(int,4) bounds)
 {
-    auto w = new World;
-    w.map.bounds = args.region;
-
     enum nRetries = 10;
     alias R = Region!(int,4);
+
+    MapNode tree;
     foreach (_; 0 .. nRetries)
     {
-        w.map.tree = genBsp!MapNode(w.map.bounds,
+        tree = genBsp!MapNode(bounds,
             (R r) => r.volume > 24 + uniform(0, 80),
             (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                             .pickOne(invalidAxis),
@@ -1508,17 +1510,17 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
                 invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
         );
 
-        setRoomInteriors(w.map.tree, w.map.bounds);
+        setRoomInteriors(tree, bounds);
         try
         {
-            genCorridors(w.map.tree, w.map.bounds);
+            genCorridors(tree, bounds);
             break;
         }
         catch (GenCorridorsException e)
         {
             // This tree can't be properly connected; try again with a
             // different tree.
-            w.map.tree = null;
+            tree = null;
             //version(none)
             {
                 import std.stdio;
@@ -1527,6 +1529,18 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
         }
     }
 
+    return tree;
+}
+
+/**
+ * Generate new game world using the BSP tree algorithm.
+ */
+World genBspLevel(MapGenArgs args, out int[4] startPos)
+{
+    auto w = new World;
+
+    w.map.bounds = args.region;
+    w.map.tree = genGeometry(w.map.bounds);
     if (w.map.tree is null)
         throw new Exception("Unable to generate map");
 
