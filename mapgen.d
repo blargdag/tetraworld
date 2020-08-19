@@ -1497,7 +1497,7 @@ struct MapGenArgs
  * NOTE: May return null if bounds are too small to generate geometry that
  * satisfies map constraints.
  */
-MapNode genGeometry(Region!(int,4) bounds)
+MapNode genTree(Region!(int,4) bounds)
 {
     enum nRetries = 10;
     alias R = Region!(int,4);
@@ -1531,6 +1531,28 @@ MapNode genGeometry(Region!(int,4) bounds)
             }
         }
     }
+
+    return tree;
+}
+
+MapNode genGeometry(World w, MapGenArgs args, out int[4] startPos)
+{
+    auto bounds = args.region;
+    auto tree = genTree(bounds);
+    if (tree is null)
+        throw new Exception("Unable to generate map");
+
+    setRoomFloors(tree, bounds);
+
+    // Add back edges, regular and pits/pit traps.
+    genBackEdges(tree, bounds, args.nBackEdges.pick,
+                 args.nBackEdges.max + 15);
+    genPitTraps(w, tree, bounds, args.nPitTraps.pick);
+
+    resizeRooms(tree, bounds);
+    if (args.sinkDoors)
+        sinkDoors(tree, bounds);
+    addLadders(w, tree, bounds);
 
     return tree;
 }
@@ -1581,7 +1603,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     auto w = new World;
 
     w.map.waterLevel = args.waterLevel.pick;
-    w.map.tree = genBspLevel(w, args, startPos);
+    w.map.tree = genGeometry(w, args, startPos);
     w.map.bounds = args.region;
 
     MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
@@ -1592,28 +1614,6 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     genObjects(w, w.map.tree, args, startRoom);
 
     return w;
-}
-
-MapNode genBspLevel(World w, MapGenArgs args, out int[4] startPos)
-{
-    auto bounds = args.region;
-    auto tree = genGeometry(bounds);
-    if (tree is null)
-        throw new Exception("Unable to generate map");
-
-    setRoomFloors(tree, bounds);
-
-    // Add back edges, regular and pits/pit traps.
-    genBackEdges(tree, bounds, args.nBackEdges.pick,
-                 args.nBackEdges.max + 15);
-    genPitTraps(w, tree, bounds, args.nPitTraps.pick);
-
-    resizeRooms(tree, bounds);
-    if (args.sinkDoors)
-        sinkDoors(tree, bounds);
-    addLadders(w, tree, bounds);
-
-    return tree;
 }
 
 // Mapgen sanity tests.
