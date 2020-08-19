@@ -206,6 +206,144 @@ bool randomEdgePos(Region!(int,4) ir, int axis, out int[4] basePos)
 }
 
 /**
+ * Iterate over pairs of rightmost nodes in the left subtree and leftmost nodes
+ * in the right subtree that share a wall in which a door can be inserted to
+ * connect the left subtree to the right subtree.
+ *
+ * Params:
+ *  root = The root of the BSP tree.
+ *  region = The bounding region.
+ *  dg = The delegate to invoke on each door candidate. It should return
+ *      0 to continue iteration, or non-zero to terminate iteration.
+ */
+void foreachCandidateDoor(R)(MapNode root, R region,
+                             int delegate(MapNode left, MapNode right,
+                                          int[4] basePos) dg)
+{
+    root.left.foreachFiltRoom(leftRegion(region, root.axis, root.pivot),
+        (R r) => r.max[root.axis] >= root.pivot, (MapNode node1, R r1)
+    {
+        R wallFilt = rightWallFilt(node1, r1, root.axis);
+
+        return root.right.foreachFiltRoom(
+            rightRegion(region, root.axis, root.pivot), wallFilt,
+            (MapNode node2, R r2)
+        {
+            auto wallFilt2 = leftWallFilt(node2, r2, root.axis);
+
+            auto ir = wallFilt.intersect(wallFilt2);
+            int[4] basePos;
+            if (!randomEdgePos(ir, root.axis, basePos))
+                return 0; // No overlap or too narrow, skip
+
+            return dg(node1, node2, basePos);
+        });
+    });
+}
+
+unittest
+{
+    // Test case 1:
+    //   0123456
+    // 0 #######
+    // 1 #  #  #
+    // 2 #######
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 4;
+    root.left = new MapNode;
+    root.right = new MapNode;
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,7,3));
+    setRoomInteriors(root, bounds);
+
+    MapNode[2][] pairs;
+    int[] ys;
+
+    foreachCandidateDoor(root, bounds, (MapNode left, MapNode right,
+                                        int[4] basePos)
+    {
+        pairs ~= [ left, right ];
+        assert(basePos[0] == 0);
+        assert(basePos[1] == 0);
+        assert(basePos[2] == 3);
+        ys ~= basePos[3];
+        return 0;
+    });
+
+    auto expected = [
+        [ root.left, root.right ],
+    ];
+    assert(pairs == expected);
+
+    assert(ys[0] == 1);
+}
+
+unittest
+{
+    // Test case 2:
+    //   0123456789
+    // 0 ##########
+    // 1 #  #  #  #
+    // 2 #  #  #  #
+    // 3 #######  #
+    // 4 #     #  #
+    // 5 #     ####
+    // 6 #     #  #
+    // 7 #     #  #
+    // 8 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 7;
+
+    root.left = new MapNode;
+    root.left.axis = 3;
+    root.left.pivot = 4;
+
+    root.left.left = new MapNode;
+    root.left.left.axis = 2;
+    root.left.left.pivot = 4;
+    root.left.left.left = new MapNode;
+    root.left.left.right = new MapNode;
+
+    root.left.right = new MapNode;
+
+    root.right = new MapNode;
+    root.right.axis = 3;
+    root.right.pivot = 6;
+    root.right.left = new MapNode;
+    root.right.right = new MapNode;
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,10,9));
+    setRoomInteriors(root, bounds);
+
+    MapNode[][] pairs;
+    int[] ys;
+
+    foreachCandidateDoor(root, bounds, (MapNode left, MapNode right,
+                                        int[4] basePos)
+    {
+        pairs ~= [ left, right ];
+        assert(basePos[0] == 0);
+        assert(basePos[1] == 0);
+        assert(basePos[2] == 6);
+        ys ~= basePos[3];
+        return 0;
+    });
+
+    MapNode[][] expected = [
+        [ root.left.left.right, root.right.left ],
+        [ root.left.right, root.right.left ],
+        [ root.left.right, root.right.right ],
+    ];
+    assert(pairs.equal!equal(expected));
+
+    assert(1 <= ys[0] && ys[0] < 3);
+    assert(ys[1] == 4);
+    assert(6 <= ys[2] && ys[2] < 8);
+}
+
+/**
  * Generate corridors based on BSP tree structure.
  *
  * Prerequisites: The .interior bounds of each leaf node must have already been

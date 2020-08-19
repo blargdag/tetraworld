@@ -220,6 +220,9 @@ unittest
  *      automatically met if a Region is passed as filter.)
  *  dg = Delegate to invoke per leaf node that passes the filter. Should
  *      normally return 0; returning non-zero aborts the search.
+ *
+ * Returns: 0 if the iteration was completed, or the non-zero value returned by
+ * dg if iteration was stopped before the end.
  */
 int foreachFiltRoom(Node,R)(Node root, R region,
                             bool delegate(R) filter, int delegate(Node, R) dg)
