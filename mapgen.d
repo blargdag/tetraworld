@@ -1944,7 +1944,7 @@ unittest
  */
 World genTestLevel()(out int[4] startPos)
 {
-    auto r = region(vec(0,0,0,0), vec(12,12,12,12));
+    auto r = region(vec(0,0,0,0), vec(13,13,13,13));
     auto axis = uniform(1, 3);
     auto pivot = 6;
 
@@ -1954,14 +1954,14 @@ World genTestLevel()(out int[4] startPos)
     args1.region = r;
     args1.region.max[axis] = pivot;
     args1.nBackEdges = ValRange(1, 5);
-    args1.goldPct = 0.0;
+    args1.goldPct = 0.1;
     args1.nMonstersA = ValRange(1, 2);
 
     args2.region = r;
     args2.region.min[axis] = pivot;
     args2.nPitTraps = ValRange(1, 5);
     args2.nRockTraps = ValRange(3, 10);
-    args2.goldPct = 0.5;
+    args2.goldPct = 2.0;
     args2.nMonstersA = ValRange(3, 4);
 
     auto w = new World;
