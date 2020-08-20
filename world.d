@@ -129,7 +129,7 @@ enum DmgType
  */
 enum MapChgType
 {
-    revealPitTrap, triggerRockTrap,
+    revealPitTrap, triggerRockTrap, doorOpen, doorClose,
 }
 
 /**

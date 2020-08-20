@@ -61,6 +61,15 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
                               Thing* trigger, Thing* triggered,
                               Triggerable tga)
 {
+    auto pos = *w.store.get!Pos(triggered.id);
+
+    // Toggle the appearance of levers when applied.
+    auto trigTile = w.store.get!Tiled(trigger.id);
+    if (trigTile && trigTile.tileId == TileId.lever1)
+        trigTile.tileId = TileId.lever2;
+    else if (trigTile && trigTile.tileId == TileId.lever2)
+        trigTile.tileId = TileId.lever1;
+
     final switch (tga.effect)
     {
         case TriggerEffect.trapDoor:
@@ -74,12 +83,31 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
             break;
 
         case TriggerEffect.rockTrap:
-            auto pos = *w.store.get!Pos(triggered.id);
             w.store.add!Tiled(trigger, Tiled(TileId.trapRock));
             w.store.createObj(pos, Name("rock"), Tiled(TileId.rock),
                               Weight(50), Pickable(), Stackable(1));
             w.notify.mapChange(MapChgType.triggerRockTrap, pos,
                                subj.id, triggered.id);
+            break;
+
+        case TriggerEffect.toggleDoor:
+            auto bm = w.store.get!BlocksMovement(triggered.id);
+            if (bm)
+            {
+                w.store.remove!BlocksMovement(triggered);
+                w.store.add!Name(triggered, Name("unlocked door"));
+                w.store.add!Tiled(triggered, Tiled(TileId.unlockedDoor, -2));
+                w.notify.mapChange(MapChgType.doorOpen, pos, subj.id,
+                                   triggered.id);
+            }
+            else
+            {
+                w.store.add!BlocksMovement(triggered, BlocksMovement());
+                w.store.add!Name(triggered, Name("Locked door"));
+                w.store.add!Tiled(triggered, Tiled(TileId.lockedDoor, -2));
+                w.notify.mapChange(MapChgType.doorClose, pos, subj.id,
+                                   triggered.id);
+            }
             break;
     }
 }
@@ -110,6 +138,19 @@ private bool isTriggered(World w, Thing* subj, Pos pos, Trigger trig)
     return false;
 }
 
+private void activateTrigger(World w, Thing* subj, Pos pos, Thing* trigObj,
+                             ulong triggerId)
+{
+    auto tg = Triggerable(triggerId);
+    foreach (t; w.store.getAllBy!Triggerable(tg)
+                 .map!(id => w.store.getObj(id)))
+    {
+        auto tga = w.store.get!Triggerable(t.id);
+        assert(tga !is null);
+        runTriggerEffect(w, subj, pos, trigObj, t, *tga);
+    }
+}
+
 private void runEnterTriggers(World w, Thing* subj, Pos newPos)
 {
     foreach (trigObj; w.store.getAllBy!Pos(newPos)
@@ -121,14 +162,7 @@ private void runEnterTriggers(World w, Thing* subj, Pos newPos)
 
         if (isTriggered(w, subj, newPos, *trig))
         {
-            auto groupId = Triggerable(trig.triggerId);
-            foreach (t; w.store.getAllBy!Triggerable(groupId)
-                         .map!(id => w.store.getObj(id)))
-            {
-                auto tga = w.store.get!Triggerable(t.id);
-                assert(tga !is null);
-                runTriggerEffect(w, subj, newPos, trigObj, t, *tga);
-            }
+            activateTrigger(w, subj, newPos, trigObj, trig.triggerId);
             break;
         }
     }
@@ -705,11 +739,19 @@ ActionResult useItem(World w, Thing* subj, ThingId objId)
         return ActionResult(false, 10, "Can't figure out how to use this "~
                                        "object.");
 
+    auto pos = *w.store.get!Pos(subj.id);
+    w.notify.itemAct(ItemActType.use, pos, subj.id, objId);
+
     final switch (u.effect)
     {
         case UseEffect.portal:
             // Experimental
             w.store.add!UsePortal(subj, UsePortal());
+            return ActionResult(true, 10);
+
+        case UseEffect.trigger:
+            auto trigObj = w.store.getObj(objId);
+            activateTrigger(w, subj, pos, trigObj, u.triggerId);
             return ActionResult(true, 10);
     }
 }

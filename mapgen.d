@@ -206,6 +206,144 @@ bool randomEdgePos(Region!(int,4) ir, int axis, out int[4] basePos)
 }
 
 /**
+ * Iterate over pairs of rightmost nodes in the left subtree and leftmost nodes
+ * in the right subtree that share a wall in which a door can be inserted to
+ * connect the left subtree to the right subtree.
+ *
+ * Params:
+ *  root = The root of the BSP tree.
+ *  region = The bounding region.
+ *  dg = The delegate to invoke on each door candidate. It should return
+ *      0 to continue iteration, or non-zero to terminate iteration.
+ */
+void foreachCandidateDoor(R)(MapNode root, R region,
+                             int delegate(MapNode left, MapNode right,
+                                          int[4] basePos) dg)
+{
+    root.left.foreachFiltRoom(leftRegion(region, root.axis, root.pivot),
+        (R r) => r.max[root.axis] >= root.pivot, (MapNode node1, R r1)
+    {
+        R wallFilt = rightWallFilt(node1, r1, root.axis);
+
+        return root.right.foreachFiltRoom(
+            rightRegion(region, root.axis, root.pivot), wallFilt,
+            (MapNode node2, R r2)
+        {
+            auto wallFilt2 = leftWallFilt(node2, r2, root.axis);
+
+            auto ir = wallFilt.intersect(wallFilt2);
+            int[4] basePos;
+            if (!randomEdgePos(ir, root.axis, basePos))
+                return 0; // No overlap or too narrow, skip
+
+            return dg(node1, node2, basePos);
+        });
+    });
+}
+
+unittest
+{
+    // Test case 1:
+    //   0123456
+    // 0 #######
+    // 1 #  #  #
+    // 2 #######
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 4;
+    root.left = new MapNode;
+    root.right = new MapNode;
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,7,3));
+    setRoomInteriors(root, bounds);
+
+    MapNode[2][] pairs;
+    int[] ys;
+
+    foreachCandidateDoor(root, bounds, (MapNode left, MapNode right,
+                                        int[4] basePos)
+    {
+        pairs ~= [ left, right ];
+        assert(basePos[0] == 0);
+        assert(basePos[1] == 0);
+        assert(basePos[2] == 3);
+        ys ~= basePos[3];
+        return 0;
+    });
+
+    auto expected = [
+        [ root.left, root.right ],
+    ];
+    assert(pairs == expected);
+
+    assert(ys[0] == 1);
+}
+
+unittest
+{
+    // Test case 2:
+    //   0123456789
+    // 0 ##########
+    // 1 #  #  #  #
+    // 2 #  #  #  #
+    // 3 #######  #
+    // 4 #     #  #
+    // 5 #     ####
+    // 6 #     #  #
+    // 7 #     #  #
+    // 8 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 7;
+
+    root.left = new MapNode;
+    root.left.axis = 3;
+    root.left.pivot = 4;
+
+    root.left.left = new MapNode;
+    root.left.left.axis = 2;
+    root.left.left.pivot = 4;
+    root.left.left.left = new MapNode;
+    root.left.left.right = new MapNode;
+
+    root.left.right = new MapNode;
+
+    root.right = new MapNode;
+    root.right.axis = 3;
+    root.right.pivot = 6;
+    root.right.left = new MapNode;
+    root.right.right = new MapNode;
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,10,9));
+    setRoomInteriors(root, bounds);
+
+    MapNode[][] pairs;
+    int[] ys;
+
+    foreachCandidateDoor(root, bounds, (MapNode left, MapNode right,
+                                        int[4] basePos)
+    {
+        pairs ~= [ left, right ];
+        assert(basePos[0] == 0);
+        assert(basePos[1] == 0);
+        assert(basePos[2] == 6);
+        ys ~= basePos[3];
+        return 0;
+    });
+
+    MapNode[][] expected = [
+        [ root.left.left.right, root.right.left ],
+        [ root.left.right, root.right.left ],
+        [ root.left.right, root.right.right ],
+    ];
+    assert(pairs.equal!equal(expected));
+
+    assert(1 <= ys[0] && ys[0] < 3);
+    assert(ys[1] == 4);
+    assert(6 <= ys[2] && ys[2] < 8);
+}
+
+/**
  * Generate corridors based on BSP tree structure.
  *
  * Prerequisites: The .interior bounds of each leaf node must have already been
@@ -225,77 +363,29 @@ void genCorridors(R)(MapNode root, R region)
     genCorridors(root.left, leftRegion(region, root.axis, root.pivot));
     genCorridors(root.right, rightRegion(region, root.axis, root.pivot));
 
-    static struct LeftRoom
+    MapNode[2] candidate;
+    int[4] basePos;
+    int n;
+
+    foreachCandidateDoor(root, region, (MapNode left, MapNode right,
+                                        int[4] pos)
     {
-        MapNode node;
-        R region;
-    }
-
-    LeftRoom[] leftRooms;
-    root.left.foreachFiltRoom(leftRegion(region, root.axis, root.pivot),
-        (R r) => r.max[root.axis] >= root.pivot,
-        (MapNode node1, R r1) {
-            leftRooms ~= LeftRoom(node1, r1);
-            return 0;
-        });
-
-//import std;writefln("leftRooms=%s", leftRooms);
-    int ntries=0;
-    while (ntries++ < 2*leftRooms.length)
-    {
-        import rndutil : pickOne;
-        auto leftRoom = leftRooms.pickOne;
-        R wallFilt = rightWallFilt(leftRoom.node, leftRoom.region, root.axis);
-//import std;writefln("wallFilt=%s", wallFilt);
-
-        static struct RightRoom
+        if (uniform(0, ++n) == 0)
         {
-            MapNode node;
-            R region;
-            int[4] basePos;
+            candidate[0] = left;
+            candidate[1] = right;
+            basePos = pos;
         }
+        return 0;
+    });
 
-        RightRoom[] rightRooms;
-        root.right.foreachFiltRoom(rightRegion(region, root.axis, root.pivot),
-            wallFilt, (MapNode node2, R r2) {
-                auto wallFilt2 = leftWallFilt(node2, r2, root.axis);
-//import std;writefln("wallFilt2=%s", wallFilt2);
-                auto ir = wallFilt.intersect(wallFilt2);
-//import std;writefln("ir=%s", ir);
+    if (n == 0)
+        throw new GenCorridorsException("No viable door placement found");
 
-                int[4] basePos;
-                if (!randomEdgePos(ir, root.axis, basePos))
-                {
-//import std.stdio;writefln("left=%s right=%s TOO NARROW, SKIPPING", leftRoom.region, r2);
-                    return 0;
-                }
-
-//import std;writefln("basePos=%s", basePos);
-
-                rightRooms ~= RightRoom(node2, r2, basePos);
-                return 0;
-            });
-
-        // If can't find a suitable door placement, try picking a different
-        // left room.
-        if (rightRooms.empty)
-        {
-//import std.stdio;writefln("left=%s NO MATCH, SKIPPING", leftRoom.region);
-            continue;
-        }
-
-        auto rightRoom = rightRooms.pickOne;
-        auto d = Door(root.axis);
-
-        d.pos = rightRoom.basePos;
-//import std;writefln("door=%s", d);
-        leftRoom.node.doors ~= d;
-        rightRoom.node.doors ~= d;
-        return;
-    }
-
-    // If we got here, it means we're in trouble.
-    throw new GenCorridorsException("No matching door placement found, give up");
+    auto d = Door(root.axis);
+    d.pos = basePos;
+    candidate[0].doors ~= d;
+    candidate[1].doors ~= d;
 }
 
 unittest
@@ -846,9 +936,9 @@ unittest
  *
  * Prerequisites: Room interiors must already have been set.
  */
-void addLadders(World w)
+void addLadders(World w, MapNode tree, Region!(int,4) bounds)
 {
-    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node) {
+    foreachRoom(tree, bounds, (Region!(int,4) bounds, MapNode node) {
         foreach (d; node.doors)
         {
             if (d.axis == 0 && d.type == Door.Type.normal &&
@@ -903,7 +993,7 @@ unittest
 
     w.map.waterLevel = int.max;
 
-    addLadders(w);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     bool hasLadder(Pos pos)
     {
@@ -959,7 +1049,7 @@ unittest
 
     w.map.waterLevel = int.max;
 
-    addLadders(w);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     bool hasLadder(Pos pos)
     {
@@ -1067,17 +1157,17 @@ unittest
  *
  * Prerequisites: Room .interior's must have been set.
  */
-MapNode randomDryRoom(World w)
+MapNode randomDryRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
     out(node; node is null || node.isLeaf())
 {
-    auto dryRegion = w.map.bounds;
-    dryRegion.max[0] = w.map.waterLevel;
+    auto dryRegion = bounds;
+    dryRegion.max[0] = waterLevel;
 
     MapNode dryRoom;
     int n = 0;
-    foreachFiltRoom(w.map.tree, w.map.bounds, dryRegion,
+    foreachFiltRoom(tree, bounds, dryRegion,
         (MapNode node, Region!(int,4) r) {
-            if (node.interior.max[0] > w.map.waterLevel)
+            if (node.interior.max[0] > waterLevel)
                 return 0; // reject partially-submerged rooms
 
             if (n == 0 || uniform(0, n) == 0)
@@ -1104,30 +1194,19 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    auto w = new World;
-    w.map.tree = root;
-    w.map.bounds = bounds;
-
-    w.map.waterLevel = 8;
-    assert(randomDryRoom(w) is root.left);
-
-    w.map.waterLevel = 5;
-    assert(randomDryRoom(w) is root.left);
-
-    w.map.waterLevel = 4;
-    assert(randomDryRoom(w) is root.left);
-
-    w.map.waterLevel = 3;
-    assert(randomDryRoom(w) is null);
+    assert(randomDryRoom(root, bounds, 8) is root.left);
+    assert(randomDryRoom(root, bounds, 5) is root.left);
+    assert(randomDryRoom(root, bounds, 4) is root.left);
+    assert(randomDryRoom(root, bounds, 3) is null);
 }
 
 /**
  * Returns: A random floor location in the given BSP tree that's above the
  * water level.
  */
-Vec!(int,4) randomDryPos(World w)
+Vec!(int,4) randomDryPos(MapNode tree, Region!(int,4) bounds, int waterLevel)
 {
-    auto dryRoom = randomDryRoom(w);
+    auto dryRoom = randomDryRoom(tree, bounds, waterLevel);
     return dryRoom.randomLocation(dryRoom.interior);
 }
 
@@ -1144,12 +1223,7 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    auto w = new World;
-    w.map.tree = root;
-    w.map.bounds = bounds;
-
-    w.map.waterLevel = 7;
-    auto pos = w.randomDryPos();
+    auto pos = randomDryPos(root, bounds, 7);
     assert(root.left.interior.contains(pos));
 }
 
@@ -1164,9 +1238,10 @@ unittest
  *  openPitPct = Percentage of pits that will be visible open pits, vs. hidden
  *      traps.
  */
-void genPitTraps(World w, int count, int openPitPct = 30)
+void genPitTraps(World w, MapNode tree, Region!(int,4) bounds, int count,
+                 int openPitPct = 30)
 {
-    genBackEdges(w.map.tree, w.map.bounds, count, count*8,
+    genBackEdges(tree, bounds, count, count*8,
         (in MapNode[2] rooms, ref Door d) {
             assert(d.axis == 0);
 
@@ -1242,7 +1317,7 @@ unittest
     w.map.tree = root;
     w.map.bounds = bounds;
 
-    genPitTraps(w, 1, 0);
+    genPitTraps(w, root, bounds, 1, 0);
 
     auto r = w.store.getAll!Triggerable()
                     .map!(id => w.store.get!TiledAbove(id));
@@ -1262,23 +1337,30 @@ unittest
  *
  * Note: this is done separately from genPitTraps because it needs rooms'
  * .interior to be already fixed.
+ *
+ * BUGS: Unfortunately, this function is not 100% World-agnostic; it requires
+ * w.map to be initialized otherwise it will crash.
  */
-void genRockTraps(World w, int count)
+void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
 {
-    while (count > 0)
+    OUTER: while (count > 0)
     {
         // Find unoccupied location.
-        auto room = randomDryRoom(w);
+        auto room = randomDryRoom(tree, bounds, w.map.waterLevel);
         if (room is null)
             return; // everything is underwater; don't bother.
 
         auto pos = room.randomLocation(room.interior);
         auto floorPos = pos + vec(1,0,0,0);
+        auto nTries = room.floorArea;
         while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
                !w.locationHas!BlocksMovement(floorPos))
         {
-            pos = randomLocation(w.map.tree, w.map.bounds, false);
+            pos = room.randomLocation(room.interior);
             floorPos = pos + vec(1,0,0,0);
+
+            if (--nTries <= 0)
+                continue OUTER; // insure against infinite loop
         }
 
         auto ceilingPos = pos;
@@ -1314,7 +1396,6 @@ MapNode findNgbr(R)(MapNode tree, R bounds, MapNode node, uint doorIdx)
                         return 1;
                     });
 
-    assert(ngbr !is null);
     return ngbr;
 }
 
@@ -1357,14 +1438,15 @@ unittest
  * Adjusts doors heights to be flush against the highest floor they connect, so
  * that we avoid unnecessary ladders.
  */
-void sinkDoors(World w)
+void sinkDoors(MapNode tree, Region!(int,4) region)
 {
-    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode node)
+    foreachRoom(tree, region, (Region!(int,4) bounds, MapNode node)
     {
         foreach (i, ref d; node.doors)
         {
             if (d.axis == 0) continue;
-            auto ngbr = findNgbr(w.map.tree, w.map.bounds, node, cast(uint) i);
+            auto ngbr = findNgbr(tree, region, node, cast(uint) i);
+            if (ngbr is null) continue;
             auto upperFloor = min(node.interior.max[0], ngbr.interior.max[0]);
             d.pos[0] = upperFloor - 1;
         }
@@ -1410,7 +1492,7 @@ unittest
     w.map.tree = root;
     w.map.bounds = bounds;
 
-    sinkDoors(w);
+    sinkDoors(w.map.tree, w.map.bounds);
 
     assert(root.left.left.doors == [
         Door(3, [ 2, 1, 2, 3 ]),
@@ -1427,13 +1509,13 @@ unittest
 /**
  * Places an exit portal.
  */
-void genPortal(World w)
+void genPortal(World w, MapNode tree, Region!(int,4) bounds)
 {
     // Pick a tile that isn't empty or has no floor support.
-    auto pos = randomDryPos(w);
+    auto pos = randomDryPos(tree, bounds, w.map.waterLevel);
     while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
            !w.locationHas!BlocksMovement(pos + vec(1,0,0,0)))
-        pos = randomDryPos(w);
+        pos = randomDryPos(tree, bounds, w.map.waterLevel);
 
     w.store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
                       Usable(UseEffect.portal), Weight(1));
@@ -1452,7 +1534,7 @@ unittest
 
     foreach (_; 0 .. 10)
     {
-        genPortal(w);
+        genPortal(w, w.map.tree, w.map.bounds);
 
         auto r = w.store.getAll!Usable();
         assert(!r.empty);
@@ -1487,7 +1569,7 @@ struct ValRange
  */
 struct MapGenArgs
 {
-    int[4] dim;
+    Region!(int,4) region;
     ValRange nBackEdges;
     ValRange nPitTraps;
     ValRange nRockTraps;
@@ -1500,18 +1582,20 @@ struct MapGenArgs
 }
 
 /**
- * Generate new game world using the BSP tree algorithm.
+ * Generate raw level geometry.
+ *
+ * NOTE: May return null if bounds are too small to generate geometry that
+ * satisfies map constraints.
  */
-World genBspLevel(MapGenArgs args, out int[4] startPos)
+MapNode genTree(Region!(int,4) bounds)
 {
-    auto w = new World;
-    w.map.bounds = region(vec(0, 0, 0, 0), vec(args.dim));
-
     enum nRetries = 10;
     alias R = Region!(int,4);
+
+    MapNode tree;
     foreach (_; 0 .. nRetries)
     {
-        w.map.tree = genBsp!MapNode(w.map.bounds,
+        tree = genBsp!MapNode(bounds,
             (R r) => r.volume > 24 + uniform(0, 80),
             (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                             .pickOne(invalidAxis),
@@ -1519,17 +1603,17 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
                 invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
         );
 
-        setRoomInteriors(w.map.tree, w.map.bounds);
+        setRoomInteriors(tree, bounds);
         try
         {
-            genCorridors(w.map.tree, w.map.bounds);
+            genCorridors(tree, bounds);
             break;
         }
         catch (GenCorridorsException e)
         {
             // This tree can't be properly connected; try again with a
             // different tree.
-            w.map.tree = null;
+            tree = null;
             //version(none)
             {
                 import std.stdio;
@@ -1538,46 +1622,51 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
         }
     }
 
-    if (w.map.tree is null)
-        throw new Exception("Unable to generate map");
+    return tree;
+}
 
-    setRoomFloors(w.map.tree, w.map.bounds);
+/**
+ * Phase 2 of level geometry generation.
+ */
+void genGeometry(World w, MapNode tree, MapGenArgs args)
+{
+    auto bounds = args.region;
+
+    setRoomFloors(tree, bounds);
 
     // Add back edges, regular and pits/pit traps.
-    genBackEdges(w.map.tree, w.map.bounds, args.nBackEdges.pick,
+    genBackEdges(tree, bounds, args.nBackEdges.pick,
                  args.nBackEdges.max + 15);
-    genPitTraps(w, args.nPitTraps.pick);
+    genPitTraps(w, tree, bounds, args.nPitTraps.pick);
 
-    resizeRooms(w.map.tree, w.map.bounds);
+    resizeRooms(tree, bounds);
     if (args.sinkDoors)
-        sinkDoors(w);
-    addLadders(w);
+        sinkDoors(tree, bounds);
+    addLadders(w, tree, bounds);
+}
 
-    // Add water if necessary.
-    w.map.waterLevel = args.waterLevel.pick;
+void genObjects(World w, MapNode tree, MapGenArgs args,
+                MapNode startRoom = null)
+{
+    auto bounds = args.region;
 
-    genPortal(w);
-    genRockTraps(w, args.nRockTraps.pick);
+    genRockTraps(w, tree, bounds, args.nRockTraps.pick);
 
-    MapNode startRoom = randomDryRoom(w);
-    startPos = startRoom.randomLocation(startRoom.interior);
-
-    auto ngold = cast(int)(floorArea(w.map.tree) * args.goldPct / 100);
-
+    auto ngold = cast(int)(floorArea(tree) * args.goldPct / 100);
     foreach (i; 0 .. ngold)
     {
-        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+        w.store.createObj(Pos(randomLocation(tree, bounds)),
                           Tiled(TileId.gold), Name("gold"), Pickable(),
                           QuestItem(1), Stackable(1), Weight(1));
     }
 
     foreach (i; 0 .. args.nMonstersA.pick())
     {
-        auto pos = randomLocation(w.map.tree, w.map.bounds);
+        auto pos = randomLocation(tree, bounds);
 
         // Avoid placing monsters in player's starting room.
-        while (startRoom.interior.contains(pos))
-            pos = randomLocation(w.map.tree, w.map.bounds);
+        while (startRoom && startRoom.interior.contains(pos))
+            pos = randomLocation(tree, bounds);
 
         w.store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
@@ -1587,12 +1676,37 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
 
     // Generate random rocks as additional deco.
     // FIXME: this should be configurable.
-    foreach (i; 0 .. 1 + floorArea(w.map.tree) * 2 / 100)
+    foreach (i; 0 .. 1 + floorArea(tree) * 2 / 100)
     {
-        w.store.createObj(Pos(randomLocation(w.map.tree, w.map.bounds)),
+        w.store.createObj(Pos(randomLocation(tree, bounds)),
                           Tiled(TileId.rock), Name("rock"), Pickable(),
                           Stackable(1), Weight(50));
     }
+}
+
+/**
+ * Generate new game world using the BSP tree algorithm.
+ */
+World genBspLevel(MapGenArgs args, out int[4] startPos)
+{
+    auto w = new World;
+
+    // Generate level geometry
+    w.map.waterLevel = args.waterLevel.pick;
+    w.map.tree = genTree(args.region);
+    if (w.map.tree is null)
+        throw new Exception("Unable to generate map");
+    w.map.bounds = args.region;
+    genGeometry(w, w.map.tree, args);
+
+    // Place starting position and exit.
+    MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
+                                      w.map.waterLevel);
+    startPos = startRoom.randomLocation(startRoom.interior);
+    genPortal(w, w.map.tree, w.map.bounds);
+
+    // Add objects and deco.
+    genObjects(w, w.map.tree, args, startRoom);
 
     return w;
 }
@@ -1604,7 +1718,7 @@ unittest
     {
         int[4] startPos;
         MapGenArgs args;
-        args.dim = [ 10, 10, 10, 10 ];
+        args.region = region(vec(0,0,0,0), vec(10,10,10,10));
         auto w = genBspLevel(args, startPos);
 
         // Door placement checks.
@@ -1739,7 +1853,7 @@ World genTutorialLevel(out int[4] startPos)
     w.map.bounds = root.interior;
     w.map.waterLevel = int.max;
 
-    addLadders(w);
+    addLadders(w, w.map.tree, w.map.bounds);
 
     // Put some gold for the player to collect.
     enum goldPos = [
@@ -1797,7 +1911,7 @@ unittest
 {
     import std.stdio;
     MapGenArgs args;
-    args.dim = [ 64, 64, 64, 64 ];
+    args.region = region(vec(0,0,0,0), vec(64,64,64,64));
     args.nBackEdges = ValRange(20, 50);
     args.nPitTraps = ValRange(50, 80);
     args.goldPct = 0.2;
@@ -1830,23 +1944,111 @@ unittest
  */
 World genTestLevel()(out int[4] startPos)
 {
+    auto r = region(vec(0,0,0,0), vec(12,12,12,12));
+    auto axis = uniform(1, 3);
+    auto pivot = 6;
+
+    // Two halves of a map with distinct parameters.
+    MapGenArgs args1, args2;
+
+    args1.region = r;
+    args1.region.max[axis] = pivot;
+    args1.nBackEdges = ValRange(1, 5);
+    args1.goldPct = 0.0;
+    args1.nMonstersA = ValRange(1, 2);
+
+    args2.region = r;
+    args2.region.min[axis] = pivot;
+    args2.nPitTraps = ValRange(1, 5);
+    args2.nRockTraps = ValRange(3, 10);
+    args2.goldPct = 0.5;
+    args2.nMonstersA = ValRange(3, 4);
+
     auto w = new World;
+    auto tree1 = genTree(args1.region);
+    auto tree2 = genTree(args2.region);
 
-    startPos = [1,1,1,1];
-    auto root = new MapNode;
-    root.interior = region(vec(1,1,1,1), vec(5,4,6,6));
+    // Stitch two halves of map together
+    w.map.waterLevel = r.max[0];
+    w.map.tree = new MapNode;
+    w.map.tree.axis = axis;
+    w.map.tree.pivot = pivot;
+    w.map.tree.left = tree1;
+    w.map.tree.right = tree2;
+    w.map.bounds = r;
 
-    w.map.tree = root;
-    w.map.bounds = region(vec(0,0,0,0), vec(6,5,7,7));
-    w.map.waterLevel = 2;
+    // Place doorway between two halves.
+    MapNode[2] candidate;
+    int[4] basePos;
+    int n;
+    foreachCandidateDoor(w.map.tree, r, (MapNode left, MapNode right,
+                                         int[4] pos)
+    {
+        if (uniform(0, ++n) == 0)
+        {
+            candidate[0] = left;
+            candidate[1] = right;
+            basePos = pos;
+        }
+        return 0;
+    });
+    if (n == 0)
+        throw new GenCorridorsException("No viable door placement found");
 
-    auto trigger = w.store.createObj(Pos(4,2,3,3), Name("trap"),
-                                     Trigger(Trigger.Type.onWeight,
-                                             w.triggerId, 50));
-    auto rocktrap = w.store.createObj(Pos(1,2,3,3),
-                                      Triggerable(w.triggerId,
-                                                  TriggerEffect.rockTrap));
-    w.triggerId++;
+    auto d = Door(axis);
+    assert(basePos[axis] == pivot-1);
+    d.pos = basePos;
+    candidate[0].doors ~= d;
+    candidate[1].doors ~= d;
+
+    // Finish up level geometry
+    // IMPORTANT: locked door must be placed before this, otherwise
+    // resizeRoom() may make the door inaccessible.
+    genGeometry(w, tree1, args1);
+    genGeometry(w, tree2, args2);
+
+    // Sink locked door too. Need to do this manually because genGeometry can't
+    // do cross-region sinking.
+    auto floorCoor = min(candidate[0].interior.max[0],
+                         candidate[1].interior.max[0]);
+    foreach (node; candidate[])
+    {
+        auto i = node.doors.countUntil(d);
+        assert(i >= 0);
+        node.doors[i].pos[0] = floorCoor - 1;
+    }
+
+    // Generate startPos in first half of level.
+    MapNode startRoom = randomDryRoom(tree1, args1.region, w.map.waterLevel);
+    startPos = startRoom.randomLocation(startRoom.interior);
+    genPortal(w, tree1, args1.region);
+
+    // Place objects and deco
+    genObjects(w, tree1, args1, startRoom);
+    genObjects(w, tree2, args2, null);
+
+    // Actual locked door and switch
+    auto doorTrigId = w.triggerId++;
+    w.store.createObj(Pos(d.pos), Tiled(TileId.lockedDoor, -2),
+                      Name("locked door"), BlocksMovement(),
+                      Triggerable(doorTrigId, TriggerEffect.toggleDoor));
+
+    Pos leverPos, floorPos;
+    do
+    {
+        leverPos = Pos(randomLocation(tree1, args1.region));
+        floorPos = leverPos + vec(1,0,0,0);
+    } while (!w.store.getAllBy!Pos(leverPos).empty ||
+             !w.locationHas!BlocksMovement(floorPos));
+    w.store.createObj(leverPos, Name("big lever"), Tiled(TileId.lever1),
+                      Weight(10), Usable(UseEffect.trigger, doorTrigId));
+
+    // DEBUG
+    import std.format : format;
+    w.store.createObj(Pos(startPos), Message([
+        format("A cryptic message is scrawled here: %s",
+               vec(d.pos) - vec(startPos))
+    ]));
 
     return w;
 }
