@@ -1642,7 +1642,6 @@ void genGeometry(World w, MapNode tree, MapGenArgs args)
     resizeRooms(tree, bounds);
     if (args.sinkDoors)
         sinkDoors(tree, bounds);
-    addLadders(w, tree, bounds);
 }
 
 void genObjects(World w, MapNode tree, MapGenArgs args,
@@ -1650,6 +1649,7 @@ void genObjects(World w, MapNode tree, MapGenArgs args,
 {
     auto bounds = args.region;
 
+    addLadders(w, tree, bounds);
     genRockTraps(w, tree, bounds, args.nRockTraps.pick);
 
     auto ngold = cast(int)(floorArea(tree) * args.goldPct / 100);
@@ -2017,6 +2017,7 @@ World genTestLevel()(out int[4] startPos)
         assert(i >= 0);
         node.doors[i].pos[0] = floorCoor - 1;
     }
+    d.pos[0] = floorCoor - 1;
 
     // Generate startPos in first half of level.
     MapNode startRoom = randomDryRoom(tree1, args1.region, w.map.waterLevel);
