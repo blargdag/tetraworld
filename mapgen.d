@@ -2044,13 +2044,6 @@ World genTestLevel()(out int[4] startPos)
     w.store.createObj(leverPos, Name("big lever"), Tiled(TileId.lever1),
                       Weight(10), Usable(UseEffect.trigger, doorTrigId));
 
-    // DEBUG
-    import std.format : format;
-    w.store.createObj(Pos(startPos), Message([
-        format("A cryptic message is scrawled here: %s",
-               vec(d.pos) - vec(startPos))
-    ]));
-
     return w;
 }
 
