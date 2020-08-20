@@ -1,3 +1,5 @@
+- Move bipartite level gen code into reusable routine, and integrate it into
+  storyline. :-)
 - Need to start implement event filtering based on visibility / audibility!
 - Bug: a sinking object that lands on something else that subsequently moves
   away will get frozen in place instead of sinking farther.
