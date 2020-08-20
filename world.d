@@ -146,8 +146,9 @@ struct EventWatcher
     /**
      * An agent interacts with an object.
      */
-    void delegate(ItemActType type, Pos pos, ThingId subj, ThingId obj)
-        itemAct = doNothing!(ItemActType, Pos, ThingId, ThingId);
+    void delegate(ItemActType type, Pos pos, ThingId subj, ThingId obj,
+                  string useVerb) itemAct =
+        doNothing!(ItemActType, Pos, ThingId, ThingId, string);
 
     /**
      * An agent passes a turn.

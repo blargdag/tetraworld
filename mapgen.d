@@ -1518,7 +1518,7 @@ void genPortal(World w, MapNode tree, Region!(int,4) bounds)
         pos = randomDryPos(tree, bounds, w.map.waterLevel);
 
     w.store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
-                      Usable(UseEffect.portal), Weight(1));
+                      Usable(UseEffect.portal, "activate"), Weight(1));
 }
 
 unittest
@@ -1897,7 +1897,7 @@ World genTutorialLevel(out int[4] startPos)
 
     // An exit portal to end the tutorial.
     w.store.createObj(Pos(5,3,3,1), Tiled(TileId.portal), Name("exit portal"),
-                      Usable(UseEffect.portal),
+                      Usable(UseEffect.portal, "activate"),
                       Message([
                         "This is the exit portal.",
                         "Press Enter to activate it."
@@ -2042,7 +2042,8 @@ World genTestLevel()(out int[4] startPos)
     } while (!w.store.getAllBy!Pos(leverPos).empty ||
              !w.locationHas!BlocksMovement(floorPos));
     w.store.createObj(leverPos, Name("big lever"), Tiled(TileId.lever1),
-                      Weight(10), Usable(UseEffect.trigger, doorTrigId));
+                      Usable(UseEffect.trigger, "pull", doorTrigId),
+                      Weight(10));
 
     return w;
 }

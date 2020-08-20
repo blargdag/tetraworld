@@ -226,7 +226,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
                                           SysMask.questitem)))
         {
             w.store.remove!Pos(t);
-            w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id);
+            w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id, "");
             w.store.mergeToArray(t.id, inven.contents);
         }
     }
@@ -679,7 +679,7 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     import stacking;
     auto obj = w.store.getObj(objId);
     w.store.remove!Pos(obj);
-    w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId);
+    w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId, "");
     w.store.mergeToArray(objId, inven.contents);
 
     return ActionResult(true, 10);
@@ -714,7 +714,7 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
         inven.contents = inven.contents[].remove(idx);
 
         rawMove(w, obj, *subjPos, {
-            w.notify.itemAct(ItemActType.drop, *subjPos, subj.id, objId);
+            w.notify.itemAct(ItemActType.drop, *subjPos, subj.id, objId, "");
         });
     }
     else
@@ -722,7 +722,7 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
         // Drop partial stack
         rawMove(w, droppedObj, *subjPos, {
             w.notify.itemAct(ItemActType.drop, *subjPos, subj.id,
-                             droppedObj.id);
+                             droppedObj.id, "");
         });
     }
 
@@ -740,7 +740,7 @@ ActionResult useItem(World w, Thing* subj, ThingId objId)
                                        "object.");
 
     auto pos = *w.store.get!Pos(subj.id);
-    w.notify.itemAct(ItemActType.use, pos, subj.id, objId);
+    w.notify.itemAct(ItemActType.use, pos, subj.id, objId, u.useVerb);
 
     final switch (u.effect)
     {

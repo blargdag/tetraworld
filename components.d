@@ -147,6 +147,7 @@ enum UseEffect
 struct Usable
 {
     UseEffect effect;
+    string useVerb;
     ulong triggerId;
 }
 

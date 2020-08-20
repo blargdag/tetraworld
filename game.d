@@ -418,7 +418,6 @@ class Game
             }
             else
             {
-                ui.message("You activate the exit portal!");
                 ui.message("You collected %d out of %d gold.", ngold, maxgold);
 
                 storyNode++;
@@ -477,7 +476,7 @@ class Game
             }
         };
         w.notify.itemAct = (ItemActType type, Pos pos, ThingId subj,
-                            ThingId obj)
+                            ThingId obj, string useVerb)
         {
             if (subj == player.id)
             {
@@ -495,8 +494,10 @@ class Game
                         break;
 
                     case ItemActType.use:
+                        auto verb = (useVerb == "") ? "activate" : useVerb;
                         if (name !is null)
-                            ui.message("You activate the " ~ name.name ~ ".");
+                            ui.message("You " ~ verb ~ " the " ~ name.name ~
+                                       ".");
                         break;
                 }
             }
