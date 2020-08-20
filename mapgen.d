@@ -2007,8 +2007,16 @@ World genTestLevel()(out int[4] startPos)
     genGeometry(w, tree1, args1);
     genGeometry(w, tree2, args2);
 
-    // TBD: sink locked door too. Need to do this manually because genGeometry
-    // can't do cross-region sinking.
+    // Sink locked door too. Need to do this manually because genGeometry can't
+    // do cross-region sinking.
+    auto floorCoor = min(candidate[0].interior.max[0],
+                         candidate[1].interior.max[0]);
+    foreach (node; candidate[])
+    {
+        auto i = node.doors.countUntil(d);
+        assert(i >= 0);
+        node.doors[i].pos[0] = floorCoor - 1;
+    }
 
     // Generate startPos in first half of level.
     MapNode startRoom = randomDryRoom(tree1, args1.region, w.map.waterLevel);
