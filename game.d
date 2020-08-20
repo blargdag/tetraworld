@@ -365,6 +365,21 @@ class Game
             return null;
         }
 
+        // Check use prerequisites.
+        // FIXME: need a more general prerequisites model here.
+        auto u = w.store.get!Usable(r.front);
+        if (u.effect == UseEffect.portal)
+        {
+            auto ngold = numGold();
+            auto maxgold = maxGold();
+            if (ngold < maxgold)
+            {
+                errmsg = "The exit portal is here, but you haven't found "~
+                         "all the gold yet.";
+                return null;
+            }
+        }
+
         return (World w) => useItem(w, player, r.front);
     }
 
@@ -411,26 +426,18 @@ class Game
             auto ngold = numGold();
             auto maxgold = maxGold();
 
-            if (ngold < maxgold)
+            ui.message("You collected %d out of %d gold.", ngold, maxgold);
+
+            storyNode++;
+            if (storyNode < storyNodes.length)
             {
-                ui.message("The exit portal is here, but you haven't found "~
-                           "all the gold yet.");
+                startStory();
             }
             else
             {
-                ui.message("You collected %d out of %d gold.", ngold, maxgold);
-
-                storyNode++;
-                if (storyNode < storyNodes.length)
-                {
-                    startStory();
-                }
-                else
-                {
-                    quit = true;
-                    ui.quitWithMsg("Congratulations, you have finished the "~
-                                   "game!");
-                }
+                quit = true;
+                ui.quitWithMsg("Congratulations, you have finished the "~
+                               "game!");
             }
         }
     }
