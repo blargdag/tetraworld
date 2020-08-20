@@ -26,11 +26,10 @@ import store_traits;
 
 Thing emptySpace = Thing(1);
 Thing doorway = Thing(2);
-Thing lockedDoor = Thing(3);
-Thing blockBare = Thing(10);
-Thing blockGrassy = Thing(11);
-Thing blockMuddy = Thing(12);
-Thing water = Thing(20);
+Thing blockBare = Thing(3);
+Thing blockGrassy = Thing(4);
+Thing blockMuddy = Thing(5);
+Thing water = Thing(6);
 
 Thing* createLadder(Store* store, Pos pos)
 {
@@ -45,8 +44,6 @@ void registerTerrains(Store* store)
     store.registerTerrain(emptySpace, Tiled(TileId.space, -2),
                           Name("Thin air"));
     store.registerTerrain(doorway, Tiled(TileId.doorway, -2), Name("door"));
-    store.registerTerrain(lockedDoor, Tiled(TileId.lockedDoor, -2),
-                          BlocksMovement(), Name("locked door"));
 
     store.registerTerrain(blockBare, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorBare, -1),

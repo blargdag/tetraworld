@@ -495,7 +495,9 @@ class Game
                         break;
 
                     case ItemActType.use:
-                        assert(0); // TBD
+                        if (name !is null)
+                            ui.message("You activate the " ~ name.name ~ ".");
+                        break;
                 }
             }
             else
@@ -569,6 +571,20 @@ class Game
                     else
                         ui.message("A trap door opens in the ceiling and a "~
                                    "rock falls out!");
+                    break;
+
+                case MapChgType.doorOpen:
+                    if (canSee(w, playerPos, pos))
+                        ui.message("The door swings open!");
+                    else
+                        ui.message("You hear a door open in the distance!");
+                    break;
+
+                case MapChgType.doorClose:
+                    if (canSee(w, playerPos, pos))
+                        ui.message("The door swings shut!");
+                    else
+                        ui.message("You hear a door shut in the distance!");
                     break;
             }
         };

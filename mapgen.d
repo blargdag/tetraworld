@@ -1977,7 +1977,7 @@ World genTestLevel()(out int[4] startPos)
     w.map.tree.right = tree2;
     w.map.bounds = r;
 
-    // Place locked door
+    // Place doorway between two halves.
     MapNode[2] candidate;
     int[4] basePos;
     int n;
@@ -1998,7 +1998,6 @@ World genTestLevel()(out int[4] startPos)
     auto d = Door(axis);
     assert(basePos[axis] == pivot-1);
     d.pos = basePos;
-    d.type = Door.Type.locked;
     candidate[0].doors ~= d;
     candidate[1].doors ~= d;
 
@@ -2008,6 +2007,9 @@ World genTestLevel()(out int[4] startPos)
     genGeometry(w, tree1, args1);
     genGeometry(w, tree2, args2);
 
+    // TBD: sink locked door too. Need to do this manually because genGeometry
+    // can't do cross-region sinking.
+
     // Generate startPos in first half of level.
     MapNode startRoom = randomDryRoom(tree1, args1.region, w.map.waterLevel);
     startPos = startRoom.randomLocation(startRoom.interior);
@@ -2016,6 +2018,22 @@ World genTestLevel()(out int[4] startPos)
     // Place objects and deco
     genObjects(w, tree1, args1, startRoom);
     genObjects(w, tree2, args2, null);
+
+    // Actual locked door and switch
+    auto doorTrigId = w.triggerId++;
+    w.store.createObj(Pos(d.pos), Tiled(TileId.lockedDoor, -2),
+                      Name("locked door"), BlocksMovement(),
+                      Triggerable(doorTrigId, TriggerEffect.toggleDoor));
+
+    Pos leverPos, floorPos;
+    do
+    {
+        leverPos = Pos(randomLocation(tree1, args1.region));
+        floorPos = leverPos + vec(1,0,0,0);
+    } while (!w.store.getAllBy!Pos(leverPos).empty ||
+             !w.locationHas!BlocksMovement(floorPos));
+    w.store.createObj(leverPos, Name("big lever"), Tiled(TileId.lever1),
+                      Weight(10), Usable(UseEffect.trigger, doorTrigId));
 
     // DEBUG
     import std.format : format;

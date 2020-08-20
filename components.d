@@ -79,8 +79,12 @@ enum TileId : ushort
     water,
     doorway,
     lockedDoor,
+    unlockedDoor,
     ladder,
     ladderTop,
+
+    lever1,
+    lever2,
 
     player,
     creatureA,
@@ -133,7 +137,7 @@ struct Name
 
 enum UseEffect
 {
-    portal
+    portal, trigger
 }
 
 /**
@@ -143,6 +147,7 @@ enum UseEffect
 struct Usable
 {
     UseEffect effect;
+    ulong triggerId;
 }
 
 /**
@@ -284,7 +289,7 @@ struct Trigger
  */
 enum TriggerEffect
 {
-    trapDoor, rockTrap,
+    trapDoor, rockTrap, toggleDoor,
 }
 
 /**

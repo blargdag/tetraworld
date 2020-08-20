@@ -32,25 +32,29 @@ struct Tile16
 }
 
 Tile16[TileId.max+1] tiles = [
-    TileId.blocked:     Tile16('#'),
-    TileId.unknown:     Tile16('?'),
-    TileId.space:       Tile16(' '),
-    TileId.wall:        Tile16('/'),
-    TileId.floorBare:   Tile16('.'),
-    TileId.floorGrassy: Tile16(':'),
-    TileId.floorMuddy:  Tile16(';'),
-    TileId.water:       Tile16('~', Color.blue),
-    TileId.doorway:     Tile16('-'),
-    TileId.lockedDoor:  Tile16('+'),
-    TileId.ladder:      Tile16('='),
-    TileId.ladderTop:   Tile16('_'),
+    TileId.blocked:         Tile16('#'),
+    TileId.unknown:         Tile16('?'),
+    TileId.space:           Tile16(' '),
+    TileId.wall:            Tile16('/'),
+    TileId.floorBare:       Tile16('.'),
+    TileId.floorGrassy:     Tile16(':'),
+    TileId.floorMuddy:      Tile16(';'),
+    TileId.water:           Tile16('~', Color.blue),
+    TileId.doorway:         Tile16('-'),
+    TileId.lockedDoor:      Tile16('+', Color.magenta),
+    TileId.unlockedDoor:    Tile16('-', Color.magenta),
+    TileId.ladder:          Tile16('='),
+    TileId.ladderTop:       Tile16('_'),
+
+    TileId.lever1:       Tile16('\\', Color.magenta),
+    TileId.lever2:       Tile16('|', Color.magenta),
 
     TileId.player:      Tile16('&'),
     TileId.creatureA:   Tile16('A', Color.red),
 
     TileId.gold:        Tile16('$', Color.yellow),
     TileId.rock:        Tile16('*'),
-    TileId.portal:      Tile16('@', Color.red),
+    TileId.portal:      Tile16('@', Color.magenta),
     TileId.trapPit:     Tile16('^', Color.red),
     TileId.trapRock:    Tile16('^', Color.red),
 ];

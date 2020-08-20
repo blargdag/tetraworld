@@ -69,11 +69,8 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        if (d.type == Door.Type.locked)
-                            result = lockedDoor.id;
-                        else
-                            result = (pos[0] >= waterLevel) ? water.id
-                                                            : doorway.id;
+                        result = (pos[0] >= waterLevel) ? water.id
+                                                        : doorway.id;
                         return 1;
                     }
                 }
@@ -132,7 +129,7 @@ enum DmgType
  */
 enum MapChgType
 {
-    revealPitTrap, triggerRockTrap,
+    revealPitTrap, triggerRockTrap, doorOpen, doorClose,
 }
 
 /**
