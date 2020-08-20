@@ -69,8 +69,11 @@ struct GameMap
                 {
                     if (pos[] == d.pos)
                     {
-                        result = (pos[0] >= waterLevel) ? water.id
-                                                        : doorway.id;
+                        if (d.type == Door.Type.locked)
+                            result = lockedDoor.id;
+                        else
+                            result = (pos[0] >= waterLevel) ? water.id
+                                                            : doorway.id;
                         return 1;
                     }
                 }

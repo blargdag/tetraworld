@@ -78,6 +78,7 @@ enum TileId : ushort
     floorMuddy,
     water,
     doorway,
+    lockedDoor,
     ladder,
     ladderTop,
 

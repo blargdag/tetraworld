@@ -621,7 +621,7 @@ struct Door
     int axis;
     int[4] pos;
 
-    enum Type { normal, extra, trapdoor }
+    enum Type { normal, locked, extra, trapdoor }
     Type type;
 }
 

@@ -1396,7 +1396,6 @@ MapNode findNgbr(R)(MapNode tree, R bounds, MapNode node, uint doorIdx)
                         return 1;
                     });
 
-    assert(ngbr !is null);
     return ngbr;
 }
 
@@ -1447,6 +1446,7 @@ void sinkDoors(MapNode tree, Region!(int,4) region)
         {
             if (d.axis == 0) continue;
             auto ngbr = findNgbr(tree, region, node, cast(uint) i);
+            if (ngbr is null) continue;
             auto upperFloor = min(node.interior.max[0], ngbr.interior.max[0]);
             d.pos[0] = upperFloor - 1;
         }
@@ -1625,12 +1625,12 @@ MapNode genTree(Region!(int,4) bounds)
     return tree;
 }
 
-MapNode genGeometry(World w, MapGenArgs args)
+/**
+ * Phase 2 of level geometry generation.
+ */
+void genGeometry(World w, MapNode tree, MapGenArgs args)
 {
     auto bounds = args.region;
-    auto tree = genTree(bounds);
-    if (tree is null)
-        throw new Exception("Unable to generate map");
 
     setRoomFloors(tree, bounds);
 
@@ -1643,8 +1643,6 @@ MapNode genGeometry(World w, MapGenArgs args)
     if (args.sinkDoors)
         sinkDoors(tree, bounds);
     addLadders(w, tree, bounds);
-
-    return tree;
 }
 
 void genObjects(World w, MapNode tree, MapGenArgs args,
@@ -1693,15 +1691,21 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
 
+    // Generate level geometry
     w.map.waterLevel = args.waterLevel.pick;
-    w.map.tree = genGeometry(w, args);
+    w.map.tree = genTree(args.region);
+    if (w.map.tree is null)
+        throw new Exception("Unable to generate map");
     w.map.bounds = args.region;
+    genGeometry(w, w.map.tree, args);
 
+    // Place starting position and exit.
     MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
                                       w.map.waterLevel);
     startPos = startRoom.randomLocation(startRoom.interior);
     genPortal(w, w.map.tree, w.map.bounds);
 
+    // Add objects and deco.
     genObjects(w, w.map.tree, args, startRoom);
 
     return w;
@@ -1960,12 +1964,12 @@ World genTestLevel()(out int[4] startPos)
     args2.goldPct = 0.5;
     args2.nMonstersA = ValRange(3, 4);
 
-    auto tree1 = genGeometry(w, args1);
-    auto tree2 = genGeometry(w, args2);
+    auto w = new World;
+    auto tree1 = genTree(args1.region);
+    auto tree2 = genTree(args2.region);
 
     // Stitch two halves of map together
-    auto w = new World;
-    w.map.waterLevel = args.waterLevel.pick;
+    w.map.waterLevel = r.max[0];
     w.map.tree = new MapNode;
     w.map.tree.axis = axis;
     w.map.tree.pivot = pivot;
@@ -1973,15 +1977,52 @@ World genTestLevel()(out int[4] startPos)
     w.map.tree.right = tree2;
     w.map.bounds = r;
 
+    // Place locked door
+    MapNode[2] candidate;
+    int[4] basePos;
+    int n;
+    foreachCandidateDoor(w.map.tree, r, (MapNode left, MapNode right,
+                                         int[4] pos)
+    {
+        if (uniform(0, ++n) == 0)
+        {
+            candidate[0] = left;
+            candidate[1] = right;
+            basePos = pos;
+        }
+        return 0;
+    });
+    if (n == 0)
+        throw new GenCorridorsException("No viable door placement found");
+
+    auto d = Door(axis);
+    assert(basePos[axis] == pivot-1);
+    d.pos = basePos;
+    d.type = Door.Type.locked;
+    candidate[0].doors ~= d;
+    candidate[1].doors ~= d;
+
+    // Finish up level geometry
+    // IMPORTANT: locked door must be placed before this, otherwise
+    // resizeRoom() may make the door inaccessible.
+    genGeometry(w, tree1, args1);
+    genGeometry(w, tree2, args2);
+
     // Generate startPos in first half of level.
     MapNode startRoom = randomDryRoom(tree1, args1.region, w.map.waterLevel);
     startPos = startRoom.randomLocation(startRoom.interior);
     genPortal(w, tree1, args1.region);
 
+    // Place objects and deco
     genObjects(w, tree1, args1, startRoom);
     genObjects(w, tree2, args2, null);
 
-    // TBD: Generate locked door between rooms.
+    // DEBUG
+    import std.format : format;
+    w.store.createObj(Pos(startPos), Message([
+        format("A cryptic message is scrawled here: %s",
+               vec(d.pos) - vec(startPos))
+    ]));
 
     return w;
 }
