@@ -775,9 +775,8 @@ StoryNode[] storyNodes = [
         "and return."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(8,8,8,8));
         args.goldPct = 1.8;
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(8,8,8,8)), args, startPos);
     }),
 
     StoryNode([
@@ -796,10 +795,9 @@ StoryNode[] storyNodes = [
         "Good luck!"
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(10,10,10,10));
         args.nBackEdges = ValRange(3, 5);
         args.goldPct = 1.8;
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(10,10,10,10)), args, startPos);
     }),
 
     StoryNode([
@@ -819,14 +817,13 @@ StoryNode[] storyNodes = [
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(12,12,12,12));
         args.nBackEdges = ValRange(3, 5);
         args.nPitTraps = ValRange(8, 12);
         args.nRockTraps = ValRange(1, 4);
         args.goldPct = 1.0;
         args.waterLevel = ValRange(9, 15);
         args.nMonstersA = ValRange(2, 5);
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(12,12,12,12)), args, startPos);
     }),
 
     StoryNode([
@@ -841,14 +838,13 @@ StoryNode[] storyNodes = [
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(15,15,15,15));
         args.nBackEdges = ValRange(5, 8);
         args.nPitTraps = ValRange(12, 18);
         args.nRockTraps = ValRange(6, 15);
         args.goldPct = 1.0;
         args.waterLevel = ValRange(10, 15);
         args.nMonstersA = ValRange(4, 6);
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(15,15,15,15)), args, startPos);
     }),
 
     StoryNode([
@@ -861,14 +857,13 @@ StoryNode[] storyNodes = [
         "Keep up the good work!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(20,20,20,20));
         args.nBackEdges = ValRange(10, 15);
         args.nPitTraps = ValRange(20, 25);
         args.nRockTraps = ValRange(20, 25);
         args.goldPct = 1.0;
         args.waterLevel = ValRange(10, 20);
         args.nMonstersA = ValRange(6, 8);
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(20,20,20,20)), args, startPos);
     }),
 
     StoryNode([
@@ -896,14 +891,13 @@ StoryNode[] storyNodes = [
         "You brace yourself and prepare for the worst."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(32,32,32,32));
         args.nBackEdges = ValRange(200, 300);
         args.nPitTraps = ValRange(200, 300);
         args.nRockTraps = ValRange(200, 300);
         args.goldPct = 0.2;
         args.waterLevel = ValRange(16, 32);
         args.nMonstersA = ValRange(15, 30);
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(32,32,32,32)), args, startPos);
     }),
 ];
 

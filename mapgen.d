@@ -1595,7 +1595,6 @@ struct TreeGenArgs
 
 struct MapGenArgs
 {
-    Region!(int,4) region;
     TreeGenArgs tree;
     ValRange nBackEdges;
     ValRange nPitTraps;
@@ -1658,10 +1657,8 @@ MapNode genTree(Region!(int,4) bounds, TreeGenArgs args)
 /**
  * Phase 2 of level geometry generation.
  */
-void genGeometry(World w, MapNode tree, MapGenArgs args)
+void genGeometry(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args)
 {
-    auto bounds = args.region;
-
     setRoomFloors(tree, bounds);
 
     // Add back edges, regular and pits/pit traps.
@@ -1674,11 +1671,9 @@ void genGeometry(World w, MapNode tree, MapGenArgs args)
         sinkDoors(tree, bounds);
 }
 
-void genObjects(World w, MapNode tree, MapGenArgs args,
+void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                 MapNode startRoom = null)
 {
-    auto bounds = args.region;
-
     addLadders(w, tree, bounds);
     genRockTraps(w, tree, bounds, args.nRockTraps.pick);
 
@@ -1717,17 +1712,17 @@ void genObjects(World w, MapNode tree, MapGenArgs args,
 /**
  * Generate new game world using the BSP tree algorithm.
  */
-World genBspLevel(MapGenArgs args, out int[4] startPos)
+World genBspLevel(Region!(int,4) bounds, MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
 
     // Generate level geometry
     w.map.waterLevel = args.waterLevel.pick;
-    w.map.tree = genTree(args.region, args.tree);
+    w.map.tree = genTree(bounds, args.tree);
     if (w.map.tree is null)
         throw new Exception("Unable to generate map");
-    w.map.bounds = args.region;
-    genGeometry(w, w.map.tree, args);
+    w.map.bounds = bounds;
+    genGeometry(w, w.map.tree, bounds, args);
 
     // Place starting position and exit.
     MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
@@ -1736,7 +1731,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     genPortal(w, w.map.tree, w.map.bounds);
 
     // Add objects and deco.
-    genObjects(w, w.map.tree, args, startRoom);
+    genObjects(w, w.map.tree, w.map.bounds, args, startRoom);
 
     return w;
 }
@@ -1748,8 +1743,8 @@ unittest
     {
         int[4] startPos;
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(10,10,10,10));
-        auto w = genBspLevel(args, startPos);
+        auto bounds = region(vec(0,0,0,0), vec(10,10,10,10));
+        auto w = genBspLevel(bounds, args, startPos);
 
         // Door placement checks.
         foreachRoom(w.map.tree, w.map.bounds,
@@ -1941,7 +1936,7 @@ unittest
 {
     import std.stdio;
     MapGenArgs args;
-    args.region = region(vec(0,0,0,0), vec(64,64,64,64));
+    auto bounds = region(vec(0,0,0,0), vec(64,64,64,64));
     args.nBackEdges = ValRange(20, 50);
     args.nPitTraps = ValRange(50, 80);
     args.goldPct = 0.2;
@@ -1955,7 +1950,7 @@ unittest
         for (;;)
         {
             try {
-                w = genBspLevel(args, startPos);
+                w = genBspLevel(bounds, args, startPos);
                 assert(doorsSanityCheck(w));
                 break;
             } catch (Exception e) {
@@ -2006,14 +2001,12 @@ World genBipartiteLevel(BipartiteGenArgs args,
     // Two halves of a map with distinct parameters.
     boundsLeft = args.region;
     boundsLeft.max[axis] = pivot;
-    args.subargs[0].region = boundsLeft;
     args.subargs[0].nBackEdges = ValRange(1, 5);
     args.subargs[0].goldPct = 0.1;
     args.subargs[0].nMonstersA = ValRange(1, 2);
 
     boundsRight = args.region;
     boundsRight.min[axis] = pivot;
-    args.subargs[1].region = boundsRight;
     args.subargs[1].nPitTraps = ValRange(1, 5);
     args.subargs[1].nRockTraps = ValRange(3, 10);
     args.subargs[1].goldPct = 2.0;
@@ -2058,8 +2051,8 @@ World genBipartiteLevel(BipartiteGenArgs args,
     // Finish up level geometry
     // IMPORTANT: connecting door must be placed before this, otherwise
     // resizeRoom() may make the door inaccessible.
-    genGeometry(w, tree1, args.subargs[0]);
-    genGeometry(w, tree2, args.subargs[1]);
+    genGeometry(w, tree1, boundsLeft, args.subargs[0]);
+    genGeometry(w, tree2, boundsRight, args.subargs[1]);
 
     if (args.sinkDoor)
     {
@@ -2094,8 +2087,8 @@ World genBipartiteLevel(BipartiteGenArgs args,
     startPos = startRoom.randomLocation(startRoom.interior);
 
     // Place objects and deco
-    genObjects(w, tree1, args.subargs[0], startRoom);
-    genObjects(w, tree2, args.subargs[1], startRoom);
+    genObjects(w, tree1, boundsLeft, args.subargs[0], startRoom);
+    genObjects(w, tree2, boundsRight, args.subargs[1], startRoom);
 
     switch (args.portalPart)
     {
