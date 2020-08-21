@@ -1567,9 +1567,36 @@ struct ValRange
 /**
  * Map generation parameters.
  */
+struct TreeGenArgs
+{
+    /**
+     * Nodes with this volume or greater will be considered for splitting.
+     *
+     * Note that the ValRange is evaluated once per node; so the lower bound
+     * essentially acts as a minimum volume before a node will be split, and
+     * the upper bound gives a probability of when a large node up to that size
+     * will not be split.
+     */
+    ValRange splitVolume = ValRange(25, 105);
+
+    /**
+     * Minimum length of a node along each axis. A candidate split will be
+     * rejected if it would result in a node that has a dimension smaller than
+     * this length.  This effectively means nodes of less than 2*minNodeDim
+     * along an axis would not be split along that axis (its other axes may
+     * still split, though).
+     *
+     * Note that this must also include space for walls if the node is to be
+     * made into a room; so this value should be ≥2 (which would result in a
+     * narrow corridor), or ≥3 if narrow corridors are not wanted.
+     */
+    int minNodeDim = 4;
+}
+
 struct MapGenArgs
 {
     Region!(int,4) region;
+    TreeGenArgs tree;
     ValRange nBackEdges;
     ValRange nPitTraps;
     ValRange nRockTraps;
@@ -1587,20 +1614,23 @@ struct MapGenArgs
  * NOTE: May return null if bounds are too small to generate geometry that
  * satisfies map constraints.
  */
-MapNode genTree(Region!(int,4) bounds)
+MapNode genTree(Region!(int,4) bounds, TreeGenArgs args)
 {
     enum nRetries = 10;
     alias R = Region!(int,4);
+
+    auto splitLen = args.minNodeDim * 2;
 
     MapNode tree;
     foreach (_; 0 .. nRetries)
     {
         tree = genBsp!MapNode(bounds,
-            (R r) => r.volume > 24 + uniform(0, 80),
-            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+            (R r) => r.volume > args.splitVolume.pick,
+            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] >= splitLen)
                             .pickOne(invalidAxis),
-            (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
-                invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
+            (R r, int axis) => (r.max[axis] - r.min[axis] < splitLen) ?
+                invalidPivot : uniform(r.min[axis] + args.minNodeDim,
+                                       r.max[axis] - args.minNodeDim + 1)
         );
 
         setRoomInteriors(tree, bounds);
@@ -1693,7 +1723,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
 
     // Generate level geometry
     w.map.waterLevel = args.waterLevel.pick;
-    w.map.tree = genTree(args.region);
+    w.map.tree = genTree(args.region, args.tree);
     if (w.map.tree is null)
         throw new Exception("Unable to generate map");
     w.map.bounds = args.region;
@@ -1990,8 +2020,8 @@ World genBipartiteLevel(BipartiteGenArgs args,
     args.subargs[1].nMonstersA = ValRange(3, 4);
 
     auto w = new World;
-    auto tree1 = genTree(boundsLeft);
-    auto tree2 = genTree(boundsRight);
+    auto tree1 = genTree(boundsLeft, args.subargs[0].tree);
+    auto tree2 = genTree(boundsRight, args.subargs[1].tree);
 
     // Stitch two halves of map together
     w.map.waterLevel = args.waterLevel.pick;

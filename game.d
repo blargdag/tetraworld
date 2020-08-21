@@ -775,7 +775,7 @@ StoryNode[] storyNodes = [
         "and return."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(9,9,9,9));
+        args.region = region(vec(0,0,0,0), vec(8,8,8,8));
         args.goldPct = 1.8;
         return genBspLevel(args, startPos);
     }),
