@@ -179,7 +179,7 @@ class Game
 
     private Thing* player;
     private MapMemory plMapMemory;
-    private Vec!(int,4) lastPlPos;
+    private Vec!(int,4) lastPlPos, lastObservePos;
     private int storyNode;
     private bool quit;
 
@@ -639,7 +639,11 @@ class Game
 
     private Action processPlayer()
     {
-        observeSurroundings();
+        if (playerPos != lastObservePos)
+        {
+            observeSurroundings();
+            lastObservePos = playerPos;
+        }
 
         Action act;
         string errmsg;
