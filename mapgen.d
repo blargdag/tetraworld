@@ -1940,55 +1940,79 @@ unittest
 }
 
 /**
- * Scratch pad function for generating various test levels.
+ * Parameters for bipartite level generation.
  */
-World genTestLevel()(out int[4] startPos)
+struct BipartiteGenArgs
 {
-    auto r = region(vec(0,0,0,0), vec(13,13,13,13));
-    auto axis = uniform(1, 3);
-    auto pivot = 6;
+    Region!(int,4) region;
+    ValRange axis;
+    ValRange pivot;
+    ValRange waterLevel = ValRange(int.max-1, int.max);
+    bool sinkDoor = true;
+
+    int startPart;
+    int portalPart;
+
+    MapGenArgs[2] subargs;
+}
+
+/**
+ * Generate a bipartite level with potentially different generation parameters
+ * for each part, connected by a single door(way) that may be made a locking
+ * door, etc..
+ *
+ * Params:
+ *  args = The level generation parameters.
+ */
+World genBipartiteLevel(BipartiteGenArgs args,
+                        out int[4] startPos,
+                        out int[4] doorPos,
+                        out Region!(int,4) boundsLeft,
+                        out Region!(int,4) boundsRight)
+{
+    auto axis = args.axis.pick;
+    auto pivot = args.pivot.pick;
 
     // Two halves of a map with distinct parameters.
-    MapGenArgs args1, args2;
+    boundsLeft = args.region;
+    boundsLeft.max[axis] = pivot;
+    args.subargs[0].region = boundsLeft;
+    args.subargs[0].nBackEdges = ValRange(1, 5);
+    args.subargs[0].goldPct = 0.1;
+    args.subargs[0].nMonstersA = ValRange(1, 2);
 
-    args1.region = r;
-    args1.region.max[axis] = pivot;
-    args1.nBackEdges = ValRange(1, 5);
-    args1.goldPct = 0.1;
-    args1.nMonstersA = ValRange(1, 2);
-
-    args2.region = r;
-    args2.region.min[axis] = pivot;
-    args2.nPitTraps = ValRange(1, 5);
-    args2.nRockTraps = ValRange(3, 10);
-    args2.goldPct = 2.0;
-    args2.nMonstersA = ValRange(3, 4);
+    boundsRight = args.region;
+    boundsRight.min[axis] = pivot;
+    args.subargs[1].region = boundsRight;
+    args.subargs[1].nPitTraps = ValRange(1, 5);
+    args.subargs[1].nRockTraps = ValRange(3, 10);
+    args.subargs[1].goldPct = 2.0;
+    args.subargs[1].nMonstersA = ValRange(3, 4);
 
     auto w = new World;
-    auto tree1 = genTree(args1.region);
-    auto tree2 = genTree(args2.region);
+    auto tree1 = genTree(boundsLeft);
+    auto tree2 = genTree(boundsRight);
 
     // Stitch two halves of map together
-    w.map.waterLevel = r.max[0];
+    w.map.waterLevel = args.waterLevel.pick;
     w.map.tree = new MapNode;
     w.map.tree.axis = axis;
     w.map.tree.pivot = pivot;
     w.map.tree.left = tree1;
     w.map.tree.right = tree2;
-    w.map.bounds = r;
+    w.map.bounds = args.region;
 
     // Place doorway between two halves.
     MapNode[2] candidate;
-    int[4] basePos;
     int n;
-    foreachCandidateDoor(w.map.tree, r, (MapNode left, MapNode right,
-                                         int[4] pos)
+    foreachCandidateDoor(w.map.tree, args.region,
+                         (MapNode left, MapNode right, int[4] pos)
     {
         if (uniform(0, ++n) == 0)
         {
             candidate[0] = left;
             candidate[1] = right;
-            basePos = pos;
+            doorPos = pos;
         }
         return 0;
     });
@@ -1996,48 +2020,106 @@ World genTestLevel()(out int[4] startPos)
         throw new GenCorridorsException("No viable door placement found");
 
     auto d = Door(axis);
-    assert(basePos[axis] == pivot-1);
-    d.pos = basePos;
+    assert(doorPos[axis] == pivot-1);
+    d.pos = doorPos;
     candidate[0].doors ~= d;
     candidate[1].doors ~= d;
 
     // Finish up level geometry
-    // IMPORTANT: locked door must be placed before this, otherwise
+    // IMPORTANT: connecting door must be placed before this, otherwise
     // resizeRoom() may make the door inaccessible.
-    genGeometry(w, tree1, args1);
-    genGeometry(w, tree2, args2);
+    genGeometry(w, tree1, args.subargs[0]);
+    genGeometry(w, tree2, args.subargs[1]);
 
-    // Sink locked door too. Need to do this manually because genGeometry can't
-    // do cross-region sinking.
-    auto floorCoor = min(candidate[0].interior.max[0],
-                         candidate[1].interior.max[0]);
-    foreach (node; candidate[])
+    if (args.sinkDoor)
     {
-        auto i = node.doors.countUntil(d);
-        assert(i >= 0);
-        node.doors[i].pos[0] = floorCoor - 1;
+        // Need to do this manually because genGeometry can't do cross-region
+        // sinking.
+        auto floorCoor = min(candidate[0].interior.max[0],
+                             candidate[1].interior.max[0]);
+        foreach (node; candidate[])
+        {
+            auto i = node.doors.countUntil(d);
+            assert(i >= 0);
+            node.doors[i].pos[0] = floorCoor - 1;
+        }
+        d.pos[0] = floorCoor - 1;
     }
-    d.pos[0] = floorCoor - 1;
 
-    // Generate startPos in first half of level.
-    MapNode startRoom = randomDryRoom(tree1, args1.region, w.map.waterLevel);
+    // Generate startPos in selected half of level.
+    MapNode startRoom;
+    switch (args.startPart)
+    {
+        case 0:
+            startRoom = randomDryRoom(tree1, boundsLeft, w.map.waterLevel);
+            break;
+
+        case 1:
+            startRoom = randomDryRoom(tree2, boundsRight, w.map.waterLevel);
+            break;
+
+        default:
+            assert(0, "Invalid start index for bipartite level gen");
+    }
     startPos = startRoom.randomLocation(startRoom.interior);
-    genPortal(w, tree1, args1.region);
 
     // Place objects and deco
-    genObjects(w, tree1, args1, startRoom);
-    genObjects(w, tree2, args2, null);
+    genObjects(w, tree1, args.subargs[0], startRoom);
+    genObjects(w, tree2, args.subargs[1], startRoom);
 
-    // Actual locked door and switch
+    switch (args.portalPart)
+    {
+        case 0:
+            genPortal(w, tree1, boundsLeft);
+            break;
+
+        case 1:
+            genPortal(w, tree2, boundsRight);
+            break;
+
+        default:
+            assert(0, "Invalid portal index for bipartite level gen");
+    }
+
+    return w;
+}
+
+/**
+ * Scratch pad function for generating various test levels.
+ */
+World genTestLevel()(out int[4] startPos)
+{
+    BipartiteGenArgs args;
+    args.region = region(vec(0,0,0,0), vec(13,13,13,13));
+    args.axis = ValRange(1, 4);
+    args.pivot = ValRange(6, 7);
+
+    // Two halves of a map with distinct parameters.
+    args.subargs[0].nBackEdges = ValRange(1, 5);
+    args.subargs[0].goldPct = 0.1;
+    args.subargs[0].nMonstersA = ValRange(1, 2);
+
+    args.subargs[1].nPitTraps = ValRange(2, 5);
+    args.subargs[1].nRockTraps = ValRange(4, 9);
+    args.subargs[1].goldPct = 2.5;
+    args.subargs[1].nMonstersA = ValRange(3, 4);
+
+    int[4] doorPos;
+    Region!(int,4) boundsLeft, boundsRight;
+    auto w = genBipartiteLevel(args, startPos, doorPos, boundsLeft,
+                               boundsRight);
+
+    // Actual locked door object
     auto doorTrigId = w.triggerId++;
-    w.store.createObj(Pos(d.pos), Tiled(TileId.lockedDoor, -2),
+    w.store.createObj(Pos(doorPos), Tiled(TileId.lockedDoor, -2),
                       Name("locked door"), BlocksMovement(),
                       Triggerable(doorTrigId, TriggerEffect.toggleDoor));
 
+    // Lever for opening the door
     Pos leverPos, floorPos;
     do
     {
-        leverPos = Pos(randomLocation(tree1, args1.region));
+        leverPos = Pos(randomLocation(w.map.tree.left, boundsLeft));
         floorPos = leverPos + vec(1,0,0,0);
     } while (!w.store.getAllBy!Pos(leverPos).empty ||
              !w.locationHas!BlocksMovement(floorPos));
