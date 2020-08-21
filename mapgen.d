@@ -2043,7 +2043,7 @@ World genBipartiteLevel(BipartiteGenArgs args,
             assert(i >= 0);
             node.doors[i].pos[0] = floorCoor - 1;
         }
-        d.pos[0] = floorCoor - 1;
+        doorPos[0] = floorCoor - 1;
     }
 
     // Generate startPos in selected half of level.
