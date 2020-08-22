@@ -2108,6 +2108,31 @@ World genBipartiteLevel(BipartiteGenArgs args,
 }
 
 /**
+ * Generate a door + lever combo.
+ */
+void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
+                     Region!(int,4) leverBounds)
+{
+    // Actual locked door object
+    auto doorTrigId = w.triggerId++;
+    w.store.createObj(Pos(doorPos), Tiled(TileId.lockedDoor, -2),
+                      Name("locked door"), BlocksMovement(),
+                      Triggerable(doorTrigId, TriggerEffect.toggleDoor));
+
+    // Lever for opening the door
+    Pos leverPos, floorPos;
+    do
+    {
+        leverPos = Pos(randomLocation(leverTree, leverBounds));
+        floorPos = leverPos + vec(1,0,0,0);
+    } while (!w.store.getAllBy!Pos(leverPos).empty ||
+             !w.locationHas!BlocksMovement(floorPos));
+    w.store.createObj(leverPos, Name("big lever"), Tiled(TileId.lever1),
+                      Usable(UseEffect.trigger, "pull", doorTrigId),
+                      Weight(10));
+}
+
+/**
  * Scratch pad function for generating various test levels.
  */
 World genTestLevel()(out int[4] startPos)
