@@ -1567,9 +1567,35 @@ struct ValRange
 /**
  * Map generation parameters.
  */
+struct TreeGenArgs
+{
+    /**
+     * Nodes with this volume or greater will be considered for splitting.
+     *
+     * Note that the ValRange is evaluated once per node; so the lower bound
+     * essentially acts as a minimum volume before a node will be split, and
+     * the upper bound gives a probability of when a large node up to that size
+     * will not be split.
+     */
+    ValRange splitVolume = ValRange(25, 105);
+
+    /**
+     * Minimum length of a node along each axis. A candidate split will be
+     * rejected if it would result in a node that has a dimension smaller than
+     * this length.  This effectively means nodes of less than 2*minNodeDim
+     * along an axis would not be split along that axis (its other axes may
+     * still split, though).
+     *
+     * Note that this must also include space for walls if the node is to be
+     * made into a room; so this value should be ≥2 (which would result in a
+     * narrow corridor), or ≥3 if narrow corridors are not wanted.
+     */
+    int minNodeDim = 4;
+}
+
 struct MapGenArgs
 {
-    Region!(int,4) region;
+    TreeGenArgs tree;
     ValRange nBackEdges;
     ValRange nPitTraps;
     ValRange nRockTraps;
@@ -1587,20 +1613,23 @@ struct MapGenArgs
  * NOTE: May return null if bounds are too small to generate geometry that
  * satisfies map constraints.
  */
-MapNode genTree(Region!(int,4) bounds)
+MapNode genTree(Region!(int,4) bounds, TreeGenArgs args)
 {
     enum nRetries = 10;
     alias R = Region!(int,4);
+
+    auto splitLen = args.minNodeDim * 2;
 
     MapNode tree;
     foreach (_; 0 .. nRetries)
     {
         tree = genBsp!MapNode(bounds,
-            (R r) => r.volume > 24 + uniform(0, 80),
-            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+            (R r) => r.volume > args.splitVolume.pick,
+            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] >= splitLen)
                             .pickOne(invalidAxis),
-            (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
-                invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
+            (R r, int axis) => (r.max[axis] - r.min[axis] < splitLen) ?
+                invalidPivot : uniform(r.min[axis] + args.minNodeDim,
+                                       r.max[axis] - args.minNodeDim + 1)
         );
 
         setRoomInteriors(tree, bounds);
@@ -1628,10 +1657,8 @@ MapNode genTree(Region!(int,4) bounds)
 /**
  * Phase 2 of level geometry generation.
  */
-void genGeometry(World w, MapNode tree, MapGenArgs args)
+void genGeometry(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args)
 {
-    auto bounds = args.region;
-
     setRoomFloors(tree, bounds);
 
     // Add back edges, regular and pits/pit traps.
@@ -1644,11 +1671,9 @@ void genGeometry(World w, MapNode tree, MapGenArgs args)
         sinkDoors(tree, bounds);
 }
 
-void genObjects(World w, MapNode tree, MapGenArgs args,
+void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                 MapNode startRoom = null)
 {
-    auto bounds = args.region;
-
     addLadders(w, tree, bounds);
     genRockTraps(w, tree, bounds, args.nRockTraps.pick);
 
@@ -1687,17 +1712,17 @@ void genObjects(World w, MapNode tree, MapGenArgs args,
 /**
  * Generate new game world using the BSP tree algorithm.
  */
-World genBspLevel(MapGenArgs args, out int[4] startPos)
+World genBspLevel(Region!(int,4) bounds, MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
 
     // Generate level geometry
     w.map.waterLevel = args.waterLevel.pick;
-    w.map.tree = genTree(args.region);
+    w.map.tree = genTree(bounds, args.tree);
     if (w.map.tree is null)
         throw new Exception("Unable to generate map");
-    w.map.bounds = args.region;
-    genGeometry(w, w.map.tree, args);
+    w.map.bounds = bounds;
+    genGeometry(w, w.map.tree, bounds, args);
 
     // Place starting position and exit.
     MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
@@ -1706,7 +1731,7 @@ World genBspLevel(MapGenArgs args, out int[4] startPos)
     genPortal(w, w.map.tree, w.map.bounds);
 
     // Add objects and deco.
-    genObjects(w, w.map.tree, args, startRoom);
+    genObjects(w, w.map.tree, w.map.bounds, args, startRoom);
 
     return w;
 }
@@ -1718,8 +1743,8 @@ unittest
     {
         int[4] startPos;
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(10,10,10,10));
-        auto w = genBspLevel(args, startPos);
+        auto bounds = region(vec(0,0,0,0), vec(10,10,10,10));
+        auto w = genBspLevel(bounds, args, startPos);
 
         // Door placement checks.
         foreachRoom(w.map.tree, w.map.bounds,
@@ -1911,7 +1936,7 @@ unittest
 {
     import std.stdio;
     MapGenArgs args;
-    args.region = region(vec(0,0,0,0), vec(64,64,64,64));
+    auto bounds = region(vec(0,0,0,0), vec(64,64,64,64));
     args.nBackEdges = ValRange(20, 50);
     args.nPitTraps = ValRange(50, 80);
     args.goldPct = 0.2;
@@ -1925,7 +1950,7 @@ unittest
         for (;;)
         {
             try {
-                w = genBspLevel(args, startPos);
+                w = genBspLevel(bounds, args, startPos);
                 assert(doorsSanityCheck(w));
                 break;
             } catch (Exception e) {
@@ -1976,22 +2001,20 @@ World genBipartiteLevel(BipartiteGenArgs args,
     // Two halves of a map with distinct parameters.
     boundsLeft = args.region;
     boundsLeft.max[axis] = pivot;
-    args.subargs[0].region = boundsLeft;
     args.subargs[0].nBackEdges = ValRange(1, 5);
     args.subargs[0].goldPct = 0.1;
     args.subargs[0].nMonstersA = ValRange(1, 2);
 
     boundsRight = args.region;
     boundsRight.min[axis] = pivot;
-    args.subargs[1].region = boundsRight;
     args.subargs[1].nPitTraps = ValRange(1, 5);
     args.subargs[1].nRockTraps = ValRange(3, 10);
     args.subargs[1].goldPct = 2.0;
     args.subargs[1].nMonstersA = ValRange(3, 4);
 
     auto w = new World;
-    auto tree1 = genTree(boundsLeft);
-    auto tree2 = genTree(boundsRight);
+    auto tree1 = genTree(boundsLeft, args.subargs[0].tree);
+    auto tree2 = genTree(boundsRight, args.subargs[1].tree);
 
     // Stitch two halves of map together
     w.map.waterLevel = args.waterLevel.pick;
@@ -2028,8 +2051,8 @@ World genBipartiteLevel(BipartiteGenArgs args,
     // Finish up level geometry
     // IMPORTANT: connecting door must be placed before this, otherwise
     // resizeRoom() may make the door inaccessible.
-    genGeometry(w, tree1, args.subargs[0]);
-    genGeometry(w, tree2, args.subargs[1]);
+    genGeometry(w, tree1, boundsLeft, args.subargs[0]);
+    genGeometry(w, tree2, boundsRight, args.subargs[1]);
 
     if (args.sinkDoor)
     {
@@ -2064,8 +2087,8 @@ World genBipartiteLevel(BipartiteGenArgs args,
     startPos = startRoom.randomLocation(startRoom.interior);
 
     // Place objects and deco
-    genObjects(w, tree1, args.subargs[0], startRoom);
-    genObjects(w, tree2, args.subargs[1], startRoom);
+    genObjects(w, tree1, boundsLeft, args.subargs[0], startRoom);
+    genObjects(w, tree2, boundsRight, args.subargs[1], startRoom);
 
     switch (args.portalPart)
     {
@@ -2082,6 +2105,31 @@ World genBipartiteLevel(BipartiteGenArgs args,
     }
 
     return w;
+}
+
+/**
+ * Generate a door + lever combo.
+ */
+void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
+                     Region!(int,4) leverBounds)
+{
+    // Actual locked door object
+    auto doorTrigId = w.triggerId++;
+    w.store.createObj(Pos(doorPos), Tiled(TileId.lockedDoor, -2),
+                      Name("locked door"), BlocksMovement(),
+                      Triggerable(doorTrigId, TriggerEffect.toggleDoor));
+
+    // Lever for opening the door
+    Pos leverPos, floorPos;
+    do
+    {
+        leverPos = Pos(randomLocation(leverTree, leverBounds));
+        floorPos = leverPos + vec(1,0,0,0);
+    } while (!w.store.getAllBy!Pos(leverPos).empty ||
+             !w.locationHas!BlocksMovement(floorPos));
+    w.store.createObj(leverPos, Name("big lever"), Tiled(TileId.lever1),
+                      Usable(UseEffect.trigger, "pull", doorTrigId),
+                      Weight(10));
 }
 
 /**

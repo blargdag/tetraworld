@@ -775,9 +775,8 @@ StoryNode[] storyNodes = [
         "and return."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(9,9,9,9));
         args.goldPct = 1.8;
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(8,8,8,8)), args, startPos);
     }),
 
     StoryNode([
@@ -796,10 +795,9 @@ StoryNode[] storyNodes = [
         "Good luck!"
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(10,10,10,10));
         args.nBackEdges = ValRange(3, 5);
         args.goldPct = 1.8;
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(9,9,9,9)), args, startPos);
     }),
 
     StoryNode([
@@ -808,7 +806,7 @@ StoryNode[] storyNodes = [
         "The next area is similar to the previous one, and is also located "~
         "in the ore mines. It is slightly larger and more complex, and, "~
         "unfortunately, is also located in a more unstable zone, and there "~
-        "may be environmental hazards, such as hidden pits and flooded areas.",
+        "may be environmental hazards, such as hidden pits and falling rocks.",
 
         "In particular, we advise you to avoid by all means any native "~
         "creatures that you might encounter, as they are likely to be "~
@@ -819,56 +817,77 @@ StoryNode[] storyNodes = [
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(12,12,12,12));
         args.nBackEdges = ValRange(3, 5);
         args.nPitTraps = ValRange(8, 12);
         args.nRockTraps = ValRange(1, 4);
         args.goldPct = 1.0;
-        args.waterLevel = ValRange(9, 15);
         args.nMonstersA = ValRange(2, 5);
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(10,10,10,10)), args, startPos);
     }),
 
     StoryNode([
         "We are very pleased with your continuing performance.",
 
-        "The next area is a large one, and quite complex and potentially "~
-        "hazardous. You will probably have to take notes to keep track of "~
-        "where you are. But we are confident that this will present no "~
-        "problem to your current skills. Again, collect all the gold and "~
-        "bring them to the exit portal.  You know the protocol.",
+        "The next area is a large one, and quite complex and hazardous. "~
+        "You will probably have to take notes to keep track of your "~
+        "location.  Furthermore, according to our records, it is likely to "~
+        "be partially submerged. Therefore, great care must be taken when "~
+        "traversing this hostile terrain.",
+
+        "But we are confident that this will present no problem to your "~
+        "current skills. Collect all the gold ores and bring them to the "~
+        "exit portal.  You know the protocol.",
 
         "Good luck!",
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(15,15,15,15));
         args.nBackEdges = ValRange(5, 8);
         args.nPitTraps = ValRange(12, 18);
         args.nRockTraps = ValRange(6, 15);
         args.goldPct = 1.0;
-        args.waterLevel = ValRange(10, 15);
+        args.waterLevel = ValRange(6, 10);
         args.nMonstersA = ValRange(4, 6);
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(11,11,11,11)), args, startPos);
     }),
 
     StoryNode([
         "Exceptional!",
 
-        "Clearly, you are more than capable of tackling the next area, "~
-        "which is even larger and more complex. As usual, find all the "~
-        "gold and bring them to the exit portal.",
+        "We have a special mission for you.  One of our remote storage "~
+        "facilities has been badly damaged by instabilities and infested "~
+        "with hostile creatures.  We need you to enter the complex and "~
+        "retrieve all the ores we have stored there from a prior mission.",
+
+        "Unfortunately, due to equipment damage, we are unable to transport "~
+        "you into the facility itself, but only to a nearby area.  The "~
+        "entrance is locked, but may be opened by an emergency access lever "~
+        "located somewhere nearby. Once inside, beware of structural damage "~
+        "and unstable damaged ceilings.",
 
         "Keep up the good work!",
     ], (ref int[4] startPos) {
-        MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(20,20,20,20));
-        args.nBackEdges = ValRange(10, 15);
-        args.nPitTraps = ValRange(20, 25);
-        args.nRockTraps = ValRange(20, 25);
-        args.goldPct = 1.0;
-        args.waterLevel = ValRange(10, 20);
-        args.nMonstersA = ValRange(6, 8);
-        return genBspLevel(args, startPos);
+        BipartiteGenArgs args;
+        args.region = region(vec(12,12,12,12));
+        args.axis = ValRange(1, 4);
+        args.pivot = ValRange(5, 7);
+
+        args.subargs[0].nBackEdges = ValRange(3, 5);
+        args.subargs[0].nPitTraps = ValRange(0, 4);
+        args.subargs[0].nRockTraps = ValRange(0, 2);
+        args.subargs[0].nMonstersA = ValRange(1, 2);
+
+        args.subargs[1].nBackEdges = ValRange(1, 3);
+        args.subargs[1].nPitTraps = ValRange(5, 10);
+        args.subargs[1].nRockTraps = ValRange(8, 12);
+        args.subargs[1].goldPct = 3.5;
+        args.subargs[1].nMonstersA = ValRange(3, 5);
+
+        int[4] doorPos;
+        Region!(int,4) bounds1, bounds2;
+        auto w = genBipartiteLevel(args, startPos, doorPos, bounds1, bounds2);
+
+        genDoorAndLever(w, doorPos, w.map.tree.left, bounds1);
+        return w;
     }),
 
     StoryNode([
@@ -896,14 +915,13 @@ StoryNode[] storyNodes = [
         "You brace yourself and prepare for the worst."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.region = region(vec(0,0,0,0), vec(32,32,32,32));
         args.nBackEdges = ValRange(200, 300);
         args.nPitTraps = ValRange(200, 300);
         args.nRockTraps = ValRange(200, 300);
         args.goldPct = 0.2;
         args.waterLevel = ValRange(16, 32);
         args.nMonstersA = ValRange(15, 30);
-        return genBspLevel(args, startPos);
+        return genBspLevel(region(vec(32,32,32,32)), args, startPos);
     }),
 ];
 
