@@ -416,6 +416,36 @@ unittest
     assert(root.right.doors == [ Door(2, [0,0,4,2]) ]);
 }
 
+unittest
+{
+    // Test case 2:
+    //   0123456789
+    // 0 ##########
+    // 1 #   ######
+    // 2 #   -    #
+    // 3 #   #    #
+    // 4 #####    #
+    // 5 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.interior = region(vec(0,0,1,1), vec(1,1,4,4));
+
+    root.right = new MapNode;
+    root.right.interior = region(vec(0,0,5,2), vec(1,1,9,5));
+
+    auto bounds = region(vec(0,0,1,1), vec(1,1,10,6));
+    genCorridors(root, bounds);
+
+    assert(root.doors == []);
+    assert((root.left.doors == [ Door(2, [0,0,4,2]) ] &&
+            root.right.doors == [ Door(2, [0,0,4,2]) ]) ||
+           (root.left.doors == [ Door(2, [0,0,4,3]) ] &&
+            root.right.doors == [ Door(2, [0,0,4,3]) ]));
+}
+
 /**
  * Returns: true if the given door is valid for the given room interior, false
  * otherwise.
@@ -473,9 +503,11 @@ bool doorsSanityCheck()(World w)
     {
         foreach (d; node.doors)
         {
+            import std.stdio : writefln;
             if (!isValidDoor(node.interior, d))
             {
-//import std;writefln("Interior check failed: interior=%s d=%s", node.interior, d);
+                writefln("Interior check failed: interior=%s d=%s",
+                         node.interior, d);
                 goto FAIL;
             }
 
@@ -484,7 +516,12 @@ bool doorsSanityCheck()(World w)
             if (w.store.get!BlocksMovement(w.map[vec(d.pos) + v]) !is null ||
                 w.store.get!BlocksMovement(w.map[vec(d.pos) - v]))
             {
-//import std;writefln("Walkability test failed: interior=%s d=%s %s", node.interior, d, [vec(d.pos)+v, vec(d.pos), vec(d.pos)-v].map!(pos => w.getAllAt(Pos(pos)).map!(id => w.store.get!Name(id).name)));
+                writefln("Walkability test failed: interior=%s d=%s %s",
+                    node.interior, d,
+                    [ vec(d.pos)+v, vec(d.pos), vec(d.pos)-v ]
+                        .map!(pos => w.getAllAt(Pos(pos))
+                                      .map!(id => w.store.get!Name(id).name))
+                );
                 goto FAIL;
             }
         }
@@ -865,7 +902,7 @@ unittest
  * Doors must have already been computed, since minimum room interior regions
  * are computed based on the position of doors.
  */
-void resizeRooms(R)(MapNode root, R region)
+void resizeRooms(R)(MapNode root, R region, int minRoomDim)
     if (is(R == Region!(int,n), size_t n))
 {
     foreachRoom(root, region, (R bounds, MapNode node) {
@@ -874,13 +911,14 @@ void resizeRooms(R)(MapNode root, R region)
         // Find minimum region room must cover in order for exits to connect.
         auto core = minCore(node.interior, node.doors);
 
-        // Expand minimum region to be at least 3 tiles wide in each direction.
+        // Expand minimum region to be at least (minRoomDim) tiles wide in each
+        // direction.
         foreach (i; 0 .. 4)
         {
-            if (node.interior.length(i) < 3)
+            if (node.interior.length(i) < minRoomDim)
                 continue;   // FIXME: should be an error
 
-            while (core.length(i) < 3)
+            while (core.length(i) < minRoomDim)
             {
                 if (uniform(0, 2) == 0)
                 {
@@ -926,7 +964,7 @@ unittest
         Door(1, [1,3,0,0]),
     ];
 
-    resizeRooms(root, bounds);
+    resizeRooms(root, bounds, 3);
 
     assert(root.interior == region(vec(1,1,0,0), vec(5,3,1,1)));
 }
@@ -1139,7 +1177,54 @@ unittest
     );
     assert(doorsSanityCheck(w));
 
-    resizeRooms(w.map.tree, w.map.bounds);
+    resizeRooms(w.map.tree, w.map.bounds, 3);
+    assert(doorsSanityCheck(w));
+
+    setRoomFloors(w.map.tree, w.map.bounds);
+
+    version(none)
+    {
+        dumpBsp(result, w.map.tree, w.map.bounds);
+        assert(0);
+    }
+}
+
+unittest
+{
+    import testutil;
+    enum wd = 20, ht = 12;
+    auto result = TestScreen!(wd,ht)();
+
+    import std.algorithm : filter, clamp;
+    import std.random : uniform;
+    import std.range : iota;
+    import rndutil;
+
+    // Generate base BSP tree
+    auto bounds = region(vec(1, 1, 0, 0), vec(wd, ht, 2, 2));
+    alias R = typeof(bounds);
+
+    TreeGenArgs args;
+    args.splitVolume = ValRange(50, 200);
+    args.minNodeDim = 2;
+    auto tree = genTree(bounds, args);
+
+    auto w = new World;
+    w.map.tree = tree;
+    w.map.bounds = bounds;
+    assert(doorsSanityCheck(w));
+
+    // Generate back edges
+    genBackEdges!R(w.map.tree, w.map.bounds, 4, 15,
+        (in MapNode[2] rooms, ref Door d) {
+            d.type = Door.Type.extra;
+            return true;
+        },
+        (MapNode node, R region) => uniform(0, 2), false
+    );
+    assert(doorsSanityCheck(w));
+
+    resizeRooms(w.map.tree, w.map.bounds, args.minNodeDim-1);
     assert(doorsSanityCheck(w));
 
     setRoomFloors(w.map.tree, w.map.bounds);
@@ -1666,7 +1751,7 @@ void genGeometry(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args)
                  args.nBackEdges.max + 15);
     genPitTraps(w, tree, bounds, args.nPitTraps.pick);
 
-    resizeRooms(tree, bounds);
+    resizeRooms(tree, bounds, args.tree.minNodeDim - 1);
     if (args.sinkDoors)
         sinkDoors(tree, bounds);
 }

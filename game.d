@@ -861,13 +861,13 @@ StoryNode[] storyNodes = [
         "Unfortunately, due to equipment damage, we are unable to transport "~
         "you into the facility itself, but only to a nearby area.  The "~
         "entrance is locked, but may be opened by an emergency access lever "~
-        "located somewhere nearby. Once inside, beware of structural damage "~
-        "and unstable damaged ceilings.",
+        "located nearby. Once inside, beware of structural damage and "~
+        "unstable ceilings.",
 
-        "Keep up the good work!",
+        "Be careful!",
     ], (ref int[4] startPos) {
         BipartiteGenArgs args;
-        args.region = region(vec(12,12,12,12));
+        args.region = region(vec(9,12,12,12));
         args.axis = ValRange(1, 4);
         args.pivot = ValRange(5, 7);
 
@@ -876,6 +876,8 @@ StoryNode[] storyNodes = [
         args.subargs[0].nRockTraps = ValRange(0, 2);
         args.subargs[0].nMonstersA = ValRange(1, 2);
 
+        args.subargs[1].tree.splitVolume = ValRange(64, 120);
+        args.subargs[1].tree.minNodeDim = 4;
         args.subargs[1].nBackEdges = ValRange(1, 3);
         args.subargs[1].nPitTraps = ValRange(5, 10);
         args.subargs[1].nRockTraps = ValRange(8, 12);
