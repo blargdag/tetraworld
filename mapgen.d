@@ -95,9 +95,6 @@ unittest
 
 /**
  * Returns: The total interior volumes of the rooms in the given BSP tree.
- *
- * BUGS: This function is either misnamed, or wrongly implemented. It returns
- * the total interior *volume* of the map, not its *floor* area!
  */
 int floorArea(MapNode node)
 {
@@ -661,7 +658,9 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
             int[4] basePos;
         }
 
-        auto success = root.randomRoom(region, (MapNode node, R bounds) {
+        auto success = root.randomRoom!(RandomRoomDist.volume)(region,
+            (MapNode node, R bounds)
+        {
             // Randomly select a wall of the room.
             auto axis = pickAxis(node, bounds);
             if (axis == invalidAxis)

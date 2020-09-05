@@ -1,7 +1,5 @@
-- Rock traps should not be placed next to doorway.
-- Random location selector is biased: BSP traversal should be weighed by volume
-  ratio of subtrees rather than 50% chance!
 - Refactor random location code to central function with configurable criteria.
+- Rock traps should not be placed next to doorway.
 - Tutorial should include climb-ledge mechanics?
 - Need to start implement event filtering based on visibility / audibility!
 - Bug: a sinking object that lands on something else that subsequently moves
@@ -267,3 +265,5 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
       + Implement rudimentary string input UI.
 + Move bipartite level gen code into reusable routine, and integrate it into
   storyline. :-)
++ Random location selector is biased: BSP traversal should be weighed by volume
+  ratio of subtrees rather than 50% chance!

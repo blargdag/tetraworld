@@ -670,7 +670,7 @@ ThingId style2Terrain(FloorStyle style)
 Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
                            bool allowMidAir = false)
 {
-    return randomRoom(tree, initialBounds, (MapNode node, Region!(int,4) bounds)
+    Vec!(int,4) impl(MapNode node, Region!(int,4) bounds)
     {
         import std.random : uniform;
         Vec!(int,4) result;
@@ -685,7 +685,12 @@ Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
                                     node.interior.max[i]);
         }
         return result;
-    });
+    }
+
+    return allowMidAir ? randomRoom!(RandomRoomDist.volume)
+                                    (tree, initialBounds, &impl)
+                       : randomRoom!(RandomRoomDist.floorArea)
+                                    (tree, initialBounds, &impl);
 }
 
 unittest

@@ -363,6 +363,16 @@ unittest
 }
 
 /**
+ * Probability distribution to use for randomRoom.
+ */
+enum RandomRoomDist
+{
+    tree,       /// 1/2 probability of left/right children.
+    volume,     /// Proportional to relative 4D volumes of children.
+    floorArea,  /// Proportional to floor area of children.
+}
+
+/**
  * Invoke the given delegate on a randomly chosen node in the given BSP tree.
  *
  * Params:
@@ -372,20 +382,53 @@ unittest
  *        corresponding bounds object. Any return value will be propagated to
  *        the return value of randomRoom itself.
  */
-Ret randomRoom(Node,R,Ret)(Node node, R bounds, Ret delegate(Node,R) dg)
+Ret randomRoom(RandomRoomDist dist = RandomRoomDist.tree, Node, R, Ret)
+              (Node node, R bounds, Ret delegate(Node,R) dg)
     if (is(R == Region!(int,n), size_t n))
 {
+    import std.algorithm : map, fold;
+    import std.range : iota;
+    import std.random : uniform;
+
     if (!node.isLeaf)
     {
-        import std.random : uniform;
-        if (uniform(0, 2) == 0)
-            return randomRoom(node.left, leftRegion(bounds, node.axis,
-                                                    node.pivot),
-                              dg);
+        static if (dist == RandomRoomDist.tree)
+        {
+            auto choice = uniform(0, 2);
+            if (choice == 0)
+                return randomRoom(node.left, leftRegion(bounds, node.axis,
+                                                        node.pivot),
+                                  dg);
+            else
+                return randomRoom(node.right, rightRegion(bounds, node.axis,
+                                                          node.pivot),
+                                  dg);
+        }
         else
-            return randomRoom(node.right, rightRegion(bounds, node.axis,
-                                                      node.pivot),
-                              dg);
+        {
+            auto lreg = leftRegion(bounds, node.axis, node.pivot);
+            auto rreg = rightRegion(bounds, node.axis, node.pivot);
+
+            static if (dist == RandomRoomDist.volume)
+                enum startDim = 0;
+            else static if (dist == RandomRoomDist.floorArea)
+                enum startDim = 1;
+            else
+                static assert(0, "Unhandled value of RandomRoomDist: " ~
+                                 dist.stringof);
+
+            auto nLeft = iota(startDim, R.n)
+                        .map!(i => lreg.max[i] - lreg.min[i])
+                        .fold!((a, n) => a*n)(1);
+            auto nRight = iota(startDim, R.n)
+                        .map!(i => lreg.max[i] - lreg.min[i])
+                        .fold!((a, n) => a*n)(1);
+
+            if (uniform(0, nLeft + nRight) < nLeft)
+                return randomRoom(node.left, lreg, dg);
+            else
+                return randomRoom(node.right, rreg, dg);
+        }
     }
     return dg(node, bounds);
 }
