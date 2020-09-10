@@ -91,6 +91,7 @@ enum TileId : ushort
 
     gold,
     rock,
+    crabShell,
     portal,
     trapPit,
     trapRock,

@@ -875,6 +875,7 @@ StoryNode[] storyNodes = [
         args.subargs[0].nPitTraps = ValRange(0, 4);
         args.subargs[0].nRockTraps = ValRange(0, 2);
         args.subargs[0].nMonstersA = ValRange(1, 2);
+        args.subargs[0].nCrabShells = ValRange(1, 2);
 
         args.subargs[1].tree.splitVolume = ValRange(64, 120);
         args.subargs[1].tree.minNodeDim = 4;

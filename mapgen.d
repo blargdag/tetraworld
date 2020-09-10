@@ -1687,6 +1687,7 @@ struct MapGenArgs
     float goldPct;
     ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
+    ValRange nCrabShells;
 
     bool sinkDoors = true;
 }
@@ -1781,6 +1782,14 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
                           BlocksMovement(), Agent(), Mortal(5,5),
                           CanMove(CanMove.Type.walk | CanMove.Type.climb));
+    }
+
+    // Items
+    foreach (i; 0 .. args.nCrabShells.pick())
+    {
+        auto pos = randomLocation(tree, bounds);
+        w.store.createObj(Pos(pos), Name("hard hemiglomic shell"), Weight(5),
+                          Tiled(TileId.crabShell), Pickable());
     }
 
     // Generate random rocks as additional deco.

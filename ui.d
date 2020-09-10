@@ -1056,7 +1056,7 @@ class TextUi : GameUi
                                       "q to abort)";
         auto hintStringLen = (selectAction is null) ? 0 :
                              hintString.displayLength;
-        auto width = (5 + max(promptStr.displayLength, hintStringLen,
+        auto width = (6 + max(promptStr.displayLength, hintStringLen,
                               inven.map!(item => item.name.displayLength)
                                    .maxElement)).to!int;
         auto height = min(disp.height, 5 + inven.length.to!int);
