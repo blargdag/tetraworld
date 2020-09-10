@@ -1789,7 +1789,8 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     {
         auto pos = randomLocation(tree, bounds);
         w.store.createObj(Pos(pos), Name("hard hemiglomic shell"), Weight(5),
-                          Tiled(TileId.crabShell), Pickable());
+                          Wearable(Protection.head), Tiled(TileId.crabShell),
+                          Pickable());
     }
 
     // Generate random rocks as additional deco.

@@ -340,4 +340,35 @@ struct Message
     string[] msgs;
 }
 
+@BitFlags
+enum Protection
+{
+    head = 1 << 0,
+    torso = 1 << 1,
+    arms = 1 << 2,
+    hands = 1 << 3,
+    legs = 1 << 4,
+    feet = 1 << 5,
+}
+
+/**
+ * Component for objects that can be worn.
+ */
+@Component
+struct Wearable
+{
+    Protection protection;
+    //int durability;
+}
+
+/**
+ * Component of objects that can wear other objects.
+ */
+@Component
+struct CanWear
+{
+    ThingId[] worn;
+    Protection effectiveProt;
+}
+
 // vim:set ai sw=4 ts=4 et:
