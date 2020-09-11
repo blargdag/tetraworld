@@ -375,6 +375,7 @@ struct CanWear
 struct Weapon
 {
     DmgType dmgType;
+    int dmg;
 }
 
 // vim:set ai sw=4 ts=4 et:

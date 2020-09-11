@@ -146,7 +146,7 @@ struct SysGravity
         if (w.store.get!Mortal(objId) !is null)
         {
             import damage;
-            w.injure(t.id, objId, gravityId, 1 /*FIXME*/);
+            w.injure(t.id, objId, DmgType.fallOn, 1 /*FIXME*/);
         }
 
         if (w.store.getObj(objId) is null)

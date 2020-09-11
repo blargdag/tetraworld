@@ -784,8 +784,9 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 
     // TBD: damage should be determined by weapon
     import damage;
+    auto weapon = w.store.get!Weapon(weaponId);
     w.notify.damage(DmgEventType.attack, *pos, subj.id, objId, weaponId);
-    w.injure(subj.id, objId, weaponId, 1 /*FIXME*/);
+    w.injure(subj.id, objId, weapon.dmgType, weapon.dmg);
 
     return ActionResult(true, 10);
 }
