@@ -558,6 +558,16 @@ class Game
                     break;
             }
         };
+        w.notify.damageBlock = (Pos pos, ThingId subj, ThingId armor,
+                                ThingId weapon)
+        {
+            auto subjPoss = (subj == player.id) ? "your" :
+                            w.store.get!Name(subj).name ~ "'s";
+            auto armorName = w.store.get!Name(armor).name;
+            auto pronoun = (subj == player.id) ? "you" : "it";
+            ui.message("%s %s shields %s from the blow!",
+                       subjPoss.asCapitalized, armorName, pronoun);
+        };
         w.notify.mapChange = (MapChgType type, Pos pos, ThingId subj,
                               ThingId obj)
         {

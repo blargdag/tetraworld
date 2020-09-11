@@ -24,11 +24,42 @@ import components;
 import store_traits;
 import world;
 
+int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim, ThingId weapon,
+                     int baseDmg)
+{
+    import std.algorithm : max;
+
+    // FIXME: this is currently just a hack. Should differentiate between
+    // possession and equipping.
+    if (auto inven = w.store.get!Inventory(victim))
+    {
+        foreach (armorId; inven.contents)
+        {
+            if (auto wb = w.store.get!Wearable(armorId))
+            {
+                // FIXME: should differentiate between damage from above vs.
+                // from below, etc.
+                if (wb.protection != 0)
+                {
+                    // FIXME: amount of damage reduction should be calculated
+                    // from equipment stats
+                    baseDmg = max(0, baseDmg-1);
+                    w.notify.damageBlock(*w.store.get!Pos(victim), victim,
+                                         armorId, weapon);
+                }
+            }
+        }
+    }
+    return baseDmg;
+}
+
 void injure(World w, ThingId inflictor, ThingId victim, ThingId weapon, int hp)
 {
     auto m = w.store.get!Mortal(victim);
     if (m is null) // TBD: emit a message about target being impervious
         return;
+
+    hp = calcEffectiveDmg(w, inflictor, victim, weapon, hp);
 
     m.hp -= hp;
     if (m.hp <= 0)

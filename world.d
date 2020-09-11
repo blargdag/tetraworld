@@ -163,6 +163,12 @@ struct EventWatcher
         doNothing!(DmgType, Pos, ThingId, ThingId, ThingId);
 
     /**
+     * An object withstands damage.
+     */
+    void delegate(Pos pos, ThingId subj, ThingId armor, ThingId weapon)
+        damageBlock = doNothing!(Pos, ThingId, ThingId, ThingId);
+
+    /**
      * Part of the map changes.
      */
     void delegate(MapChgType type, Pos pos, ThingId subj, ThingId obj)

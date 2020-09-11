@@ -345,10 +345,7 @@ enum Protection
 {
     head = 1 << 0,
     torso = 1 << 1,
-    arms = 1 << 2,
-    hands = 1 << 3,
-    legs = 1 << 4,
-    feet = 1 << 5,
+    feet = 1 << 2,
 }
 
 /**
