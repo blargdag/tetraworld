@@ -119,7 +119,7 @@ enum ItemActType
 /**
  * Type of damage event.
  */
-enum DmgType
+enum DmgEventType
 {
     attack, fallOn, kill,
 }
@@ -158,9 +158,9 @@ struct EventWatcher
     /**
      * An object damages another object.
      */
-    void delegate(DmgType type, Pos pos, ThingId subj, ThingId obj,
+    void delegate(DmgEventType type, Pos pos, ThingId subj, ThingId obj,
                   ThingId weapon) damage =
-        doNothing!(DmgType, Pos, ThingId, ThingId, ThingId);
+        doNothing!(DmgEventType, Pos, ThingId, ThingId, ThingId);
 
     /**
      * An object withstands damage.

@@ -519,19 +519,19 @@ class Game
                 ui.moveViewport(pos);
             }
         };
-        w.notify.damage = (DmgType type, Pos pos, ThingId subj, ThingId obj,
-                           ThingId weapon)
+        w.notify.damage = (DmgEventType type, Pos pos, ThingId subj,
+                           ThingId obj, ThingId weapon)
         {
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
             final switch (type)
             {
-                case DmgType.attack:
+                case DmgEventType.attack:
                     ui.message("%s hits %s!", subjName.asCapitalized, objName);
                     break;
 
-                case DmgType.fallOn:
+                case DmgEventType.fallOn:
                     if (subj == player.id)
                     {
                         ui.moveViewport(pos);
@@ -547,7 +547,7 @@ class Game
                     }
                     break;
 
-                case DmgType.kill:
+                case DmgEventType.kill:
                     ui.message("%s killed %s!", subjName.asCapitalized,
                                objName);
                     if (obj == player.id)
@@ -701,14 +701,7 @@ class Game
         sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
 
         // Gravity system proxy for sinking objects over time.
-        AgentImpl sinkImpl;
-        sinkImpl.chooseAction = (World w, ThingId agentId) {
-            sysGravity.sinkObjects(w);
-            return (World w) => ActionResult(true, 10);
-        };
-        sysAgent.registerAgentImpl(Agent.Type.sinkAgent, sinkImpl);
-        auto sinkAgent = new Thing(257); // FIXME: need master list of special IDs
-        w.store.registerSpecial(*sinkAgent, Agent(Agent.type.sinkAgent));
+        registerGravityObjs(&w.store, &sysAgent, &sysGravity);
     }
 
     void run(GameUi _ui)

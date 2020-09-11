@@ -341,20 +341,20 @@ struct Message
 }
 
 @BitFlags
-enum Protection
+enum DmgType
 {
-    head = 1 << 0,
-    torso = 1 << 1,
-    feet = 1 << 2,
+    blunt = 1 << 0,
+    bite = 1 << 1,
+    fallOn = 1 << 2,
 }
 
 /**
  * Component for objects that can be worn.
  */
 @Component
-struct Wearable
+struct Armor
 {
-    Protection protection;
+    DmgType protection;
     //int durability;
 }
 
@@ -365,7 +365,16 @@ struct Wearable
 struct CanWear
 {
     ThingId[] worn;
-    Protection effectiveProt;
+    //DmgType effectiveProt; // TBD
+}
+
+/**
+ * Component of objects that can be used as weapons.
+ */
+@Component
+struct Weapon
+{
+    DmgType dmgType;
 }
 
 // vim:set ai sw=4 ts=4 et:

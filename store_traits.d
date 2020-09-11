@@ -38,6 +38,8 @@ enum invalidId = 0;
  */
 enum terrainMaxId = 256;
 
+enum ThingId gravityId = 257;
+
 /**
  * First ThingId not reserved for special purposes.
  *

@@ -24,10 +24,13 @@ import components;
 import store_traits;
 import world;
 
-int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim, ThingId weapon,
-                     int baseDmg)
+int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
+                     ThingId weaponId, int baseDmg)
 {
     import std.algorithm : max;
+
+    auto wpn = w.store.get!Weapon(weaponId);
+    auto dmgType = wpn ? wpn.dmgType : DmgType.blunt;
 
     // FIXME: this is currently just a hack. Should differentiate between
     // possession and equipping.
@@ -35,17 +38,15 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim, ThingId weapon,
     {
         foreach (armorId; inven.contents)
         {
-            if (auto wb = w.store.get!Wearable(armorId))
+            if (auto wb = w.store.get!Armor(armorId))
             {
-                // FIXME: should differentiate between damage from above vs.
-                // from below, etc.
-                if (wb.protection != 0)
+                if ((dmgType & wb.protection) != 0)
                 {
                     // FIXME: amount of damage reduction should be calculated
                     // from equipment stats
                     baseDmg = max(0, baseDmg-1);
                     w.notify.damageBlock(*w.store.get!Pos(victim), victim,
-                                         armorId, weapon);
+                                         armorId, weaponId);
                 }
             }
         }
@@ -53,19 +54,20 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim, ThingId weapon,
     return baseDmg;
 }
 
-void injure(World w, ThingId inflictor, ThingId victim, ThingId weapon, int hp)
+void injure(World w, ThingId inflictor, ThingId victim, ThingId weaponId,
+            int hp)
 {
     auto m = w.store.get!Mortal(victim);
     if (m is null) // TBD: emit a message about target being impervious
         return;
 
-    hp = calcEffectiveDmg(w, inflictor, victim, weapon, hp);
+    hp = calcEffectiveDmg(w, inflictor, victim, weaponId, hp);
 
     m.hp -= hp;
     if (m.hp <= 0)
     {
-        w.notify.damage(DmgType.kill, *w.store.get!Pos(victim), inflictor,
-                        victim, weapon);
+        w.notify.damage(DmgEventType.kill, *w.store.get!Pos(victim), inflictor,
+                        victim, weaponId);
 
         // TBD: drop corpses here
         // TBD: drop inventory items here

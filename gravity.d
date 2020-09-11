@@ -25,6 +25,7 @@ import std.array;
 import std.range;
 import std.random;
 
+import agent;
 import action;
 import components;
 import dir;
@@ -33,6 +34,25 @@ import store;
 import store_traits;
 import world;
 import vector;
+
+Thing gravity = Thing(gravityId);
+
+/**
+ * Register special gravity-related objects.
+ */
+void registerGravityObjs(Store* store, SysAgent* sysAgent, SysGravity* sysGravity)
+{
+    // Agent for sinking objects.
+    AgentImpl sinkImpl;
+    sinkImpl.chooseAction = (World w, ThingId agentId) {
+        sysGravity.sinkObjects(w);
+        return (World w) => ActionResult(true, 10);
+    };
+    sysAgent.registerAgentImpl(Agent.Type.sinkAgent, sinkImpl);
+
+    store.registerSpecial(gravity, Weapon(DmgType.fallOn),
+                          Agent(Agent.type.sinkAgent));
+}
 
 /**
  * Gravity system.
@@ -122,11 +142,11 @@ struct SysGravity
     {
         auto objId = obj.id;
 
-        w.notify.damage(DmgType.fallOn, oldPos, t.id, objId, invalidId);
+        w.notify.damage(DmgEventType.fallOn, oldPos, t.id, objId, gravityId);
         if (w.store.get!Mortal(objId) !is null)
         {
             import damage;
-            w.injure(t.id, objId, invalidId /*FIXME*/, 1 /*FIXME*/);
+            w.injure(t.id, objId, gravityId, 1 /*FIXME*/);
         }
 
         if (w.store.getObj(objId) is null)

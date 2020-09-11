@@ -1789,7 +1789,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     {
         auto pos = randomLocation(tree, bounds);
         w.store.createObj(Pos(pos), Name("hard hemiglomic shell"), Weight(5),
-                          Wearable(Protection.head), Tiled(TileId.crabShell),
+                          Armor(DmgType.fallOn), Tiled(TileId.crabShell),
                           Pickable());
     }
 
