@@ -165,6 +165,7 @@ struct UsePortal { }
 struct Inventory
 {
     ThingId[] contents;
+    bool autopickup; // TBD: should have some kind of object type preference here
 }
 
 /**
@@ -362,7 +363,7 @@ struct Armor
  * Component of objects that can wear other objects.
  */
 @Component
-struct CanWear
+struct EquippedItems
 {
     ThingId[] worn;
     //DmgType effectiveProt; // TBD

@@ -214,7 +214,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
 
     // Autopickup
     auto inven = w.store.get!Inventory(subj.id);
-    if (inven != null)
+    if (inven != null && inven.autopickup)
     {
         // Note: need to .dup because otherwise we run into the bad ole
         // modify-while-iterating container issue.
