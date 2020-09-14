@@ -1,3 +1,8 @@
+- BUG: autopickup should not trigger for all objects that have an inventory! It
+  should only trigger for specific agents that have a propensity for picking
+  things up!
+- BUG: do we really want body parts used as weapons to be part of a creature's
+  inventory? Shouldn't there be a separate list of body parts?
 - Refactor random location code to central function with configurable criteria.
 - Rock traps should not be placed next to doorway.
 - Tutorial should include climb-ledge mechanics?
