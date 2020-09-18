@@ -1687,6 +1687,7 @@ struct MapGenArgs
     float goldPct;
     ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
+    ValRange nMonstersC;
     ValRange nCrabShells;
 
     bool sinkDoors = true;
@@ -1788,6 +1789,29 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                             Inventory.Item(tentacles.id,
                                            Inventory.Item.Type.intrinsic)
                           ]));
+    }
+
+    foreach (i; 0 .. args.nMonstersC.pick())
+    {
+        auto pos = randomLocation(tree, bounds);
+
+        // Avoid placing monsters in player's starting room.
+        while (startRoom && startRoom.interior.contains(pos))
+            pos = randomLocation(tree, bounds);
+
+        auto claws = w.store.createObj(Name("claws"), Weapon(DmgType.pierce,
+                                                             2, "pinches"));
+        auto shell = w.store.createObj(Pos(pos), Name("hard hemiglomic shell"),
+                                       Weight(5), Armor(DmgType.fallOn),
+                                       Tiled(TileId.crabShell), Pickable());
+        w.store.createObj(Pos(pos), Name("clawed shelled creature"),
+            Weight(1200), BlocksMovement(), Agent(), Mortal(3,3),
+            Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+            CanMove(CanMove.Type.walk),
+            Inventory([
+                Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
+                Inventory.Item(shell.id, Inventory.Item.Type.equipped),
+            ]));
     }
 
     // Items

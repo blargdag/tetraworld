@@ -581,10 +581,18 @@ class Game
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
+            auto wpnName = w.store.get!Name(weapon);
             final switch (type)
             {
                 case DmgEventType.attack:
-                    ui.message("%s hits %s!", subjName.asCapitalized, objName);
+                    auto wpn = w.store.get!Weapon(weapon);
+                    if (wpnName !is null)
+                        ui.message("%s %s %s with his %s!",
+                                   subjName.asCapitalized, wpn.attackVerb,
+                                   objName, wpnName.name);
+                    else
+                        ui.message("%s %s %s!", subjName.asCapitalized,
+                                   wpn.attackVerb, objName);
                     break;
 
                 case DmgEventType.fallOn:
@@ -908,6 +916,7 @@ StoryNode[] storyNodes = [
         args.goldPct = 1.0;
         args.waterLevel = ValRange(6, 10);
         args.nMonstersA = ValRange(4, 6);
+        args.nMonstersC = ValRange(0, 3);
         return genBspLevel(region(vec(11,11,11,11)), args, startPos);
     }),
 
@@ -934,9 +943,10 @@ StoryNode[] storyNodes = [
 
         args.subargs[0].nBackEdges = ValRange(3, 5);
         args.subargs[0].nPitTraps = ValRange(0, 4);
-        args.subargs[0].nRockTraps = ValRange(0, 2);
+        args.subargs[0].nRockTraps = ValRange(1, 3);
         args.subargs[0].nMonstersA = ValRange(1, 2);
-        args.subargs[0].nCrabShells = ValRange(1, 2);
+        args.subargs[0].nMonstersC = ValRange(1, 2);
+        //args.subargs[0].nCrabShells = ValRange(1, 2);
 
         args.subargs[1].tree.splitVolume = ValRange(64, 120);
         args.subargs[1].tree.minNodeDim = 4;

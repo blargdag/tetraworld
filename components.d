@@ -88,6 +88,7 @@ enum TileId : ushort
 
     player,
     creatureA,
+    creatureC,
 
     gold,
     rock,
@@ -352,7 +353,8 @@ enum DmgType
 {
     blunt = 1 << 0,
     bite = 1 << 1,
-    fallOn = 1 << 2,
+    pierce = 1 << 2,
+    fallOn = 1 << 3,
 }
 
 /**
@@ -373,6 +375,7 @@ struct Weapon
 {
     DmgType dmgType;
     int dmg;
+    string attackVerb = "hits";
 }
 
 // vim:set ai sw=4 ts=4 et:

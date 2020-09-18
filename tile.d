@@ -51,6 +51,7 @@ Tile16[TileId.max+1] tiles = [
 
     TileId.player:      Tile16('&'),
     TileId.creatureA:   Tile16('A', Color.red),
+    TileId.creatureC:   Tile16('C', Color.red),
 
     TileId.gold:        Tile16('$', Color.yellow),
     TileId.rock:        Tile16('*'),
