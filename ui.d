@@ -621,10 +621,11 @@ class TextUi : GameUi
         dispatch.push(promptMode);
     }
 
-    InventoryItem pickInventoryObj(string whatPrompt, string countPromptFmt)
+    InventoryItem pickItem(InventoryItem[] items, string whatPrompt,
+                           string countPromptFmt)
     {
         InventoryItem result;
-        if (inventoryUi(whatPrompt, (InventoryItem item) {
+        if (inventoryUi(items, whatPrompt, (InventoryItem item) {
                 result = item;
                 return true;
             }, {
@@ -1044,15 +1045,13 @@ class TextUi : GameUi
      * Returns: true if inventory UI mode is pushed on stack, otherwise false
      * (e.g., if inventory is empty).
      */
-    private bool inventoryUi(string promptStr,
+    private bool inventoryUi(InventoryItem[] inven,
+                             string promptStr,
                              bool delegate(InventoryItem) selectAction,
                              void delegate() onExit = null)
     {
-        auto inven = g.getInventory();
         if (inven.length == 0)
-        {
             return false;
-        }
 
         import std.conv : to;
 
@@ -1150,7 +1149,7 @@ class TextUi : GameUi
 
     private void showInventory()
     {
-        if (!inventoryUi("You are carrying:", null /*TBD: show item details*/))
+        if (!inventoryUi(g.getInventory, "You are carrying:", null /*TBD: show item details*/))
         {
             message("You are not carrying anything right now.");
         }

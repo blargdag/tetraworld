@@ -86,10 +86,9 @@ interface GameUi
     /**
      * Prompt the user to select an inventory item to perform an action on.
      * Returns: invalidId if the user cancels the action.
-     *
-     * FIXME: should include count too.
      */
-    InventoryItem pickInventoryObj(string whatPrompt, string countPromptFmt);
+    InventoryItem pickItem(InventoryItem[], string whatPrompt,
+                           string countPromptFmt);
 
     /**
      * Notify UI that a map change has occurred.
@@ -223,7 +222,7 @@ class Game
     /**
      * Returns: Items currently in the player's inventory.
      */
-    InventoryItem[] getInventory()
+    InventoryItem[] getInventory(bool delegate(Inventory.Item) filt = null)
     {
         auto inven = w.store.get!Inventory(player.id);
         if (inven is null)
@@ -232,6 +231,7 @@ class Game
         return inven.contents
                     .filter!(item => item.type == Inventory.Item.Type.carrying ||
                                      item.type == Inventory.Item.Type.equipped)
+                    .filter!(item => filt ? filt(item) : true)
                     .map!((item) {
                         auto id = item.id;
                         auto tl = w.store.get!Tiled(id);
@@ -348,29 +348,21 @@ class Game
 
     private Action wearObj(ref string errmsg)
     {
-        auto inven = w.store.get!Inventory(player.id);
-        auto item = ui.pickInventoryObj("What do you want to put on?", null);
+        auto wearables = getInventory(item =>
+            item.type == Inventory.Item.Type.carrying &&
+            w.store.get!Armor(item.id) !is null);
+
+        if (wearables.empty)
+        {
+             errmsg = "You have nothing else to wear.";
+             return null;
+        }
+
+        auto item = ui.pickItem(wearables, "What do you want to put on?",
+                                null);
         if (item.id == invalidId || item.count == 0)
         {
-            // FIXME: should filter inventory for wearables instead!
-            errmsg = (inven.contents.length == 0) ?
-                     "You have nothing else to wear." :
-                     "You decide against wearing anything.";
-            return null;
-        }
-
-        // FIXME: should filter inventory for wearables instead!
-        if (w.store.get!Armor(item.id) is null)
-        {
-            errmsg = "You can't wear that!";
-            return null;
-        }
-
-        // FIXME: should filter inventory for wearables instead!
-        auto idx = inven.contents.countUntil!(it => it.id == item.id);
-        if (inven.contents[idx].type == Inventory.Item.Type.equipped)
-        {
-            errmsg = "You're already wearing that.";
+            errmsg = "You decide against wearing anything.";
             return null;
         }
 
@@ -379,8 +371,8 @@ class Game
 
     private Action dropObj(ref string errmsg)
     {
-        auto item = ui.pickInventoryObj("What do you want to drop?",
-                                        "How many %s do you want to drop?");
+        auto item = ui.pickItem(getInventory, "What do you want to drop?",
+                                "How many %s do you want to drop?");
         if (item.id == invalidId || item.count == 0)
         {
             errmsg = (getInventory().length == 0) ?
