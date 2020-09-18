@@ -326,6 +326,7 @@ struct Agent
 {
     enum Type { ai, player, sinkAgent }
     Type type;
+    int ticksPerTurn = 10;
     // TBD: AI state goes here
 }
 

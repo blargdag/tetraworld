@@ -1805,8 +1805,8 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                                        Weight(5), Armor(DmgType.fallOn),
                                        Tiled(TileId.crabShell), Pickable());
         w.store.createObj(Pos(pos), Name("clawed shelled creature"),
-            Weight(1200), BlocksMovement(), Agent(), Mortal(3,3),
-            Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+            Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
+            Mortal(3,3), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
             CanMove(CanMove.Type.walk),
             Inventory([
                 Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
