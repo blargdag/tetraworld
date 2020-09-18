@@ -74,20 +74,28 @@ Action chooseAiAction(World w, ThingId agentId)
 
         if (w.canSee(curPos, targetPos))
         {
+            auto inven = w.store.get!Inventory(agentId);
+            auto weapons = inven.contents
+                .filter!(item => (item.type == Inventory.Item.Type.equipped ||
+                                  item.type == Inventory.Item.Type.intrinsic)
+                                  && w.store.get!Weapon(item.id) !is null)
+                .map!(item => item.id);
+
             auto diff = targetPos - curPos;
-            if (diff[].map!(x => abs(x)).sum == 1)
+            if (!weapons.empty && diff[].map!(x => abs(x)).sum == 1)
             {
                 // Adjacent to player. Attack!
-                return (World w) => attack(w, agent, targetId,
-                                           invalidId/*FIXME*/);
+                return (World w) => attack(w, agent, targetId, weapons.front);
             }
-            else
-            {
-                int[4] dir;
-                if (findViableMove(w, agentId, curPos, 6,
-                                   () => chooseDir(diff), dir))
-                    return (World w) => move(w, agent, vec(dir));
-            }
+
+            // If no weapons, flee from player instead of attack.
+            if (weapons.empty)
+                diff = -diff;
+
+            int[4] dir;
+            if (findViableMove(w, agentId, curPos, 6, () => chooseDir(diff),
+                               dir))
+                return (World w) => move(w, agent, vec(dir));
         }
         // Couldn't find a way to reach target, or can't see target, fallback
         // to random move.

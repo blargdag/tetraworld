@@ -214,7 +214,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
 
     // Autopickup
     auto inven = w.store.get!Inventory(subj.id);
-    if (inven != null)
+    if (inven != null && inven.autopickup)
     {
         // Note: need to .dup because otherwise we run into the bad ole
         // modify-while-iterating container issue.
@@ -227,7 +227,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
         {
             w.store.remove!Pos(t);
             w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id, "");
-            w.store.mergeToArray(t.id, inven.contents);
+            w.store.mergeToInven(t.id, inven.contents);
         }
     }
 
@@ -680,7 +680,7 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     auto obj = w.store.getObj(objId);
     w.store.remove!Pos(obj);
     w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId, "");
-    w.store.mergeToArray(objId, inven.contents);
+    w.store.mergeToInven(objId, inven.contents);
 
     return ActionResult(true, 10);
 }
@@ -697,7 +697,7 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
     if (subjPos is null)
         return ActionResult(false, 10, "You've nowhere to drop it to!");
 
-    auto idx = inven.contents[].countUntil(objId);
+    auto idx = inven.contents[].countUntil!(item => item.id == objId);
     if (idx == -1)
         return ActionResult(false, 10, "You're not carrying that!");
 
@@ -768,8 +768,6 @@ ActionResult pass(World w, Thing* subj)
 
 /**
  * Attack a Mortal.
- *
- * BUGS: weaponId is currently unused.
  */
 ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 {
@@ -784,9 +782,52 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 
     // TBD: damage should be determined by weapon
     import damage;
-    w.notify.damage(DmgType.attack, *pos, subj.id, objId, weaponId);
-    w.injure(subj.id, objId, weaponId, 1 /*FIXME*/);
+    auto weapon = w.store.get!Weapon(weaponId);
+    w.notify.damage(DmgEventType.attack, *pos, subj.id, objId, weaponId);
+    w.injure(subj.id, objId, weapon.dmgType, weapon.dmg);
 
+    return ActionResult(true, 10);
+}
+
+/**
+ * Wear some equipment.
+ */
+ActionResult wear(World w, Thing* subj, ThingId objId)
+{
+    auto inven = w.store.get!Inventory(subj.id);
+    if (inven is null)
+        return ActionResult(false, 10, "You're unable to wear anything!");
+
+    auto idx = inven.contents.countUntil!(it => it.id == objId);
+    if (idx == -1)
+        return ActionResult(false, 10, "You're not carrying that!");
+
+    if (inven.contents[idx].type != Inventory.Item.Type.carrying)
+        return ActionResult(false, 10, "You fumble, then remember that "~
+                                       "you're already wearing it!");
+
+    inven.contents[idx].type = Inventory.Item.Type.equipped;
+    w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
+                     objId, "wear");
+    return ActionResult(true, 10);
+}
+
+/**
+ * Take off some equipment.
+ */
+ActionResult takeOff(World w, Thing* subj, ThingId objId)
+{
+    auto inven = w.store.get!Inventory(subj.id);
+    if (inven is null)
+        return ActionResult(false, 10, "You're unable to take off anything!");
+
+    auto idx = inven.contents.countUntil!(it => it.id == objId);
+    if (idx == -1 || inven.contents[idx].type != Inventory.Item.Type.equipped)
+        return ActionResult(false, 10, "You're not wearing that!");
+
+    inven.contents[idx].type = Inventory.Item.Type.carrying;
+    w.notify.itemAct(ItemActType.takeOff, *w.store.get!Pos(subj.id), subj.id,
+                     objId, "");
     return ActionResult(true, 10);
 }
 

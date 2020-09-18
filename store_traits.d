@@ -28,7 +28,7 @@ alias ThingId = ulong;
 /**
  * Indicates invalid or missing global ID.
  */
-enum invalidId = 0;
+enum ThingId invalidId = 0;
 
 /**
  * The number of ThingId's reserved for terrain objects.
@@ -37,6 +37,8 @@ enum invalidId = 0;
  * all non-terrain objects will have IDs above this number.
  */
 enum terrainMaxId = 256;
+
+enum ThingId gravityId = 257;
 
 /**
  * First ThingId not reserved for special purposes.

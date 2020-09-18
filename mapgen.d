@@ -1687,6 +1687,7 @@ struct MapGenArgs
     float goldPct;
     ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
+    ValRange nCrabShells;
 
     bool sinkDoors = true;
 }
@@ -1777,10 +1778,25 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
         while (startRoom && startRoom.interior.contains(pos))
             pos = randomLocation(tree, bounds);
 
+        auto tentacles = w.store.createObj(Name("tentacles"),
+                                           Weapon(DmgType.blunt, 1));
         w.store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
                           BlocksMovement(), Agent(), Mortal(5,5),
-                          CanMove(CanMove.Type.walk | CanMove.Type.climb));
+                          CanMove(CanMove.Type.walk | CanMove.Type.climb),
+                          Inventory([
+                            Inventory.Item(tentacles.id,
+                                           Inventory.Item.Type.intrinsic)
+                          ]));
+    }
+
+    // Items
+    foreach (i; 0 .. args.nCrabShells.pick())
+    {
+        auto pos = randomLocation(tree, bounds);
+        w.store.createObj(Pos(pos), Name("hard hemiglomic shell"), Weight(5),
+                          Armor(DmgType.fallOn), Tiled(TileId.crabShell),
+                          Pickable());
     }
 
     // Generate random rocks as additional deco.

@@ -91,6 +91,7 @@ enum TileId : ushort
 
     gold,
     rock,
+    crabShell,
     portal,
     trapPit,
     trapRock,
@@ -163,7 +164,14 @@ struct UsePortal { }
 @Component
 struct Inventory
 {
-    ThingId[] contents;
+    static struct Item
+    {
+        ThingId id;
+        enum Type { carrying, equipped, intrinsic }
+        Type type;
+    }
+    Item[] contents;
+    bool autopickup; // TBD: should have some kind of object type preference here
 }
 
 /**
@@ -337,6 +345,34 @@ struct Mortal
 struct Message
 {
     string[] msgs;
+}
+
+@BitFlags
+enum DmgType
+{
+    blunt = 1 << 0,
+    bite = 1 << 1,
+    fallOn = 1 << 2,
+}
+
+/**
+ * Component for objects that can be worn.
+ */
+@Component
+struct Armor
+{
+    DmgType protection;
+    //int durability;
+}
+
+/**
+ * Component of objects that can be used as weapons.
+ */
+@Component
+struct Weapon
+{
+    DmgType dmgType;
+    int dmg;
 }
 
 // vim:set ai sw=4 ts=4 et:

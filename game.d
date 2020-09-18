@@ -57,7 +57,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, pickup, drop, pass,
+    apply, wear, takeOff, pickup, drop, pass,
 }
 
 /**
@@ -86,10 +86,9 @@ interface GameUi
     /**
      * Prompt the user to select an inventory item to perform an action on.
      * Returns: invalidId if the user cancels the action.
-     *
-     * FIXME: should include count too.
      */
-    InventoryItem pickInventoryObj(string whatPrompt, string countPromptFmt);
+    InventoryItem pickItem(InventoryItem[], string whatPrompt,
+                           string countPromptFmt);
 
     /**
      * Notify UI that a map change has occurred.
@@ -146,6 +145,7 @@ struct InventoryItem
     TileId tileId;
     string name;
     int count;
+    bool equipped;
 
     void toString(W)(W sink)
     {
@@ -222,21 +222,26 @@ class Game
     /**
      * Returns: Items currently in the player's inventory.
      */
-    InventoryItem[] getInventory()
+    InventoryItem[] getInventory(bool delegate(Inventory.Item) filt = null)
     {
         auto inven = w.store.get!Inventory(player.id);
         if (inven is null)
             return [];
 
         return inven.contents
-                    .map!((id) {
+                    .filter!(item => item.type == Inventory.Item.Type.carrying ||
+                                     item.type == Inventory.Item.Type.equipped)
+                    .filter!(item => filt ? filt(item) : true)
+                    .map!((item) {
+                        auto id = item.id;
                         auto tl = w.store.get!Tiled(id);
                         auto nm = w.store.get!Name(id);
                         auto stk = w.store.get!Stackable(id);
                         return InventoryItem(id, tl ? tl.tileId :
                                                       TileId.unknown,
                                              nm ? nm.name : "???",
-                                             stk ? stk.count : 1);
+                                             stk ? stk.count : 1,
+                                             item.type == Inventory.Item.Type.equipped);
                     })
                     .array;
     }
@@ -245,6 +250,7 @@ class Game
     {
         auto inv = w.store.get!Inventory(player.id);
         return inv.contents
+                  .map!(item => item.id)
                   .filter!((id) {
                       auto qi = w.store.get!QuestItem(id);
                       return qi !is null && qi.questId == 1;
@@ -340,10 +346,55 @@ class Game
         return (World w) => pickupItem(w, player, r.front);
     }
 
+    private Action wearObj(ref string errmsg)
+    {
+        auto wearables = getInventory(item =>
+            item.type == Inventory.Item.Type.carrying &&
+            w.store.get!Armor(item.id) !is null);
+
+        if (wearables.empty)
+        {
+             errmsg = "You have nothing to wear.";
+             return null;
+        }
+
+        auto item = ui.pickItem(wearables, "What do you want to put on?",
+                                null);
+        if (item.id == invalidId || item.count == 0)
+        {
+            errmsg = "You decide against wearing anything.";
+            return null;
+        }
+
+        return (World w) => wear(w, player, item.id);
+    }
+
+    private Action takeOffObj(ref string errmsg)
+    {
+        auto removables = getInventory(item =>
+            item.type == Inventory.Item.Type.equipped);
+
+        if (removables.empty)
+        {
+            errmsg = "You aren't wearing anything.";
+            return null;
+        }
+
+        auto item = ui.pickItem(removables, "What do you want to take off?",
+                                null);
+        if (item.id == invalidId || item.count == 0)
+        {
+            errmsg = "You decide against taking anything off.";
+            return null;
+        }
+
+        return (World w) => takeOff(w, player, item.id);
+    }
+
     private Action dropObj(ref string errmsg)
     {
-        auto item = ui.pickInventoryObj("What do you want to drop?",
-                                        "How many %s do you want to drop?");
+        auto item = ui.pickItem(getInventory, "What do you want to drop?",
+                                "How many %s do you want to drop?");
         if (item.id == invalidId || item.count == 0)
         {
             errmsg = (getInventory().length == 0) ?
@@ -392,7 +443,7 @@ class Game
 
         player = w.store.createObj(
             Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
-            Agent(Agent.Type.player), Inventory(), Weight(1000),
+            Agent(Agent.Type.player), Inventory([], true), Weight(1000),
             BlocksMovement(), Mortal(5,5),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
@@ -506,6 +557,11 @@ class Game
                             ui.message("You " ~ verb ~ " the " ~ name.name ~
                                        ".");
                         break;
+
+                    case ItemActType.takeOff:
+                        if (name !is null)
+                            ui.message("You take off the " ~ name.name ~ ".");
+                        break;
                 }
             }
             else
@@ -519,19 +575,19 @@ class Game
                 ui.moveViewport(pos);
             }
         };
-        w.notify.damage = (DmgType type, Pos pos, ThingId subj, ThingId obj,
-                           ThingId weapon)
+        w.notify.damage = (DmgEventType type, Pos pos, ThingId subj,
+                           ThingId obj, ThingId weapon)
         {
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
             final switch (type)
             {
-                case DmgType.attack:
+                case DmgEventType.attack:
                     ui.message("%s hits %s!", subjName.asCapitalized, objName);
                     break;
 
-                case DmgType.fallOn:
+                case DmgEventType.fallOn:
                     if (subj == player.id)
                     {
                         ui.moveViewport(pos);
@@ -547,7 +603,7 @@ class Game
                     }
                     break;
 
-                case DmgType.kill:
+                case DmgEventType.kill:
                     ui.message("%s killed %s!", subjName.asCapitalized,
                                objName);
                     if (obj == player.id)
@@ -557,6 +613,16 @@ class Game
                     }
                     break;
             }
+        };
+        w.notify.damageBlock = (Pos pos, ThingId subj, ThingId armor,
+                                ThingId weapon)
+        {
+            auto subjPoss = (subj == player.id) ? "your" :
+                            w.store.get!Name(subj).name ~ "'s";
+            auto armorName = w.store.get!Name(armor).name;
+            auto pronoun = (subj == player.id) ? "you" : "it";
+            ui.message("%s %s shields %s from the blow!",
+                       subjPoss.asCapitalized, armorName, pronoun);
         };
         w.notify.mapChange = (MapChgType type, Pos pos, ThingId subj,
                               ThingId obj)
@@ -660,6 +726,8 @@ class Game
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
                 case pickup: act = pickupObj(errmsg);             break;
+                case wear:  act = wearObj(errmsg);                break;
+                case takeOff: act = takeOffObj(errmsg);           break;
                 case drop:  act = dropObj(errmsg);                break;
                 case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;
@@ -691,14 +759,7 @@ class Game
         sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
 
         // Gravity system proxy for sinking objects over time.
-        AgentImpl sinkImpl;
-        sinkImpl.chooseAction = (World w, ThingId agentId) {
-            sysGravity.sinkObjects(w);
-            return (World w) => ActionResult(true, 10);
-        };
-        sysAgent.registerAgentImpl(Agent.Type.sinkAgent, sinkImpl);
-        auto sinkAgent = new Thing(257); // FIXME: need master list of special IDs
-        w.store.registerSpecial(*sinkAgent, Agent(Agent.type.sinkAgent));
+        registerGravityObjs(&w.store, &sysAgent, &sysGravity);
     }
 
     void run(GameUi _ui)
@@ -875,6 +936,7 @@ StoryNode[] storyNodes = [
         args.subargs[0].nPitTraps = ValRange(0, 4);
         args.subargs[0].nRockTraps = ValRange(0, 2);
         args.subargs[0].nMonstersA = ValRange(1, 2);
+        args.subargs[0].nCrabShells = ValRange(1, 2);
 
         args.subargs[1].tree.splitVolume = ValRange(64, 120);
         args.subargs[1].tree.minNodeDim = 4;

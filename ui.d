@@ -335,6 +335,8 @@ Movement keys:
 Commands:
    d        Drop an object from your inventory.
    p        Pass a turn.
+   r        Remove (take off) a worn item.
+   w        Wear an item of armor.
    z        Show inventory (does not consume a turn).
    ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
@@ -440,6 +442,8 @@ class TextUi : GameUi
             ',': PlayerAction.pickup,
             'd': PlayerAction.drop,
             'p': PlayerAction.pass,
+            'r': PlayerAction.takeOff,
+            'w': PlayerAction.wear,
         ];
 
         auto mainMode = Mode(
@@ -620,10 +624,11 @@ class TextUi : GameUi
         dispatch.push(promptMode);
     }
 
-    InventoryItem pickInventoryObj(string whatPrompt, string countPromptFmt)
+    InventoryItem pickItem(InventoryItem[] items, string whatPrompt,
+                           string countPromptFmt)
     {
         InventoryItem result;
-        if (inventoryUi(whatPrompt, (InventoryItem item) {
+        if (inventoryUi(items, whatPrompt, (InventoryItem item) {
                 result = item;
                 return true;
             }, {
@@ -633,7 +638,8 @@ class TextUi : GameUi
         {
             Fiber.yield();
 
-            if (result.id != invalidId && result.count > 1)
+            if (result.id != invalidId && countPromptFmt.length > 0 &&
+                result.count > 1)
             {
                 import std.format : format;
                 promptNumber(countPromptFmt.format(result.name), 0,
@@ -1024,6 +1030,8 @@ class TextUi : GameUi
         scrn.renderCell(tiles[item.tileId]);
         scrn.color(fg, bg);
         scrn.writef(" %s", item);
+        if (item.equipped)
+            scrn.writef(" (equipped)");
         scrn.clearToEol();
     }
 
@@ -1040,15 +1048,13 @@ class TextUi : GameUi
      * Returns: true if inventory UI mode is pushed on stack, otherwise false
      * (e.g., if inventory is empty).
      */
-    private bool inventoryUi(string promptStr,
+    private bool inventoryUi(InventoryItem[] inven,
+                             string promptStr,
                              bool delegate(InventoryItem) selectAction,
                              void delegate() onExit = null)
     {
-        auto inven = g.getInventory();
         if (inven.length == 0)
-        {
             return false;
-        }
 
         import std.conv : to;
 
@@ -1056,8 +1062,9 @@ class TextUi : GameUi
                                       "q to abort)";
         auto hintStringLen = (selectAction is null) ? 0 :
                              hintString.displayLength;
-        auto width = (5 + max(promptStr.displayLength, hintStringLen,
-                              inven.map!(item => item.name.displayLength)
+        auto width = (6 + max(promptStr.displayLength, hintStringLen,
+                              inven.map!(item => item.name.displayLength +
+                                                 (item.equipped ? 11 : 0))
                                    .maxElement)).to!int;
         auto height = min(disp.height, 5 + inven.length.to!int);
         auto scrnX = (disp.width - width)/2;
@@ -1145,7 +1152,7 @@ class TextUi : GameUi
 
     private void showInventory()
     {
-        if (!inventoryUi("You are carrying:", null /*TBD: show item details*/))
+        if (!inventoryUi(g.getInventory, "You are carrying:", null /*TBD: show item details*/))
         {
             message("You are not carrying anything right now.");
         }

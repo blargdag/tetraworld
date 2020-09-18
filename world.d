@@ -113,13 +113,13 @@ enum MoveType
  */
 enum ItemActType
 {
-    pickup, drop, use,
+    pickup, drop, use, takeOff,
 }
 
 /**
  * Type of damage event.
  */
-enum DmgType
+enum DmgEventType
 {
     attack, fallOn, kill,
 }
@@ -158,9 +158,15 @@ struct EventWatcher
     /**
      * An object damages another object.
      */
-    void delegate(DmgType type, Pos pos, ThingId subj, ThingId obj,
+    void delegate(DmgEventType type, Pos pos, ThingId subj, ThingId obj,
                   ThingId weapon) damage =
-        doNothing!(DmgType, Pos, ThingId, ThingId, ThingId);
+        doNothing!(DmgEventType, Pos, ThingId, ThingId, ThingId);
+
+    /**
+     * An object withstands damage.
+     */
+    void delegate(Pos pos, ThingId subj, ThingId armor, ThingId weapon)
+        damageBlock = doNothing!(Pos, ThingId, ThingId, ThingId);
 
     /**
      * Part of the map changes.
