@@ -1,6 +1,5 @@
-- Implement equippable items.
-- BUG: do we really want body parts used as weapons to be part of a creature's
-  inventory? Shouldn't there be a separate list of body parts?
+- Dead objects should drop items in their inventory instead of essentially
+  getting them stuck in limbo forever.
 - Rock traps should not be placed next to doorway.
 - Tutorial should include climb-ledge mechanics?
 - Need to start implement event filtering based on visibility / audibility!
@@ -273,3 +272,7 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
   should only trigger for specific agents that have a propensity for picking
   things up!
 + Refactor random location code to central function with configurable criteria.
++ Implement equippable items.
++ BUG: do we really want body parts used as weapons to be part of a creature's
+  inventory? Shouldn't there be a separate list of body parts?
+   * Implemented them as intrinsics.
