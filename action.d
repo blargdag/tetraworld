@@ -768,8 +768,6 @@ ActionResult pass(World w, Thing* subj)
 
 /**
  * Attack a Mortal.
- *
- * BUGS: weaponId is currently unused.
  */
 ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 {
