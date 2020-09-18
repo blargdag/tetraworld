@@ -57,7 +57,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, pickup, drop, pass,
+    apply, wear, pickup, drop, pass,
 }
 
 /**
@@ -344,6 +344,37 @@ class Game
 
         // TBD: if more than one object, present player a choice.
         return (World w) => pickupItem(w, player, r.front);
+    }
+
+    private Action wearObj(ref string errmsg)
+    {
+        auto inven = w.store.get!Inventory(player.id);
+        auto item = ui.pickInventoryObj("What do you want to put on?", null);
+        if (item.id == invalidId || item.count == 0)
+        {
+            // FIXME: should filter inventory for wearables instead!
+            errmsg = (inven.contents.length == 0) ?
+                     "You have nothing else to wear." :
+                     "You decide against wearing anything.";
+            return null;
+        }
+
+        // FIXME: should filter inventory for wearables instead!
+        if (w.store.get!Armor(item.id) is null)
+        {
+            errmsg = "You can't wear that!";
+            return null;
+        }
+
+        // FIXME: should filter inventory for wearables instead!
+        auto idx = inven.contents.countUntil!(it => it.id == item.id);
+        if (inven.contents[idx].type == Inventory.Item.Type.equipped)
+        {
+            errmsg = "You're already wearing that.";
+            return null;
+        }
+
+        return (World w) => wear(w, player, item.id);
     }
 
     private Action dropObj(ref string errmsg)
@@ -676,6 +707,7 @@ class Game
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
                 case pickup: act = pickupObj(errmsg);             break;
+                case wear:  act = wearObj(errmsg);                break;
                 case drop:  act = dropObj(errmsg);                break;
                 case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;

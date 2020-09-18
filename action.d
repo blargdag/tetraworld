@@ -791,4 +791,27 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
     return ActionResult(true, 10);
 }
 
+/**
+ * Wear some equipment.
+ */
+ActionResult wear(World w, Thing* subj, ThingId objId)
+{
+    auto inven = w.store.get!Inventory(subj.id);
+    if (inven is null)
+        return ActionResult(false, 10, "You're unable to wear anything!");
+
+    auto idx = inven.contents.countUntil!(it => it.id == objId);
+    if (idx == -1)
+        return ActionResult(false, 10, "You're not carrying that!");
+
+    if (inven.contents[idx].type != Inventory.Item.Type.carrying)
+        return ActionResult(false, 10, "You fumble, then remember that "~
+                                       "you're already wearing it!");
+
+    inven.contents[idx].type = Inventory.Item.Type.equipped;
+    w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
+                     objId, "wear");
+    return ActionResult(true, 10);
+}
+
 // vim:set ai sw=4 ts=4 et:

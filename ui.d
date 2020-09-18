@@ -439,6 +439,7 @@ class TextUi : GameUi
             keyEnter: PlayerAction.apply,
             ',': PlayerAction.pickup,
             'd': PlayerAction.drop,
+            'w': PlayerAction.wear,
             'p': PlayerAction.pass,
         ];
 
@@ -633,7 +634,8 @@ class TextUi : GameUi
         {
             Fiber.yield();
 
-            if (result.id != invalidId && result.count > 1)
+            if (result.id != invalidId && countPromptFmt.length > 0 &&
+                result.count > 1)
             {
                 import std.format : format;
                 promptNumber(countPromptFmt.format(result.name), 0,
