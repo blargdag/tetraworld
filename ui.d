@@ -335,6 +335,8 @@ Movement keys:
 Commands:
    d        Drop an object from your inventory.
    p        Pass a turn.
+   r        Remove (take off) a worn item.
+   w        Wear an item of armor.
    z        Show inventory (does not consume a turn).
    ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
@@ -439,8 +441,9 @@ class TextUi : GameUi
             keyEnter: PlayerAction.apply,
             ',': PlayerAction.pickup,
             'd': PlayerAction.drop,
-            'w': PlayerAction.wear,
             'p': PlayerAction.pass,
+            'r': PlayerAction.takeOff,
+            'w': PlayerAction.wear,
         ];
 
         auto mainMode = Mode(

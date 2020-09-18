@@ -57,7 +57,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, wear, pickup, drop, pass,
+    apply, wear, takeOff, pickup, drop, pass,
 }
 
 /**
@@ -354,7 +354,7 @@ class Game
 
         if (wearables.empty)
         {
-             errmsg = "You have nothing else to wear.";
+             errmsg = "You have nothing to wear.";
              return null;
         }
 
@@ -367,6 +367,28 @@ class Game
         }
 
         return (World w) => wear(w, player, item.id);
+    }
+
+    private Action takeOffObj(ref string errmsg)
+    {
+        auto removables = getInventory(item =>
+            item.type == Inventory.Item.Type.equipped);
+
+        if (removables.empty)
+        {
+            errmsg = "You aren't wearing anything.";
+            return null;
+        }
+
+        auto item = ui.pickItem(removables, "What do you want to take off?",
+                                null);
+        if (item.id == invalidId || item.count == 0)
+        {
+            errmsg = "You decide against taking anything off.";
+            return null;
+        }
+
+        return (World w) => takeOff(w, player, item.id);
     }
 
     private Action dropObj(ref string errmsg)
@@ -535,6 +557,11 @@ class Game
                             ui.message("You " ~ verb ~ " the " ~ name.name ~
                                        ".");
                         break;
+
+                    case ItemActType.takeOff:
+                        if (name !is null)
+                            ui.message("You take off the " ~ name.name ~ ".");
+                        break;
                 }
             }
             else
@@ -700,6 +727,7 @@ class Game
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
                 case pickup: act = pickupObj(errmsg);             break;
                 case wear:  act = wearObj(errmsg);                break;
+                case takeOff: act = takeOffObj(errmsg);           break;
                 case drop:  act = dropObj(errmsg);                break;
                 case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;

@@ -113,7 +113,7 @@ enum MoveType
  */
 enum ItemActType
 {
-    pickup, drop, use,
+    pickup, drop, use, takeOff,
 }
 
 /**

@@ -814,4 +814,23 @@ ActionResult wear(World w, Thing* subj, ThingId objId)
     return ActionResult(true, 10);
 }
 
+/**
+ * Take off some equipment.
+ */
+ActionResult takeOff(World w, Thing* subj, ThingId objId)
+{
+    auto inven = w.store.get!Inventory(subj.id);
+    if (inven is null)
+        return ActionResult(false, 10, "You're unable to take off anything!");
+
+    auto idx = inven.contents.countUntil!(it => it.id == objId);
+    if (idx == -1 || inven.contents[idx].type != Inventory.Item.Type.equipped)
+        return ActionResult(false, 10, "You're not wearing that!");
+
+    inven.contents[idx].type = Inventory.Item.Type.carrying;
+    w.notify.itemAct(ItemActType.takeOff, *w.store.get!Pos(subj.id), subj.id,
+                     objId, "");
+    return ActionResult(true, 10);
+}
+
 // vim:set ai sw=4 ts=4 et:
