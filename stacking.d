@@ -195,23 +195,23 @@ unittest
 }
 
 /**
- * Merge the given item stack to the given target array.
+ * Merge the given item stack to the given target inventory.
  *
- * If the array contains a mergeable object that can merge with the given
+ * If the inventory contains a mergeable object that can merge with the given
  * stack, the stack is merged into the target (and becomes invalidated);
- * otherwise, it's appended to the end of the array.
+ * otherwise, it's appended to the end of the inventory.
  *
  * WARNING: The input stack will become invalidated if it was merged, so the
  * caller should not depend on it still being a valid object after calling this
  * function!
  */
-void mergeToArray(ref Store store, ThingId stack, ref ThingId[] target)
+void mergeToInven(ref Store store, ThingId stack, ref Inventory.Item[] target)
 {
     bool merged = false;
     foreach (i; 0 .. target.length)
     {
         // Merge into existing item if it's mergeable.
-        if (store.stackObjs(stack, target[i]))
+        if (store.stackObjs(stack, target[i].id))
         {
             merged = true;
             break;
@@ -220,7 +220,7 @@ void mergeToArray(ref Store store, ThingId stack, ref ThingId[] target)
 
     // Not mergeable; add it as a separate item.
     if (!merged)
-        target ~= stack;
+        target ~= Inventory.Item(stack);
 }
 
 // vim:set ai sw=4 ts=4 et:

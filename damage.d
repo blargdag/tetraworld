@@ -20,6 +20,8 @@
  */
 module damage;
 
+import std.algorithm;
+
 import components;
 import store_traits;
 import world;
@@ -33,7 +35,11 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
     // possession and equipping.
     if (auto inven = w.store.get!Inventory(victim))
     {
-        foreach (armorId; inven.contents)
+        auto equipped = inven.contents
+            .filter!(item => item.type == Inventory.Item.Type.equipped)
+            .map!(item => item.id);
+
+        foreach (armorId; equipped)
         {
             auto wb = w.store.get!Armor(armorId);
             if (wb is null)

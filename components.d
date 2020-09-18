@@ -164,7 +164,13 @@ struct UsePortal { }
 @Component
 struct Inventory
 {
-    ThingId[] contents;
+    static struct Item
+    {
+        ThingId id;
+        enum Type { carrying, equipped, intrinsic }
+        Type type;
+    }
+    Item[] contents;
     bool autopickup; // TBD: should have some kind of object type preference here
 }
 
@@ -357,16 +363,6 @@ struct Armor
 {
     DmgType protection;
     //int durability;
-}
-
-/**
- * Component of objects that can wear other objects.
- */
-@Component
-struct EquippedItems
-{
-    ThingId[] worn;
-    //DmgType effectiveProt; // TBD
 }
 
 /**

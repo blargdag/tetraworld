@@ -1784,7 +1784,10 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
                           BlocksMovement(), Agent(), Mortal(5,5),
                           CanMove(CanMove.Type.walk | CanMove.Type.climb),
-                          Inventory([ tentacles.id ]));
+                          Inventory([
+                            Inventory.Item(tentacles.id,
+                                           Inventory.Item.Type.intrinsic)
+                          ]));
     }
 
     // Items

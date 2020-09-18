@@ -1024,6 +1024,8 @@ class TextUi : GameUi
         scrn.renderCell(tiles[item.tileId]);
         scrn.color(fg, bg);
         scrn.writef(" %s", item);
+        if (item.equipped)
+            scrn.writef(" (equipped)");
         scrn.clearToEol();
     }
 
@@ -1057,7 +1059,8 @@ class TextUi : GameUi
         auto hintStringLen = (selectAction is null) ? 0 :
                              hintString.displayLength;
         auto width = (6 + max(promptStr.displayLength, hintStringLen,
-                              inven.map!(item => item.name.displayLength)
+                              inven.map!(item => item.name.displayLength +
+                                                 (item.equipped ? 11 : 0))
                                    .maxElement)).to!int;
         auto height = min(disp.height, 5 + inven.length.to!int);
         auto scrnX = (disp.width - width)/2;

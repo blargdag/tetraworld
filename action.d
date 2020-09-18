@@ -227,7 +227,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
         {
             w.store.remove!Pos(t);
             w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id, "");
-            w.store.mergeToArray(t.id, inven.contents);
+            w.store.mergeToInven(t.id, inven.contents);
         }
     }
 
@@ -680,7 +680,7 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     auto obj = w.store.getObj(objId);
     w.store.remove!Pos(obj);
     w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId, "");
-    w.store.mergeToArray(objId, inven.contents);
+    w.store.mergeToInven(objId, inven.contents);
 
     return ActionResult(true, 10);
 }
@@ -697,7 +697,7 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
     if (subjPos is null)
         return ActionResult(false, 10, "You've nowhere to drop it to!");
 
-    auto idx = inven.contents[].countUntil(objId);
+    auto idx = inven.contents[].countUntil!(item => item.id == objId);
     if (idx == -1)
         return ActionResult(false, 10, "You're not carrying that!");
 
