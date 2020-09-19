@@ -1801,7 +1801,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
 
         auto claws = w.store.createObj(Name("claws"), Weapon(DmgType.pierce,
                                                              2, "pinches"));
-        auto shell = w.store.createObj(Pos(pos), Name("hard hemiglomic shell"),
+        auto shell = w.store.createObj(Name("hard hemiglomic shell"),
                                        Weight(5), Armor(DmgType.fallOn),
                                        Tiled(TileId.crabShell), Pickable());
         w.store.createObj(Pos(pos), Name("clawed shelled creature"),

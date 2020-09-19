@@ -6,6 +6,8 @@
    - Create sharp implements or other trap types that can damage crab
      creatures. :-)
    - That, or make monsters attack each other when provoked. :-D
+- BUG: creature that cannot climb appears to get stuck at the top of a vertical
+  door's ladder.
 - Rock traps should not be placed next to doorway.
 - Tutorial should include climb-ledge mechanics?
 - Need to start implement event filtering based on visibility / audibility!
