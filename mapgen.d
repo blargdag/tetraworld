@@ -1438,7 +1438,10 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
         auto floorPos = pos + vec(1,0,0,0);
         auto nTries = room.floorArea;
         while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
-               !w.locationHas!BlocksMovement(floorPos))
+               !w.locationHas!BlocksMovement(floorPos) ||
+               room.doors.canFind!(d => iota(1, 4)
+                                        .map!(i => abs(d.pos[i] - pos[i]))
+                                        .sum <= 1))
         {
             pos = room.randomLocation(room.interior);
             floorPos = pos + vec(1,0,0,0);
@@ -1456,6 +1459,42 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
                           Triggerable(w.triggerId, TriggerEffect.rockTrap));
         w.triggerId++;
         count--;
+    }
+}
+
+unittest
+{
+    // Unfortunately this is probabilistic; so to catch potential violations we
+    // need to repeat it a few times.
+    foreach (_; 0 .. 5)
+    {
+        auto root = new MapNode;
+        root.interior = region(vec(1,1,1,1), vec(3,3,3,3));
+        root.doors = [
+            Door(2, [1,1,0,1]),
+            Door(3, [2,1,2,0]),
+            Door(3, [2,1,1,3]),
+            Door(0, [0,2,1,1]),
+            Door(1, [2,3,2,1]),
+        ];
+
+        auto w = new World;
+        w.map.tree = root;
+        w.map.bounds = region(vec(0,0,0,0), vec(4,4,4,4));
+        w.map.waterLevel = int.max;
+
+        w.store.createObj(Pos(2,2,1,2), Name("blocker"));
+        w.store.createObj(Pos(2,2,2,2), Name("blocker"));
+
+        while (w.triggerId < 1)
+            genRockTraps(w, w.map.tree, w.map.bounds, 1);
+
+        import std.format : format;
+        auto r = w.store.getAll!Triggerable()
+                        .map!(id => w.store.get!Pos(id));
+        assert(!r.empty);
+        assert(r.front !is null && *r.front == Pos(1,1,2,2),
+               format("%s", *r.front));
     }
 }
 

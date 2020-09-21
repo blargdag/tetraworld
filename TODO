@@ -8,7 +8,6 @@
    - That, or make monsters attack each other when provoked. :-D
 - BUG: creature that cannot climb appears to get stuck at the top of a vertical
   door's ladder.
-- Rock traps should not be placed next to doorway.
 - Tutorial should include climb-ledge mechanics?
 - Need to start implement event filtering based on visibility / audibility!
 - Bug: a sinking object that lands on something else that subsequently moves
@@ -283,3 +282,4 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
    * Implemented them as intrinsics.
 + Dead objects should drop items in their inventory instead of essentially
   getting them stuck in limbo forever.
++ Rock traps should not be placed next to doorway.
