@@ -1866,9 +1866,14 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     // FIXME: this should be configurable.
     foreach (i; 0 .. 1 + floorArea(tree) * 2 / 100)
     {
-        w.store.createObj(Pos(randomLocation(tree, bounds)),
-                          Tiled(TileId.rock), Name("rock"), Pickable(),
-                          Stackable(1), Weight(50));
+        auto rock = w.store.createObj(Pos(randomLocation(tree, bounds)),
+                                      Tiled(TileId.rock), Name("rock"),
+                                      Pickable(), Stackable(1), Weight(50));
+        if (uniform(0, 100) < 10) // FIXME should be configurable
+        {
+            w.store.add(rock, Name("sharp rock"));
+            w.store.add(rock, Weapon(DmgType.pierce, 1, "cut"));
+        }
     }
 }
 

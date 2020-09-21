@@ -779,6 +779,53 @@ ActionResult pass(World w, Thing* subj)
 }
 
 /**
+ * Check if the given Agent has an equipped weapon.
+ *
+ * Returns: The weapon ID, if so, otherwise invalidId.
+ */
+ThingId hasEquippedWeapon(World w, ThingId agentId)
+{
+    auto inven = w.store.get!Inventory(agentId);
+    if (inven is null)
+        return false;
+
+    auto wpn = inven.contents
+        .filter!(item => item.type == Inventory.Item.Type.equipped ||
+                         item.type == Inventory.Item.Type.intrinsic)
+        .map!(item => item.id)
+        .filter!(id => w.store.get!Weapon(id) !is null);
+
+    import rndutil : pickOne;
+    if (!wpn.empty)
+        return wpn.pickOne;
+
+    return invalidId;
+}
+
+/**
+ * Check if the given agent can attack something in the direction of the given
+ * displacement with the given weapon.
+ *
+ * Returns: The ID of the potential target, if found; otherwise invalidId.
+ */
+ThingId canAttack(World w, ThingId agentId, Vec!(int,4) displacement,
+                  ThingId weaponId)
+{
+    import std.math : abs;
+    if (displacement[].map!(x => abs(x)).sum > 1 /*TBD: range*/)
+        return invalidId;
+
+    auto targetPos = *w.store.get!Pos(agentId) + displacement;
+    auto targets = w.store.getAllBy!Pos(Pos(targetPos))
+                          .filter!(id => w.store.get!Mortal(id) !is null);
+    if (targets.empty)
+        return invalidId;
+
+    import rndutil : pickOne;
+    return targets.pickOne;
+}
+
+/**
  * Attack a Mortal.
  */
 ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
@@ -807,7 +854,7 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 /**
  * Wear some equipment.
  */
-ActionResult wear(World w, Thing* subj, ThingId objId)
+ActionResult equip(World w, Thing* subj, ThingId objId)
 {
     auto ag = w.store.get!Agent(subj.id);
     auto baseTicks = ag ? ag.ticksPerTurn : 10;
@@ -826,16 +873,28 @@ ActionResult wear(World w, Thing* subj, ThingId objId)
                             "You fumble, then remember that you're already "~
                             "wearing it!");
 
+    auto armor = w.store.get!Armor(objId);
+    auto weapon = w.store.get!Weapon(objId);
+
+    if (weapon !is null)
+        w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
+                         objId, "ready");
+    else if (armor !is null)
+        w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
+                         objId, "wear");
+    else
+        return ActionResult(false, baseTicks, "That's not something "~
+                                              "equippable!");
+
     inven.contents[idx].type = Inventory.Item.Type.equipped;
-    w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
-                     objId, "wear");
+
     return ActionResult(true, baseTicks);
 }
 
 /**
  * Take off some equipment.
  */
-ActionResult takeOff(World w, Thing* subj, ThingId objId)
+ActionResult unequip(World w, Thing* subj, ThingId objId)
 {
     auto ag = w.store.get!Agent(subj.id);
     auto baseTicks = ag ? ag.ticksPerTurn : 10;

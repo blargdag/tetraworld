@@ -57,7 +57,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, wear, takeOff, pickup, drop, pass,
+    apply, equip, unequip, pickup, drop, pass,
 }
 
 /**
@@ -323,6 +323,13 @@ class Game
         if (!canMove(w, pos, vec(displacement)) &&
             !canClimbLedge(w, pos, vec(displacement)))
         {
+            if (auto weapon = hasEquippedWeapon(w, player.id))
+            {
+                if (auto target = canAttack(w, player.id, vec(displacement), weapon))
+                {
+                    return (World w) => attack(w, player, target, weapon);
+                }
+            }
             errmsg = "Your way is blocked.";
             return null;
         }
@@ -346,30 +353,31 @@ class Game
         return (World w) => pickupItem(w, player, r.front);
     }
 
-    private Action wearObj(ref string errmsg)
+    private Action equipObj(ref string errmsg)
     {
-        auto wearables = getInventory(item =>
+        auto equippable = getInventory(item =>
             item.type == Inventory.Item.Type.carrying &&
-            w.store.get!Armor(item.id) !is null);
+            (w.store.get!Armor(item.id) !is null ||
+             w.store.get!Weapon(item.id) !is null));
 
-        if (wearables.empty)
+        if (equippable.empty)
         {
              errmsg = "You have nothing to wear.";
              return null;
         }
 
-        auto item = ui.pickItem(wearables, "What do you want to put on?",
+        auto item = ui.pickItem(equippable, "What do you want to equip?",
                                 null);
         if (item.id == invalidId || item.count == 0)
         {
-            errmsg = "You decide against wearing anything.";
+            errmsg = "You decide against equipping anything.";
             return null;
         }
 
-        return (World w) => wear(w, player, item.id);
+        return (World w) => equip(w, player, item.id);
     }
 
-    private Action takeOffObj(ref string errmsg)
+    private Action unequipObj(ref string errmsg)
     {
         auto removables = getInventory(item =>
             item.type == Inventory.Item.Type.equipped);
@@ -380,15 +388,15 @@ class Game
             return null;
         }
 
-        auto item = ui.pickItem(removables, "What do you want to take off?",
+        auto item = ui.pickItem(removables, "What do you want to unequip?",
                                 null);
         if (item.id == invalidId || item.count == 0)
         {
-            errmsg = "You decide against taking anything off.";
+            errmsg = "You decide against unequipping anything.";
             return null;
         }
 
-        return (World w) => takeOff(w, player, item.id);
+        return (World w) => unequip(w, player, item.id);
     }
 
     private Action dropObj(ref string errmsg)
@@ -560,7 +568,7 @@ class Game
 
                     case ItemActType.takeOff:
                         if (name !is null)
-                            ui.message("You take off the " ~ name.name ~ ".");
+                            ui.message("You remove the " ~ name.name ~ ".");
                         break;
                 }
             }
@@ -734,8 +742,8 @@ class Game
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
                 case pickup: act = pickupObj(errmsg);             break;
-                case wear:  act = wearObj(errmsg);                break;
-                case takeOff: act = takeOffObj(errmsg);           break;
+                case equip:   act = equipObj(errmsg);             break;
+                case unequip: act = unequipObj(errmsg);           break;
                 case drop:  act = dropObj(errmsg);                break;
                 case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;
