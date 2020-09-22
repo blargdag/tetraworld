@@ -1,4 +1,13 @@
-- Rock traps should not be placed next to doorway.
+- What about a crab creature (slow-moving, but tough, cannot climb, cannot swim
+  but can breathe underwater) that, once killed, leaves a shell that you can
+  don to serve as protection against falling rocks? :-P
+   + Ticks consumed per turn should be configurable, so that we can make crab
+     creatures slower!
+   - Create sharp implements or other trap types that can damage crab
+     creatures. :-)
+   - That, or make monsters attack each other when provoked. :-D
+- BUG: creature that cannot climb appears to get stuck at the top of a vertical
+  door's ladder.
 - Tutorial should include climb-ledge mechanics?
 - Need to start implement event filtering based on visibility / audibility!
 - Bug: a sinking object that lands on something else that subsequently moves
@@ -10,9 +19,6 @@
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
-- What about a crab creature (slow-moving, but tough, cannot climb, cannot swim
-  but can breathe underwater) that, once killed, leaves a shell that you can
-  don to serve as protection against falling rocks? :-P
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -276,3 +282,4 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
    * Implemented them as intrinsics.
 + Dead objects should drop items in their inventory instead of essentially
   getting them stuck in limbo forever.
++ Rock traps should not be placed next to doorway.

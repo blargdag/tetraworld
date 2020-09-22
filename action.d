@@ -623,6 +623,8 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
 {
     auto oldPos = *w.store.get!Pos(subj.id);
     auto newPos = Pos(oldPos.coors + displacement);
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
 
     if (!canMove(w, oldPos, displacement))
     {
@@ -638,10 +640,10 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
                 w.notify.move(MoveType.climbLedge, medPos, subj.id, newPos, 1);
             });
 
-            return ActionResult(true, 15);
+            return ActionResult(true, 3*baseTicks/2);
         }
         else
-            return ActionResult(false, 10, "You bump into a wall!"); // FIXME
+            return ActionResult(false, baseTicks, "You bump into a wall!"); // FIXME
     }
     else
     {
@@ -654,7 +656,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         });
     }
 
-    return ActionResult(true, 10);
+    return ActionResult(true, baseTicks);
 }
 
 /**
@@ -665,16 +667,18 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     auto subjPos = w.store.get!Pos(subj.id);
     auto objPos = w.store.get!Pos(objId);
     auto inven = w.store.get!Inventory(subj.id);
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
 
     if (inven is null)
-        return ActionResult(false, 10, "You can't carry anything!");
+        return ActionResult(false, baseTicks, "You can't carry anything!");
 
     // TBD: pos check should be canReach(subj,obj).
     if (subjPos is null || objPos is null || *subjPos != *objPos)
-        return ActionResult(false, 10, "You can't reach that object!");
+        return ActionResult(false, baseTicks, "You can't reach that object!");
 
     if (w.store.get!Pickable(objId) is null)
-        return ActionResult(false, 10, "You can't pick that up!");
+        return ActionResult(false, baseTicks, "You can't pick that up!");
 
     import stacking;
     auto obj = w.store.getObj(objId);
@@ -682,7 +686,7 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId, "");
     w.store.mergeToInven(objId, inven.contents);
 
-    return ActionResult(true, 10);
+    return ActionResult(true, baseTicks);
 }
 
 /**
@@ -692,17 +696,19 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
 {
     auto subjPos = w.store.get!Pos(subj.id);
     auto inven = w.store.get!Inventory(subj.id);
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
 
     // Shouldn't happen, but just in case...
     if (subjPos is null)
-        return ActionResult(false, 10, "You've nowhere to drop it to!");
+        return ActionResult(false, baseTicks, "You've nowhere to drop it to!");
 
     auto idx = inven.contents[].countUntil!(item => item.id == objId);
     if (idx == -1)
-        return ActionResult(false, 10, "You're not carrying that!");
+        return ActionResult(false, baseTicks, "You're not carrying that!");
 
     if (count <= 0)
-        return ActionResult(false, 10,
+        return ActionResult(false, baseTicks,
                             "You hesitate, and end up dropping nothing.");
 
     import stacking : splitStack;
@@ -726,7 +732,7 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
         });
     }
 
-    return ActionResult(true, 10);
+    return ActionResult(true, baseTicks);
 }
 
 /**
@@ -734,10 +740,13 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
  */
 ActionResult useItem(World w, Thing* subj, ThingId objId)
 {
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
+
     auto u = w.store.get!Usable(objId);
     if (u is null)
-        return ActionResult(false, 10, "Can't figure out how to use this "~
-                                       "object.");
+        return ActionResult(false, baseTicks, "Can't figure out how to use "~
+                                              "this object.");
 
     auto pos = *w.store.get!Pos(subj.id);
     w.notify.itemAct(ItemActType.use, pos, subj.id, objId, u.useVerb);
@@ -747,12 +756,12 @@ ActionResult useItem(World w, Thing* subj, ThingId objId)
         case UseEffect.portal:
             // Experimental
             w.store.add!UsePortal(subj, UsePortal());
-            return ActionResult(true, 10);
+            return ActionResult(true, baseTicks);
 
         case UseEffect.trigger:
             auto trigObj = w.store.getObj(objId);
             activateTrigger(w, subj, pos, trigObj, u.triggerId);
-            return ActionResult(true, 10);
+            return ActionResult(true, baseTicks);
     }
 }
 
@@ -761,9 +770,59 @@ ActionResult useItem(World w, Thing* subj, ThingId objId)
  */
 ActionResult pass(World w, Thing* subj)
 {
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
     auto pos = *w.store.get!Pos(subj.id);
+
     w.notify.pass(pos, subj.id);
-    return ActionResult(true, 10);
+    return ActionResult(true, baseTicks);
+}
+
+/**
+ * Check if the given Agent has an equipped weapon.
+ *
+ * Returns: The weapon ID, if so, otherwise invalidId.
+ */
+ThingId hasEquippedWeapon(World w, ThingId agentId)
+{
+    auto inven = w.store.get!Inventory(agentId);
+    if (inven is null)
+        return false;
+
+    auto wpn = inven.contents
+        .filter!(item => item.type == Inventory.Item.Type.equipped ||
+                         item.type == Inventory.Item.Type.intrinsic)
+        .map!(item => item.id)
+        .filter!(id => w.store.get!Weapon(id) !is null);
+
+    import rndutil : pickOne;
+    if (!wpn.empty)
+        return wpn.pickOne;
+
+    return invalidId;
+}
+
+/**
+ * Check if the given agent can attack something in the direction of the given
+ * displacement with the given weapon.
+ *
+ * Returns: The ID of the potential target, if found; otherwise invalidId.
+ */
+ThingId canAttack(World w, ThingId agentId, Vec!(int,4) displacement,
+                  ThingId weaponId)
+{
+    import std.math : abs;
+    if (displacement[].map!(x => abs(x)).sum > 1 /*TBD: range*/)
+        return invalidId;
+
+    auto targetPos = *w.store.get!Pos(agentId) + displacement;
+    auto targets = w.store.getAllBy!Pos(Pos(targetPos))
+                          .filter!(id => w.store.get!Mortal(id) !is null);
+    if (targets.empty)
+        return invalidId;
+
+    import rndutil : pickOne;
+    return targets.pickOne;
 }
 
 /**
@@ -771,14 +830,17 @@ ActionResult pass(World w, Thing* subj)
  */
 ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 {
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
     auto pos = w.store.get!Pos(subj.id);
     auto targetPos = w.store.get!Pos(objId);
+
     if (pos is null || targetPos is null)
-        return ActionResult(false, 10, "You attack thin air!");
+        return ActionResult(false, baseTicks, "You attack thin air!");
 
     /*if (!weapon.canReach(obj))*/
     if (rectNorm(*targetPos - *pos) > 1)
-        return ActionResult(false, 10, "You're unable to reach that far!");
+        return ActionResult(false, baseTicks, "You're unable to reach that far!");
 
     // TBD: damage should be determined by weapon
     import damage;
@@ -786,49 +848,70 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
     w.notify.damage(DmgEventType.attack, *pos, subj.id, objId, weaponId);
     w.injure(subj.id, objId, weapon.dmgType, weapon.dmg);
 
-    return ActionResult(true, 10);
+    return ActionResult(true, baseTicks);
 }
 
 /**
  * Wear some equipment.
  */
-ActionResult wear(World w, Thing* subj, ThingId objId)
+ActionResult equip(World w, Thing* subj, ThingId objId)
 {
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
+
     auto inven = w.store.get!Inventory(subj.id);
     if (inven is null)
-        return ActionResult(false, 10, "You're unable to wear anything!");
+        return ActionResult(false, baseTicks,
+                            "You're unable to wear anything!");
 
     auto idx = inven.contents.countUntil!(it => it.id == objId);
     if (idx == -1)
-        return ActionResult(false, 10, "You're not carrying that!");
+        return ActionResult(false, baseTicks, "You're not carrying that!");
 
     if (inven.contents[idx].type != Inventory.Item.Type.carrying)
-        return ActionResult(false, 10, "You fumble, then remember that "~
-                                       "you're already wearing it!");
+        return ActionResult(false, baseTicks,
+                            "You fumble, then remember that you're already "~
+                            "wearing it!");
+
+    auto armor = w.store.get!Armor(objId);
+    auto weapon = w.store.get!Weapon(objId);
+
+    if (weapon !is null)
+        w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
+                         objId, "ready");
+    else if (armor !is null)
+        w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
+                         objId, "wear");
+    else
+        return ActionResult(false, baseTicks, "That's not something "~
+                                              "equippable!");
 
     inven.contents[idx].type = Inventory.Item.Type.equipped;
-    w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
-                     objId, "wear");
-    return ActionResult(true, 10);
+
+    return ActionResult(true, baseTicks);
 }
 
 /**
  * Take off some equipment.
  */
-ActionResult takeOff(World w, Thing* subj, ThingId objId)
+ActionResult unequip(World w, Thing* subj, ThingId objId)
 {
+    auto ag = w.store.get!Agent(subj.id);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
+
     auto inven = w.store.get!Inventory(subj.id);
     if (inven is null)
-        return ActionResult(false, 10, "You're unable to take off anything!");
+        return ActionResult(false, baseTicks, "You're unable to take off "~
+                                              "anything!");
 
     auto idx = inven.contents.countUntil!(it => it.id == objId);
     if (idx == -1 || inven.contents[idx].type != Inventory.Item.Type.equipped)
-        return ActionResult(false, 10, "You're not wearing that!");
+        return ActionResult(false, baseTicks, "You're not wearing that!");
 
     inven.contents[idx].type = Inventory.Item.Type.carrying;
     w.notify.itemAct(ItemActType.takeOff, *w.store.get!Pos(subj.id), subj.id,
                      objId, "");
-    return ActionResult(true, 10);
+    return ActionResult(true, baseTicks);
 }
 
 // vim:set ai sw=4 ts=4 et:

@@ -85,7 +85,8 @@ Action chooseAiAction(World w, ThingId agentId)
             if (!weapons.empty && diff[].map!(x => abs(x)).sum == 1)
             {
                 // Adjacent to player. Attack!
-                return (World w) => attack(w, agent, targetId, weapons.front);
+                import rndutil : pickOne;
+                return (World w) => attack(w, agent, targetId, weapons.pickOne);
             }
 
             // If no weapons, flee from player instead of attack.

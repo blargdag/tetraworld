@@ -57,7 +57,7 @@ enum saveFileName = ".tetra.save";
 enum PlayerAction
 {
     none, up, down, left, right, front, back, ana, kata,
-    apply, wear, takeOff, pickup, drop, pass,
+    apply, equip, unequip, pickup, drop, pass,
 }
 
 /**
@@ -323,6 +323,13 @@ class Game
         if (!canMove(w, pos, vec(displacement)) &&
             !canClimbLedge(w, pos, vec(displacement)))
         {
+            if (auto weapon = hasEquippedWeapon(w, player.id))
+            {
+                if (auto target = canAttack(w, player.id, vec(displacement), weapon))
+                {
+                    return (World w) => attack(w, player, target, weapon);
+                }
+            }
             errmsg = "Your way is blocked.";
             return null;
         }
@@ -346,30 +353,31 @@ class Game
         return (World w) => pickupItem(w, player, r.front);
     }
 
-    private Action wearObj(ref string errmsg)
+    private Action equipObj(ref string errmsg)
     {
-        auto wearables = getInventory(item =>
+        auto equippable = getInventory(item =>
             item.type == Inventory.Item.Type.carrying &&
-            w.store.get!Armor(item.id) !is null);
+            (w.store.get!Armor(item.id) !is null ||
+             w.store.get!Weapon(item.id) !is null));
 
-        if (wearables.empty)
+        if (equippable.empty)
         {
              errmsg = "You have nothing to wear.";
              return null;
         }
 
-        auto item = ui.pickItem(wearables, "What do you want to put on?",
+        auto item = ui.pickItem(equippable, "What do you want to equip?",
                                 null);
         if (item.id == invalidId || item.count == 0)
         {
-            errmsg = "You decide against wearing anything.";
+            errmsg = "You decide against equipping anything.";
             return null;
         }
 
-        return (World w) => wear(w, player, item.id);
+        return (World w) => equip(w, player, item.id);
     }
 
-    private Action takeOffObj(ref string errmsg)
+    private Action unequipObj(ref string errmsg)
     {
         auto removables = getInventory(item =>
             item.type == Inventory.Item.Type.equipped);
@@ -380,15 +388,15 @@ class Game
             return null;
         }
 
-        auto item = ui.pickItem(removables, "What do you want to take off?",
+        auto item = ui.pickItem(removables, "What do you want to unequip?",
                                 null);
         if (item.id == invalidId || item.count == 0)
         {
-            errmsg = "You decide against taking anything off.";
+            errmsg = "You decide against unequipping anything.";
             return null;
         }
 
-        return (World w) => takeOff(w, player, item.id);
+        return (World w) => unequip(w, player, item.id);
     }
 
     private Action dropObj(ref string errmsg)
@@ -560,7 +568,7 @@ class Game
 
                     case ItemActType.takeOff:
                         if (name !is null)
-                            ui.message("You take off the " ~ name.name ~ ".");
+                            ui.message("You remove the " ~ name.name ~ ".");
                         break;
                 }
             }
@@ -581,10 +589,18 @@ class Game
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
+            auto wpnName = w.store.get!Name(weapon);
             final switch (type)
             {
                 case DmgEventType.attack:
-                    ui.message("%s hits %s!", subjName.asCapitalized, objName);
+                    auto wpn = w.store.get!Weapon(weapon);
+                    if (wpnName !is null)
+                        ui.message("%s %s %s with his %s!",
+                                   subjName.asCapitalized, wpn.attackVerb,
+                                   objName, wpnName.name);
+                    else
+                        ui.message("%s %s %s!", subjName.asCapitalized,
+                                   wpn.attackVerb, objName);
                     break;
 
                 case DmgEventType.fallOn:
@@ -726,8 +742,8 @@ class Game
                 case left:  act = movePlayer([0,0,0,-1], errmsg); break;
                 case right: act = movePlayer([0,0,0,1],  errmsg); break;
                 case pickup: act = pickupObj(errmsg);             break;
-                case wear:  act = wearObj(errmsg);                break;
-                case takeOff: act = takeOffObj(errmsg);           break;
+                case equip:   act = equipObj(errmsg);             break;
+                case unequip: act = unequipObj(errmsg);           break;
                 case drop:  act = dropObj(errmsg);                break;
                 case apply: act = applyFloorObj(errmsg);          break;
                 case pass:  act = (World w) => .pass(w, player);  break;
@@ -908,6 +924,7 @@ StoryNode[] storyNodes = [
         args.goldPct = 1.0;
         args.waterLevel = ValRange(6, 10);
         args.nMonstersA = ValRange(4, 6);
+        args.nMonstersC = ValRange(0, 3);
         return genBspLevel(region(vec(11,11,11,11)), args, startPos);
     }),
 
@@ -934,9 +951,10 @@ StoryNode[] storyNodes = [
 
         args.subargs[0].nBackEdges = ValRange(3, 5);
         args.subargs[0].nPitTraps = ValRange(0, 4);
-        args.subargs[0].nRockTraps = ValRange(0, 2);
+        args.subargs[0].nRockTraps = ValRange(1, 3);
         args.subargs[0].nMonstersA = ValRange(1, 2);
-        args.subargs[0].nCrabShells = ValRange(1, 2);
+        args.subargs[0].nMonstersC = ValRange(1, 2);
+        args.subargs[0].sharpRockPct = 7.0;
 
         args.subargs[1].tree.splitVolume = ValRange(64, 120);
         args.subargs[1].tree.minNodeDim = 4;
@@ -945,6 +963,7 @@ StoryNode[] storyNodes = [
         args.subargs[1].nRockTraps = ValRange(8, 12);
         args.subargs[1].goldPct = 3.5;
         args.subargs[1].nMonstersA = ValRange(3, 5);
+        args.subargs[1].sharpRockPct = 15.0;
 
         int[4] doorPos;
         Region!(int,4) bounds1, bounds2;
