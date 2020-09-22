@@ -954,7 +954,7 @@ StoryNode[] storyNodes = [
         args.subargs[0].nRockTraps = ValRange(1, 3);
         args.subargs[0].nMonstersA = ValRange(1, 2);
         args.subargs[0].nMonstersC = ValRange(1, 2);
-        //args.subargs[0].nCrabShells = ValRange(1, 2);
+        args.subargs[0].sharpRockPct = 7.0;
 
         args.subargs[1].tree.splitVolume = ValRange(64, 120);
         args.subargs[1].tree.minNodeDim = 4;
@@ -963,6 +963,7 @@ StoryNode[] storyNodes = [
         args.subargs[1].nRockTraps = ValRange(8, 12);
         args.subargs[1].goldPct = 3.5;
         args.subargs[1].nMonstersA = ValRange(3, 5);
+        args.subargs[1].sharpRockPct = 15.0;
 
         int[4] doorPos;
         Region!(int,4) bounds1, bounds2;

@@ -1724,6 +1724,7 @@ struct MapGenArgs
     ValRange nRockTraps;
 
     float goldPct;
+    float rockPct = 2.0, sharpRockPct = 5.0;
     ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
     ValRange nMonstersC;
@@ -1863,13 +1864,12 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     }
 
     // Generate random rocks as additional deco.
-    // FIXME: this should be configurable.
-    foreach (i; 0 .. 1 + floorArea(tree) * 2 / 100)
+    foreach (i; 0 .. floorArea(tree) * args.rockPct / 100)
     {
         auto rock = w.store.createObj(Pos(randomLocation(tree, bounds)),
                                       Tiled(TileId.rock), Name("rock"),
                                       Pickable(), Stackable(1), Weight(50));
-        if (uniform(0, 100) < 10) // FIXME should be configurable
+        if (uniform(0, 100) < args.sharpRockPct)
         {
             w.store.add(rock, Name("sharp rock"));
             w.store.add(rock, Weapon(DmgType.pierce, 1, "cut"));
