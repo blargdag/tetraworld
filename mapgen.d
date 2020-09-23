@@ -1364,7 +1364,8 @@ void genPitTraps(World w, MapNode tree, Region!(int,4) bounds, int count,
                 w.store.createObj(Pos(d.pos), Name("pit trap"),
                     Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
                     BlocksMovement(Climbable.yes), BlocksView(),
-                    Triggerable(w.triggerId, TriggerEffect.trapDoor));
+                    Triggerable(w.triggerId, TriggerEffect.trapDoor),
+                    SupportsWeight(SupportType.above));
                 w.triggerId++;
             }
             return true;

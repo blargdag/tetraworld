@@ -283,3 +283,6 @@ X Fall-and-injure should not trigger unless object falls at least 1 tile! You
    + Create sharp implements or other trap types that can damage crab
      creatures. :-)
    P That, or make monsters attack each other when provoked. :-D
++ BUG: a pit trap does not have SupportsWeight; so if a monster is spawned on
+  top of it, it will be stuck (horiz movement is not allowed for walkers when
+  they're not on a floor that supports weight).

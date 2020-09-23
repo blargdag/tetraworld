@@ -74,6 +74,7 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
     {
         case TriggerEffect.trapDoor:
             w.store.remove!BlocksMovement(triggered);
+            w.store.remove!SupportsWeight(triggered);
             w.store.remove!BlocksView(triggered);
             w.store.remove!TiledAbove(triggered);
             w.store.remove!Triggerable(triggered); // trigger only once(?)
