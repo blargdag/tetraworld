@@ -2306,44 +2306,41 @@ void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
  */
 World genTestLevel()(out int[4] startPos)
 {
-    BipartiteGenArgs args;
-    args.region = region(vec(0,0,0,0), vec(13,13,13,13));
-    args.axis = ValRange(1, 4);
-    args.pivot = ValRange(6, 7);
+    auto root = new MapNode;
+    root.axis = 0;
+    root.pivot = 3;
 
-    // Two halves of a map with distinct parameters.
-    args.subargs[0].nBackEdges = ValRange(1, 5);
-    args.subargs[0].goldPct = 0.1;
-    args.subargs[0].nMonstersA = ValRange(1, 2);
+    root.left = new MapNode;
+    root.left.interior = region(vec(1,1,1,1), vec(4,4,4,4));
+    root.left.doors = [
+        Door(0, [3,1,1,1]),
+        Door(0, [3,3,3,3]),
+    ];
 
-    args.subargs[1].nPitTraps = ValRange(2, 5);
-    args.subargs[1].nRockTraps = ValRange(4, 9);
-    args.subargs[1].goldPct = 2.5;
-    args.subargs[1].nMonstersA = ValRange(3, 4);
+    root.right = new MapNode;
+    root.right.interior = region(vec(4,1,1,1), vec(6,4,4,4));
+    root.right.doors = [
+        Door(0, [3,1,1,1]),
+        Door(0, [3,3,3,3]),
+    ];
 
-    int[4] doorPos;
-    Region!(int,4) boundsLeft, boundsRight;
-    auto w = genBipartiteLevel(args, startPos, doorPos, boundsLeft,
-                               boundsRight);
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = region(vec(1,1,1,1), vec(6,4,4,4));
+    w.map.waterLevel = int.max;
 
-    // Actual locked door object
-    auto doorTrigId = w.triggerId++;
-    w.store.createObj(Pos(doorPos), Tiled(TileId.lockedDoor, -2),
-                      Name("locked door"), BlocksMovement(),
-                      Triggerable(doorTrigId, TriggerEffect.toggleDoor));
+    addLadders(w, w.map.tree, w.map.bounds);
 
-    // Lever for opening the door
-    Pos leverPos, floorPos;
-    do
-    {
-        leverPos = Pos(randomLocation(w.map.tree.left, boundsLeft));
-        floorPos = leverPos + vec(1,0,0,0);
-    } while (!w.store.getAllBy!Pos(leverPos).empty ||
-             !w.locationHas!BlocksMovement(floorPos));
-    w.store.createObj(leverPos, Name("big lever"), Tiled(TileId.lever1),
-                      Usable(UseEffect.trigger, "pull", doorTrigId),
-                      Weight(10));
+    auto claws = w.store.createObj(Name("blunt claws"),
+                                   Weapon(DmgType.pierce, 0, "pinches"));
+    w.store.createObj(Pos(2,2,2,2), Name("miserable creature"),
+        Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
+        Mortal(3,3), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+        CanMove(CanMove.Type.walk), Inventory([
+            Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
+        ]));
 
+    startPos = [5,2,2,2];
     return w;
 }
 

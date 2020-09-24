@@ -75,7 +75,8 @@ Action chooseAiAction(World w, ThingId agentId)
         if (w.canSee(curPos, targetPos))
         {
             auto inven = w.store.get!Inventory(agentId);
-            auto weapons = inven.contents
+            auto contents = inven ? inven.contents : [];
+            auto weapons = contents
                 .filter!(item => (item.type == Inventory.Item.Type.equipped ||
                                   item.type == Inventory.Item.Type.intrinsic)
                                   && w.store.get!Weapon(item.id) !is null)
