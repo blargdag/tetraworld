@@ -589,15 +589,16 @@ class Game
             auto subjName = w.store.get!Name(subj).name;
             auto objName = (obj == player.id) ? "you" :
                            w.store.get!Name(obj).name;
+            auto possName = (subj == player.id) ? "your" : "its";
             auto wpnName = w.store.get!Name(weapon);
             final switch (type)
             {
                 case DmgEventType.attack:
                     auto wpn = w.store.get!Weapon(weapon);
                     if (wpnName !is null)
-                        ui.message("%s %s %s with his %s!",
+                        ui.message("%s %s %s with %s %s!",
                                    subjName.asCapitalized, wpn.attackVerb,
-                                   objName, wpnName.name);
+                                   objName, possName, wpnName.name);
                     else
                         ui.message("%s %s %s!", subjName.asCapitalized,
                                    wpn.attackVerb, objName);
