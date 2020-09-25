@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<title>Tetraworld: a 4D roguelike</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style type="text/css">
+body {
+	background-color: #400180;
+}
+main {
+	display: table;
+	margin-left: auto;
+	margin-right: auto;
+	padding: 1em;
+	border: .25ex outset #8002C0;
+	max-width: 42em;
+	background-color: #e0c0ff;
+	color: black;
+}
+h1,h2 {
+	text-align: center;
+}
+.displayed {
+	text-align: center;
+}
+kbd {
+	background: #e0e0e0;
+}
+tt {
+	background: black;
+	color: white;
+}
+</style>
+</head><body><main>
+
+<h1><em>Tetraworld</em></h1>
+<hr/>
+
+<h2>News archive</h2>
+
+<p>[<a href="index">Back to main page</a>]</p>
+
+<ul>
+<li><b>2020-04-03:</b>
+  <ul>
+  <li>Objects like gold and rocks now stack.</li>
+  <li>Added command to look at items on the current tile, keyed to
+    <kbd>;</kbd>.</li>
+  <li>Added drop command, keyed to <kbd>d</kbd>.</li>
+  <li>Added pickup command, keyed to <kbd>,</kbd>.</li>
+  <li>Added an inventory screen. Press <kbd>z</kbd> to access it.</li>
+  <li>Various bug fixes and UI improvements.</li>
+  <li>Known issues:
+     <ul>
+     <li>In-game messages are often ungrammatical. A comprehensive language
+       module is currently in the works.</li>
+     <li>Rocks sinking into water sometimes will get stuck and stop
+       sinking.</li>
+     </ul></li>
+  </ul></li>
+<li><b>2020-03-06:</b>
+  <ul>
+  <li>Added very large last level.  This is intended to be a future long-term
+    map, so you're not expected to complete it. But this version still allows
+    you to complete and win the game, so kudos if you actually manage to!</li>
+  <li>Fixed bug where rooms sometimes have multiple floors of different
+    types where they're supposed to be the same.</li>
+  <li>Added falling rock traps.</li>
+  <li>Conical creatures are restored to their original 5 HP. Not so easy to off
+    them now!  On the other hand, they now stop chasing you if you're out of
+    sight, so you <em>can</em> still lose them if you maneuver correctly.</li>
+  <li>Various bugfixes and improvements.</li>
+  </ul></li>
+<li><b>2020-02-14:</b>
+  <ul>
+  <li>Add more story plot nodes. Now there's a sequence of gradually larger and
+    more difficult levels.</li>
+  <li>Conical monsters can now climb ledges.  Much harder to shake them off
+    now!</li>
+  <li>FOV is now implemented, along with player map memory. Now you cannot see
+    areas of the map you've not been to yet by panning. Panning <em>will</em>
+    show you your memory of previously-seen parts of the map; however be aware
+    that your memory of what was there may not necessarily reflect its present
+    state!</li>
+  <li>In-game help screen will now page correctly if it doesn't all fit in your
+    terminal. (Nevertheless, we <em>highly</em> recommend a terminal window
+    with as high a resolution as you can manage in order to have an adequate
+    view of your 4D surroundings!)</li>
+  </ul></li>
+<li><b>2020-02-07:</b>
+  <ul>
+  <li>In-game tutorial to teach you the basics of 4D movement.</li>
+  <li>Tweak sinking mechanics: should be more consistent now.</li>
+  <li>Ladders no longer support weight if you fall on it.</li>
+  <li>Various bug fixes.</li>
+  </ul></li>
+<li><b>2020-02-01:</b>
+  <ul>
+  <li>Water has been added. Each new game will have a random chance of getting
+    rooms submerged or partially submerged in water.</li>
+  <li>Added in-game help screen. Press <kbd>?</kbd> to open it.</li>
+  </ul></li>
+</ul>
+
+<p>[<a href="index">Back to main page</a>]</p>
+
+<hr/>
+</main></body></html>

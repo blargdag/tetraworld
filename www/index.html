@@ -23,8 +23,14 @@ h1,h2 {
 .displayed {
 	text-align: center;
 }
-tt {
+kbd {
 	background: #e0e0e0;
+}
+tt {
+	background: #000000;
+	color: #e0e0e0;
+	padding: .2em .3ex .2em .3ex;
+	font-weight: bold;
 }
 </style>
 </head><body><main>
@@ -35,12 +41,12 @@ tt {
 <p>A roguelike game set in a 4D world where there are 4 macroscopic dimensions
 of space.</p>
 
+<p class="displayed"><a href="2020-04-03a.gif" target="_blank"><img
+src="2020-04-03a.gif" width="95%" alt="Sample play session"/></a></p>
+
 <p>(Not to be confused with 4D <em>space-time</em>, which is 3D space + 1D
 time. What we have here 4D space, or, if you like, <em>5D space-time</em>: 4D
 space + 1D time.  No, there is no time travel here, sorry.)</p>
-
-<p class="displayed"><a href="2020-04-03a.gif" target="_blank"><img
-src="2020-04-03a.gif" width="95%" alt="Sample play session"/></a></p>
 
 
 <h2>Download</h2>
@@ -53,6 +59,8 @@ src="2020-04-03a.gif" width="95%" alt="Sample play session"/></a></p>
 <h3>Developmental builds</h3>
 
 <ul>
+<li>2020-09-25a: [<a href="tetraworld-2020-09-25a">Linux 64-bit</a>]
+	[<a href="tetraworld-2020-09-25a.exe">Windows 64-bit</a>]</li>
 <li>2020-04-03a: [<a href="tetraworld-2020-04-03a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-04-03a.exe">Windows 64-bit</a>]</li>
 <li>2020-02-04a: [<a href="tetraworld-2020-02-04a">Linux 64-bit</a>]
@@ -68,85 +76,38 @@ saved games is not guaranteed.  Play at your own risk. :-P</p>
 <h2>News</h2>
 
 <ul>
-<li><b>2020-04-03:</b>
+<li><b>2020-09-25:</b>
   <ul>
-  <li>Objects like gold and rocks now stack.</li>
-  <li>Added command to look at items on the current tile, keyed to
-    <tt>;</tt>.</li>
-  <li>Added drop command, keyed to <tt>d</tt>.</li>
-  <li>Added pickup command, keyed to <tt>,</tt>.</li>
-  <li>Added an inventory screen. Press <tt>z</tt> to access it.</li>
-  <li>Various bug fixes and UI improvements.</li>
-  <li>Known issues:
-     <ul>
-     <li>In-game messages are often ungrammatical. A comprehensive language
-       module is currently in the works.</li>
-     <li>Rocks sinking into water sometimes will get stuck and stop
-       sinking.</li>
-     </ul></li>
+  <li>Fixed terrain generation to reduce the number of ladders.</li>
+  <li>Added a level featuring locked doors and levers.</li>
+  <li>Reduced the number of redundant "you see ... here" messages.</li>
+  <li>Added equip (<kbd>e</kbd>) and unequip (<kbd>r</kbd>) commands.</li>
+  <li>Added a new slow-moving shelled creature that, if you defeat it, yields
+    an item that grants protection against falling rock traps. (Don't forget to
+    <kbd>e</kbd>quip it after picking it up, though!)</li>
+  <li>Fixed various bugs.</li>
   </ul></li>
-<li><b>2020-03-06:</b>
-  <ul>
-  <li>Added very large last level.  This is intended to be a future long-term
-    map, so you're not expected to complete it. But this version still allows
-    you to complete and win the game, so kudos if you actually manage to!</li>
-  <li>Fixed bug where rooms sometimes have multiple floors of different
-    types where they're supposed to be the same.</li>
-  <li>Added falling rock traps.</li>
-  <li>Conical creatures are restored to their original 5 HP. Not so easy to off
-    them now!  On the other hand, they now stop chasing you if you're out of
-    sight, so you <em>can</em> still lose them if you maneuver correctly.</li>
-  <li>Various bugfixes and improvements.</li>
-  </ul></li>
-<li><b>2020-02-14:</b>
-  <ul>
-  <li>Add more story plot nodes. Now there's a sequence of gradually larger and
-    more difficult levels.</li>
-  <li>Conical monsters can now climb ledges.  Much harder to shake them off
-    now!</li>
-  <li>FOV is now implemented, along with player map memory. Now you cannot see
-    areas of the map you've not been to yet by panning. Panning <em>will</em>
-    show you your memory of previously-seen parts of the map; however be aware
-    that your memory of what was there may not necessarily reflect its present
-    state!</li>
-  <li>In-game help screen will now page correctly if it doesn't all fit in your
-    terminal. (Nevertheless, we <em>highly</em> recommend a terminal window
-    with as high a resolution as you can manage in order to have an adequate
-    view of your 4D surroundings!)</li>
-  </ul></li>
-<li><b>2020-02-07:</b>
-  <ul>
-  <li>In-game tutorial to teach you the basics of 4D movement.</li>
-  <li>Tweak sinking mechanics: should be more consistent now.</li>
-  <li>Ladders no longer support weight if you fall on it.</li>
-  <li>Various bug fixes.</li>
-  </ul></li>
-<li><b>2020-02-01:</b>
-  <ul>
-  <li>Water has been added. Each new game will have a random chance of getting
-    rooms submerged or partially submerged in water.</li>
-  <li>Added in-game help screen. Press <tt>?</tt> to open it.</li>
-  </ul></li>
+<li>[<a href="news">Older news</a>]</li>
 </ul>
 
 
-<h2>Usage</h2>
+<h2>Starting up</h2>
 
-<p>Run the program from a terminal (cmd.exe on Windows). Run with <tt>-h</tt>
+<p>Run the program from a terminal (cmd.exe on Windows). Run with <kbd>-h</kbd>
 for a list of command-line options.</p>
 
 <dl>
-<dt><tt>-S</tt>, <tt>--smoothscroll</tt></dt>
+<dt><kbd>-S</kbd>, <kbd>--smoothscroll</kbd></dt>
 <dd>Controls the timing delay when scrolling up/down or ana/kata, in msec. The
 	default is 80msec. If you find this too laggy, try a lower value, like
-	<tt>-S60</tt> or <tt>-S40</tt>.  Or turn it off altogether with
-	<tt>-S0</tt>, in which case up/down or ana/kata movement will not have
+	<kbd>-S60</kbd> or <kbd>-S40</kbd>.  Or turn it off altogether with
+	<kbd>-S0</kbd>, in which case up/down or ana/kata movement will not have
 	any intermediate frames, which will make the game respond faster but
 	may be harder for beginners to understand what's going
 	on.<br/><br/>Note that this value is treated on a best-efforts basis;
 	if your terminal is slow, there is not much the game can do about it.
-	On Windows, <tt>-S0</tt> may be your best bet, since
-	<tt>cmd.exe</tt> is dog-slow.</dd>
+	On Windows, <kbd>-S0</kbd> may be your best bet, since
+	<kbd>cmd.exe</kbd> is dog-slow.</dd>
 </dl>
 
 
@@ -177,18 +138,21 @@ chunk of the world you're in.</p>
 <dd>These characters represent different types of floor. In this version,
 different types of floor do not yet have any difference in function.</dd>
 
-<dt><tt>~</tt></dt>
+<dt><tt style="color:#0000ff">~</tt></dt>
 <dd>Water. In this version, you can freely swim through water, and will not be
 subject to gravity while in water.</dd>
 
-<dt>(blank)</dt>
+<dt><tt>&nbsp;</tt></dt>
 <dd>Blanks represent empty space that you will fall through.</dd>
 
 <dt><tt>&</tt></dt>
 <dd>Your player character.</dd>
 
 <dt><tt>-</tt></dt>
-<dd>Doorways that you can pass through.</dd>
+<dd>Doorway that you can pass through.</dd>
+
+<dt><tt style="color:magenta">-</tt> <tt style="color:magenta">+</tt></dt>
+<dd>A locked/open door, respectively.</dd>
 
 <dt><tt>=</tt></tt></dt>
 <dd>(Part of) ladders that you can climb.</dd>
@@ -196,21 +160,32 @@ subject to gravity while in water.</dd>
 <dt><tt>_</tt></tt></dt>
 <dd>Top of a ladder.</dd>
 
-<dt><tt>*</tt></dt>
-<dd>A rock. In the current version, it's just random debris.</dd>
+<dt><tt style="color:#ff00ff">\</tt> <tt style="color:#ff00ff">|</tt></dt>
+<dd>A lever in its off/on state, respectively.</dd>
 
-<dt><tt>$</tt></dt>
+<dt><tt>*</tt></dt>
+<dd>A rock. In the current version, it's just random debris. Occasionally, you
+may find sharp rocks that might be useful for self-defense.</dd>
+
+<dt><tt style="color:#ffff00">$</tt></dt>
 <dd>Collectible gold ores. In this version of the game, you're supposed to
 collect all the gold in the level and then find and activate the exit
 portal.</dd>
 
-<dt><tt>@</tt></dt>
+<dt><tt>[</tt></dt>
+<dd>An item that might be useful.</dd>
+
+<dt><tt style="color:#ff00ff">@</tt></dt>
 <dd>The exit portal. Activate this after collecting all the gold in order to
 finish the level.</dd>
 
-<dt><tt>^</tt></dt>
+<dt><tt style="color:#ff0000">^</tt></dt>
 <dd>A trap of some kind. Currently the game has two types of traps: hidden
 trapdoors, and falling rock traps.</dd>
+
+<dt><tt style="color:#ff0000">A</tt> <tt style="color:#ff0000">C</tt></dt>
+<dd>Various native 4D creatures. In the current version of the game, they are
+all hostile.</dd>
 
 </dl>
 
@@ -305,40 +280,40 @@ but currently not yet implemented.</p>
 
 <dl>
 
-<dt><tt>?</tt></dt>
+<dt><kbd>?</kbd></dt>
 <dd>The most important key of all, this shows the in-game help screen that
 	describes the various controls.</dd>
 
-<dt><tt>h</tt>, <tt>i</tt>, <tt>j</tt>, <tt>k</tt>, <tt>l</tt>, <tt>m</tt>,
-	<tt>n</tt>, <tt>o</tt></dt>
+<dt><kbd>h</kbd>, <kbd>i</kbd>, <kbd>j</kbd>, <kbd>k</kbd>, <kbd>l</kbd>, <kbd>m</kbd>,
+	<kbd>n</kbd>, <kbd>o</kbd></dt>
 <dd>Movement keys.  These keys were chosen to approximate the movement
 	direction they represent on-screen, at least on Qwerty layout keyboards
 	(Dvorak layout support will eventually be included).  So:
 
 	<dl>
-	<dt><tt>i</tt>, <tt>m</tt></dt>
+	<dt><kbd>i</kbd>, <kbd>m</kbd></dt>
 	<dd>move in the vertical direction (up/down);</dd>
 
-	<dt><tt>h</tt>, <tt>l</tt></dt>
+	<dt><kbd>h</kbd>, <kbd>l</kbd></dt>
 	<dd>move left/right across columns (ana/kata, or if you're used to Vi
 	keys, you could also think of it as left/right, it's just one of the
 	horizontal directions after all);</dd>
 
-	<dt><tt>j</tt>, <tt>k</tt></dt>
+	<dt><kbd>j</kbd>, <kbd>k</kbd></dt>
 	<dd>move left/right within a column (left/right, or if you're a Vi
 	person, <q>up</q>/<q>down</q>: imagine the floor as a slice of the 3D
 	universe laying <q>flat</q> on a 4D surface such that what we 3D folk
 	think of as up/down is now an extra pair of horizontal directions
 	instead);</dd>
 
-	<dt><tt>n</tt>, <tt>o</tt></dt>
+	<dt><kbd>n</kbd>, <kbd>o</kbd></dt>
 	<dd>move backwards/forwards within an isometric slice (think of it as
 	being perpendicular to your computer screen, isometrically projected to
 	be diagonal).</dd>
 	</dl>
 
-<dt><tt>H</tt>, <tt>I</tt>, <tt>J</tt>, <tt>K</tt>, <tt>L</tt>, <tt>M</tt>,
-	<tt>N</tt>, <tt>O</tt></dt>
+<dt><kbd>H</kbd>, <kbd>I</kbd>, <kbd>J</kbd>, <kbd>K</kbd>, <kbd>L</kbd>, <kbd>M</kbd>,
+	<kbd>N</kbd>, <kbd>O</kbd></dt>
 <dd>Keys for panning the current 4D viewport around without moving your player
 	character. These keys directly correspond with the movement keys, but
 	instead of moving the player character they pan the 4D viewpoint only.
@@ -351,36 +326,39 @@ but currently not yet implemented.</p>
 
 <dt>(space)</dt>
 <dd>Recenter the 4D viewport on the player character. Useful after you've moved
-	the viewport with <tt>H</tt>, <tt>I</tt>, <tt>J</tt>, <tt>K</tt>,
-	<tt>L</tt>, <tt>M</tt>, <tt>N</tt>, <tt>O</tt>.</dd>
+	the viewport with <kbd>H</kbd>, <kbd>I</kbd>, <kbd>J</kbd>, <kbd>K</kbd>,
+	<kbd>L</kbd>, <kbd>M</kbd>, <kbd>N</kbd>, <kbd>O</kbd>.</dd>
 
-<dt><tt>d</tt></dt>
+<dt><kbd>d</kbd></dt>
 <dd>Drop something from your inventory.</dd>
 
-<dt><tt>p</tt></dt>
+<dt><kbd>e</kbd> <kbd>r</kbd></dt>
+<dd>Equip/unequip (wear/remove) an item in your inventory.</dd>
+
+<dt><kbd>p</kbd></dt>
 <dd>Pass a turn. Can be useful in tactical movement around enemies.</dd>
 
-<dt><tt>z</tt></dt>
+<dt><kbd>z</kbd></dt>
 <dd>Open the inventory screen, if you're carrying something.</dd>
 
-<dt><tt>,</tt></dt>
+<dt><kbd>,</kbd></dt>
 <dd>Pick up an item from the current tile.</dd>
 
-<dt><tt>;</tt></dt>
+<dt><kbd>;</kbd></dt>
 <dd>Look at the objects on the current tile.</dd>
 
 <dt>(enter)</dt>
 <dd>Activate an object on the current tile. Currently only useful for the exit
 	portal.</dd>
 
-<dt><tt>q</tt></dt>
+<dt><kbd>q</kbd></dt>
 <dd>Save current game and quit. The game will automatically continue where you
 	left off the next time you start the program. <strong>Warning:</strong>
-	always exit the game with <tt>q</tt> if you want to keep your current
+	always exit the game with <kbd>q</kbd> if you want to keep your current
 	character; if the game terminates for any other reason, you will
 	permanently lose your character.  Welcome to permadeath.  :-D</dd>
 
-<dt><tt>Q</tt></dt>
+<dt><kbd>Q</kbd></dt>
 <dd>Delete current game and quit. <strong>Warning:</strong> once deleted, it is
 	impossible to get your character back.</dd>
 
@@ -403,7 +381,7 @@ the map generator, the current version of the game always generates maps that
 are <em>fully connected</em>: you will always be able to reach all parts of the
 map from any part, even if you stumble into hidden pits and fall through.  So
 you can rest assured that you will never get stuck without a way out, even if
-you do get totally lost in 4D space.  :-D</p>
+you do get totally lost in 4D space.  &#x263A;</p>
 
 <p>Especially tricky are room exits located one tile above the floor, which can
 be accessed with the climb-ledge action (walk into the wall directly under them
@@ -417,7 +395,8 @@ see them!).  In this version of the game they can be quite dangerous, but their
 movement is predictable and they stop following you once you're out of sight.
 With some practice you should be able to lose them.  They are also poor
 swimmers and tend to get stuck at the bottom of pools; if you can lure them
-into one it should relieve you of them for a while.</p>
+into one it should relieve you of them for a while.  You can also lure them
+into previously-discovered traps.</p>
 
 <p>Be careful that what is adjacent in 4D may not be displayed adjacently on
 the screen, and these enemies are native to 4D space and facile with moving
