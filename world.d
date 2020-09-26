@@ -101,6 +101,65 @@ static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));
 enum void delegate(Args) doNothing(Args...) = (Args args) {};
 
 /**
+ * Event category.
+ */
+enum EventCat
+{
+    move    = 0x0100,
+    itemAct = 0x0200,
+    dmg     = 0x0300,
+    mapChg  = 0x0400,
+}
+
+enum EventCatMask = 0xFF00;
+
+/**
+ * Event type.
+ */
+enum EventType
+{
+    // EventType.move
+    moveWalk       = 0x0101,
+    moveJump       = 0x0102,
+    moveClimb      = 0x0103,
+    moveClimbLedge = 0x0104,
+    moveFall       = 0x0105,
+    moveFallAside  = 0x0106,
+    moveSink       = 0x0107,
+
+    // EventType.itemAct
+    itemPickup     = 0x0201,
+    itemDrop       = 0x0202,
+    itemUser       = 0x0203,
+    itemRemove     = 0x0204,
+
+    // EventType.dmg
+    dmgAttack      = 0x0301,
+    dmgFallOn      = 0x0302,
+    dmgKill        = 0x0303,
+
+    // EventType.mapChg
+    mchgRevealPitTrap   = 0x0401,
+    mchgTrigRockTrap    = 0x0402,
+    mchgDoorOpen        = 0x0403,
+    mchgDoorClose       = 0x0404,
+}
+
+/**
+ * An in-game event.
+ */
+struct Event
+{
+    @property EventCat cat() { return type & EventCatMask; }
+    EventType type;
+    Vec!(int,4) where, whereTo;
+    ThingId subjId;
+    ThingId objId;
+    ThingId obliqueId;
+    string msg;
+}
+
+/**
  * Type of movement event.
  */
 enum MoveType
