@@ -50,8 +50,9 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
                 // equipment stats
                 baseDmg = max(0, baseDmg-1);
                 w.events.emit(Event(EventType.dmgBlock,
-                                    *w.store.get!Pos(victim), vec(0,0,0,0),
-                                    victim, armorId, invalidId /*FIXME: weaponId*/));
+                                    *w.store.get!Pos(victim), victim,
+                                    invalidId /*FIXME: weaponId*/,
+                                    armorId));
             }
         }
     }
@@ -83,8 +84,8 @@ void injure(World w, ThingId inflictor, ThingId victim, DmgType dmgType,
     if (m.hp <= 0)
     {
         auto pos = w.store.get!Pos(victim);
-        w.events.emit(Event(EventType.dmgKill, *pos, vec(0,0,0,0), inflictor,
-                            victim, invalidId /*FIXME: weaponId */));
+        w.events.emit(Event(EventType.dmgKill, *pos, inflictor, victim,
+                            invalidId /*FIXME: weaponId */));
 
         // TBD: drop corpses here
 
@@ -150,7 +151,7 @@ unittest
     injure(w, attacker.id, victim.id, DmgType.blunt, 5);
 
     bool killed;
-    w.events.observe(vec(2,1,1,1), 0, (Event ev) {
+    w.events.observe(Pos(2,1,1,1), 0, (Event ev) {
         if (ev.type == EventType.dmgKill)
         {
             assert(ev.where == Pos(2,1,1,2));

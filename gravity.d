@@ -142,8 +142,8 @@ struct SysGravity
     {
         auto objId = obj.id;
 
-        w.events.emit(Event(EventType.dmgFallOn, oldPos, vec(0,0,0,0), t.id,
-                            objId, gravityId));
+        w.events.emit(Event(EventType.dmgFallOn, oldPos, t.id, objId,
+                            gravityId));
         if (w.store.get!Mortal(objId) !is null)
         {
             import damage;

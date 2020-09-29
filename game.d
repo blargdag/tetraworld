@@ -503,188 +503,205 @@ class Game
 
     void setupEventWatchers()
     {
-        w.notify.move = (MoveType type, Pos pos, ThingId subj, Pos newPos,
-                         int seq)
-        {
-            if (subj == player.id)
+        w.events.registerListener((Event ev) {
+            import std.format : format;
+            if (ev.cat == EventCat.move)
             {
-                final switch (type)
+                if (ev.subjId == player.id)
                 {
-                    case MoveType.walk:
-                    case MoveType.jump:
-                    case MoveType.climb:
-                    case MoveType.sink:
-                        ui.moveViewport(newPos);
-                        break;
+                    switch (ev.type)
+                    {
+                        case EventType.moveWalk:
+                        case EventType.moveJump:
+                        case EventType.moveClimb:
+                        case EventType.moveSink:
+                            ui.moveViewport(ev.whereTo);
+                            break;
 
-                    case MoveType.climbLedge:
-                        if (seq == 0)
+                        case EventType.moveClimbLedge0:
                             ui.message("You climb up the ledge.");
-                        goto case MoveType.walk;
+                            goto case EventType.moveWalk;
 
-                    case MoveType.fall:
-                        ui.moveViewport(newPos);
-                        ui.message("You fall!");
-                        break;
+                        case EventType.moveFall:
+                            ui.moveViewport(ev.whereTo);
+                            ui.message("You fall!");
+                            break;
 
-                    case MoveType.fallAside:
-                        ui.moveViewport(newPos);
-                        ui.message("The impact sends you rolling to the side!");
-                        break;
+                        case EventType.moveFallAside:
+                            ui.moveViewport(ev.whereTo);
+                            ui.message("The impact sends you rolling to the side!");
+                            break;
+
+                        case EventType.movePass:
+                            ui.message("You pause for a moment.");
+                            ui.moveViewport(ev.where);
+                            break;
+
+                        default:
+                            assert(0, "Unhandled event type: %s"
+                                      .format(ev.type));
+                    }
                 }
-            }
-            else if (canSee(w, playerPos, pos) || canSee(w, playerPos, newPos))
-            {
-                if (type == MoveType.sink)
-                    ui.message("%s sinks in the water.",
-                               w.store.get!Name(subj).name.asCapitalized);
-                ui.updateMap(pos, newPos);
-            }
-        };
-        w.notify.itemAct = (ItemActType type, Pos pos, ThingId subj,
-                            ThingId obj, string useVerb)
-        {
-            if (subj == player.id)
-            {
-                auto name = w.store.get!Name(obj);
-                final switch (type)
+                else if (canSee(w, playerPos, ev.where) ||
+                         canSee(w, playerPos, ev.whereTo))
                 {
-                    case ItemActType.pickup:
-                        if (name !is null)
-                            ui.message("You pick up the " ~ name.name ~ ".");
-                        break;
-
-                    case ItemActType.drop:
-                        if (name !is null)
-                            ui.message("You drop the " ~ name.name ~ ".");
-                        break;
-
-                    case ItemActType.use:
-                        auto verb = (useVerb == "") ? "activate" : useVerb;
-                        if (name !is null)
-                            ui.message("You " ~ verb ~ " the " ~ name.name ~
-                                       ".");
-                        break;
-
-                    case ItemActType.takeOff:
-                        if (name !is null)
-                            ui.message("You remove the " ~ name.name ~ ".");
-                        break;
+                    if (ev.type == EventType.moveSink)
+                        ui.message("%s sinks in the water.",
+                                   w.store.get!Name(ev.subjId).name
+                                          .asCapitalized);
+                    ui.updateMap(ev.where, ev.whereTo);
                 }
             }
-            else
-                ui.updateMap(pos);
-        };
-        w.notify.pass = (Pos pos, ThingId subj)
-        {
-            if (subj == player.id)
+            else if (ev.cat == EventCat.itemAct)
             {
-                ui.message("You pause for a moment.");
-                ui.moveViewport(pos);
+                if (ev.subjId == player.id)
+                {
+                    auto name = w.store.get!Name(ev.objId);
+                    switch (ev.type)
+                    {
+                        case EventType.itemPickup:
+                            if (name !is null)
+                                ui.message("You pick up the " ~ name.name ~ ".");
+                            break;
+
+                        case EventType.itemDrop:
+                            if (name !is null)
+                                ui.message("You drop the " ~ name.name ~ ".");
+                            break;
+
+                        case EventType.itemUse:
+                            auto verb = (ev.msg == "") ? "activate" : ev.msg;
+                            if (name !is null)
+                                ui.message(format("You %s the %s.", verb, name.name));
+                            break;
+
+                        case EventType.itemEquip:
+                            auto verb = (ev.msg == "") ? "activate" : ev.msg;
+                            if (name !is null)
+                                ui.message(format("You %s the %s.", verb,
+                                                  name.name));
+                            break;
+
+                        case EventType.itemUnequip:
+                            if (name !is null)
+                                ui.message("You remove the " ~ name.name ~ ".");
+                            break;
+
+                        default:
+                            assert(0, "Unhandled event type: %s"
+                                      .format(ev.type));
+                    }
+                }
+                else
+                    ui.updateMap(ev.where);
             }
-        };
-        w.notify.damage = (DmgEventType type, Pos pos, ThingId subj,
-                           ThingId obj, ThingId weapon)
-        {
-            auto subjName = w.store.get!Name(subj).name;
-            auto objName = (obj == player.id) ? "you" :
-                           w.store.get!Name(obj).name;
-            auto possName = (subj == player.id) ? "your" : "its";
-            auto wpnName = w.store.get!Name(weapon);
-            final switch (type)
+            else if (ev.cat == EventCat.dmg)
             {
-                case DmgEventType.attack:
-                    auto wpn = w.store.get!Weapon(weapon);
-                    if (wpnName !is null)
-                        ui.message("%s %s %s with %s %s!",
-                                   subjName.asCapitalized, wpn.attackVerb,
-                                   objName, possName, wpnName.name);
-                    else
-                        ui.message("%s %s %s!", subjName.asCapitalized,
-                                   wpn.attackVerb, objName);
-                    break;
+                auto subjName = w.store.get!Name(ev.subjId).name;
+                auto objName = (ev.objId == player.id) ? "you" :
+                               w.store.get!Name(ev.objId).name;
+                auto possName = (ev.subjId == player.id) ? "your" : "its";
+                auto wpnName = w.store.get!Name(ev.obliqueId);
+                switch (ev.type)
+                {
+                    case EventType.dmgAttack:
+                        auto wpn = w.store.get!Weapon(ev.obliqueId);
+                        if (wpnName !is null)
+                            ui.message("%s %s %s with %s %s!",
+                                       subjName.asCapitalized, wpn.attackVerb,
+                                       objName, possName, wpnName.name);
+                        else
+                            ui.message("%s %s %s!", subjName.asCapitalized,
+                                       wpn.attackVerb, objName);
+                        break;
 
-                case DmgEventType.fallOn:
-                    if (subj == player.id)
-                    {
-                        ui.moveViewport(pos);
-                        ui.message("You fall on top of %s!",
-                                   w.store.get!Name(obj).name);
-                    }
-                    else
-                    {
-                        ui.updateMap(pos);
-                        ui.message("%s falls on top of %s!",
-                                   w.store.get!Name(subj).name.asCapitalized,
-                                   w.store.get!Name(obj).name);
-                    }
-                    break;
+                    case EventType.dmgFallOn:
+                        if (ev.subjId == player.id)
+                        {
+                            ui.moveViewport(ev.where);
+                            ui.message("You fall on top of %s!",
+                                       w.store.get!Name(ev.objId).name);
+                        }
+                        else
+                        {
+                            ui.updateMap(ev.where);
+                            ui.message("%s falls on top of %s!",
+                                       w.store.get!Name(ev.subjId).name.asCapitalized,
+                                       w.store.get!Name(ev.objId).name);
+                        }
+                        break;
 
-                case DmgEventType.kill:
-                    ui.message("%s killed %s!", subjName.asCapitalized,
-                               objName);
-                    if (obj == player.id)
-                    {
-                        quit = true;
-                        ui.quitWithMsg("YOU HAVE DIED.");
-                    }
-                    break;
+                    case EventType.dmgKill:
+                        ui.message("%s killed %s!", subjName.asCapitalized,
+                                   objName);
+                        if (ev.objId == player.id)
+                        {
+                            quit = true;
+                            ui.quitWithMsg("YOU HAVE DIED.");
+                        }
+                        break;
+
+                    case EventType.dmgBlock:
+                        auto subjPoss = (ev.subjId == player.id) ? "your" :
+                                        w.store.get!Name(ev.subjId).name ~ "'s";
+                        auto armorName = w.store.get!Name(ev.obliqueId).name;
+                        auto pronoun = (ev.subjId == player.id) ? "you" : "it";
+                        ui.message("%s %s shields %s from the blow!",
+                                   subjPoss.asCapitalized, armorName, pronoun);
+                        break;
+
+                    default:
+                        assert(0, "Unhandled event type: %s"
+                                  .format(ev.type));
+                }
             }
-        };
-        w.notify.damageBlock = (Pos pos, ThingId subj, ThingId armor,
-                                ThingId weapon)
-        {
-            auto subjPoss = (subj == player.id) ? "your" :
-                            w.store.get!Name(subj).name ~ "'s";
-            auto armorName = w.store.get!Name(armor).name;
-            auto pronoun = (subj == player.id) ? "you" : "it";
-            ui.message("%s %s shields %s from the blow!",
-                       subjPoss.asCapitalized, armorName, pronoun);
-        };
-        w.notify.mapChange = (MapChgType type, Pos pos, ThingId subj,
-                              ThingId obj)
-        {
-            auto subjName = w.store.get!Name(subj);
-            final switch (type)
+            else if (ev.cat == EventCat.mapChg)
             {
-                case MapChgType.revealPitTrap:
-                    if (subjName)
-                        ui.message("A trap door opens up under %s!",
-                                   w.store.get!Name(subj).name);
-                    else
-                        ui.message("A trap door opens up!");
-                    break;
+                auto subjName = w.store.get!Name(ev.subjId);
+                switch (ev.type)
+                {
+                    case EventType.mchgRevealPitTrap:
+                        if (subjName)
+                            ui.message("A trap door opens up under %s!",
+                                       w.store.get!Name(ev.subjId).name);
+                        else
+                            ui.message("A trap door opens up!");
+                        break;
 
-                case MapChgType.triggerRockTrap:
-                    if (subjName)
-                        ui.message("A trap door opens up above %s and a rock "~
-                                   "falls out!", w.store.get!Name(subj).name);
-                    else
-                        ui.message("A trap door opens in the ceiling and a "~
-                                   "rock falls out!");
-                    break;
+                    case EventType.mchgTrigRockTrap:
+                        if (subjName)
+                            ui.message("A trap door opens up above %s and a rock "~
+                                       "falls out!", w.store.get!Name(ev.subjId).name);
+                        else
+                            ui.message("A trap door opens in the ceiling and a "~
+                                       "rock falls out!");
+                        break;
 
-                case MapChgType.doorOpen:
-                    if (canSee(w, playerPos, pos))
-                        ui.message("The door swings open!");
-                    else
-                        ui.message("You hear a door open in the distance!");
-                    break;
+                    case EventType.mchgDoorOpen:
+                        if (canSee(w, playerPos, ev.where))
+                            ui.message("The door swings open!");
+                        else
+                            ui.message("You hear a door open in the distance!");
+                        break;
 
-                case MapChgType.doorClose:
-                    if (canSee(w, playerPos, pos))
-                        ui.message("The door swings shut!");
-                    else
-                        ui.message("You hear a door shut in the distance!");
-                    break;
+                    case EventType.mchgDoorClose:
+                        if (canSee(w, playerPos, ev.where))
+                            ui.message("The door swings shut!");
+                        else
+                            ui.message("You hear a door shut in the distance!");
+                        break;
+
+                    case EventType.mchgMessage:
+                        if (ev.subjId == player.id)
+                            ui.message(ev.msg);
+                        break;
+
+                    default:
+                        assert(0, "Unhandled event type: %s"
+                                  .format(ev.type));
+                }
             }
-        };
-        w.notify.message = (Pos pos, ThingId subj, string msg)
-        {
-            if (subj != player.id)
-                return;
-            ui.message(msg);
-        };
+        });
     }
 
     auto objectsOnFloor()

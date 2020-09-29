@@ -159,11 +159,36 @@ struct Event
     @property EventCat cat() { return cast(EventCat)(type & EventCatMask); }
 
     EventType type;
-    Vec!(int,4) where, whereTo;
+    Pos where, whereTo;
     ThingId subjId;
     ThingId objId;
     ThingId obliqueId;
     string msg;
+
+    this(EventType _type, Pos _where, Pos _whereTo, ThingId _subjId,
+         ThingId _objId = invalidId, ThingId _obliqueId = invalidId,
+         string _msg = "")
+    {
+        type = _type;
+        where = _where;
+        whereTo = _whereTo;
+        subjId = _subjId;
+        objId = _objId;
+        obliqueId = _obliqueId;
+        msg = _msg;
+    }
+
+    this(EventType _type, Pos _where, ThingId _subjId,
+         ThingId _objId = invalidId, ThingId _obliqueId = invalidId,
+         string msg = "")
+    {
+        this(_type, _where, Pos.init, _subjId, _objId, _obliqueId, msg);
+    }
+
+    this(EventType _type, Pos _where, ThingId _subjId, string msg)
+    {
+        this(_type, _where, Pos.init, _subjId, invalidId, invalidId, msg);
+    }
 
     private ulong _tick;
 }
@@ -175,6 +200,11 @@ struct Sensorium
 {
     private Event[] events;
     private ulong _curTick;
+
+    // FIXME: this is a hack to bridge the new system to the current code; this
+    // should be replaced by a better design.
+    @NoSave void delegate(Event) listener;
+    void registerListener(void delegate(Event) cb) { listener = cb; }
 
     /**
      * Get/set the current event timestamp.
@@ -189,6 +219,10 @@ struct Sensorium
     {
         ev._tick = curTick;
         events ~= ev;
+
+        // FIXME: this is a hack to bridge to the current code.
+        if (listener !is null)
+            listener(ev);
     }
 
     /**
@@ -203,7 +237,7 @@ struct Sensorium
      * Iterate over events since the given start time, filtered by the given
      * observer's position. (TBD: implement other perceptual filters too)
      */
-    void observe(Vec!(int,4) pos, ulong startTick, void delegate(Event) cb)
+    void observe(Pos pos, ulong startTick, void delegate(Event) cb)
     {
         // FIXME: optimize this
         foreach (ev; events)
@@ -265,6 +299,8 @@ class World
 
         if (!loadfile.checkAndLeaveBlock())
             throw new Exception("'store' block not closed");
+
+        events = loadfile.parse!Sensorium("events");
     }
 }
 
