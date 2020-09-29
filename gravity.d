@@ -142,7 +142,8 @@ struct SysGravity
     {
         auto objId = obj.id;
 
-        w.notify.damage(DmgEventType.fallOn, oldPos, t.id, objId, gravityId);
+        w.events.emit(Event(EventType.dmgFallOn, oldPos, vec(0,0,0,0), t.id,
+                            objId, gravityId));
         if (w.store.get!Mortal(objId) !is null)
         {
             import damage;
@@ -166,7 +167,8 @@ struct SysGravity
             return false;
 
         rawMove(w, t, newPos, {
-            w.notify.move(MoveType.fallAside, oldPos, t.id, newPos, 0);
+            w.events.emit(Event(EventType.moveFallAside, oldPos, newPos,
+                                t.id));
         });
         return true;
     }
@@ -209,8 +211,8 @@ struct SysGravity
                         else
                         {
                             rawMove(w, t, floorPos, {
-                                w.notify.move(MoveType.fall, oldPos, t.id,
-                                              floorPos, 0);
+                                w.events.emit(Event(EventType.moveFall, oldPos,
+                                                    floorPos, t.id));
                             });
                         }
                         break;
@@ -289,7 +291,8 @@ struct SysGravity
             else
             {
                 rawMove(w, obj, floorPos, {
-                    w.notify.move(MoveType.sink, oldPos, obj.id, floorPos, 0);
+                    w.events.emit(Event(EventType.moveSink, oldPos, floorPos,
+                                        obj.id));
                 });
             }
         }
