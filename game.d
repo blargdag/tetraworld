@@ -600,6 +600,7 @@ class Game
             {
                 auto subjName = w.store.get!Name(ev.subjId).name;
                 auto objName = (ev.objId == player.id) ? "you" :
+                               (ev.objId == invalidId) ? "" :
                                w.store.get!Name(ev.objId).name;
                 auto possName = (ev.subjId == player.id) ? "your" : "its";
                 auto wpnName = w.store.get!Name(ev.obliqueId);
