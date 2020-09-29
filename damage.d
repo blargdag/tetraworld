@@ -25,6 +25,7 @@ import std.algorithm;
 import components;
 import store_traits;
 import world;
+import vector;
 
 int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
                      DmgType dmgType, int baseDmg)
@@ -48,8 +49,9 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
                 // TBD: amount of damage reduction should be calculated from
                 // equipment stats
                 baseDmg = max(0, baseDmg-1);
-                w.notify.damageBlock(*w.store.get!Pos(victim), victim, armorId,
-                                     invalidId /*FIXME: weaponId*/);
+                w.events.emit(Event(EventType.dmgBlock,
+                                    *w.store.get!Pos(victim), vec(0,0,0,0),
+                                    victim, armorId, invalidId /*FIXME: weaponId*/));
             }
         }
     }
@@ -81,8 +83,8 @@ void injure(World w, ThingId inflictor, ThingId victim, DmgType dmgType,
     if (m.hp <= 0)
     {
         auto pos = w.store.get!Pos(victim);
-        w.notify.damage(DmgEventType.kill, *pos, inflictor, victim,
-                        invalidId /*FIXME: weaponId */);
+        w.events.emit(Event(EventType.dmgKill, *pos, vec(0,0,0,0), inflictor,
+                            victim, invalidId /*FIXME: weaponId */));
 
         // TBD: drop corpses here
 
@@ -141,23 +143,23 @@ unittest
             Inventory.Item(fear.id, Inventory.Item.Type.intrinsic),
         ]));
 
-    bool killed;
-    w.notify.damage = (type, pos, subj, obj, weapon) {
-        if (type == DmgEventType.kill)
-        {
-            assert(pos == Pos(2,1,1,2));
-            assert(subj == attacker.id);
-            assert(obj == victim.id);
-            //assert(weapon == club.id); // TBD
-            killed = true;
-        }
-    };
-
     assert(w.store.get!Pos(coin.id) is null);
     assert(w.store.get!Pos(coat.id) is null);
     assert(w.store.get!Pos(fear.id) is null);
 
     injure(w, attacker.id, victim.id, DmgType.blunt, 5);
+
+    bool killed;
+    w.events.observe(vec(2,1,1,1), 0, (Event ev) {
+        if (ev.type == EventType.dmgKill)
+        {
+            assert(ev.where == Pos(2,1,1,2));
+            assert(ev.subjId == attacker.id);
+            assert(ev.objId == victim.id);
+            //assert(weapon == club.id); // TBD
+            killed = true;
+        }
+    });
 
     assert(killed);
     assert(w.store.getObj(victim.id) is null);
