@@ -515,6 +515,7 @@ class Game
                         case EventType.moveJump:
                         case EventType.moveClimb:
                         case EventType.moveSink:
+                        case EventType.moveClimbLedge1:
                             ui.moveViewport(ev.whereTo);
                             break;
 
