@@ -1129,11 +1129,11 @@ StoryNode[] storyNodes = [
         args.nBackEdges = ValRange(200, 300);
         args.nPitTraps = ValRange(200, 300);
         args.nRockTraps = ValRange(200, 300);
-        args.goldPct = 0.2;
-        args.waterLevel = ValRange(16, 32);
-        args.nMonstersA = ValRange(15, 30);
-        args.nMonstersC = ValRange(5, 10);
-        return genBspLevel(region(vec(32,32,32,32)), args, startPos);
+        args.goldPct = 0.7;
+        args.waterLevel = ValRange(10, 15);
+        args.nMonstersA = ValRange(25, 40);
+        args.nMonstersC = ValRange(12, 20);
+        return genBspLevel(region(vec(20,20,20,20)), args, startPos);
     }),
 ];
 
