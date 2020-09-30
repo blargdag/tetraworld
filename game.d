@@ -1048,7 +1048,7 @@ StoryNode[] storyNodes = [
         MapGenArgs args;
         args.nBackEdges = ValRange(5, 8);
         args.nPitTraps = ValRange(12, 18);
-        args.nRockTraps = ValRange(6, 15);
+        args.nRockTraps = ValRange(6, 12);
         args.goldPct = 1.0;
         args.waterLevel = ValRange(6, 10);
         args.nMonstersA = ValRange(4, 6);
@@ -1088,7 +1088,7 @@ StoryNode[] storyNodes = [
         args.subargs[1].tree.minNodeDim = 4;
         args.subargs[1].nBackEdges = ValRange(1, 3);
         args.subargs[1].nPitTraps = ValRange(5, 10);
-        args.subargs[1].nRockTraps = ValRange(8, 12);
+        args.subargs[1].nRockTraps = ValRange(12, 16);
         args.subargs[1].goldPct = 3.5;
         args.subargs[1].nMonstersA = ValRange(3, 5);
         args.subargs[1].sharpRockPct = 15.0;
