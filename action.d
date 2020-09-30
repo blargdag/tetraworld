@@ -887,7 +887,7 @@ ActionResult equip(World w, Thing* subj, ThingId objId)
         w.events.emit(Event(EventType.itemEquip, *w.store.get!Pos(subj.id),
                             subj.id, objId, invalidId, "ready"));
     else if (armor !is null)
-        w.events.emit(Event(EventType.itemUnequip, *w.store.get!Pos(subj.id),
+        w.events.emit(Event(EventType.itemEquip, *w.store.get!Pos(subj.id),
                             subj.id, objId, invalidId, "wear"));
     else
         return ActionResult(false, baseTicks, "That's not something "~
