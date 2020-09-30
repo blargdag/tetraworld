@@ -545,8 +545,11 @@ class Game
                                   subjName);
 
                 case EventType.movePass:
-                    verb = isPlayer ? "pause" : "pauses";
-                    return format("%s %s for a moment.", subjName.asCapitalized, verb);
+                    // Pause messages are too noisy for NPCs, just show it only
+                    // when it's the player himself.
+                    //verb = isPlayer ? "pause" : "pauses";
+                    //return format("%s %s for a moment.", subjName.asCapitalized, verb);
+                    return isPlayer ? "You pause for a moment." : "";
 
                 default:
                     assert(0, "Unhandled event type: %s".format(ev.type));
