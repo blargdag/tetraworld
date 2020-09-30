@@ -501,207 +501,315 @@ class Game
         }
     }
 
-    void setupEventWatchers()
+    private string fmtVisibleEvent(Event ev)
     {
-        w.events.registerListener((Event ev) {
-            import std.format : format;
+        import std.format : format;
+        if (ev.cat == EventCat.move)
+        {
+            auto isPlayer = (ev.subjId == player.id);
+            string subjName = "you";
+            if (!isPlayer)
+            {
+                auto nameObj = w.store.get!Name(ev.subjId);
+                if (nameObj is null)
+                    return "";
+                subjName = nameObj.name;
+            }
+            string verb; // TBD: replace this with lang module
+
+            switch (ev.type)
+            {
+                case EventType.moveWalk:
+                case EventType.moveJump:
+                case EventType.moveClimb:
+                case EventType.moveClimbLedge1:
+                    return "";
+
+                case EventType.moveSink:
+                    verb = isPlayer ? "sink" : "sinks";
+                    return format("%s %s in the water.",
+                                  subjName.asCapitalized, verb);
+
+                case EventType.moveClimbLedge0:
+                    verb = isPlayer ? "climb up" : "climbs up";
+                    return format("%s %s the ledge.",
+                                  subjName.asCapitalized, verb);
+
+                case EventType.moveFall:
+                    verb = isPlayer ? "fall" : "falls";
+                    return format("%s %s!", subjName.asCapitalized, verb);
+                    break;
+
+                case EventType.moveFallAside:
+                    return format("The impact sends %s rolling to the side!",
+                                  subjName);
+
+                case EventType.movePass:
+                    verb = isPlayer ? "pause" : "pauses";
+                    return format("%s %s for a moment.", subjName.asCapitalized, verb);
+
+                default:
+                    assert(0, "Unhandled event type: %s".format(ev.type));
+            }
+            assert(0);
+        }
+        else if (ev.cat == EventCat.itemAct)
+        {
+            auto isPlayer = (ev.subjId == player.id);
+            auto subjName = isPlayer ? "you" :
+                            w.store.get!Name(ev.subjId).name;
+            auto objName = w.store.get!Name(ev.objId);
+            string verb; // TBD: replace this with lang module
+
+            switch (ev.type)
+            {
+                case EventType.itemPickup:
+                    verb = isPlayer ? "pick up" : "picks up";
+                    break;
+
+                case EventType.itemDrop:
+                    verb = isPlayer ? "drop" : "drops";
+                    break;
+
+                case EventType.itemUse:
+                    verb = (ev.msg != "") ? ev.msg :
+                           isPlayer ? "activate" : "activates";
+                    break;
+
+                case EventType.itemEquip:
+                    verb = (ev.msg != "") ? ev.msg :
+                           isPlayer ? "equip" : "equips";
+                    break;
+
+                case EventType.itemUnequip:
+                    verb = isPlayer ? "unequip" : "unequips";
+                    break;
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+            if (objName !is null)
+                return format("%s %s the %s.", subjName.asCapitalized, verb,
+                              objName.name);
+
+            return "";
+        }
+        else if (ev.cat == EventCat.dmg)
+        {
+            auto isPlayer = (ev.subjId == player.id);
+            auto subjName = w.store.get!Name(ev.subjId).name;
+            auto objName = (ev.objId == player.id) ? "you" :
+                           (ev.objId == invalidId) ? "" :
+                           w.store.get!Name(ev.objId).name;
+            auto possName = isPlayer ? "your" : "its";
+            auto wpnName = w.store.get!Name(ev.obliqueId);
+            string verb;
+
+            switch (ev.type)
+            {
+                case EventType.dmgAttack:
+                    auto wpn = w.store.get!Weapon(ev.obliqueId);
+                    if (wpnName !is null)
+                        return format("%s %s %s with %s %s!",
+                                      subjName.asCapitalized, wpn.attackVerb,
+                                      objName, possName, wpnName.name);
+                    else
+                        return format("%s %s %s!", subjName.asCapitalized,
+                                      wpn.attackVerb, objName);
+                    break;
+
+                case EventType.dmgFallOn:
+                    verb = isPlayer ? "fall" : "falls";
+                    return format("%s %s on top of %s!",
+                                  subjName.asCapitalized, verb, objName);
+
+                case EventType.dmgKill:
+                    return format("%s killed %s!", subjName.asCapitalized,
+                                  objName);
+
+                case EventType.dmgBlock:
+                    auto subjPoss = (ev.subjId == player.id) ? "your" :
+                                    w.store.get!Name(ev.subjId).name ~ "'s";
+                    auto armorName = w.store.get!Name(ev.obliqueId).name;
+                    auto pronoun = (ev.subjId == player.id) ? "you" : "it";
+                    return format("%s %s shields %s from the blow!",
+                                  subjPoss.asCapitalized, armorName, pronoun);
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+            assert(0);
+        }
+        else if (ev.cat == EventCat.mapChg)
+        {
+            auto isPlayer = (ev.subjId == player.id);
+            auto subjName_ = w.store.get!Name(ev.subjId);
+            string subjName = isPlayer ? "you" :
+                              subjName_ ? subjName_.name : "";
+
+            switch (ev.type)
+            {
+                case EventType.mchgRevealPitTrap:
+                    if (subjName.length > 0)
+                        return format("A trap door opens up under %s!",
+                                      subjName);
+                    else
+                        return "A trap door opens up!";
+
+                case EventType.mchgTrigRockTrap:
+                    if (subjName.length > 0)
+                        return format("A trap door opens up above %s and a "~
+                                      "rock falls out!", subjName);
+                    else
+                        return "A trap door opens in the ceiling and a rock "~
+                               "falls out!";
+                    break;
+
+                case EventType.mchgDoorOpen:
+                    return "The door swings open!";
+
+                case EventType.mchgDoorClose:
+                    return "The door swings shut!";
+
+                case EventType.mchgMessage:
+                    return (isPlayer) ? ev.msg : "";
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+        }
+        assert(0);
+    }
+
+    private string fmtAudibleEvent(Event ev)
+    {
+        import std.format : format;
+        if (ev.cat == EventCat.move)
+        {
+            switch (ev.type)
+            {
+                case EventType.moveWalk:
+                case EventType.moveJump:
+                case EventType.moveClimb:
+                case EventType.moveClimbLedge1:
+                case EventType.moveClimbLedge0:
+                case EventType.moveFall:
+                case EventType.movePass:
+                    return "";
+
+                case EventType.moveSink:
+                    return "You hear the sound of water.";
+
+                case EventType.moveFallAside:
+                    return "You hear a bump!";
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+            assert(0);
+        }
+        else if (ev.cat == EventCat.itemAct)
+        {
+            switch (ev.type)
+            {
+                case EventType.itemPickup:
+                case EventType.itemDrop:
+                case EventType.itemUse:
+                case EventType.itemEquip:
+                case EventType.itemUnequip:
+                    return "";
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+            assert(0);
+        }
+        else if (ev.cat == EventCat.dmg)
+        {
+            switch (ev.type)
+            {
+                case EventType.dmgAttack:
+                case EventType.dmgFallOn:
+                    return "You hear some noises.";
+
+                case EventType.dmgKill:
+                    return "You hear a groan!";
+
+                case EventType.dmgBlock:
+                    return "";
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+            assert(0);
+        }
+        else if (ev.cat == EventCat.mapChg)
+        {
+            switch (ev.type)
+            {
+                case EventType.mchgRevealPitTrap:
+                case EventType.mchgTrigRockTrap:
+                    return "You hear a creaking sound.";
+
+                case EventType.mchgDoorOpen:
+                    return "You hear a door open in the distance!";
+
+                case EventType.mchgDoorClose:
+                    return "You hear a door shut in the distance!";
+
+                case EventType.mchgMessage:
+                    return "";
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+        }
+        assert(0);
+    }
+
+    private void setupEventWatchers()
+    {
+        w.events.listen((Event ev) {
+            bool involvesPlayer = (ev.subjId == player.id ||
+                                   ev.objId == player.id);
+            bool seenByPlayer = canSee(w, playerPos, ev.where) || (
+                                    ev.where != ev.whereTo &&
+                                    canSee(w, playerPos, ev.whereTo));
+            string msg;
+            if (involvesPlayer || seenByPlayer)
+                msg = fmtVisibleEvent(ev);
+            else if (true /+canHear(w, playerPos, ev.where) /+TBD+/ +/)
+                msg = fmtAudibleEvent(ev);
+
+            if (msg.length > 0)
+                ui.message(msg);
+
+            // NOTE: the UI will insert animation pauses if ui.updateMap is
+            // called more than once per UI main loop iteration. Too many calls
+            // to it will cause jerkiness; so it should only be called for
+            // important events for which we want an animation pause (e.g.,
+            // monster movement, objects that fall on you, etc).
             if (ev.cat == EventCat.move)
             {
                 if (ev.subjId == player.id)
-                {
-                    switch (ev.type)
-                    {
-                        case EventType.moveWalk:
-                        case EventType.moveJump:
-                        case EventType.moveClimb:
-                        case EventType.moveSink:
-                        case EventType.moveClimbLedge1:
-                            ui.moveViewport(ev.whereTo);
-                            break;
-
-                        case EventType.moveClimbLedge0:
-                            ui.message("You climb up the ledge.");
-                            goto case EventType.moveWalk;
-
-                        case EventType.moveFall:
-                            ui.moveViewport(ev.whereTo);
-                            ui.message("You fall!");
-                            break;
-
-                        case EventType.moveFallAside:
-                            ui.moveViewport(ev.whereTo);
-                            ui.message("The impact sends you rolling to the side!");
-                            break;
-
-                        case EventType.movePass:
-                            ui.message("You pause for a moment.");
-                            ui.moveViewport(ev.where);
-                            break;
-
-                        default:
-                            assert(0, "Unhandled event type: %s"
-                                      .format(ev.type));
-                    }
-                }
-                else if (canSee(w, playerPos, ev.where) ||
-                         canSee(w, playerPos, ev.whereTo))
-                {
-                    if (ev.type == EventType.moveSink)
-                        ui.message("%s sinks in the water.",
-                                   w.store.get!Name(ev.subjId).name
-                                          .asCapitalized);
-                    ui.updateMap(ev.where, ev.whereTo);
-                }
-            }
-            else if (ev.cat == EventCat.itemAct)
-            {
-                if (ev.subjId == player.id)
-                {
-                    auto name = w.store.get!Name(ev.objId);
-                    switch (ev.type)
-                    {
-                        case EventType.itemPickup:
-                            if (name !is null)
-                                ui.message("You pick up the " ~ name.name ~ ".");
-                            break;
-
-                        case EventType.itemDrop:
-                            if (name !is null)
-                                ui.message("You drop the " ~ name.name ~ ".");
-                            break;
-
-                        case EventType.itemUse:
-                            auto verb = (ev.msg == "") ? "activate" : ev.msg;
-                            if (name !is null)
-                                ui.message(format("You %s the %s.", verb, name.name));
-                            break;
-
-                        case EventType.itemEquip:
-                            auto verb = (ev.msg == "") ? "activate" : ev.msg;
-                            if (name !is null)
-                                ui.message(format("You %s the %s.", verb,
-                                                  name.name));
-                            break;
-
-                        case EventType.itemUnequip:
-                            if (name !is null)
-                                ui.message("You remove the " ~ name.name ~ ".");
-                            break;
-
-                        default:
-                            assert(0, "Unhandled event type: %s"
-                                      .format(ev.type));
-                    }
-                }
+                    ui.moveViewport(ev.whereTo);
                 else
-                    ui.updateMap(ev.where);
+                    ui.updateMap(ev.where, ev.whereTo);
             }
-            else if (ev.cat == EventCat.dmg)
+            else if (ev.type == EventType.dmgFallOn)
+                ui.updateMap(ev.where, ev.whereTo);
+
+            if (ev.type == EventType.dmgKill && ev.objId == player.id)
             {
-                auto subjName = w.store.get!Name(ev.subjId).name;
-                auto objName = (ev.objId == player.id) ? "you" :
-                               (ev.objId == invalidId) ? "" :
-                               w.store.get!Name(ev.objId).name;
-                auto possName = (ev.subjId == player.id) ? "your" : "its";
-                auto wpnName = w.store.get!Name(ev.obliqueId);
-                switch (ev.type)
-                {
-                    case EventType.dmgAttack:
-                        auto wpn = w.store.get!Weapon(ev.obliqueId);
-                        if (wpnName !is null)
-                            ui.message("%s %s %s with %s %s!",
-                                       subjName.asCapitalized, wpn.attackVerb,
-                                       objName, possName, wpnName.name);
-                        else
-                            ui.message("%s %s %s!", subjName.asCapitalized,
-                                       wpn.attackVerb, objName);
-                        break;
-
-                    case EventType.dmgFallOn:
-                        if (ev.subjId == player.id)
-                        {
-                            ui.moveViewport(ev.where);
-                            ui.message("You fall on top of %s!",
-                                       w.store.get!Name(ev.objId).name);
-                        }
-                        else
-                        {
-                            ui.updateMap(ev.where);
-                            ui.message("%s falls on top of %s!",
-                                       w.store.get!Name(ev.subjId).name.asCapitalized,
-                                       w.store.get!Name(ev.objId).name);
-                        }
-                        break;
-
-                    case EventType.dmgKill:
-                        ui.message("%s killed %s!", subjName.asCapitalized,
-                                   objName);
-                        if (ev.objId == player.id)
-                        {
-                            quit = true;
-                            ui.quitWithMsg("YOU HAVE DIED.");
-                        }
-                        break;
-
-                    case EventType.dmgBlock:
-                        auto subjPoss = (ev.subjId == player.id) ? "your" :
-                                        w.store.get!Name(ev.subjId).name ~ "'s";
-                        auto armorName = w.store.get!Name(ev.obliqueId).name;
-                        auto pronoun = (ev.subjId == player.id) ? "you" : "it";
-                        ui.message("%s %s shields %s from the blow!",
-                                   subjPoss.asCapitalized, armorName, pronoun);
-                        break;
-
-                    default:
-                        assert(0, "Unhandled event type: %s"
-                                  .format(ev.type));
-                }
-            }
-            else if (ev.cat == EventCat.mapChg)
-            {
-                auto subjName = w.store.get!Name(ev.subjId);
-                switch (ev.type)
-                {
-                    case EventType.mchgRevealPitTrap:
-                        if (subjName)
-                            ui.message("A trap door opens up under %s!",
-                                       w.store.get!Name(ev.subjId).name);
-                        else
-                            ui.message("A trap door opens up!");
-                        break;
-
-                    case EventType.mchgTrigRockTrap:
-                        if (subjName)
-                            ui.message("A trap door opens up above %s and a rock "~
-                                       "falls out!", w.store.get!Name(ev.subjId).name);
-                        else
-                            ui.message("A trap door opens in the ceiling and a "~
-                                       "rock falls out!");
-                        break;
-
-                    case EventType.mchgDoorOpen:
-                        if (canSee(w, playerPos, ev.where))
-                            ui.message("The door swings open!");
-                        else
-                            ui.message("You hear a door open in the distance!");
-                        break;
-
-                    case EventType.mchgDoorClose:
-                        if (canSee(w, playerPos, ev.where))
-                            ui.message("The door swings shut!");
-                        else
-                            ui.message("You hear a door shut in the distance!");
-                        break;
-
-                    case EventType.mchgMessage:
-                        if (ev.subjId == player.id)
-                            ui.message(ev.msg);
-                        break;
-
-                    default:
-                        assert(0, "Unhandled event type: %s"
-                                  .format(ev.type));
-                }
+                quit = true;
+                ui.quitWithMsg("YOU HAVE DIED.");
             }
         });
     }

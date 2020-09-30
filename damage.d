@@ -144,14 +144,8 @@ unittest
             Inventory.Item(fear.id, Inventory.Item.Type.intrinsic),
         ]));
 
-    assert(w.store.get!Pos(coin.id) is null);
-    assert(w.store.get!Pos(coat.id) is null);
-    assert(w.store.get!Pos(fear.id) is null);
-
-    injure(w, attacker.id, victim.id, DmgType.blunt, 5);
-
     bool killed;
-    w.events.observe(Pos(2,1,1,1), 0, (Event ev) {
+    w.events.listen((Event ev) {
         if (ev.type == EventType.dmgKill)
         {
             assert(ev.where == Pos(2,1,1,2));
@@ -161,6 +155,12 @@ unittest
             killed = true;
         }
     });
+
+    assert(w.store.get!Pos(coin.id) is null);
+    assert(w.store.get!Pos(coat.id) is null);
+    assert(w.store.get!Pos(fear.id) is null);
+
+    injure(w, attacker.id, victim.id, DmgType.blunt, 5);
 
     assert(killed);
     assert(w.store.getObj(victim.id) is null);

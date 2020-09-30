@@ -118,7 +118,7 @@ enum EventCatMask = 0xFF00;
  */
 enum EventType
 {
-    // EventType.move
+    // EventCat.move
     moveWalk        = 0x0101,
     moveJump        = 0x0102,
     moveClimb       = 0x0103,
@@ -129,20 +129,20 @@ enum EventType
     moveSink        = 0x0108,
     movePass        = 0x0109,
 
-    // EventType.itemAct
+    // EventCat.itemAct
     itemPickup      = 0x0201,
     itemDrop        = 0x0202,
     itemUse         = 0x0203,
     itemEquip       = 0x0204,
     itemUnequip     = 0x0205,
 
-    // EventType.dmg
+    // EventCat.dmg
     dmgAttack       = 0x0301,
     dmgFallOn       = 0x0302,
     dmgKill         = 0x0303,
     dmgBlock        = 0x0304,
 
-    // EventType.mapChg
+    // EventCat.mapChg
     mchgRevealPitTrap   = 0x0401,
     mchgTrigRockTrap    = 0x0402,
     mchgDoorOpen        = 0x0403,
@@ -155,9 +155,7 @@ enum EventType
  */
 struct Event
 {
-    @property ulong tick() { return _tick; }
     @property EventCat cat() { return cast(EventCat)(type & EventCatMask); }
-
     EventType type;
     Pos where, whereTo;
     ThingId subjId;
@@ -182,15 +180,13 @@ struct Event
          ThingId _objId = invalidId, ThingId _obliqueId = invalidId,
          string msg = "")
     {
-        this(_type, _where, Pos.init, _subjId, _objId, _obliqueId, msg);
+        this(_type, _where, _where, _subjId, _objId, _obliqueId, msg);
     }
 
     this(EventType _type, Pos _where, ThingId _subjId, string msg)
     {
-        this(_type, _where, Pos.init, _subjId, invalidId, invalidId, msg);
+        this(_type, _where, _where, _subjId, invalidId, invalidId, msg);
     }
-
-    private ulong _tick;
 }
 
 /**
@@ -198,54 +194,27 @@ struct Event
  */
 struct Sensorium
 {
-    private Event[] events;
-    private ulong _curTick;
-
-    // FIXME: this is a hack to bridge the new system to the current code; this
-    // should be replaced by a better design.
-    @NoSave void delegate(Event) listener;
-    void registerListener(void delegate(Event) cb) { listener = cb; }
+    private void delegate(Event)[] listeners;
 
     /**
-     * Get/set the current event timestamp.
+     * Register a listener for in-game Events.
+     *
+     * Note that listeners registered here are "raw" listeners; they will
+     * receive *all* events unfiltered. It's up to the caller to filter events
+     * accordingly.
      */
-    @property void curTick(ulong tick) { _curTick = tick; }
-    @property ulong curTick() { return _curTick; }
+    void listen(void delegate(Event) cb)
+    {
+        listeners ~= cb;
+    }
 
     /**
      * Add an event to the current timestamp.
      */
     void emit(Event ev)
     {
-        ev._tick = curTick;
-        events ~= ev;
-
-        // FIXME: this is a hack to bridge to the current code.
-        if (listener !is null)
-            listener(ev);
-    }
-
-    /**
-     * Expire (delete) events that happened before the given timestamp.
-     */
-    void expire(ulong tick)
-    {
-        // TBD
-    }
-
-    /**
-     * Iterate over events since the given start time, filtered by the given
-     * observer's position. (TBD: implement other perceptual filters too)
-     */
-    void observe(Pos pos, ulong startTick, void delegate(Event) cb)
-    {
-        // FIXME: optimize this
-        foreach (ev; events)
-        {
-            if (ev.tick < startTick) continue;
-            if (0/* !canSee(pos, ev.pos) */) continue;
+        foreach (cb; listeners)
             cb(ev);
-        }
     }
 }
 
@@ -256,8 +225,8 @@ class World
 {
     GameMap map;
     Store store;
-    Sensorium events;
 
+    @NoSave Sensorium events;
     @NoSave ulong triggerId; // TBD: does this need to be @NoSave??
 
     this()
@@ -299,8 +268,6 @@ class World
 
         if (!loadfile.checkAndLeaveBlock())
             throw new Exception("'store' block not closed");
-
-        events = loadfile.parse!Sensorium("events");
     }
 }
 
