@@ -101,84 +101,121 @@ static assert(is4DArray!GameMap && is(CellType!GameMap == ThingId));
 enum void delegate(Args) doNothing(Args...) = (Args args) {};
 
 /**
- * Type of movement event.
+ * Event category.
  */
-enum MoveType
+enum EventCat
 {
-    walk, jump, climb, climbLedge, fall, fallAside, sink,
+    move    = 0x0100,
+    itemAct = 0x0200,
+    dmg     = 0x0300,
+    mapChg  = 0x0400,
+}
+
+enum EventCatMask = 0xFF00;
+
+/**
+ * Event type.
+ */
+enum EventType
+{
+    // EventCat.move
+    moveWalk        = 0x0101,
+    moveJump        = 0x0102,
+    moveClimb       = 0x0103,
+    moveClimbLedge0 = 0x0104,
+    moveClimbLedge1 = 0x0105,
+    moveFall        = 0x0106,
+    moveFallAside   = 0x0107,
+    moveSink        = 0x0108,
+    movePass        = 0x0109,
+
+    // EventCat.itemAct
+    itemPickup      = 0x0201,
+    itemDrop        = 0x0202,
+    itemUse         = 0x0203,
+    itemEquip       = 0x0204,
+    itemUnequip     = 0x0205,
+
+    // EventCat.dmg
+    dmgAttack       = 0x0301,
+    dmgFallOn       = 0x0302,
+    dmgKill         = 0x0303,
+    dmgBlock        = 0x0304,
+
+    // EventCat.mapChg
+    mchgRevealPitTrap   = 0x0401,
+    mchgTrigRockTrap    = 0x0402,
+    mchgDoorOpen        = 0x0403,
+    mchgDoorClose       = 0x0404,
+    mchgMessage         = 0x0405,
 }
 
 /**
- * Type of item interaction event.
+ * An in-game event.
  */
-enum ItemActType
+struct Event
 {
-    pickup, drop, use, takeOff,
+    @property EventCat cat() { return cast(EventCat)(type & EventCatMask); }
+    EventType type;
+    Pos where, whereTo;
+    ThingId subjId;
+    ThingId objId;
+    ThingId obliqueId;
+    string msg;
+
+    this(EventType _type, Pos _where, Pos _whereTo, ThingId _subjId,
+         ThingId _objId = invalidId, ThingId _obliqueId = invalidId,
+         string _msg = "")
+    {
+        type = _type;
+        where = _where;
+        whereTo = _whereTo;
+        subjId = _subjId;
+        objId = _objId;
+        obliqueId = _obliqueId;
+        msg = _msg;
+    }
+
+    this(EventType _type, Pos _where, ThingId _subjId,
+         ThingId _objId = invalidId, ThingId _obliqueId = invalidId,
+         string msg = "")
+    {
+        this(_type, _where, _where, _subjId, _objId, _obliqueId, msg);
+    }
+
+    this(EventType _type, Pos _where, ThingId _subjId, string msg)
+    {
+        this(_type, _where, _where, _subjId, invalidId, invalidId, msg);
+    }
 }
 
 /**
- * Type of damage event.
+ * Collection of events.
  */
-enum DmgEventType
+struct Sensorium
 {
-    attack, fallOn, kill,
-}
-
-/**
- * Type of map change.
- */
-enum MapChgType
-{
-    revealPitTrap, triggerRockTrap, doorOpen, doorClose,
-}
-
-/**
- * Set of hooks for external code to react to in-game events.
- */
-struct EventWatcher
-{
-    /**
-     * An agent moves.
-     */
-    void delegate(MoveType type, Pos oldPos, ThingId subj, Pos newPos, int seq)
-        move = doNothing!(MoveType, Pos, ThingId, Pos, int);
+    private void delegate(Event)[] listeners;
 
     /**
-     * An agent interacts with an object.
+     * Register a listener for in-game Events.
+     *
+     * Note that listeners registered here are "raw" listeners; they will
+     * receive *all* events unfiltered. It's up to the caller to filter events
+     * accordingly.
      */
-    void delegate(ItemActType type, Pos pos, ThingId subj, ThingId obj,
-                  string useVerb) itemAct =
-        doNothing!(ItemActType, Pos, ThingId, ThingId, string);
+    void listen(void delegate(Event) cb)
+    {
+        listeners ~= cb;
+    }
 
     /**
-     * An agent passes a turn.
+     * Add an event to the current timestamp.
      */
-    void delegate(Pos pos, ThingId subj) pass = doNothing!(Pos, ThingId);
-
-    /**
-     * An object damages another object.
-     */
-    void delegate(DmgEventType type, Pos pos, ThingId subj, ThingId obj,
-                  ThingId weapon) damage =
-        doNothing!(DmgEventType, Pos, ThingId, ThingId, ThingId);
-
-    /**
-     * An object withstands damage.
-     */
-    void delegate(Pos pos, ThingId subj, ThingId armor, ThingId weapon)
-        damageBlock = doNothing!(Pos, ThingId, ThingId, ThingId);
-
-    /**
-     * Part of the map changes.
-     */
-    void delegate(MapChgType type, Pos pos, ThingId subj, ThingId obj)
-        mapChange = doNothing!(MapChgType, Pos, ThingId, ThingId);
-
-    /**
-     * A message is emitted by a Message object.
-     */
-    void delegate(Pos pos, ThingId subj, string msg) message =
-        doNothing!(Pos, ThingId, string);
+    void emit(Event ev)
+    {
+        foreach (cb; listeners)
+            cb(ev);
+    }
 }
 
 /**
@@ -189,7 +226,7 @@ class World
     GameMap map;
     Store store;
 
-    @NoSave EventWatcher notify;
+    @NoSave Sensorium events;
     @NoSave ulong triggerId; // TBD: does this need to be @NoSave??
 
     this()

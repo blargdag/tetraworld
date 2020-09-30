@@ -25,6 +25,7 @@ import std.algorithm;
 import components;
 import store_traits;
 import world;
+import vector;
 
 int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
                      DmgType dmgType, int baseDmg)
@@ -48,8 +49,10 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
                 // TBD: amount of damage reduction should be calculated from
                 // equipment stats
                 baseDmg = max(0, baseDmg-1);
-                w.notify.damageBlock(*w.store.get!Pos(victim), victim, armorId,
-                                     invalidId /*FIXME: weaponId*/);
+                w.events.emit(Event(EventType.dmgBlock,
+                                    *w.store.get!Pos(victim), victim,
+                                    invalidId /*FIXME: weaponId*/,
+                                    armorId));
             }
         }
     }
@@ -81,8 +84,8 @@ void injure(World w, ThingId inflictor, ThingId victim, DmgType dmgType,
     if (m.hp <= 0)
     {
         auto pos = w.store.get!Pos(victim);
-        w.notify.damage(DmgEventType.kill, *pos, inflictor, victim,
-                        invalidId /*FIXME: weaponId */);
+        w.events.emit(Event(EventType.dmgKill, *pos, inflictor, victim,
+                            invalidId /*FIXME: weaponId */));
 
         // TBD: drop corpses here
 
@@ -142,16 +145,16 @@ unittest
         ]));
 
     bool killed;
-    w.notify.damage = (type, pos, subj, obj, weapon) {
-        if (type == DmgEventType.kill)
+    w.events.listen((Event ev) {
+        if (ev.type == EventType.dmgKill)
         {
-            assert(pos == Pos(2,1,1,2));
-            assert(subj == attacker.id);
-            assert(obj == victim.id);
+            assert(ev.where == Pos(2,1,1,2));
+            assert(ev.subjId == attacker.id);
+            assert(ev.objId == victim.id);
             //assert(weapon == club.id); // TBD
             killed = true;
         }
-    };
+    });
 
     assert(w.store.get!Pos(coin.id) is null);
     assert(w.store.get!Pos(coat.id) is null);

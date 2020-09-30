@@ -79,16 +79,16 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
             w.store.remove!TiledAbove(triggered);
             w.store.remove!Triggerable(triggered); // trigger only once(?)
             w.store.add!Tiled(triggered, Tiled(TileId.trapPit));
-            w.notify.mapChange(MapChgType.revealPitTrap, newPos,
-                               subj.id, triggered.id);
+            w.events.emit(Event(EventType.mchgRevealPitTrap, newPos, subj.id,
+                                triggered.id));
             break;
 
         case TriggerEffect.rockTrap:
             w.store.add!Tiled(trigger, Tiled(TileId.trapRock));
             w.store.createObj(pos, Name("rock"), Tiled(TileId.rock),
                               Weight(50), Pickable(), Stackable(1));
-            w.notify.mapChange(MapChgType.triggerRockTrap, pos,
-                               subj.id, triggered.id);
+            w.events.emit(Event(EventType.mchgTrigRockTrap, pos, subj.id,
+                                triggered.id));
             break;
 
         case TriggerEffect.toggleDoor:
@@ -98,16 +98,16 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
                 w.store.remove!BlocksMovement(triggered);
                 w.store.add!Name(triggered, Name("unlocked door"));
                 w.store.add!Tiled(triggered, Tiled(TileId.unlockedDoor, -2));
-                w.notify.mapChange(MapChgType.doorOpen, pos, subj.id,
-                                   triggered.id);
+                w.events.emit(Event(EventType.mchgDoorOpen, pos, subj.id,
+                                    triggered.id));
             }
             else
             {
                 w.store.add!BlocksMovement(triggered, BlocksMovement());
                 w.store.add!Name(triggered, Name("Locked door"));
                 w.store.add!Tiled(triggered, Tiled(TileId.lockedDoor, -2));
-                w.notify.mapChange(MapChgType.doorClose, pos, subj.id,
-                                   triggered.id);
+                w.events.emit(Event(EventType.mchgDoorClose, pos, subj.id,
+                                    triggered.id));
             }
             break;
     }
@@ -227,7 +227,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
                                           SysMask.questitem)))
         {
             w.store.remove!Pos(t);
-            w.notify.itemAct(ItemActType.pickup, newPos, subj.id, t.id, "");
+            w.events.emit(Event(EventType.itemPickup, newPos, subj.id, t.id));
             w.store.mergeToInven(t.id, inven.contents);
         }
     }
@@ -242,7 +242,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     {
         foreach (m; msg.msgs)
         {
-            w.notify.message(newPos, subj.id, m);
+            w.events.emit(Event(EventType.mchgMessage, newPos, subj.id, m));
         }
     }
 }
@@ -633,12 +633,14 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         {
             auto medPos = Pos(oldPos + vec(-1,0,0,0));
             rawMove(w, subj, medPos, {
-                w.notify.move(MoveType.climbLedge, oldPos, subj.id, medPos, 0);
+                w.events.emit(Event(EventType.moveClimbLedge0, oldPos, medPos,
+                                    subj.id));
             });
 
             newPos = Pos(newPos + vec(-1,0,0,0));
             rawMove(w, subj, newPos, {
-                w.notify.move(MoveType.climbLedge, medPos, subj.id, newPos, 1);
+                w.events.emit(Event(EventType.moveClimbLedge1, medPos, newPos,
+                                    subj.id));
             });
 
             return ActionResult(true, 3*baseTicks/2);
@@ -651,9 +653,11 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         rawMove(w, subj, newPos, {
             // FIXME: differentiate between walk, jump, climb.
             if (displacement == vec(1,0,0,0) || displacement == vec(-1,0,0,0))
-                w.notify.move(MoveType.climb, oldPos, subj.id, newPos, 0);
+                w.events.emit(Event(EventType.moveClimb, oldPos, newPos,
+                                    subj.id));
             else
-                w.notify.move(MoveType.walk, oldPos, subj.id, newPos, 0);
+                w.events.emit(Event(EventType.moveWalk, oldPos, newPos,
+                                    subj.id));
         });
     }
 
@@ -684,7 +688,7 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     import stacking;
     auto obj = w.store.getObj(objId);
     w.store.remove!Pos(obj);
-    w.notify.itemAct(ItemActType.pickup, *subjPos, subj.id, objId, "");
+    w.events.emit(Event(EventType.itemPickup, *subjPos, subj.id, objId));
     w.store.mergeToInven(objId, inven.contents);
 
     return ActionResult(true, baseTicks);
@@ -721,15 +725,15 @@ ActionResult dropItem(World w, Thing* subj, ThingId objId, int count)
         inven.contents = inven.contents[].remove(idx);
 
         rawMove(w, obj, *subjPos, {
-            w.notify.itemAct(ItemActType.drop, *subjPos, subj.id, objId, "");
+            w.events.emit(Event(EventType.itemDrop, *subjPos, subj.id, objId));
         });
     }
     else
     {
         // Drop partial stack
         rawMove(w, droppedObj, *subjPos, {
-            w.notify.itemAct(ItemActType.drop, *subjPos, subj.id,
-                             droppedObj.id, "");
+            w.events.emit(Event(EventType.itemDrop, *subjPos, subj.id,
+                                droppedObj.id));
         });
     }
 
@@ -750,7 +754,8 @@ ActionResult useItem(World w, Thing* subj, ThingId objId)
                                               "this object.");
 
     auto pos = *w.store.get!Pos(subj.id);
-    w.notify.itemAct(ItemActType.use, pos, subj.id, objId, u.useVerb);
+    w.events.emit(Event(EventType.itemUse, pos, subj.id, objId, invalidId,
+                        u.useVerb));
 
     final switch (u.effect)
     {
@@ -775,7 +780,7 @@ ActionResult pass(World w, Thing* subj)
     auto baseTicks = ag ? ag.ticksPerTurn : 10;
     auto pos = *w.store.get!Pos(subj.id);
 
-    w.notify.pass(pos, subj.id);
+    w.events.emit(Event(EventType.movePass, pos, subj.id));
     return ActionResult(true, baseTicks);
 }
 
@@ -846,7 +851,8 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
     // TBD: damage should be determined by weapon
     import damage;
     auto weapon = w.store.get!Weapon(weaponId);
-    w.notify.damage(DmgEventType.attack, *pos, subj.id, objId, weaponId);
+    w.events.emit(Event(EventType.dmgAttack, *pos, *targetPos, subj.id, objId,
+                        weaponId));
     w.injure(subj.id, objId, weapon.dmgType, weapon.dmg);
 
     return ActionResult(true, baseTicks);
@@ -878,11 +884,11 @@ ActionResult equip(World w, Thing* subj, ThingId objId)
     auto weapon = w.store.get!Weapon(objId);
 
     if (weapon !is null)
-        w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
-                         objId, "ready");
+        w.events.emit(Event(EventType.itemEquip, *w.store.get!Pos(subj.id),
+                            subj.id, objId, invalidId, "ready"));
     else if (armor !is null)
-        w.notify.itemAct(ItemActType.use, *w.store.get!Pos(subj.id), subj.id,
-                         objId, "wear");
+        w.events.emit(Event(EventType.itemUnequip, *w.store.get!Pos(subj.id),
+                            subj.id, objId, invalidId, "wear"));
     else
         return ActionResult(false, baseTicks, "That's not something "~
                                               "equippable!");
@@ -910,8 +916,8 @@ ActionResult unequip(World w, Thing* subj, ThingId objId)
         return ActionResult(false, baseTicks, "You're not wearing that!");
 
     inven.contents[idx].type = Inventory.Item.Type.carrying;
-    w.notify.itemAct(ItemActType.takeOff, *w.store.get!Pos(subj.id), subj.id,
-                     objId, "");
+    w.events.emit(Event(EventType.itemUnequip, *w.store.get!Pos(subj.id),
+                        subj.id, objId));
     return ActionResult(true, baseTicks);
 }
 
