@@ -167,6 +167,28 @@ struct InventoryItem
     }
 }
 
+// TBD: move this to a more appropriate place
+static bool canHear(World w, int hearRadius, Vec!(int,4) hearer,
+                    Vec!(int,4) soundSrc)
+{
+    import std.algorithm : map, fold;
+    import std.range : iota;
+
+    // TBD: modulate hearing by world geometry.
+    auto radSqr = hearRadius * hearRadius;
+    return iota(4).map!(i => hearer[i] - soundSrc[i])
+                  .map!(x => x*x)
+                  .sum <= radSqr;
+}
+
+unittest
+{
+    auto w = new World;
+    // TBD: test geometry
+    assert( canHear(w, 20, vec(0,0,0,0), vec(10,10,10,10)));
+    assert(!canHear(w, 20, vec(0,0,0,0), vec(11,11,11,11)));
+}
+
 /**
  * Game simulation.
  */
@@ -785,10 +807,14 @@ class Game
             bool seenByPlayer = canSee(w, playerPos, ev.where) || (
                                     ev.where != ev.whereTo &&
                                     canSee(w, playerPos, ev.whereTo));
+
+            enum plHearRad = 20; // TBD: should be agent-dependent
+
             string msg;
             if (involvesPlayer || seenByPlayer)
                 msg = fmtVisibleEvent(ev);
-            else if (true /+canHear(w, playerPos, ev.where) /+TBD+/ +/)
+            else if (canHear(w, plHearRad, playerPos, ev.where) ||
+                     canHear(w, plHearRad, playerPos, ev.whereTo))
                 msg = fmtAudibleEvent(ev);
 
             if (msg.length > 0)

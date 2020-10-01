@@ -49,5 +49,31 @@ Language handling ideas:
      default declension that cover 90% of the cases, leaving only few
      exceptions to be explicitly coded for.
 
+//
+
+How to solve the removed-support problem in the gravity system?
+
+- Problem: currently, when an object rests on another object, and the other
+  object moves, the gravity system does not know to update the first object.
+   - This problem can be naïvely solved by having the gravity system iterate
+     over all objects with Pos at every iteration, but obviously that will
+     become a major performance bottleneck as the number of objects grows.
+- A related problem exists with sinking objects. Currently there is a Sinking
+  component that we attach, which gets removed when the object comes to rest.
+- Perhaps what we need is to extend the Sinking component to handle other
+  instances of gravity as well. We'd then attach Sinking (or let's call it
+  Falling?) to objects that lie one tile above any object that moved (this can
+  be done in rawMove), and go from there.
+   - But it's more than rawMove that needs to handle this; destroyed objects
+     also need this. As well as state changes that change support (e.g., pit
+     traps, ice that melts, etc.).
+- Sighhh... perhaps scanning all objects with Pos is ultimately the only clean
+  solution that doesn't require bits of the gravity system to be sprinkled all
+  over the codebase. :-/
+- OTOH, the only thing that *really* changes is the SupportsWeight component.
+  We need a way to inject code such that every time SupportsWeight changes (or
+  gets destroyed as part of a destroyed entity), the Pos associated with the
+  entity gets appended to some list.
+
 
 // vim:set sw=3 ts=3 et ai:
