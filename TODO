@@ -1,6 +1,4 @@
 - Tutorial should include climb-ledge mechanics?
-- To investigate: underwater rock trap spawns rock that seems to vanish into
-  thin air?
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
@@ -30,9 +28,6 @@
    - Pathfinding.
 - Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
   doesn't make sense. Maybe call it "diving equipment"?
-- Implement locked doors and keys?
-   - Basically, reserve the first n levels of the BSP tree (or separately
-     generate them) for disjoint areas, then insert locked doors between them.
 - Should start encapsulating all uses of the RNG so that we can start
   generating seedable levels.
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
@@ -312,3 +307,11 @@ M Bug: a sinking object that lands on something else that subsequently moves
      if their previous support has changed.
       * Make use of FallType.rest in trackedObjs to flag that fallOn has been
         triggered already, so we should avoid triggering it again.
+X To investigate: underwater rock trap spawns rock that seems to vanish into
+  thin air?
+   * Can't reproduce bug.
+   * Though we *did* notice non-swimming objects that fall into water seem to
+     sink a little too fast... (but maybe that's not a bad thing...)
++ Implement locked doors and keys?
+   + Basically, reserve the first n levels of the BSP tree (or separately
+     generate them) for disjoint areas, then insert locked doors between them.

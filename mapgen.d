@@ -2327,7 +2327,7 @@ World genTestLevel()(out int[4] startPos)
     auto w = new World;
     w.map.tree = root;
     w.map.bounds = region(vec(1,1,1,1), vec(9,4,4,4));
-    w.map.waterLevel = 6;
+    w.map.waterLevel = 8;
 
     addLadders(w, w.map.tree, w.map.bounds);
 
@@ -2339,6 +2339,20 @@ World genTestLevel()(out int[4] startPos)
         CanMove(CanMove.Type.walk), Inventory([
             Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
         ]));
+
+    // Testing rock trap over water, for catching the disappearing bug.
+    {
+        auto pos = Pos(8,2,2,2);
+        auto room = root.right;
+
+        auto ceilingPos = pos;
+        ceilingPos[0] = room.interior.min[0];
+        w.store.createObj(Pos(pos), Weight(1) /*FIXME:this is a hack*/,
+                          Trigger(Trigger.Type.onWeight, w.triggerId, 500));
+        w.store.createObj(Pos(ceilingPos),
+                          Triggerable(w.triggerId, TriggerEffect.rockTrap));
+        w.triggerId++;
+    }
 
     startPos = [5,2,2,2];
     return w;
