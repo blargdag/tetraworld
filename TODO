@@ -9,6 +9,12 @@
      and gets stuck on a ladder, it gets untagged from the gravity system and
      does not continue falling down once you move away.
    - We really should implement removal of support from under objects...
+      - Naïve solution: iterate over every object with Pos each time gravity
+        system runs. BP: lots of redundant work, potentially performance BP.
+      - Possible better solution: maintain a list of objects that should be
+        checked at each iteration (including sinking objects). But *don't*
+        remove objects from this list merely because they've come to rest; only
+        remove it if the support they have is permanent (part of terrain).
 - Tutorial should include climb-ledge mechanics?
 - Bug: a sinking object that lands on something else that subsequently moves
   away will get frozen in place instead of sinking farther.
