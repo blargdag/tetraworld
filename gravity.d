@@ -248,7 +248,7 @@ struct SysGravity
             foreach (id; w.store.getAllNew!Pos()
                           .filter!((id) {
                                 auto wgt = w.store.get!Weight(id);
-                                return (wgt !is null) ? wgt.value > 0 : 0;
+                                return (wgt !is null) ? wgt.value > 0 : false;
                           }))
             {
                 trackedObjs[id] = FallType.init;
