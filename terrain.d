@@ -49,19 +49,22 @@ void registerTerrains(Store* store)
                           TiledAbove(TileId.floorBare, -1),
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
-                                         SupportType.within));
+                                         SupportType.within,
+                                         SupportCond.permanent));
 
     store.registerTerrain(blockGrassy, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorGrassy, -1),
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
-                                         SupportType.within));
+                                         SupportType.within,
+                                         SupportCond.permanent));
 
     store.registerTerrain(blockMuddy, Tiled(TileId.wall, -2), Name("wall"),
                           TiledAbove(TileId.floorMuddy, -1),
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
-                                         SupportType.within));
+                                         SupportType.within,
+                                         SupportCond.permanent));
 
     store.registerTerrain(water, Tiled(TileId.water, -2),
                           SupportsWeight(SupportType.within,

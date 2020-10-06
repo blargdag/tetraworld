@@ -234,6 +234,7 @@ enum SupportType
 enum SupportCond
 {
     always,
+    permanent,  // for terrains that never change
     climbing,
     buoyant,
     /* notFalling // for fragile floors that break if you fall on it */
@@ -275,12 +276,6 @@ struct CanMove
 
     Type types;
 }
-
-/**
- * Component attached by gravity system for objects that are sinking in water.
- */
-@Component
-struct Sinking { }
 
 /**
  * Component for objects that trigger other objects.
