@@ -92,7 +92,7 @@ private alias Indices = staticMap!(IndexOf, AllComponents);
 private alias NewLists = staticMap!(NewListOf, AllComponents);
 
 /**
-* Entity/component storage.
+ * Entity/component storage.
  */
 struct Store
 {

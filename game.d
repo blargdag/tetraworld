@@ -802,8 +802,7 @@ class Game
     private void setupEventWatchers()
     {
         w.events.listen((Event ev) {
-            bool involvesPlayer = (ev.subjId == player.id ||
-                                   ev.objId == player.id);
+            bool involvesPlayer = (ev.objId == player.id);
             bool seenByPlayer = canSee(w, playerPos, ev.where) || (
                                     ev.where != ev.whereTo &&
                                     canSee(w, playerPos, ev.whereTo));
