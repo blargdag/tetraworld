@@ -725,7 +725,7 @@ unittest
     //    0123        0123
     //  0 ####      0 ####
     //  1 #@ #  ==> 1 #@ #
-    //  2 #- #      2 #- #
+    //  2 #= #      2 #= #
     //  3 #  #      3 #  #
     //  4 #  #      4 #  #
     //  5 ####      5 ####
@@ -742,7 +742,7 @@ unittest
     //    0123        0123
     //  0 ####      0 ####
     //  1 #@ #  ==> 1 #  #
-    //  2 # -#      2 # -#
+    //  2 # =#      2 # =#
     //  3 #  #      3 #  #
     //  4 #  #      4 #@ #
     //  5 ####      5 ####
@@ -751,6 +751,59 @@ unittest
     grav.run(w);
 
     assert(*w.store.get!Pos(fatso.id) == Pos(4,1,1,1));
+
+    // Scenario 3:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@~#  ==> 1 #~~#
+    //  2 #~~#      2 #@~#
+    //  3 #=~#      3 #=~#
+    //  4 #~~#      4 #~~#
+    //  5 ####      5 ####
+    w.store.remove!Pos(fatso);
+    w.store.add!Pos(fatso, Pos(1,1,1,1));
+    w.store.remove!Pos(platform);
+    w.store.add!Pos(platform, Pos(3,1,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+
+    assert(*w.store.get!Pos(fatso.id) == Pos(2,1,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+
+    // Platform should prevent sinking
+    assert(*w.store.get!Pos(fatso.id) == Pos(2,1,1,1));
+
+    // Scenario 4:
+    //    0123        0123        0123
+    //  0 ####      0 ####      0 #### 
+    //  1 #~~#  ==> 1 #~~#  ==> 1 #~~# 
+    //  2 #@~#      2 #~~#      2 #~~# 
+    //  3 #~=#      3 #@=#      3 #~=# 
+    //  4 #~~#      4 #~~#      4 #@~# 
+    //  5 ####      5 ####      5 #### 
+    w.store.remove!Pos(platform);
+    w.store.add!Pos(platform, Pos(3,2,1,1));
+    w.map.waterLevel = 0;
+
+    grav.run(w);
+    grav.sinkObjects(w);
+
+    assert(*w.store.get!Pos(fatso.id) == Pos(3,1,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+
+    assert(*w.store.get!Pos(fatso.id) == Pos(4,1,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+
+    // Should have come to permanent rest
+    assert(*w.store.get!Pos(fatso.id) == Pos(4,1,1,1));
+    assert((fatso.id in grav.trackedObjs) is null);
 }
 
 // vim:set ai sw=4 ts=4 et:
