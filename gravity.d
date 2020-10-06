@@ -71,9 +71,15 @@ struct SysGravity
     }
 
     // List of objects that are sinking or could potentially be falling.
+    //
     // NOTE: do NOT remove objects that have merely come to rest, as their
     // support may change; only remove them if the support is permanent (part
     // of unchanging terrain).
+    //
+    // NOTE: FallType.rest is interpreted as having come to rest the previous
+    // iteration, and fallOn will be suppressed until the fall state changes
+    // again. This is to prevent multiple over-invocations of fallOn when we
+    // get called from the agent system multiple times per turn.
     private FallType[ThingId] trackedObjs;
 
     private FallType checkSupport(World w, ThingId id, bool alreadyFalling,
@@ -185,7 +191,7 @@ struct SysGravity
         return true;
     }
 
-    private void runOnce(World w, Thing* t)
+    private void runOnce(World w, Thing* t, FallType prevType)
     {
         Pos oldPos, floorPos;
         FallType type = computeFallType(w, t.id, false, oldPos, floorPos);
@@ -201,7 +207,6 @@ struct SysGravity
                     // Sinking is done by the sinking agent; here we just mark
                     // the object as sinking and the agent will pick it up
                     // later.
-                    trackedObjs[t.id] = FallType.sink;
                     break OUTER;
 
                 case FallType.fall:
@@ -215,8 +220,15 @@ struct SysGravity
                                             SysMask.blocksmovement);
                     if (!r.empty)
                     {
-                        if (!fallOn(w, t, r.front, oldPos, floorPos))
+                        // Note: if prevType == rest, that means we already
+                        // triggered fallOn the last time round; don't trigger
+                        // it again until the blocking object moves away.
+                        type = FallType.rest;
+                        if (prevType == FallType.rest ||
+                            !fallOn(w, t, r.front, oldPos, floorPos))
+                        {
                             break OUTER;
+                        }
                     }
                     else
                     {
@@ -224,6 +236,7 @@ struct SysGravity
                             w.events.emit(Event(EventType.moveFall, oldPos,
                                                 floorPos, t.id));
                         });
+                        prevType = type;
                     }
                     break;
             }
@@ -233,6 +246,11 @@ struct SysGravity
         if (type == FallType.none)
         {
             trackedObjs.remove(t.id);
+        }
+        else
+        {
+            // Keep track of object fall state.
+            trackedObjs[t.id] = type;
         }
     }
 
@@ -251,7 +269,8 @@ struct SysGravity
                                 return (wgt !is null) ? wgt.value > 0 : false;
                           }))
             {
-                trackedObjs[id] = FallType.init;
+                if (id !in trackedObjs)
+                    trackedObjs[id] = FallType.init;
                 result = true;
             }
 
@@ -278,7 +297,7 @@ struct SysGravity
                     continue;
                 }
 
-                runOnce(w, t);
+                runOnce(w, t, trackedObjs.get(id, FallType.init));
             }
         } while (mergeNewTargets());
     }
@@ -417,6 +436,7 @@ unittest
     //  1 #@ #  ==> 1 #@ #
     //  2 #A##      2 #A##
     //  3 ####      3 ####
+    grav = grav.init;
     w.store.remove!Pos(rock);
     w.store.add!Pos(rock, Pos(1,1,1,1));
     w.store.remove!Pos(corner);
@@ -435,6 +455,7 @@ unittest
     //  1 #@ #  ==> 1 #  #
     //  2 #A##      2 #@##
     //  3 ####      3 ####
+    grav = grav.init;
     w.store.remove!Pos(rock);
     w.store.add!Pos(rock, Pos(1,1,1,1));
     grav.run(w);
@@ -810,19 +831,28 @@ unittest
     //  0 ####      0 ####
     //  1 #@ #  ==> 1 #  #
     //  2 #  #      2 #  #
-    //  3 #  #      3 #  #
-    //  4 #& #      4 #&@#
+    //  3 #  #      3 #@ #
+    //  4 #&##      4 #&##
     //  5 ####      5 ####
     w.store.remove!Pos(fatso);
     w.store.add!Pos(fatso, Pos(1,1,1,1));
     w.store.destroyObj(platform.id);
     auto victim = w.store.createObj(Name("бедняжка"), Pos(4,1,1,1),
                                     Mortal(5,5), BlocksMovement());
+    auto blocker = w.store.createObj(Name("wall"), Pos(4,2,1,1),
+                                     BlocksMovement());
     w.map.waterLevel = int.max;
 
     grav.run(w);
 
-    assert(*w.store.get!Pos(fatso.id) == Pos(4,2,1,1));
+    assert(*w.store.get!Pos(fatso.id) == Pos(3,1,1,1));
+    assert(w.store.get!Mortal(victim.id).hp == 4);
+
+    // Once we've come to rest, further invocations should not trigger fallOn
+    // anymore.
+    grav.run(w);
+
+    assert(*w.store.get!Pos(fatso.id) == Pos(3,1,1,1));
     assert(w.store.get!Mortal(victim.id).hp == 4);
 }
 
