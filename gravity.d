@@ -698,4 +698,59 @@ unittest
     assert(*w.store.get!Pos(newrock.id) == Pos(4,1,1,1));
 }
 
+// Test falling of resting objects when support is displaced.
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //  0 ####
+    //  1 #  #
+    //  2 #  #
+    //  3 #  #
+    //  4 #  #
+    //  5 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,4,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = int.max;
+
+    SysGravity grav;
+
+    // Scenario 1 (null case):
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #@ #
+    //  2 #- #      2 #- #
+    //  3 #  #      3 #  #
+    //  4 #  #      4 #  #
+    //  5 ####      5 ####
+    auto fatso = w.store.createObj(Name("fatso"), Pos(1,1,1,1), Weight(100));
+    auto platform = w.store.createObj(Name("platform"), Pos(2,1,1,1),
+        SupportsWeight(SupportType.above, SupportCond.always));
+
+    grav.run(w);
+
+    assert(*w.store.get!Pos(fatso.id) == Pos(1,1,1,1));
+    assert((fatso.id in grav.trackedObjs) !is null);
+
+    // Scenario 2:
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #  #
+    //  2 # -#      2 # -#
+    //  3 #  #      3 #  #
+    //  4 #  #      4 #@ #
+    //  5 ####      5 ####
+    w.store.remove!Pos(platform);
+    w.store.add!Pos(platform, Pos(2,2,1,1));
+    grav.run(w);
+
+    assert(*w.store.get!Pos(fatso.id) == Pos(4,1,1,1));
+}
+
 // vim:set ai sw=4 ts=4 et:
