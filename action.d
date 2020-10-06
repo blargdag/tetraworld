@@ -274,6 +274,7 @@ int foreachSupport(World w, ThingId agentId, SupportType type,
     {
         final switch (sw.cond)
         {
+            case SupportCond.permanent:
             case SupportCond.always:
                 return true;
 
@@ -362,7 +363,8 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
                 {
                     return 1;
                 }
-                if (sw.cond == SupportCond.always &&
+                if ((sw.cond == SupportCond.always ||
+                     sw.cond == SupportCond.permanent) &&
                     (cm.types & CanMove.Type.jump))
                 {
                     return 1;
@@ -397,6 +399,7 @@ bool canAgentMove(World w, ThingId agentId, Vec!(int,4) displacement)
         // in water and can swim.
         if (foreachSupport(w, agentId, SupportType.above, (id, sw) {
                 if ((sw.cond == SupportCond.always ||
+                     sw.cond == SupportCond.permanent ||
                      sw.cond == SupportCond.climbing) &&
                     (cm.types & CanMove.Type.walk))
                 {
