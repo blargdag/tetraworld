@@ -1,4 +1,8 @@
 - BUG: new gravity system seems to be triggering fallOn once too often.
+   - Looks like the reason is because we call gravity.run() once per agent
+     turn, so each time, an object that sits on top of a fallOn target will
+     trigger fallOn again. Whereas in the old system, once the object has come
+     to rest, it's removed from consideration until the next time it moves.
 - Tutorial should include climb-ledge mechanics?
 - To investigate: underwater rock trap spawns rock that seems to vanish into
   thin air?
