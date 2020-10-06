@@ -1453,8 +1453,9 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
 
         auto ceilingPos = pos;
         ceilingPos[0] = room.interior.min[0];
+        pos[0] = room.interior.max[0] - 1;
 
-        w.store.createObj(Pos(pos), Weight(1) /*FIXME:this is a hack*/,
+        w.store.createObj(Pos(pos),
                           Trigger(Trigger.Type.onWeight, w.triggerId, 500));
         w.store.createObj(Pos(ceilingPos),
                           Triggerable(w.triggerId, TriggerEffect.rockTrap));
