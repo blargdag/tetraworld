@@ -804,6 +804,26 @@ unittest
     // Should have come to permanent rest
     assert(*w.store.get!Pos(fatso.id) == Pos(4,1,1,1));
     assert((fatso.id in grav.trackedObjs) is null);
+
+    // Scenario 5 (frequency of fallOn):
+    //    0123        0123
+    //  0 ####      0 ####
+    //  1 #@ #  ==> 1 #  #
+    //  2 #  #      2 #  #
+    //  3 #  #      3 #  #
+    //  4 #& #      4 #&@#
+    //  5 ####      5 ####
+    w.store.remove!Pos(fatso);
+    w.store.add!Pos(fatso, Pos(1,1,1,1));
+    w.store.destroyObj(platform.id);
+    auto victim = w.store.createObj(Name("бедняжка"), Pos(4,1,1,1),
+                                    Mortal(5,5), BlocksMovement());
+    w.map.waterLevel = int.max;
+
+    grav.run(w);
+
+    assert(*w.store.get!Pos(fatso.id) == Pos(4,2,1,1));
+    assert(w.store.get!Mortal(victim.id).hp == 4);
 }
 
 // vim:set ai sw=4 ts=4 et:

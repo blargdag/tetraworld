@@ -2318,7 +2318,7 @@ World genTestLevel()(out int[4] startPos)
     ];
 
     root.right = new MapNode;
-    root.right.interior = region(vec(4,1,1,1), vec(6,4,4,4));
+    root.right.interior = region(vec(4,1,1,1), vec(9,4,4,4));
     root.right.doors = [
         Door(0, [3,1,1,1]),
         Door(0, [3,3,3,3]),
@@ -2326,8 +2326,8 @@ World genTestLevel()(out int[4] startPos)
 
     auto w = new World;
     w.map.tree = root;
-    w.map.bounds = region(vec(1,1,1,1), vec(6,4,4,4));
-    w.map.waterLevel = int.max;
+    w.map.bounds = region(vec(1,1,1,1), vec(9,4,4,4));
+    w.map.waterLevel = 6;
 
     addLadders(w, w.map.tree, w.map.bounds);
 
