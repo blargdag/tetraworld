@@ -92,7 +92,8 @@ enum TileId : ushort
 
     gold,
     rock,
-    vegetation,
+    vegetation1,
+    vegetation2,
     crabShell,
     portal,
     trapPit,
