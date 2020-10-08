@@ -1,3 +1,4 @@
+- BUG: gravity.d:322 assert failure (got FallType.fall for a sinking object).
 - Tutorial should include climb-ledge mechanics?
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
