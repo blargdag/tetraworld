@@ -1,3 +1,6 @@
+- BUG: looks like the true cause of the assert bug is a sync issue where a
+  creature can jump in the air but the gravity system fails to run. *That's*
+  why the creature fall state was not updated properly. :-(
 - Tutorial should include climb-ledge mechanics?
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
