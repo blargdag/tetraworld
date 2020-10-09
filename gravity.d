@@ -335,8 +335,10 @@ struct SysGravity
                     break;
 
                 case FallType.fall:
-                    // Should have been taken care of by run().
-                    assert(0);
+                    // Object may have left the water since the last call to
+                    // sinkObjects. So update the state now.
+                    trackedObjs[obj.id] = type;
+                    continue;
 
                 case FallType.sink:
                     rawMove(w, obj, floorPos, {
