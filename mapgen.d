@@ -1865,8 +1865,10 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                           Pickable());
     }
 
+    auto mapFloorArea = floorArea(tree);
+
     // Generate random rocks as additional deco.
-    foreach (i; 0 .. floorArea(tree) * args.rockPct / 100)
+    foreach (i; 0 .. mapFloorArea * args.rockPct / 100)
     {
         auto rock = w.store.createObj(Pos(randomLocation(tree, bounds)),
                                       Tiled(TileId.rock), Name("rock"),
@@ -1876,6 +1878,23 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
             w.store.add(rock, Name("sharp rock"));
             w.store.add(rock, Weapon(DmgType.pierce, 1, "cut"));
         }
+    }
+
+    // Generate random vegetation for creatures to seek out once in a while.
+    enum vegPct = 8; // FIXME: should be configurable
+    enum vegDensePct = 15;
+    foreach (i; 0 .. mapFloorArea * vegPct / 100)
+    {
+        // TBD: bias the distribution to be closer to water line, fade away
+        // farther away from water line.
+        if (uniform(0, 100) < vegDensePct)
+            w.store.createObj(Pos(randomLocation(tree, bounds)),
+                              Tiled(TileId.vegetation2), Weight(100),
+                              BlocksView(), Name("dense vegetation"));
+        else
+            w.store.createObj(Pos(randomLocation(tree, bounds)),
+                              Tiled(TileId.vegetation1), Name("vegetation"),
+                              Weight(100));
     }
 }
 
