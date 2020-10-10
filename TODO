@@ -2,9 +2,20 @@
   creature can jump in the air but the gravity system fails to run. *That's*
   why the creature fall state was not updated properly. :-(
 - Tutorial should include climb-ledge mechanics?
+- [ui] Should merge equip/unequip actions into *single* inventory UI. Having
+  separate actions and different inventory modes is very confusing.
+   - Also, the drop dialogue is stupid and klunky; you should follow nethack's
+     way of dropping all by default, limited number only if player prefixes it
+     with a count.
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
+- [mapgen] Different styled rooms.
+   - Need to support polymorphism in load/save. :-/
+   - Maybe occasionally block off leaf nodes?
+   - Maybe some rooms can turn into corridors.
+- Improve creature AI.
+   - Pathfinding.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -24,22 +35,17 @@
       + So, looks like we need to attach a Sinking component to sinking
         objects, and register an agent that specifically deals with pulling
         down sinking objects.
-- [mapgen] Different styled rooms.
-   - Maybe occasionally block off leaf nodes?
-   - Maybe some rooms can turn into corridors.
-- Improve creature AI.
-   - Pathfinding.
+   - Implement water currents? :-D
+      - Moving creatures should leave a wake, maybe implemented as temporary
+        random mover in water tiles?
+   - Per-room water levels?
+   - Waterfalls? Rivers? :-D
 - Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
   doesn't make sense. Maybe call it "diving equipment"?
 - Should start encapsulating all uses of the RNG so that we can start
   generating seedable levels.
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
   number!
-- Implement water currents? :-D
-   - Moving creatures should leave a wake, maybe implemented as temporary
-     random mover in water tiles?
-- Per-room water levels?
-- Waterfalls? Rivers? :-D
 - [mapgen] Occasionally generate spiral staircases? :-D
 - Implement uncrossable pits and ropes for crossing them?
    - Alternatively, opposite ladderless ledges that require a rope to traverse.
