@@ -290,8 +290,9 @@ try to reach it, as it might lead somewhere interesting.</p>
 
 <p>The current version of game only generates maps that consist of
 rectangular<sup>*</sup> rooms connected by doors, ladders, the occasional pits
-(watch out for holes in the floor!), and even hidden trapdoors. There may be
-rooms submerged or partially submerged in 4D water. Have fun!</p>
+(watch out for holes in the floor!), and hidden trapdoors. There may be rooms
+partially or completely submerged in 4D water. There is also vegetation, the
+dense variety of which blocks line-of-sight. Have fun!</p>
 
 <p>(<sup>*</sup> Technically, <em>hypercuboidal</em>.)</p>
 
@@ -398,19 +399,21 @@ but currently not yet implemented.</p>
 
 <p>In the current version of the game, you have to find and collect all of the
 gold ores scattered around each level, then find the exit portal and activate
-it.  Repeat for all levels.  Currently, the last level is very large, and
-you're not expected to be able to complete it.  It is intended to be a
-longer-term map in the future where other interesting activities will take
-place.  But for now, it's merely an extremely large level.  If you <em>do</em>
-win it, though, you have my respect!!</p>
+it.  Repeat for all levels.  The last level is intended to be a placeholder for
+a longer-term map in the future where other interesting activities will take
+place.  But for now, it's merely an extremely large level filled with lots of
+hazards.  It's possible, albeit very hard, to win it through very careful play.
+Do you have what it takes to complete the gauntlet?</p>
 
 <p>The challenge in each level is navigating the 4D geometry of the level and
-locating the gold, while avoiding the hazards. Fortunately, barring a bug in
-the map generator, the current version of the game always generates maps that
-are <em>fully connected</em>: you will always be able to reach all parts of the
-map from any part, even if you stumble into hidden pits and fall through.  So
-you can rest assured that you will never get stuck without a way out, even if
-you do get totally lost in 4D space.  &#x263A;</p>
+locating the gold, while avoiding the hazards. Sometimes, gold may be hidden
+under rocks or vegetation; be sure to examine everything carefully!
+Fortunately, barring a bug in the map generator, the current version of the
+game always generates maps that are <em>fully connected</em>: you will always
+be able to reach all parts of the map from any part, even if you stumble into
+hidden pits and fall through.  So you can rest assured that you will never get
+stuck without a way out, even if you do get totally lost in 4D space.
+&#x263A;</p>
 
 <p>Especially tricky are room exits located one tile above the floor, which can
 be accessed with the climb-ledge action (walk into the wall directly under them
@@ -419,18 +422,32 @@ they are easy to miss.  If you find yourself seemingly stuck in an area with no
 way out, try looking for these ledges along the walls: if present, they are
 located in the row immediately above the middle one in the display.</p>
 
-<p>There are also enemies that you may run into (you will know them when you
-see them!).  In this version of the game they can be quite dangerous, but their
-movement is predictable and they stop following you once you're out of sight.
-With some practice you should be able to lose them.  They are also poor
-swimmers and tend to get stuck at the bottom of pools; if you can lure them
-into one it should relieve you of them for a while.  You can also lure them
-into previously-discovered traps.</p>
+<p>The current version of the game has two types of enemies that you may run
+into:</p>
+
+<dl>
+
+<dt><tt style="color:#ff0000">A</tt></dt>
+<dd>Tentacled conical creatures: very dangerous, can climb ladders and ledges
+and chase you. Also very tough; head-to-head combat is not advisable, as your
+4D environment suit will hardly survive combat with one, and
+<em>definitely</em> not with two or more, of these creatures. However, their
+movement is predictable and they stop following you once out of sight. They
+also cannot swim, and will sink to the bottom of pools. Luring them into pools
+or previously-discovered traps is a good way of dealing with them.</dd>
+
+<dt><tt style="color:#ff0000">C</tt></dt>
+<dd>Shelled creatures: slow-moving, and cannot climb. Generally easy to avoid.
+Their hard shell protects them from falling objects, though if you wield
+something sharp you may be able to cut off their shell and use it for yourself!
+Be extremely careful of their claws, though; they cause double damage!</dd>
+
+</dl>
 
 <p>Be careful that what is adjacent in 4D may not be displayed adjacently on
 the screen, and these enemies are native to 4D space and facile with moving
-around in 4D, so you should always double-check exactly which tiles are
-adjacent to an enemy before making a move!</p>
+around in 4D. You should always double-check exactly which tiles are adjacent
+to an enemy before making a move!</p>
 
 
 <hr/>
