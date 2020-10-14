@@ -332,6 +332,7 @@ struct SysGravity
                 case FallType.rest:
                     // Object resting on support; nothing left to do but don't
                     // untrack it just yet (support may shift).
+                    trackedObjs[obj.id] = type;
                     break;
 
                 case FallType.fall:
@@ -856,6 +857,89 @@ unittest
 
     assert(*w.store.get!Pos(fatso.id) == Pos(3,1,1,1));
     assert(w.store.get!Mortal(victim.id).hp == 4);
+}
+
+// Float-in-midair bug
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //  0 ####
+    //  1 #  #
+    //  2 #J #
+    //  3 #=~#
+    //  4 #=~#
+    //  5 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,2,2,2));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,3,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = 3;
+
+    SysGravity grav;
+
+    // Ladders
+    createLadder(&w.store, Pos(3,1,1,1));
+    createLadder(&w.store, Pos(4,1,1,1));
+
+    auto jumper = w.store.createObj(Name("прыгун"), Pos(2,1,1,1), Weight(10),
+        CanMove(CanMove.Type.walk | CanMove.Type.climb | CanMove.Type.jump));
+
+    // Initial state sanity test
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(jumper.id) == Pos(2,1,1,1));
+
+    // Should be at rest
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(jumper.id) == Pos(2,1,1,1));
+
+    // Test jumping and falling into water.
+    w.store.remove!Pos(jumper);
+    w.store.add!Pos(jumper, Pos(1,1,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(jumper.id) == Pos(3,1,1,1));
+
+    // Check fall status after landing in water
+    assert(jumper.id in grav.trackedObjs &&
+           grav.trackedObjs[jumper.id] == SysGravity.FallType.rest);
+
+    // Move up
+    w.store.remove!Pos(jumper);
+    w.store.add!Pos(jumper, Pos(2,1,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(jumper.id) == Pos(2,1,1,1));
+    assert(jumper.id !in grav.trackedObjs ||
+           grav.trackedObjs[jumper.id] != SysGravity.FallType.sink);
+
+    // Jump
+    w.store.remove!Pos(jumper);
+    w.store.add!Pos(jumper, Pos(1,1,1,1));
+
+    // Should be falling again
+    grav.sinkObjects(w);
+    assert(jumper.id in grav.trackedObjs &&
+           grav.trackedObjs[jumper.id] != SysGravity.FallType.sink);
+
+    grav.run(w);
+    assert(*w.store.get!Pos(jumper.id) == Pos(3,1,1,1));
+
+    // Check fall status after landing in water the second time.
+    assert(jumper.id in grav.trackedObjs &&
+           grav.trackedObjs[jumper.id] == SysGravity.FallType.sink);
+
+    grav.sinkObjects(w);
+    assert(jumper.id in grav.trackedObjs &&
+           grav.trackedObjs[jumper.id] == SysGravity.FallType.rest);
 }
 
 // vim:set ai sw=4 ts=4 et:
