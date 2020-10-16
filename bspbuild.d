@@ -320,13 +320,57 @@ unittest
                                                         vec(5,6,7,8)));
 }
 
-void main()
+/**
+ * Generate code to construct the given BSP tree.
+ */
+void genCode()(Node node)
+    in (node !is null)
 {
-    stdin.byLine
-         .map!parseRegion
-         .array
-         .buildBsp
-         .printTree;
+    static void impl(Node node, string prefix)
+    {
+        if (node.left !is null && node.right !is null)
+        {
+            writefln("%s.axis = %d;", prefix, node.axis);
+            writefln("%s.pivot = %d;", prefix, node.pivot);
+
+            writefln("%s.left = new MapNode;", prefix);
+            impl(node.left, prefix ~ ".left");
+
+            writefln("%s.right = new MapNode;", prefix);
+            impl(node.right, prefix ~ ".right");
+        }
+        else
+            writefln("%s.interior = region(vec(%(%s,%)), vec(%(%s,%)));",
+                     prefix, node.interior.min[], node.interior.max[]);
+    }
+
+    writeln("    auto tree = new MapNode;");
+    impl(node, "    tree");
+}
+
+void main(string[] args)
+{
+    enum OutFmt { tree, code }
+    OutFmt ofmt;
+
+    getopt(args,
+        "o", "Output format (tree|code)", &ofmt,
+    );
+
+    auto tree = stdin.byLine
+                     .map!parseRegion
+                     .array
+                     .buildBsp;
+    final switch(ofmt)
+    {
+        case OutFmt.tree:
+            printTree(tree);
+            break;
+
+        case OutFmt.code:
+            genCode(tree);
+            break;
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:
