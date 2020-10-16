@@ -126,6 +126,8 @@ void findAxisPivot(Region!(int,4)[] boxes, out int axis, out int pivot)
         auto curPivot = boxes[idx].min[d];
         auto nSplits = boxes.numSplits(d, curPivot);
 
+        // Find best combination that minimizes tree imbalance and number of
+        // splits.
         auto metric = dIdx*dIdx + nSplits*nSplits;
         if (metric < minMetric)
         {
@@ -148,6 +150,31 @@ unittest
     int axis, pivot;
     findAxisPivot(data, axis, pivot);
     assert(axis == 0 && pivot == 4);
+}
+
+unittest
+{
+    // Layout:
+    // 00001
+    // 24561
+    // 27781
+    // 23333
+    auto data = [
+        region(vec(0,0,0,0), vec(4,1,1,1)),
+        region(vec(4,0,0,0), vec(5,3,1,1)),
+        region(vec(0,1,0,0), vec(1,4,1,1)),
+        region(vec(1,3,0,0), vec(5,4,1,1)),
+
+        region(vec(1,1,0,0), vec(2,2,1,1)),
+        region(vec(2,1,0,0), vec(3,2,1,1)),
+        region(vec(3,1,0,0), vec(4,2,1,1)),
+        region(vec(1,2,0,0), vec(3,3,1,1)),
+        region(vec(3,1,0,0), vec(4,3,1,1)),
+    ];
+
+    int axis, pivot;
+    findAxisPivot(data, axis, pivot);
+    assert(axis == 1 && pivot == 1);
 }
 
 Node buildBsp(Region!(int,4)[] boxes)
