@@ -95,6 +95,10 @@ env.DProgram('uniwidth', Split("""
 	uniwidth.d
 """))
 
+env.DProgram('bspbuild', Split("""
+	bspbuild.d
+"""))
+
 # FIXME: upload.d has no unittests, and --unittest somehow runs main()?!
 env.Command('upload', 'upload.d', "$LDC $LDCFLAGS $SOURCES -of$TARGET")
 
