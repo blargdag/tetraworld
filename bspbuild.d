@@ -130,10 +130,10 @@ void findAxisPivot(Region!(int,4)[] boxes, out int axis, out int pivot)
 
         // Find best combination that minimizes tree imbalance and number of
         // splits.
-        auto metric = dIdx*dIdx + nSplits*nSplits;
-        if (metric < minMetric)
+        auto m = dIdx*dIdx + nSplits*nSplits;
+        if (m < minMetric)
         {
-            minMetric = metric;
+            minMetric = m;
             axis = d;
             pivot = curPivot;
         }
@@ -197,6 +197,12 @@ unittest
  * Boxes are split between two nodes if necessary. But we try to optimize
  * between minimizing the number of splits and the imbalance of the resulting
  * tree.
+ *
+ * Params:
+ *  boxes = The boxes to build the tree for.
+ *
+ * Bugs: The input must consist of disjoint boxes. If some boxes overlap, there
+ * may be corner cases that cause infinite recursion or other wrong behaviour.
  */
 Node buildBsp(Region!(int,4)[] boxes)
 {
@@ -262,8 +268,6 @@ unittest
         region(vec(3,2,0,0), vec(4,3,1,1)),
     ];
 
-    auto tree = buildBsp(data);
-
     static void printTree()(Node node, string indentStr="")
     {
         if (node.left !is null && node.right !is null)
@@ -279,6 +283,8 @@ unittest
         else
             writefln("%s", node.interior);
     }
+
+    auto tree = buildBsp(data);
     printTree(tree);
 }
 
