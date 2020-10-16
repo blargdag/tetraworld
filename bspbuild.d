@@ -40,12 +40,12 @@ auto findPivotIdx(R)(R values)
 {
     const midx = values.length / 2;
     const median = values[midx];
-    foreach (stride; 0 .. midx)
+    foreach (stride; 0 .. midx+1)
     {
-        assert(midx >= stride && midx + stride < values.length);
+        assert(midx >= stride);
         if (values[midx - stride] != median)
             return midx - stride + 1;
-        if (values[midx + stride] != median)
+        if (midx + stride < values.length && values[midx + stride] != median)
             return midx + stride;
     }
     return 0;
@@ -53,6 +53,8 @@ auto findPivotIdx(R)(R values)
 
 unittest
 {
+    assert(findPivotIdx([ 0, 4 ]) == 1);
+
     assert(findPivotIdx([ 0, 0, 0, 0, 1, 1, 1, 1 ]) == 4);
     assert(findPivotIdx([ 0, 0, 0, 1, 1, 1, 1, 1 ]) == 3);
     assert(findPivotIdx([ 0, 0, 0, 0, 0, 1, 1, 1 ]) == 5);
@@ -141,6 +143,18 @@ void findAxisPivot(Region!(int,4)[] boxes, out int axis, out int pivot)
 unittest
 {
     auto data = [
+        region(vec(0,0,0,0), vec(4,1,1,1)),
+        region(vec(4,0,0,0), vec(5,3,1,1)),
+    ];
+
+    int axis, pivot;
+    findAxisPivot(data, axis, pivot);
+    assert(axis == 0 && pivot == 4);
+}
+
+unittest
+{
+    auto data = [
         region(vec(0,0,0,0), vec(2,5,1,1)),
         region(vec(2,0,0,0), vec(4,5,1,1)),
         region(vec(4,0,0,0), vec(6,2,1,1)),
@@ -169,14 +183,21 @@ unittest
         region(vec(2,1,0,0), vec(3,2,1,1)),
         region(vec(3,1,0,0), vec(4,2,1,1)),
         region(vec(1,2,0,0), vec(3,3,1,1)),
-        region(vec(3,1,0,0), vec(4,3,1,1)),
+        region(vec(3,2,0,0), vec(4,3,1,1)),
     ];
 
     int axis, pivot;
     findAxisPivot(data, axis, pivot);
-    assert(axis == 1 && pivot == 1);
+    assert(axis == 1 && pivot == 2);
 }
 
+/**
+ * Build a (near-)optimal BSP tree that contains the given boxes.
+ *
+ * Boxes are split between two nodes if necessary. But we try to optimize
+ * between minimizing the number of splits and the imbalance of the resulting
+ * tree.
+ */
 Node buildBsp(Region!(int,4)[] boxes)
 {
     if (boxes.length == 0)
@@ -192,9 +213,73 @@ Node buildBsp(Region!(int,4)[] boxes)
     // Find "best" pivot
     findAxisPivot(boxes, node.axis, node.pivot);
 
-    // TBD: distribute nodes among child nodes, splitting as necessary
+    // Distribute nodes between child nodes, splitting as necessary.
+    Region!(int,4)[] leftBoxes, rightBoxes;
+    foreach (box; boxes)
+    {
+        if (box.max[node.axis] <= node.pivot)
+            leftBoxes ~= box;
+        else if (box.min[node.axis] >= node.pivot)
+            rightBoxes ~= box;
+        else
+        {
+            // Need to split box.
+            auto leftBox = box;
+            leftBox.max[node.axis] = node.pivot;
+            leftBoxes ~= leftBox;
+
+            auto rightBox = box;
+            rightBox.min[node.axis] = node.pivot;
+            rightBoxes ~= rightBox;
+        }
+    }
+
+    // Recursively build subtrees.
+    node.left = buildBsp(leftBoxes);
+    node.right = buildBsp(rightBoxes);
+    assert(node.left !is null && node.right !is null);
 
     return node;
+}
+
+unittest
+{
+    // Layout:
+    // 00001
+    // 24561
+    // 27781
+    // 23333
+    auto data = [
+        region(vec(0,0,0,0), vec(4,1,1,1)),
+        region(vec(4,0,0,0), vec(5,3,1,1)),
+        region(vec(0,1,0,0), vec(1,4,1,1)),
+        region(vec(1,3,0,0), vec(5,4,1,1)),
+
+        region(vec(1,1,0,0), vec(2,2,1,1)),
+        region(vec(2,1,0,0), vec(3,2,1,1)),
+        region(vec(3,1,0,0), vec(4,2,1,1)),
+        region(vec(1,2,0,0), vec(3,3,1,1)),
+        region(vec(3,2,0,0), vec(4,3,1,1)),
+    ];
+
+    auto tree = buildBsp(data);
+
+    static void printTree()(Node node, string indentStr="")
+    {
+        if (node.left !is null && node.right !is null)
+        {
+            writefln("[axis=%d pivot=%d]", node.axis, node.pivot);
+
+            writef("%s +-", indentStr);
+            printTree(node.left, indentStr ~ " | ");
+
+            writef("%s `-", indentStr);
+            printTree(node.right, indentStr ~ "   ");
+        }
+        else
+            writefln("%s", node.interior);
+    }
+    printTree(tree);
 }
 
 template Re(string strRegex)
