@@ -192,9 +192,28 @@ unittest
 }
 
 /**
- * Build a (near-)optimal BSP tree that contains the given boxes.
+ * Print a constructed BSP tree.
+ */
+void printTree()(Node node, string indentStr="")
+{
+    if (node.left !is null && node.right !is null)
+    {
+        writefln("[axis=%d pivot=%d]", node.axis, node.pivot);
+
+        writef("%s +-", indentStr);
+        printTree(node.left, indentStr ~ " | ");
+
+        writef("%s `-", indentStr);
+        printTree(node.right, indentStr ~ "   ");
+    }
+    else
+        writefln("%s", node.interior);
+}
+
+/**
+ * Build a tree that contains the given boxes.
  *
- * Boxes are split between two nodes if necessary. But we try to optimize
+ * Boxes are split between two nodes if necessary. But we try to balance
  * between minimizing the number of splits and the imbalance of the resulting
  * tree.
  *
@@ -268,22 +287,6 @@ unittest
         region(vec(3,2,0,0), vec(4,3,1,1)),
     ];
 
-    static void printTree()(Node node, string indentStr="")
-    {
-        if (node.left !is null && node.right !is null)
-        {
-            writefln("[axis=%d pivot=%d]", node.axis, node.pivot);
-
-            writef("%s +-", indentStr);
-            printTree(node.left, indentStr ~ " | ");
-
-            writef("%s `-", indentStr);
-            printTree(node.right, indentStr ~ "   ");
-        }
-        else
-            writefln("%s", node.interior);
-    }
-
     auto tree = buildBsp(data);
     printTree(tree);
 }
@@ -319,6 +322,11 @@ unittest
 
 void main()
 {
+    stdin.byLine
+         .map!parseRegion
+         .array
+         .buildBsp
+         .printTree;
 }
 
 // vim:set ai sw=4 ts=4 et:
