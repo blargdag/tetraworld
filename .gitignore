@@ -1,7 +1,7 @@
 .*.swp
 .scons*
 .*-teststamp
-*.exe
+/*.exe
 *.o
 *.obj
 *.pdb
