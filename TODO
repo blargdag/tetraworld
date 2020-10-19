@@ -1,3 +1,5 @@
+- Should run gravity system once before placing player in a new map, to avoid
+  awkward messages of falling furniture on first move. :-D
 - [ui] Should merge equip/unequip actions into *single* inventory UI. Having
   separate actions and different inventory modes is very confusing.
    - Also, the drop dialogue is stupid and klunky; you should follow nethack's

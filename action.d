@@ -110,6 +110,10 @@ private void runTriggerEffect(World w, Thing* subj, Pos newPos,
                                     triggered.id));
             }
             break;
+
+        case TriggerEffect.removeMsg:
+            w.store.remove!Message(triggered);
+            break;
     }
 }
 

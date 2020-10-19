@@ -2196,7 +2196,8 @@ World genTutorialLevel(out int[4] startPos)
         "To open it, you need to find the switch.",
         "Try looking in the corridor ana of here.",
         "Use the 'h' key.",
-    ]));
+    ]), Triggerable(doorTrigId, TriggerEffect.removeMsg));
+
     w.store.createObj(Pos(0,0,3,0), Message([
         "You found the switch!",
         "Activate it with the Enter key.",
@@ -2207,9 +2208,14 @@ World genTutorialLevel(out int[4] startPos)
         "Don't worry, you won't get hurt.",
         "Go ahead and try it with 'o'."
     ]));
+
+    auto fallMsgTrig = w.triggerId++;
     w.store.createObj(Pos(4,4,2,2), Message([
         "See? That didn't hurt, did it?",
-    ]));
+    ]), Triggerable(fallMsgTrig, TriggerEffect.removeMsg));
+    w.store.createObj(Pos(4,3,2,2),
+                      Trigger(Trigger.Type.onEnter, fallMsgTrig));
+
     w.store.createObj(Pos(4,3,2,2), Message([
         "To finish up, collect all the gold in the room.",
         "You can collect them just by walking on them.",

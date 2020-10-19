@@ -296,7 +296,7 @@ struct Trigger
  */
 enum TriggerEffect
 {
-    trapDoor, rockTrap, toggleDoor,
+    trapDoor, rockTrap, toggleDoor, removeMsg,
 }
 
 /**
