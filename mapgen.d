@@ -1805,7 +1805,49 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     addLadders(w, tree, bounds);
     genRockTraps(w, tree, bounds, args.nRockTraps.pick);
 
-    auto ngold = cast(int)(floorArea(tree) * args.goldPct / 100);
+    // Items
+    foreach (i; 0 .. args.nCrabShells.pick())
+    {
+        auto pos = randomLocation(tree, bounds);
+        w.store.createObj(Pos(pos), Name("hard hemiglomic shell"), Weight(5),
+                          Armor(DmgType.fallOn), Tiled(TileId.crabShell),
+                          Pickable());
+    }
+
+    // Generate random rocks as additional deco.
+    auto mapFloorArea = floorArea(tree);
+    foreach (i; 0 .. mapFloorArea * args.rockPct / 100)
+    {
+        auto rock = w.store.createObj(Pos(randomLocation(tree, bounds)),
+                                      Tiled(TileId.rock), Name("rock"),
+                                      Pickable(), Stackable(1), Weight(50));
+        if (uniform(0, 100) < args.sharpRockPct)
+        {
+            w.store.add(rock, Name("sharp rock"));
+            w.store.add(rock, Weapon(DmgType.pierce, 1, "cut"));
+        }
+    }
+
+    // Generate random vegetation for creatures to seek out once in a while.
+    enum vegPct = 8; // FIXME: should be configurable
+    enum vegDensePct = 15;
+    foreach (i; 0 .. mapFloorArea * vegPct / 100)
+    {
+        // TBD: bias the distribution to be closer to water line, fade away
+        // farther away from water line.
+        if (uniform(0, 100) < vegDensePct)
+            w.store.createObj(Pos(randomLocation(tree, bounds)),
+                              Tiled(TileId.vegetation2), Weight(100),
+                              BlocksView(), Name("dense vegetation"));
+        else
+            w.store.createObj(Pos(randomLocation(tree, bounds)),
+                              Tiled(TileId.vegetation1), Name("vegetation"),
+                              Weight(100));
+    }
+
+    // Note: this should be done after all other items / deco, so that it
+    // doesn't get obscured!
+    auto ngold = cast(int)(mapFloorArea * args.goldPct / 100);
     foreach (i; 0 .. ngold)
     {
         w.store.createObj(Pos(randomLocation(tree, bounds)),
@@ -1854,47 +1896,6 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                 Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
                 Inventory.Item(shell.id, Inventory.Item.Type.equipped),
             ]));
-    }
-
-    // Items
-    foreach (i; 0 .. args.nCrabShells.pick())
-    {
-        auto pos = randomLocation(tree, bounds);
-        w.store.createObj(Pos(pos), Name("hard hemiglomic shell"), Weight(5),
-                          Armor(DmgType.fallOn), Tiled(TileId.crabShell),
-                          Pickable());
-    }
-
-    auto mapFloorArea = floorArea(tree);
-
-    // Generate random rocks as additional deco.
-    foreach (i; 0 .. mapFloorArea * args.rockPct / 100)
-    {
-        auto rock = w.store.createObj(Pos(randomLocation(tree, bounds)),
-                                      Tiled(TileId.rock), Name("rock"),
-                                      Pickable(), Stackable(1), Weight(50));
-        if (uniform(0, 100) < args.sharpRockPct)
-        {
-            w.store.add(rock, Name("sharp rock"));
-            w.store.add(rock, Weapon(DmgType.pierce, 1, "cut"));
-        }
-    }
-
-    // Generate random vegetation for creatures to seek out once in a while.
-    enum vegPct = 8; // FIXME: should be configurable
-    enum vegDensePct = 15;
-    foreach (i; 0 .. mapFloorArea * vegPct / 100)
-    {
-        // TBD: bias the distribution to be closer to water line, fade away
-        // farther away from water line.
-        if (uniform(0, 100) < vegDensePct)
-            w.store.createObj(Pos(randomLocation(tree, bounds)),
-                              Tiled(TileId.vegetation2), Weight(100),
-                              BlocksView(), Name("dense vegetation"));
-        else
-            w.store.createObj(Pos(randomLocation(tree, bounds)),
-                              Tiled(TileId.vegetation1), Name("vegetation"),
-                              Weight(100));
     }
 }
 
