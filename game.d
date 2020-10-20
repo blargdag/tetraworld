@@ -54,10 +54,31 @@ enum saveFileName = ".tetra.save";
 /**
  * Logical player input action.
  */
-enum PlayerAction
+struct PlayerAction
 {
-    none, up, down, left, right, front, back, ana, kata,
-    apply, equip, unequip, pickup, drop, pass,
+    enum Type
+    {
+        none, move, apply, equip, unequip, pickup, drop, pass,
+    }
+
+    Type type;
+    union
+    {
+        Dir dir;
+        ThingId objId;
+    }
+
+    this(Type _type, Dir _dir)
+    {
+        type = _type;
+        dir = _dir;
+    }
+
+    this(Type _type, ThingId _objId = invalidId)
+    {
+        type = _type;
+        objId = _objId;
+    }
 }
 
 /**
@@ -887,16 +908,12 @@ class Game
         string errmsg;
         while (act is null)
         {
-            final switch (ui.getPlayerAction()) with(PlayerAction)
+            auto pAct = ui.getPlayerAction();
+            final switch (pAct.type) with(PlayerAction.Type)
             {
-                case up:    act = movePlayer([-1,0,0,0], errmsg); break;
-                case down:  act = movePlayer([1,0,0,0],  errmsg); break;
-                case ana:   act = movePlayer([0,-1,0,0], errmsg); break;
-                case kata:  act = movePlayer([0,1,0,0],  errmsg); break;
-                case back:  act = movePlayer([0,0,-1,0], errmsg); break;
-                case front: act = movePlayer([0,0,1,0],  errmsg); break;
-                case left:  act = movePlayer([0,0,0,-1], errmsg); break;
-                case right: act = movePlayer([0,0,0,1],  errmsg); break;
+                case move:
+                    act = movePlayer(dir2vec(pAct.dir), errmsg);
+                    break;
                 case pickup: act = pickupObj(errmsg);             break;
                 case equip:   act = equipObj(errmsg);             break;
                 case unequip: act = unequipObj(errmsg);           break;

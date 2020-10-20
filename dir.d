@@ -66,8 +66,8 @@ int[4] dir2vec(Dir dir) pure
         case Dir.self:  return [  0,  0,  0,  0 ];
         case Dir.left:  return [  0,  0,  0, -1 ];
         case Dir.right: return [  0,  0,  0,  1 ];
-        case Dir.front: return [  0,  0, -1,  0 ];
-        case Dir.back:  return [  0,  0,  1,  0 ];
+        case Dir.back:  return [  0,  0, -1,  0 ];
+        case Dir.front: return [  0,  0,  1,  0 ];
         case Dir.ana:   return [  0, -1,  0,  0 ];
         case Dir.kata:  return [  0,  1,  0,  0 ];
         case Dir.up:    return [ -1,  0,  0,  0 ];
@@ -81,6 +81,7 @@ unittest
     assert(Dir.self.dir2vec == [ 0, 0, 0, 0 ]);
     assert(Dir.up.dir2vec == [ -1, 0, 0, 0 ]);
     assert(Dir.down.dir2vec == [ 1, 0, 0, 0 ]);
+    assert(Dir.front.dir2vec == [ 0, 0, 1, 0 ]);
 }
 
 /**

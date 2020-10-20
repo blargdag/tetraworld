@@ -28,6 +28,7 @@ import std.range;
 import arsd.terminal;
 
 import components;
+import dir;
 import display;
 import fov;
 import game;
@@ -430,20 +431,20 @@ class TextUi : GameUi
         else static assert(0);
 
         PlayerAction[dchar] keymap = [
-            'i': PlayerAction.up,
-            'm': PlayerAction.down,
-            'h': PlayerAction.ana,
-            'l': PlayerAction.kata,
-            'o': PlayerAction.back,
-            'n': PlayerAction.front,
-            'j': PlayerAction.left,
-            'k': PlayerAction.right,
-            keyEnter: PlayerAction.apply,
-            ',': PlayerAction.pickup,
-            'd': PlayerAction.drop,
-            'p': PlayerAction.pass,
-            'r': PlayerAction.unequip,
-            'e': PlayerAction.equip,
+            'i': PlayerAction(PlayerAction.Type.move, Dir.up),
+            'm': PlayerAction(PlayerAction.Type.move, Dir.down),
+            'h': PlayerAction(PlayerAction.Type.move, Dir.ana),
+            'l': PlayerAction(PlayerAction.Type.move, Dir.kata),
+            'o': PlayerAction(PlayerAction.Type.move, Dir.back),
+            'n': PlayerAction(PlayerAction.Type.move, Dir.front),
+            'j': PlayerAction(PlayerAction.Type.move, Dir.left),
+            'k': PlayerAction(PlayerAction.Type.move, Dir.right),
+            keyEnter: PlayerAction(PlayerAction.Type.apply),
+            ',': PlayerAction(PlayerAction.Type.pickup),
+            'd': PlayerAction(PlayerAction.Type.drop),
+            'p': PlayerAction(PlayerAction.Type.pass),
+            'r': PlayerAction(PlayerAction.Type.unequip),
+            'e': PlayerAction(PlayerAction.Type.equip),
         ];
 
         auto mainMode = Mode(
@@ -512,7 +513,7 @@ class TextUi : GameUi
         dispatch.push(mainMode);
         Fiber.yield();
 
-        assert(result != PlayerAction.none);
+        assert(result.type != PlayerAction.Type.none);
         return result;
     }
 
