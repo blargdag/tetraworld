@@ -41,6 +41,30 @@ tt {
 <p>[<a href="index">Back to main page</a>]</p>
 
 <ul>
+<li><b>2020-10-10:</b>
+  <ul>
+  <li>New developmental build!</li>
+  <li>Implemented event filtering and difference between visible and audible
+    events. Now you will only see events that are visible to your character,
+    or, if the event is not visible but audible, you will receive a message
+    describing the sound. Audible events also have limited range; faraway
+    events will not be perceived at all.</li>
+  <li>Added decorative vegetation of two grades:
+    <tt style="color:#008000">%</tt> sparse, which is mainly decorative, and
+    <tt>%</tt> dense, which also blocks line-of-sight. Beware that sometimes
+    gold ore might be obscured under vegetation, so be sure to examine
+    everything closely!</li>
+  <li>Major bugfix to gravity system that sometimes caused objects to get stuck
+    in midair, or shelled creatures getting stuck on ladders.</li>
+  <li>Various improvements to level generation algorithms.</li>
+  <li><b>Known bugs:</b>
+    <ul>
+    <li>The gravity fix is not complete; there remains a rare case of conical
+      creatures getting stuck in mid-air for 1 turn.</li>
+    <li>Vegetation can fall through pit traps, knock you on the head, and roll
+      around.</li>
+    </ul></li>
+  </ul></li>
 <li><b>2020-09-25:</b>
   <ul>
   <li>Fixed terrain generation to reduce the number of ladders.</li>
