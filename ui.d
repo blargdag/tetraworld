@@ -335,7 +335,7 @@ Movement keys:
 
 Commands:
    p        Pass a turn.
-   z        Manage your inventory.
+   e        Manage your equipment.
    ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
    <enter>  Activate object in current location.
@@ -496,7 +496,7 @@ class TextUi : GameUi
                     case 'K': moveView(vec(0,0,0,1));   break;
                     case ' ': viewport.centerOn(g.playerPos);   break;
                     case ';': lookAtFloor();            break;
-                    case 'z':
+                    case 'e':
                         showInventory((InventoryItem item) {
                                 result = PlayerAction(
                                         PlayerAction.Type.applyItem, item.id);
@@ -1140,7 +1140,7 @@ class TextUi : GameUi
         if (canSelect) hints ~= "j/k:select";
         if (selectAction !is null) hints ~= "Enter:" ~ selectHint;
         if (onDrop !is null)       hints ~= "d:drop";
-        hints ~= "q:done";
+        hints ~= "Space:done";
 
         auto hintString = format("%-(%s, %)", hints);
         auto hintStringLen = hintString.displayLength;
@@ -1247,7 +1247,8 @@ class TextUi : GameUi
     {
         void delegate() onExit = null;
 
-        if (!inventoryUi(g.getInventory, "You are carrying:", "equip/unequip",
+        if (!inventoryUi(g.getInventory, "You are carrying:",
+            "use/equip/unequip",
             (InventoryItem applyItem) {
                 onExit = { onApply(applyItem); };
                 return true;
