@@ -67,6 +67,7 @@ struct PlayerAction
         Dir dir;
         ThingId objId;
     }
+    int objCount;
 
     this(Type _type, Dir _dir)
     {
@@ -74,10 +75,11 @@ struct PlayerAction
         dir = _dir;
     }
 
-    this(Type _type, ThingId _objId = invalidId)
+    this(Type _type, ThingId _objId = invalidId, int _objCount = 0)
     {
         type = _type;
         objId = _objId;
+        objCount = _objCount;
     }
 }
 
@@ -442,18 +444,9 @@ class Game
         return (World w) => unequip(w, player, item.id);
     }
 
-    private Action dropObj(ref string errmsg)
+    private Action dropObj(ThingId objId, int count, ref string errmsg)
     {
-        auto item = ui.pickItem(getInventory, "What do you want to drop?",
-                                "How many %s do you want to drop?");
-        if (item.id == invalidId || item.count == 0)
-        {
-            errmsg = (getInventory().length == 0) ?
-                     "You have nothing to drop." :
-                     "You decide against dropping anything.";
-            return null;
-        }
-        return (World w) => dropItem(w, player, item.id, item.count);
+        return (World w) => dropItem(w, player, objId, count);
     }
 
     private Action applyFloorObj(ThingId targetId, ref string errmsg)
@@ -922,7 +915,9 @@ class Game
                 case pickup: act = pickupObj(pAct.objId, errmsg);   break;
                 case equip:   act = equipObj(errmsg);               break;
                 case unequip: act = unequipObj(errmsg);             break;
-                case drop:  act = dropObj(errmsg);                  break;
+                case drop:
+                    act = dropObj(pAct.objId, pAct.objCount, errmsg);
+                    break;
                 case apply: act = applyFloorObj(pAct.objId, errmsg);    break;
                 case pass:  act = (World w) => .pass(w, player);    break;
                 case none:  assert(0, "Internal error");

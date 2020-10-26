@@ -478,7 +478,6 @@ class TextUi : GameUi
             'n': PlayerAction(PlayerAction.Type.move, Dir.front),
             'j': PlayerAction(PlayerAction.Type.move, Dir.left),
             'k': PlayerAction(PlayerAction.Type.move, Dir.right),
-            'd': PlayerAction(PlayerAction.Type.drop),
             'p': PlayerAction(PlayerAction.Type.pass),
             'r': PlayerAction(PlayerAction.Type.unequip),
             'e': PlayerAction(PlayerAction.Type.equip),
@@ -501,7 +500,20 @@ class TextUi : GameUi
                     case 'K': moveView(vec(0,0,0,1));   break;
                     case ' ': viewport.centerOn(g.playerPos);   break;
                     case ';': lookAtFloor();            break;
-                    case 'z': showInventory();          break;
+                    case 'z':
+                        showInventory((InventoryItem item) {
+                                result = PlayerAction(PlayerAction.Type.apply,
+                                                      item.id);
+                                dispatch.pop();
+                                gameFiber.call();
+                            }, (InventoryItem item) {
+                                result = PlayerAction(PlayerAction.Type.drop,
+                                                      item.id, item.count);
+                                dispatch.pop();
+                                gameFiber.call();
+                            }
+                        );
+                        break;
                     case 'q':
                         g.saveGame();
                         quit = true;
@@ -1108,6 +1120,9 @@ class TextUi : GameUi
      *  onExit = Hook to run upon leaving the inventory UI. Primarily needed
      *      for Fiber context switches if the interaction started from the Game
      *      fiber.
+     *  onApply = Hook to run for apply action on an item. Return true to exit
+     *      inventory mode, or false to continue.
+     *  onDrop = Hook to run for drop action on an item.
      *
      * Returns: true if inventory UI mode is pushed on stack, otherwise false
      * (e.g., if inventory is empty).
@@ -1115,29 +1130,40 @@ class TextUi : GameUi
     private bool inventoryUi(InventoryItem[] inven,
                              string promptStr,
                              bool delegate(InventoryItem) selectAction,
-                             void delegate() onExit = null)
+                             void delegate() onExit = null,
+                             void delegate(InventoryItem) onApply = null,
+                             void delegate(InventoryItem) onDrop = null)
     {
         if (inven.length == 0)
             return false;
 
         import std.conv : to;
+        import std.format : format;
 
-        static immutable hintString = "(Use j/k to select, Enter to pick, "~
-                                      "q to abort)";
-        auto hintStringLen = (selectAction is null) ? 0 :
-                             hintString.displayLength;
+        auto canSelect = (selectAction || onApply || onDrop);
+        string[] hints;
+        if (canSelect) hints ~= "j/k: select";
+        if (selectAction !is null) hints ~= "Enter: pick";
+        if (onApply !is null)      hints ~= "(a)pply";
+        if (onDrop !is null)       hints ~= "(d)rop";
+        hints ~= "q: done";
+
+        auto hintString = format("(%-(%s; %))", hints);
+        auto hintStringLen = hintString.displayLength;
+
         auto width = (6 + max(promptStr.displayLength, hintStringLen,
                               inven.map!(item => item.name.displayLength +
                                                  (item.equipped ? 11 : 0))
                                    .maxElement)).to!int;
-        auto height = min(disp.height, 5 + inven.length.to!int);
+        auto height = min(disp.height, 4 + inven.length.to!int
+                                         + ((hintStringLen > 0) ? 1 : 0));
         auto scrnX = (disp.width - width)/2;
         auto scrnY = (disp.height - height)/2;
         auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
                                              vec(scrnX + width,
                                                  scrnY + height)));
-        int curIdx = (selectAction !is null) ? 0 : -1;
-        int yStart = (selectAction !is null) ? 4 : 3;
+        int curIdx = canSelect ? 0 : -1;
+        int yStart = canSelect ? 4 : 3;
 
         auto invenMode = Mode(
             () {
@@ -1150,11 +1176,10 @@ class TextUi : GameUi
 
                 scrn.moveTo(1, 1);
                 scrn.writef("%s", promptStr);
-                if (selectAction !is null)
+                if (canSelect)
                 {
                     scrn.moveTo(1, 2);
-                    scrn.writef("(Use j/k to select, Enter to pick, "~
-                                "q to abort)");
+                    scrn.writef(hintString);
                 }
 
                 foreach (i; 0 .. inven.length)
@@ -1185,21 +1210,37 @@ class TextUi : GameUi
                         break;
 
                     case 'i', 'k':
-                        if (selectAction !is null && curIdx > 0)
+                        if (canSelect && curIdx > 0)
                             curIdx--;
                         break;
 
                     case 'j', 'm':
-                        if (selectAction !is null && curIdx + 1 < inven.length)
+                        if (canSelect && curIdx + 1 < inven.length)
                             curIdx++;
                         break;
 
                     case '\n':
-                        if (selectAction !is null &&
-                            selectAction(inven[curIdx]))
+                        if (selectAction !is null)
                         {
-                            // selectAction wants to stop interaction now, go
-                            // back to previous mode.
+                            if (selectAction(inven[curIdx]))
+                                // selectAction wants to stop interaction now,
+                                // go back to previous mode.
+                                goto case 'q';
+                        }
+                        break;
+
+                    case 'd':
+                        if (onDrop !is null)
+                        {
+                            onDrop(inven[curIdx]);
+                            goto case 'q';
+                        }
+                        break;
+
+                    case 'a':
+                        if (onApply !is null)
+                        {
+                            onApply(inven[curIdx]);
                             goto case 'q';
                         }
                         break;
@@ -1214,9 +1255,16 @@ class TextUi : GameUi
         return true;
     }
 
-    private void showInventory()
+    private void showInventory(void delegate(InventoryItem) onApply,
+                               void delegate(InventoryItem) onDrop)
     {
-        if (!inventoryUi(g.getInventory, "You are carrying:", null /*TBD: show item details*/))
+        void delegate() onExit = null;
+
+        if (!inventoryUi(g.getInventory, "You are carrying:",
+                         null /*TBD: show item details*/,
+                         () { if (onExit) onExit(); },
+                         (applyItem) { onExit = { onApply(applyItem); }; },
+                         (dropItem) { onExit = { onDrop(dropItem); }; }))
         {
             message("You are not carrying anything right now.");
         }
