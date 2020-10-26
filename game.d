@@ -456,20 +456,17 @@ class Game
         return (World w) => dropItem(w, player, item.id, item.count);
     }
 
-    private Action applyFloorObj(ref string errmsg)
+    private Action applyFloorObj(ThingId targetId, ref string errmsg)
     {
-        auto pos = *w.store.get!Pos(player.id);
-        auto r = w.store.getAllBy!Pos(pos)
-                        .filter!(id => w.store.get!Usable(id) !is null);
-        if (r.empty)
+        // Check use prerequisites.
+        // FIXME: need a more general prerequisites model here.
+        auto u = w.store.get!Usable(targetId);
+        if (u is null)
         {
-            errmsg = "Nothing to apply here.";
+            errmsg = "You can't apply that!";
             return null;
         }
 
-        // Check use prerequisites.
-        // FIXME: need a more general prerequisites model here.
-        auto u = w.store.get!Usable(r.front);
         if (u.effect == UseEffect.portal)
         {
             auto ngold = numGold();
@@ -482,7 +479,7 @@ class Game
             }
         }
 
-        return (World w) => useItem(w, player, r.front);
+        return (World w) => useItem(w, player, targetId);
     }
 
     private void setupLevel()
@@ -863,6 +860,13 @@ class Game
         });
     }
 
+    auto getApplyTargets()
+    {
+        auto pos = *w.store.get!Pos(player.id);
+        return  w.store.getAllBy!Pos(pos)
+                       .filter!(id => w.store.get!Usable(id) !is null);
+    }
+
     auto objectsOnFloor()
     {
         import std.format : format;
@@ -918,7 +922,7 @@ class Game
                 case equip:   act = equipObj(errmsg);             break;
                 case unequip: act = unequipObj(errmsg);           break;
                 case drop:  act = dropObj(errmsg);                break;
-                case apply: act = applyFloorObj(errmsg);          break;
+                case apply: act = applyFloorObj(pAct.objId, errmsg);    break;
                 case pass:  act = (World w) => .pass(w, player);  break;
                 case none:  assert(0, "Internal error");
             }
@@ -929,7 +933,7 @@ class Game
         return act;
     }
 
-    void setupAgentImpls()
+    private void setupAgentImpls()
     {
         AgentImpl playerImpl;
         playerImpl.chooseAction = (World w, ThingId agentId)

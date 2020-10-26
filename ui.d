@@ -439,7 +439,6 @@ class TextUi : GameUi
             'n': PlayerAction(PlayerAction.Type.move, Dir.front),
             'j': PlayerAction(PlayerAction.Type.move, Dir.left),
             'k': PlayerAction(PlayerAction.Type.move, Dir.right),
-            keyEnter: PlayerAction(PlayerAction.Type.apply),
             ',': PlayerAction(PlayerAction.Type.pickup),
             'd': PlayerAction(PlayerAction.Type.drop),
             'p': PlayerAction(PlayerAction.Type.pass),
@@ -486,6 +485,21 @@ class TextUi : GameUi
                     case '\x0c':        // ^L
                         disp.repaint(); // force repaint of entire screen
                         break;
+                    case keyEnter: {
+                        auto targets = g.getApplyTargets();
+                        if (targets.empty)
+                        {
+                            message("Nothing to apply here.");
+                        }
+                        else
+                        {
+                            result = PlayerAction(PlayerAction.Type.apply,
+                                                  targets.front);
+                            dispatch.pop();
+                            gameFiber.call();
+                        }
+                        break;
+                    }
                     default:
                         if (auto cmd = ch in keymap)
                         {
