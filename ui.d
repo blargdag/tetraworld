@@ -420,6 +420,45 @@ class TextUi : GameUi
         });
     }
 
+    /**
+     * Display UI to prompt player to select one item out of many. If only one
+     * item is in the list, that item is picked by default without further
+     * prompting.  If there are no given targets, the emptyPrompt message is
+     * displayed and the callback is not invoked.
+     */
+    void selectTarget(string promptStr, InventoryItem[] targets,
+                      void delegate(ThingId targetId) cb,
+                      string emptyPrompt)
+    {
+        if (targets.empty)
+        {
+            message(emptyPrompt);
+            return;
+        }
+        if (targets.length == 1)
+        {
+            cb(targets.front.id);
+            return;
+        }
+
+        ThingId selected;
+        inventoryUi(targets, promptStr,
+            (item) {
+                selected = item.id;
+                return true;
+            },
+            () {
+                // Note: this has to be done in the onExit callback, not in the
+                // selection callback, because it must happen after the
+                // inventory UI has popped itself from the mode stack;
+                // otherwise we'll be in an inconsistent state and will crash
+                // at the subsequent context switch.
+                if (selected != invalidId)
+                    cb(selected);
+            }
+        );
+    }
+
     PlayerAction getPlayerAction()
     {
         PlayerAction result;
@@ -439,7 +478,6 @@ class TextUi : GameUi
             'n': PlayerAction(PlayerAction.Type.move, Dir.front),
             'j': PlayerAction(PlayerAction.Type.move, Dir.left),
             'k': PlayerAction(PlayerAction.Type.move, Dir.right),
-            ',': PlayerAction(PlayerAction.Type.pickup),
             'd': PlayerAction(PlayerAction.Type.drop),
             'p': PlayerAction(PlayerAction.Type.pass),
             'r': PlayerAction(PlayerAction.Type.unequip),
@@ -486,18 +524,29 @@ class TextUi : GameUi
                         disp.repaint(); // force repaint of entire screen
                         break;
                     case keyEnter: {
-                        auto targets = g.getApplyTargets();
-                        if (targets.empty)
-                        {
-                            message("Nothing to apply here.");
-                        }
-                        else
-                        {
-                            result = PlayerAction(PlayerAction.Type.apply,
-                                                  targets.front);
-                            dispatch.pop();
-                            gameFiber.call();
-                        }
+                        selectTarget("What do you want to apply?",
+                            g.getApplyTargets(),
+                            (targetId) {
+                                result = PlayerAction(PlayerAction.Type.apply,
+                                                      targetId);
+                                dispatch.pop();
+                                gameFiber.call();
+                            },
+                            "Nothing to apply here."
+                        );
+                        break;
+                    }
+                    case ',': {
+                        selectTarget("What do you want to pick up?",
+                            g.getPickupTargets(),
+                            (targetId) {
+                                result = PlayerAction(PlayerAction.Type.pickup,
+                                                      targetId);
+                                dispatch.pop();
+                                gameFiber.call();
+                            },
+                            "Nothing to pick up here."
+                        );
                         break;
                     }
                     default:

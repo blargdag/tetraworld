@@ -289,6 +289,16 @@ class Game
                     .array;
     }
 
+    auto toInventoryItem(ThingId id)
+    {
+        auto tiled = w.store.get!Tiled(id);
+        auto nm = w.store.get!Name(id);
+        auto stk = w.store.get!Stackable(id);
+        return InventoryItem(id, tiled ? tiled.tileId : TileId.unknown,
+                             nm ? nm.name : "???",
+                             stk ? stk.count : 1);
+    }
+
     private int numGold()
     {
         auto inv = w.store.get!Inventory(player.id);
@@ -381,19 +391,9 @@ class Game
         return (World w) => move(w, player, v);
     }
 
-    private Action pickupObj(ref string errmsg)
+    private Action pickupObj(ThingId targetId, ref string errmsg)
     {
-        auto pos = *w.store.get!Pos(player.id);
-        auto r = w.store.getAllBy!Pos(pos)
-                        .filter!(id => w.store.get!Pickable(id) !is null);
-        if (r.empty)
-        {
-            errmsg = "Nothing here to pick up.";
-            return null;
-        }
-
-        // TBD: if more than one object, present player a choice.
-        return (World w) => pickupItem(w, player, r.front);
+        return (World w) => pickupItem(w, player, targetId);
     }
 
     private Action equipObj(ref string errmsg)
@@ -860,11 +860,20 @@ class Game
         });
     }
 
-    auto getApplyTargets()
+    InventoryItem[] getApplyTargets()
     {
-        auto pos = *w.store.get!Pos(player.id);
-        return  w.store.getAllBy!Pos(pos)
-                       .filter!(id => w.store.get!Usable(id) !is null);
+        return w.store.getAllBy!Pos(Pos(playerPos))
+                      .filter!(id => w.store.get!Usable(id) !is null)
+                      .map!(id => toInventoryItem(id))
+                      .array;
+    }
+
+    InventoryItem[] getPickupTargets()
+    {
+        return w.store.getAllBy!Pos(Pos(playerPos))
+                .filter!(id => w.store.get!Pickable(id) !is null)
+                .map!(id => toInventoryItem(id))
+                .array;
     }
 
     auto objectsOnFloor()
@@ -875,15 +884,7 @@ class Game
                 .map!(id => w.store.getObj(id))
                 .filter!(t => (t.systems & SysMask.name) != 0 &&
                               (t.systems & SysMask.tiled) != 0)
-                .map!((Thing* t) {
-                    auto tiled = w.store.get!Tiled(t.id);
-                    auto nm = w.store.get!Name(t.id);
-                    auto stk = w.store.get!Stackable(t.id);
-                    return InventoryItem(t.id, tiled ? tiled.tileId :
-                                                       TileId.unknown,
-                                         nm ? nm.name : "???",
-                                         stk ? stk.count : 1);
-                });
+                .map!((Thing* t) => toInventoryItem(t.id));
     }
 
     private void observeSurroundings()
@@ -918,12 +919,12 @@ class Game
                 case move:
                     act = movePlayer(dir2vec(pAct.dir), errmsg);
                     break;
-                case pickup: act = pickupObj(errmsg);             break;
-                case equip:   act = equipObj(errmsg);             break;
-                case unequip: act = unequipObj(errmsg);           break;
-                case drop:  act = dropObj(errmsg);                break;
+                case pickup: act = pickupObj(pAct.objId, errmsg);   break;
+                case equip:   act = equipObj(errmsg);               break;
+                case unequip: act = unequipObj(errmsg);             break;
+                case drop:  act = dropObj(errmsg);                  break;
                 case apply: act = applyFloorObj(pAct.objId, errmsg);    break;
-                case pass:  act = (World w) => .pass(w, player);  break;
+                case pass:  act = (World w) => .pass(w, player);    break;
                 case none:  assert(0, "Internal error");
             }
 
