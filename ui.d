@@ -439,11 +439,12 @@ class TextUi : GameUi
         }
 
         ThingId selected;
-        inventoryUi(targets, promptStr,
+        inventoryUi(targets, promptStr, "pick",
             (item) {
                 selected = item.id;
                 return true;
             },
+            null,
             () {
                 // Note: this has to be done in the onExit callback, not in the
                 // selection callback, because it must happen after the
@@ -699,10 +700,10 @@ class TextUi : GameUi
                            string countPromptFmt)
     {
         InventoryItem result;
-        if (inventoryUi(items, whatPrompt, (InventoryItem item) {
+        if (inventoryUi(items, whatPrompt, "pick", (InventoryItem item) {
                 result = item;
                 return true;
-            }, {
+            }, null, {
                 // Return result to game fiber.
                 gameFiber.call();
             }))
@@ -1123,11 +1124,10 @@ class TextUi : GameUi
      * (e.g., if inventory is empty).
      */
     private bool inventoryUi(InventoryItem[] inven,
-                             string promptStr,
-                             bool delegate(InventoryItem) selectAction,
-                             void delegate() onExit = null,
-                             void delegate(InventoryItem) onApply = null,
-                             void delegate(InventoryItem) onDrop = null)
+                             string promptStr, string selectHint = "",
+                             bool delegate(InventoryItem) selectAction = null,
+                             void delegate(InventoryItem) onDrop = null,
+                             void delegate() onExit = null)
     {
         if (inven.length == 0)
             return false;
@@ -1135,30 +1135,28 @@ class TextUi : GameUi
         import std.conv : to;
         import std.format : format;
 
-        auto canSelect = (selectAction || onApply || onDrop);
+        auto canSelect = (selectAction || onDrop);
         string[] hints;
-        if (canSelect) hints ~= "j/k: select";
-        if (selectAction !is null) hints ~= "Enter: pick";
-        if (onApply !is null)      hints ~= "(a)pply";
-        if (onDrop !is null)       hints ~= "(d)rop";
-        hints ~= "q: done";
+        if (canSelect) hints ~= "j/k:select";
+        if (selectAction !is null) hints ~= "Enter:" ~ selectHint;
+        if (onDrop !is null)       hints ~= "d:drop";
+        hints ~= "q:done";
 
-        auto hintString = format("(%-(%s; %))", hints);
+        auto hintString = format("%-(%s, %)", hints);
         auto hintStringLen = hintString.displayLength;
-
         auto width = (6 + max(promptStr.displayLength, hintStringLen,
                               inven.map!(item => item.name.displayLength +
                                                  (item.equipped ? 11 : 0))
                                    .maxElement)).to!int;
         auto height = min(disp.height, 4 + inven.length.to!int
-                                         + ((hintStringLen > 0) ? 1 : 0));
+                                         + ((hintStringLen > 0) ? 2 : 0));
         auto scrnX = (disp.width - width)/2;
         auto scrnY = (disp.height - height)/2;
         auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
                                              vec(scrnX + width,
                                                  scrnY + height)));
         int curIdx = canSelect ? 0 : -1;
-        int yStart = canSelect ? 4 : 3;
+        int yStart = 3;
 
         auto invenMode = Mode(
             () {
@@ -1173,8 +1171,10 @@ class TextUi : GameUi
                 scrn.writef("%s", promptStr);
                 if (canSelect)
                 {
-                    scrn.moveTo(1, 2);
+                    scrn.moveTo(1, height-2);
+                    scrn.color(Color.blue, Color.white);
                     scrn.writef(hintString);
+                    scrn.color(Color.black, Color.white);
                 }
 
                 foreach (i; 0 .. inven.length)
@@ -1232,14 +1232,6 @@ class TextUi : GameUi
                         }
                         break;
 
-                    case 'a':
-                        if (onApply !is null)
-                        {
-                            onApply(inven[curIdx]);
-                            goto case 'q';
-                        }
-                        break;
-
                     default:
                         break;
                 }
@@ -1255,15 +1247,15 @@ class TextUi : GameUi
     {
         void delegate() onExit = null;
 
-        if (!inventoryUi(g.getInventory, "You are carrying:",
-            null /*TBD: show item details*/,
-            () { if (onExit) onExit(); },
+        if (!inventoryUi(g.getInventory, "You are carrying:", "equip/unequip",
             (InventoryItem applyItem) {
                 onExit = { onApply(applyItem); };
+                return true;
             },
             (InventoryItem dropItem) {
                 onExit = { onDrop(dropItem); };
-            }))
+            },
+            () { if (onExit) onExit(); }))
         {
             message("You are not carrying anything right now.");
         }
