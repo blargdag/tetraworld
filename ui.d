@@ -1144,10 +1144,10 @@ class TextUi : GameUi
 
         auto hintString = format("%-(%s, %)", hints);
         auto hintStringLen = hintString.displayLength;
-        auto width = (6 + max(promptStr.displayLength, hintStringLen,
-                              inven.map!(item => item.name.displayLength +
+        auto width = (max(2 + promptStr.displayLength, 2 + hintStringLen,
+                          6 + inven.map!(item => item.name.displayLength +
                                                  (item.equipped ? 11 : 0))
-                                   .maxElement)).to!int;
+                               .maxElement)).to!int;
         auto height = min(disp.height, 4 + inven.length.to!int
                                          + ((hintStringLen > 0) ? 2 : 0));
         auto scrnX = (disp.width - width)/2;
