@@ -334,11 +334,8 @@ Movement keys:
    <space>         = center viewport back on player.
 
 Commands:
-   d        Drop an object from your inventory.
    p        Pass a turn.
-   z        Show inventory (does not consume a turn).
-   e        Equip an item.
-   r        Remove (unequip) an equipped item.
+   z        Manage your inventory.
    ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
    <enter>  Activate object in current location.
@@ -479,8 +476,6 @@ class TextUi : GameUi
             'j': PlayerAction(PlayerAction.Type.move, Dir.left),
             'k': PlayerAction(PlayerAction.Type.move, Dir.right),
             'p': PlayerAction(PlayerAction.Type.pass),
-            'r': PlayerAction(PlayerAction.Type.unequip),
-            'e': PlayerAction(PlayerAction.Type.equip),
         ];
 
         auto mainMode = Mode(
@@ -502,8 +497,8 @@ class TextUi : GameUi
                     case ';': lookAtFloor();            break;
                     case 'z':
                         showInventory((InventoryItem item) {
-                                result = PlayerAction(PlayerAction.Type.apply,
-                                                      item.id);
+                                result = PlayerAction(
+                                        PlayerAction.Type.applyItem, item.id);
                                 dispatch.pop();
                                 gameFiber.call();
                             }, (InventoryItem item) {
@@ -539,8 +534,8 @@ class TextUi : GameUi
                         selectTarget("What do you want to apply?",
                             g.getApplyTargets(),
                             (targetId) {
-                                result = PlayerAction(PlayerAction.Type.apply,
-                                                      targetId);
+                                result = PlayerAction(
+                                    PlayerAction.Type.applyFloor, targetId);
                                 dispatch.pop();
                                 gameFiber.call();
                             },
@@ -1261,10 +1256,14 @@ class TextUi : GameUi
         void delegate() onExit = null;
 
         if (!inventoryUi(g.getInventory, "You are carrying:",
-                         null /*TBD: show item details*/,
-                         () { if (onExit) onExit(); },
-                         (applyItem) { onExit = { onApply(applyItem); }; },
-                         (dropItem) { onExit = { onDrop(dropItem); }; }))
+            null /*TBD: show item details*/,
+            () { if (onExit) onExit(); },
+            (InventoryItem applyItem) {
+                onExit = { onApply(applyItem); };
+            },
+            (InventoryItem dropItem) {
+                onExit = { onDrop(dropItem); };
+            }))
         {
             message("You are not carrying anything right now.");
         }

@@ -58,7 +58,7 @@ struct PlayerAction
 {
     enum Type
     {
-        none, move, apply, equip, unequip, pickup, drop, pass,
+        none, move, applyFloor, applyItem, pickup, drop, pass,
     }
 
     Type type;
@@ -398,55 +398,36 @@ class Game
         return (World w) => pickupItem(w, player, targetId);
     }
 
-    private Action equipObj(ref string errmsg)
-    {
-        auto equippable = getInventory(item =>
-            item.type == Inventory.Item.Type.carrying &&
-            (w.store.get!Armor(item.id) !is null ||
-             w.store.get!Weapon(item.id) !is null));
-
-        if (equippable.empty)
-        {
-             errmsg = "You have nothing to wear.";
-             return null;
-        }
-
-        auto item = ui.pickItem(equippable, "What do you want to equip?",
-                                null);
-        if (item.id == invalidId || item.count == 0)
-        {
-            errmsg = "You decide against equipping anything.";
-            return null;
-        }
-
-        return (World w) => equip(w, player, item.id);
-    }
-
-    private Action unequipObj(ref string errmsg)
-    {
-        auto removables = getInventory(item =>
-            item.type == Inventory.Item.Type.equipped);
-
-        if (removables.empty)
-        {
-            errmsg = "You aren't wearing anything.";
-            return null;
-        }
-
-        auto item = ui.pickItem(removables, "What do you want to unequip?",
-                                null);
-        if (item.id == invalidId || item.count == 0)
-        {
-            errmsg = "You decide against unequipping anything.";
-            return null;
-        }
-
-        return (World w) => unequip(w, player, item.id);
-    }
-
     private Action dropObj(ThingId objId, int count, ref string errmsg)
     {
         return (World w) => dropItem(w, player, objId, count);
+    }
+
+    private Action applyObj(ThingId targetId, ref string errmsg)
+    {
+        auto r = getInventory(item => item.id == targetId);
+        if (r.empty)
+        {
+            errmsg = "You're not carrying that!";
+            return null;
+        }
+
+        auto item = r.front;
+        auto obj = w.store.getObj(item.id);
+        if (obj.systems & (SysMask.armor | SysMask.weapon))
+        {
+            if (item.equipped)
+                return (World w) => unequip(w, player, item.id);
+            else
+                return (World w) => equip(w, player, item.id);
+        }
+        else
+        {
+            // TBD: invoke use action for usable items
+        }
+
+        errmsg = "You can't apply that!";
+        return null;
     }
 
     private Action applyFloorObj(ThingId targetId, ref string errmsg)
@@ -912,15 +893,23 @@ class Game
                 case move:
                     act = movePlayer(dir2vec(pAct.dir), errmsg);
                     break;
-                case pickup: act = pickupObj(pAct.objId, errmsg);   break;
-                case equip:   act = equipObj(errmsg);               break;
-                case unequip: act = unequipObj(errmsg);             break;
+                case pickup:
+                    act = pickupObj(pAct.objId, errmsg);
+                    break;
                 case drop:
                     act = dropObj(pAct.objId, pAct.objCount, errmsg);
                     break;
-                case apply: act = applyFloorObj(pAct.objId, errmsg);    break;
-                case pass:  act = (World w) => .pass(w, player);    break;
-                case none:  assert(0, "Internal error");
+                case applyItem:
+                    act = applyObj(pAct.objId, errmsg);
+                    break;
+                case applyFloor:
+                    act = applyFloorObj(pAct.objId, errmsg);
+                    break;
+                case pass:
+                    act = (World w) => .pass(w, player);
+                    break;
+                case none:
+                    assert(0, "Internal error");
             }
 
             if (act is null)
