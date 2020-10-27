@@ -497,6 +497,7 @@ class TextUi : GameUi
                     case 'K': moveView(vec(0,0,0,1));   break;
                     case ' ': viewport.centerOn(g.playerPos);   break;
                     case ';': lookAtFloor();            break;
+                    case '\t':
                     case 'e':
                         showInventory((InventoryItem item) {
                                 result = PlayerAction(
