@@ -336,9 +336,9 @@ Movement keys:
 
 Commands:
    p        Pass a turn.
-   e        Manage your equipment.
    ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
+   <tab>    Manage your equipment.
    <enter>  Activate object in current location.
 
 Meta-commands:
@@ -354,6 +354,63 @@ version(Posix)
 else version(Windows)
     enum keyEnter = '\r';
 else static assert(0);
+
+/**
+ * Convert the given dchar to a printable string.
+ *
+ * Returns: An object whose toString method returns a printable string
+ * representation of the given dchar. If the dchar is already printable, this
+ * will be a string containing the dchar itself. If it matches one of a list of
+ * named control characters, it will be that name. Otherwise, it will be "^X"
+ * for ASCII control characters or "(\Uxxxx)" for general Unicode characters.
+ */
+auto toPrintable(dchar ch)
+{
+    static struct PrintableChar
+    {
+        dchar ch;
+        void toString(W)(W sink)
+        {
+            import std.format : formattedWrite;
+            import std.uni : isGraphical;
+
+            if (ch == ' ')
+                sink.formattedWrite("<space>");
+            else if (ch.isGraphical)
+                sink.formattedWrite("%s", ch);
+            else switch (ch)
+            {
+                case keyEnter:  sink.formattedWrite("<enter>");   break;
+                case '\t':      sink.formattedWrite("<tab>");     break;
+                default:
+                    if (ch < 0x20)
+                        sink.formattedWrite("^%s", cast(dchar)(ch + 0x40));
+                    else
+                        sink.formattedWrite("(\\u%04X)", ch);
+            }
+        }
+
+        unittest
+        {
+            import std.array : appender;
+            auto pc = PrintableChar('a');
+            auto app = appender!string;
+            pc.toString(app);
+        }
+    }
+    return PrintableChar(ch);
+}
+
+unittest
+{
+    assert(format("%s", 'a'.toPrintable) == "a");
+    assert(format("%s", '\x01'.toPrintable) == "^A");
+    assert(format("%s", '\uFFFF'.toPrintable) == "(\\uFFFF)");
+
+    assert(format("%s", keyEnter.toPrintable) == "<enter>");
+    assert(format("%s", '\t'.toPrintable) == "<tab>");
+    assert(format("%s", ' '.toPrintable) == "<space>");
+}
 
 /**
  * Text-based UI implementation.
@@ -485,7 +542,6 @@ class TextUi : GameUi
                     case ' ': viewport.centerOn(g.playerPos);   break;
                     case ';': lookAtFloor();            break;
                     case '\t':
-                    case 'e':
                         showInventory((InventoryItem item) {
                                 result = PlayerAction(
                                         PlayerAction.Type.applyItem, item.id);
@@ -555,15 +611,8 @@ class TextUi : GameUi
                         }
                         else
                         {
-                            import std.uni : isGraphical;
-
-                            if (ch.isGraphical)
-                                message(format("Unknown key: %s", ch));
-                            else if (ch < 0x20)
-                                message(format("Unknown key ^%s",
-                                               cast(dchar)(ch + 0x40)));
-                            else
-                                message(format("Unknown key (\\u%04X)", ch));
+                            message("Unknown key: %s (press ? for help)"
+                                    .format(ch.toPrintable));
                         }
                 }
             }
@@ -1100,13 +1149,9 @@ class TextUi : GameUi
 
             foreach (button; buttons)
             {
-                string key = (button.key == keyEnter) ? "Enter" :
-                             (button.key == '\t')     ? "Tab" :
-                             (button.key == ' ')      ? "Space" :
-                             button.key.to!string;
-                hints ~= key ~ ":" ~ button.label;
+                hints ~= format("%s:%s", button.key.toPrintable, button.label);
             }
-            return format("%-(%s, %)", hints);
+            return hints.join(", ");
         }
 
         if (inven.length == 0)
