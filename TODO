@@ -1,10 +1,5 @@
 - Should run gravity system once before placing player in a new map, to avoid
   awkward messages of falling furniture on first move. :-D
-- [ui] Should merge equip/unequip actions into *single* inventory UI. Having
-  separate actions and different inventory modes is very confusing.
-   - Also, the drop dialogue is stupid and klunky; you should follow nethack's
-     way of dropping all by default, limited number only if player prefixes it
-     with a count.
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
@@ -347,3 +342,8 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
      until it reaches permanent rest or falls again. Sinking state is too
      sticky. :-D
 + Tutorial should include climb-ledge mechanics?
++ [ui] Should merge equip/unequip actions into *single* inventory UI. Having
+  separate actions and different inventory modes is very confusing.
+   + Also, the drop dialogue is stupid and klunky; you should follow nethack's
+     way of dropping all by default, limited number only if player prefixes it
+     with a count.

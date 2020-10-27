@@ -23,11 +23,14 @@ module ui;
 import core.thread : Fiber;
 import std.algorithm;
 import std.array;
+import std.conv : to;
+import std.format : format;
 import std.range;
 
 import arsd.terminal;
 
 import components;
+import dir;
 import display;
 import fov;
 import game;
@@ -276,7 +279,6 @@ unittest
 
         void writef(Args...)(string fmt, Args args)
         {
-            import std.format : format;
             foreach (ch; format(fmt, args))
             {
                 impl[curX + width*curY] = ch;
@@ -333,11 +335,8 @@ Movement keys:
    <space>         = center viewport back on player.
 
 Commands:
-   d        Drop an object from your inventory.
    p        Pass a turn.
-   z        Show inventory (does not consume a turn).
-   e        Equip an item.
-   r        Remove (unequip) an equipped item.
+   e        Manage your equipment.
    ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
    <enter>  Activate object in current location.
@@ -419,6 +418,46 @@ class TextUi : GameUi
         });
     }
 
+    /**
+     * Display UI to prompt player to select one item out of many. If only one
+     * item is in the list, that item is picked by default without further
+     * prompting.  If there are no given targets, the emptyPrompt message is
+     * displayed and the callback is not invoked.
+     */
+    void selectTarget(string promptStr, InventoryItem[] targets,
+                      void delegate(ThingId targetId) cb,
+                      string emptyPrompt)
+    {
+        if (targets.empty)
+        {
+            message(emptyPrompt);
+            return;
+        }
+        if (targets.length == 1)
+        {
+            cb(targets.front.id);
+            return;
+        }
+
+        ThingId selected;
+        inventoryUi(targets, promptStr, "pick",
+            (item) {
+                selected = item.id;
+                return true;
+            },
+            null,
+            () {
+                // Note: this has to be done in the onExit callback, not in the
+                // selection callback, because it must happen after the
+                // inventory UI has popped itself from the mode stack;
+                // otherwise we'll be in an inconsistent state and will crash
+                // at the subsequent context switch.
+                if (selected != invalidId)
+                    cb(selected);
+            }
+        );
+    }
+
     PlayerAction getPlayerAction()
     {
         PlayerAction result;
@@ -430,20 +469,15 @@ class TextUi : GameUi
         else static assert(0);
 
         PlayerAction[dchar] keymap = [
-            'i': PlayerAction.up,
-            'm': PlayerAction.down,
-            'h': PlayerAction.ana,
-            'l': PlayerAction.kata,
-            'o': PlayerAction.back,
-            'n': PlayerAction.front,
-            'j': PlayerAction.left,
-            'k': PlayerAction.right,
-            keyEnter: PlayerAction.apply,
-            ',': PlayerAction.pickup,
-            'd': PlayerAction.drop,
-            'p': PlayerAction.pass,
-            'r': PlayerAction.unequip,
-            'e': PlayerAction.equip,
+            'i': PlayerAction(PlayerAction.Type.move, Dir.up),
+            'm': PlayerAction(PlayerAction.Type.move, Dir.down),
+            'h': PlayerAction(PlayerAction.Type.move, Dir.ana),
+            'l': PlayerAction(PlayerAction.Type.move, Dir.kata),
+            'o': PlayerAction(PlayerAction.Type.move, Dir.back),
+            'n': PlayerAction(PlayerAction.Type.move, Dir.front),
+            'j': PlayerAction(PlayerAction.Type.move, Dir.left),
+            'k': PlayerAction(PlayerAction.Type.move, Dir.right),
+            'p': PlayerAction(PlayerAction.Type.pass),
         ];
 
         auto mainMode = Mode(
@@ -463,7 +497,21 @@ class TextUi : GameUi
                     case 'K': moveView(vec(0,0,0,1));   break;
                     case ' ': viewport.centerOn(g.playerPos);   break;
                     case ';': lookAtFloor();            break;
-                    case 'z': showInventory();          break;
+                    case '\t':
+                    case 'e':
+                        showInventory((InventoryItem item) {
+                                result = PlayerAction(
+                                        PlayerAction.Type.applyItem, item.id);
+                                dispatch.pop();
+                                gameFiber.call();
+                            }, (InventoryItem item) {
+                                result = PlayerAction(PlayerAction.Type.drop,
+                                                      item.id, item.count);
+                                dispatch.pop();
+                                gameFiber.call();
+                            }
+                        );
+                        break;
                     case 'q':
                         g.saveGame();
                         quit = true;
@@ -485,6 +533,32 @@ class TextUi : GameUi
                     case '\x0c':        // ^L
                         disp.repaint(); // force repaint of entire screen
                         break;
+                    case keyEnter: {
+                        selectTarget("What do you want to apply?",
+                            g.getApplyTargets(),
+                            (targetId) {
+                                result = PlayerAction(
+                                    PlayerAction.Type.applyFloor, targetId);
+                                dispatch.pop();
+                                gameFiber.call();
+                            },
+                            "Nothing to apply here."
+                        );
+                        break;
+                    }
+                    case ',': {
+                        selectTarget("What do you want to pick up?",
+                            g.getPickupTargets(),
+                            (targetId) {
+                                result = PlayerAction(PlayerAction.Type.pickup,
+                                                      targetId);
+                                dispatch.pop();
+                                gameFiber.call();
+                            },
+                            "Nothing to pick up here."
+                        );
+                        break;
+                    }
                     default:
                         if (auto cmd = ch in keymap)
                         {
@@ -494,7 +568,6 @@ class TextUi : GameUi
                         }
                         else
                         {
-                            import std.format : format;
                             import std.uni : isGraphical;
 
                             if (ch.isGraphical)
@@ -512,7 +585,7 @@ class TextUi : GameUi
         dispatch.push(mainMode);
         Fiber.yield();
 
-        assert(result != PlayerAction.none);
+        assert(result.type != PlayerAction.Type.none);
         return result;
     }
 
@@ -526,9 +599,9 @@ class TextUi : GameUi
      *  dg = Callback to invoke with the inputted number.
      */
     void promptNumber(string promptStr, int minVal, int maxVal,
-                      void delegate(int) dg)
+                      void delegate(int) dg, string defaultVal = "")
+        in (defaultVal.length <= 12)
     {
-        import std.format : format;
         auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
         auto width = min(fullPrompt.displayLength() + 2, disp.width);
         auto height = 5;
@@ -540,6 +613,9 @@ class TextUi : GameUi
         string err;
         dchar[12] input;
         int curPos;
+
+        defaultVal.copy(input[]);
+        curPos = defaultVal.length.to!int;
 
         auto promptMode = Mode(
             () {
@@ -622,36 +698,6 @@ class TextUi : GameUi
         );
 
         dispatch.push(promptMode);
-    }
-
-    InventoryItem pickItem(InventoryItem[] items, string whatPrompt,
-                           string countPromptFmt)
-    {
-        InventoryItem result;
-        if (inventoryUi(items, whatPrompt, (InventoryItem item) {
-                result = item;
-                return true;
-            }, {
-                // Return result to game fiber.
-                gameFiber.call();
-            }))
-        {
-            Fiber.yield();
-
-            if (result.id != invalidId && countPromptFmt.length > 0 &&
-                result.count > 1)
-            {
-                import std.format : format;
-                promptNumber(countPromptFmt.format(result.name), 0,
-                             result.count, (count) {
-                                result.count = count;
-                                gameFiber.call();
-                             });
-                Fiber.yield();
-            }
-        }
-
-        return result;
     }
 
     void updateMap(Pos[] where...)
@@ -966,12 +1012,10 @@ class TextUi : GameUi
 
         if (objs.length == 1)
         {
-            import std.format : format;
             message("There's %s here.".format(objs[0]));
             return;
         }
 
-        import std.conv : to;
         static immutable heading = "You see here:";
         auto width = max(heading.displayLength + 2,
                          objs.map!(item => item.name.displayLength + 6)
@@ -995,7 +1039,6 @@ class TextUi : GameUi
 
                 foreach (i; 0 .. objs.length)
                 {
-                    import std.conv : to;
                     scrn.moveTo(1, (3 + i).to!int);
                     renderItem(scrn, objs[i], Color.black, Color.white);
                 }
@@ -1044,36 +1087,44 @@ class TextUi : GameUi
      *  onExit = Hook to run upon leaving the inventory UI. Primarily needed
      *      for Fiber context switches if the interaction started from the Game
      *      fiber.
+     *  onApply = Hook to run for apply action on an item. Return true to exit
+     *      inventory mode, or false to continue.
+     *  onDrop = Hook to run for drop action on an item.
      *
      * Returns: true if inventory UI mode is pushed on stack, otherwise false
      * (e.g., if inventory is empty).
      */
     private bool inventoryUi(InventoryItem[] inven,
-                             string promptStr,
-                             bool delegate(InventoryItem) selectAction,
+                             string promptStr, string selectHint = "",
+                             bool delegate(InventoryItem) selectAction = null,
+                             void delegate(InventoryItem) onDrop = null,
                              void delegate() onExit = null)
     {
         if (inven.length == 0)
             return false;
 
-        import std.conv : to;
+        auto canSelect = (selectAction || onDrop);
+        string[] hints;
+        if (canSelect) hints ~= "j/k:select";
+        if (selectAction !is null) hints ~= "Enter:" ~ selectHint;
+        if (onDrop !is null)       hints ~= "d:drop";
+        hints ~= "Space:done";
 
-        static immutable hintString = "(Use j/k to select, Enter to pick, "~
-                                      "q to abort)";
-        auto hintStringLen = (selectAction is null) ? 0 :
-                             hintString.displayLength;
-        auto width = (6 + max(promptStr.displayLength, hintStringLen,
-                              inven.map!(item => item.name.displayLength +
+        auto hintString = format("%-(%s, %)", hints);
+        auto hintStringLen = hintString.displayLength;
+        auto width = (max(2 + promptStr.displayLength, 2 + hintStringLen,
+                          6 + inven.map!(item => item.name.displayLength +
                                                  (item.equipped ? 11 : 0))
-                                   .maxElement)).to!int;
-        auto height = min(disp.height, 5 + inven.length.to!int);
+                               .maxElement)).to!int;
+        auto height = min(disp.height, 4 + inven.length.to!int
+                                         + ((hintStringLen > 0) ? 2 : 0));
         auto scrnX = (disp.width - width)/2;
         auto scrnY = (disp.height - height)/2;
         auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
                                              vec(scrnX + width,
                                                  scrnY + height)));
-        int curIdx = (selectAction !is null) ? 0 : -1;
-        int yStart = (selectAction !is null) ? 4 : 3;
+        int curIdx = canSelect ? 0 : -1;
+        int yStart = 3;
 
         auto invenMode = Mode(
             () {
@@ -1086,16 +1137,16 @@ class TextUi : GameUi
 
                 scrn.moveTo(1, 1);
                 scrn.writef("%s", promptStr);
-                if (selectAction !is null)
+                if (canSelect)
                 {
-                    scrn.moveTo(1, 2);
-                    scrn.writef("(Use j/k to select, Enter to pick, "~
-                                "q to abort)");
+                    scrn.moveTo(1, height-2);
+                    scrn.color(Color.blue, Color.white);
+                    scrn.writef(hintString);
+                    scrn.color(Color.black, Color.white);
                 }
 
                 foreach (i; 0 .. inven.length)
                 {
-                    import std.conv : to;
                     scrn.moveTo(1, (yStart + i).to!int);
 
                     auto fg = Color.black;
@@ -1121,21 +1172,29 @@ class TextUi : GameUi
                         break;
 
                     case 'i', 'k':
-                        if (selectAction !is null && curIdx > 0)
+                        if (canSelect && curIdx > 0)
                             curIdx--;
                         break;
 
                     case 'j', 'm':
-                        if (selectAction !is null && curIdx + 1 < inven.length)
+                        if (canSelect && curIdx + 1 < inven.length)
                             curIdx++;
                         break;
 
                     case '\n':
-                        if (selectAction !is null &&
-                            selectAction(inven[curIdx]))
+                        if (selectAction !is null)
                         {
-                            // selectAction wants to stop interaction now, go
-                            // back to previous mode.
+                            if (selectAction(inven[curIdx]))
+                                // selectAction wants to stop interaction now,
+                                // go back to previous mode.
+                                goto case 'q';
+                        }
+                        break;
+
+                    case 'd':
+                        if (onDrop !is null)
+                        {
+                            onDrop(inven[curIdx]);
                             goto case 'q';
                         }
                         break;
@@ -1150,9 +1209,43 @@ class TextUi : GameUi
         return true;
     }
 
-    private void showInventory()
+    private void showInventory(void delegate(InventoryItem) onApply,
+                               void delegate(InventoryItem) onDrop)
     {
-        if (!inventoryUi(g.getInventory, "You are carrying:", null /*TBD: show item details*/))
+        void delegate() onExit = null;
+
+        if (!inventoryUi(g.getInventory, "You are carrying:",
+            "use/equip/unequip",
+            (InventoryItem applyItem) {
+                onExit = { onApply(applyItem); };
+                return true;
+            },
+            (InventoryItem dropItem) {
+                onExit = {
+                    if (dropItem.count == 1)
+                    {
+                        onDrop(dropItem);
+                    }
+                    else
+                    {
+                        auto promptStr = format(
+                            "How many %s do you want to drop?", dropItem.name);
+                        promptNumber(promptStr, 0, dropItem.count,
+                            (count) {
+                                if (count > 0)
+                                {
+                                    auto toDrop = dropItem;
+                                    toDrop.count = count;
+                                    onDrop(toDrop);
+                                }
+                                else
+                                    message("You decide against dropping "~
+                                            "anything.");
+                            }, dropItem.count.to!string);
+                    }
+                };
+            },
+            () { if (onExit) onExit(); }))
         {
             message("You are not carrying anything right now.");
         }

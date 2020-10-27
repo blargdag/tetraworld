@@ -54,10 +54,33 @@ enum saveFileName = ".tetra.save";
 /**
  * Logical player input action.
  */
-enum PlayerAction
+struct PlayerAction
 {
-    none, up, down, left, right, front, back, ana, kata,
-    apply, equip, unequip, pickup, drop, pass,
+    enum Type
+    {
+        none, move, applyFloor, applyItem, pickup, drop, pass,
+    }
+
+    Type type;
+    union
+    {
+        Dir dir;
+        ThingId objId;
+    }
+    int objCount;
+
+    this(Type _type, Dir _dir)
+    {
+        type = _type;
+        dir = _dir;
+    }
+
+    this(Type _type, ThingId _objId = invalidId, int _objCount = 0)
+    {
+        type = _type;
+        objId = _objId;
+        objCount = _objCount;
+    }
 }
 
 /**
@@ -82,13 +105,6 @@ interface GameUi
      * Read player action from user input.
      */
     PlayerAction getPlayerAction();
-
-    /**
-     * Prompt the user to select an inventory item to perform an action on.
-     * Returns: invalidId if the user cancels the action.
-     */
-    InventoryItem pickItem(InventoryItem[], string whatPrompt,
-                           string countPromptFmt);
 
     /**
      * Notify UI that a map change has occurred.
@@ -268,6 +284,16 @@ class Game
                     .array;
     }
 
+    auto toInventoryItem(ThingId id)
+    {
+        auto tiled = w.store.get!Tiled(id);
+        auto nm = w.store.get!Name(id);
+        auto stk = w.store.get!Stackable(id);
+        return InventoryItem(id, tiled ? tiled.tileId : TileId.unknown,
+                             nm ? nm.name : "???",
+                             stk ? stk.count : 1);
+    }
+
     private int numGold()
     {
         auto inv = w.store.get!Inventory(player.id);
@@ -360,95 +386,54 @@ class Game
         return (World w) => move(w, player, v);
     }
 
-    private Action pickupObj(ref string errmsg)
+    private Action pickupObj(ThingId targetId, ref string errmsg)
     {
-        auto pos = *w.store.get!Pos(player.id);
-        auto r = w.store.getAllBy!Pos(pos)
-                        .filter!(id => w.store.get!Pickable(id) !is null);
+        return (World w) => pickupItem(w, player, targetId);
+    }
+
+    private Action dropObj(ThingId objId, int count, ref string errmsg)
+    {
+        return (World w) => dropItem(w, player, objId, count);
+    }
+
+    private Action applyObj(ThingId targetId, ref string errmsg)
+    {
+        auto r = getInventory(item => item.id == targetId);
         if (r.empty)
         {
-            errmsg = "Nothing here to pick up.";
+            errmsg = "You're not carrying that!";
             return null;
         }
 
-        // TBD: if more than one object, present player a choice.
-        return (World w) => pickupItem(w, player, r.front);
+        auto item = r.front;
+        auto obj = w.store.getObj(item.id);
+        if (obj.systems & (SysMask.armor | SysMask.weapon))
+        {
+            if (item.equipped)
+                return (World w) => unequip(w, player, item.id);
+            else
+                return (World w) => equip(w, player, item.id);
+        }
+        else
+        {
+            // TBD: invoke use action for usable items
+        }
+
+        errmsg = "You can't apply that!";
+        return null;
     }
 
-    private Action equipObj(ref string errmsg)
+    private Action applyFloorObj(ThingId targetId, ref string errmsg)
     {
-        auto equippable = getInventory(item =>
-            item.type == Inventory.Item.Type.carrying &&
-            (w.store.get!Armor(item.id) !is null ||
-             w.store.get!Weapon(item.id) !is null));
-
-        if (equippable.empty)
-        {
-             errmsg = "You have nothing to wear.";
-             return null;
-        }
-
-        auto item = ui.pickItem(equippable, "What do you want to equip?",
-                                null);
-        if (item.id == invalidId || item.count == 0)
-        {
-            errmsg = "You decide against equipping anything.";
-            return null;
-        }
-
-        return (World w) => equip(w, player, item.id);
-    }
-
-    private Action unequipObj(ref string errmsg)
-    {
-        auto removables = getInventory(item =>
-            item.type == Inventory.Item.Type.equipped);
-
-        if (removables.empty)
-        {
-            errmsg = "You aren't wearing anything.";
-            return null;
-        }
-
-        auto item = ui.pickItem(removables, "What do you want to unequip?",
-                                null);
-        if (item.id == invalidId || item.count == 0)
-        {
-            errmsg = "You decide against unequipping anything.";
-            return null;
-        }
-
-        return (World w) => unequip(w, player, item.id);
-    }
-
-    private Action dropObj(ref string errmsg)
-    {
-        auto item = ui.pickItem(getInventory, "What do you want to drop?",
-                                "How many %s do you want to drop?");
-        if (item.id == invalidId || item.count == 0)
-        {
-            errmsg = (getInventory().length == 0) ?
-                     "You have nothing to drop." :
-                     "You decide against dropping anything.";
-            return null;
-        }
-        return (World w) => dropItem(w, player, item.id, item.count);
-    }
-
-    private Action applyFloorObj(ref string errmsg)
-    {
-        auto pos = *w.store.get!Pos(player.id);
-        auto r = w.store.getAllBy!Pos(pos)
-                        .filter!(id => w.store.get!Usable(id) !is null);
-        if (r.empty)
-        {
-            errmsg = "Nothing to apply here.";
-            return null;
-        }
-
         // Check use prerequisites.
         // FIXME: need a more general prerequisites model here.
-        auto u = w.store.get!Usable(r.front);
+        auto u = w.store.get!Usable(targetId);
+        if (u is null)
+        {
+            errmsg = "You can't apply that!";
+            return null;
+        }
+
         if (u.effect == UseEffect.portal)
         {
             auto ngold = numGold();
@@ -461,7 +446,7 @@ class Game
             }
         }
 
-        return (World w) => useItem(w, player, r.front);
+        return (World w) => useItem(w, player, targetId);
     }
 
     private void setupLevel()
@@ -842,6 +827,22 @@ class Game
         });
     }
 
+    InventoryItem[] getApplyTargets()
+    {
+        return w.store.getAllBy!Pos(Pos(playerPos))
+                      .filter!(id => w.store.get!Usable(id) !is null)
+                      .map!(id => toInventoryItem(id))
+                      .array;
+    }
+
+    InventoryItem[] getPickupTargets()
+    {
+        return w.store.getAllBy!Pos(Pos(playerPos))
+                .filter!(id => w.store.get!Pickable(id) !is null)
+                .map!(id => toInventoryItem(id))
+                .array;
+    }
+
     auto objectsOnFloor()
     {
         import std.format : format;
@@ -850,15 +851,7 @@ class Game
                 .map!(id => w.store.getObj(id))
                 .filter!(t => (t.systems & SysMask.name) != 0 &&
                               (t.systems & SysMask.tiled) != 0)
-                .map!((Thing* t) {
-                    auto tiled = w.store.get!Tiled(t.id);
-                    auto nm = w.store.get!Name(t.id);
-                    auto stk = w.store.get!Stackable(t.id);
-                    return InventoryItem(t.id, tiled ? tiled.tileId :
-                                                       TileId.unknown,
-                                         nm ? nm.name : "???",
-                                         stk ? stk.count : 1);
-                });
+                .map!((Thing* t) => toInventoryItem(t.id));
     }
 
     private void observeSurroundings()
@@ -887,23 +880,29 @@ class Game
         string errmsg;
         while (act is null)
         {
-            final switch (ui.getPlayerAction()) with(PlayerAction)
+            auto pAct = ui.getPlayerAction();
+            final switch (pAct.type) with(PlayerAction.Type)
             {
-                case up:    act = movePlayer([-1,0,0,0], errmsg); break;
-                case down:  act = movePlayer([1,0,0,0],  errmsg); break;
-                case ana:   act = movePlayer([0,-1,0,0], errmsg); break;
-                case kata:  act = movePlayer([0,1,0,0],  errmsg); break;
-                case back:  act = movePlayer([0,0,-1,0], errmsg); break;
-                case front: act = movePlayer([0,0,1,0],  errmsg); break;
-                case left:  act = movePlayer([0,0,0,-1], errmsg); break;
-                case right: act = movePlayer([0,0,0,1],  errmsg); break;
-                case pickup: act = pickupObj(errmsg);             break;
-                case equip:   act = equipObj(errmsg);             break;
-                case unequip: act = unequipObj(errmsg);           break;
-                case drop:  act = dropObj(errmsg);                break;
-                case apply: act = applyFloorObj(errmsg);          break;
-                case pass:  act = (World w) => .pass(w, player);  break;
-                case none:  assert(0, "Internal error");
+                case move:
+                    act = movePlayer(dir2vec(pAct.dir), errmsg);
+                    break;
+                case pickup:
+                    act = pickupObj(pAct.objId, errmsg);
+                    break;
+                case drop:
+                    act = dropObj(pAct.objId, pAct.objCount, errmsg);
+                    break;
+                case applyItem:
+                    act = applyObj(pAct.objId, errmsg);
+                    break;
+                case applyFloor:
+                    act = applyFloorObj(pAct.objId, errmsg);
+                    break;
+                case pass:
+                    act = (World w) => .pass(w, player);
+                    break;
+                case none:
+                    assert(0, "Internal error");
             }
 
             if (act is null)
@@ -912,7 +911,7 @@ class Game
         return act;
     }
 
-    void setupAgentImpls()
+    private void setupAgentImpls()
     {
         AgentImpl playerImpl;
         playerImpl.chooseAction = (World w, ThingId agentId)
