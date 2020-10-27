@@ -349,6 +349,12 @@ Meta-commands:
 ENDTEXT"
     .split('\n');
 
+version(Posix)
+    enum keyEnter = '\n';
+else version(Windows)
+    enum keyEnter = '\r';
+else static assert(0);
+
 /**
  * Text-based UI implementation.
  */
@@ -439,34 +445,15 @@ class TextUi : GameUi
             return;
         }
 
-        ThingId selected;
-        inventoryUi(targets, promptStr, "pick",
-            (item) {
-                selected = item.id;
-                return true;
-            },
-            null,
-            () {
-                // Note: this has to be done in the onExit callback, not in the
-                // selection callback, because it must happen after the
-                // inventory UI has popped itself from the mode stack;
-                // otherwise we'll be in an inconsistent state and will crash
-                // at the subsequent context switch.
-                if (selected != invalidId)
-                    cb(selected);
-            }
-        );
+        inventoryUi(targets, promptStr, [
+            InventoryButton(keyEnter, "pick", true, (item) { cb(item.id); }),
+            InventoryButton('q', "abort", true, null),
+        ]);
     }
 
     PlayerAction getPlayerAction()
     {
         PlayerAction result;
-
-        version(Posix)
-            enum keyEnter = '\n';
-        else version(Windows)
-            enum keyEnter = '\r';
-        else static assert(0);
 
         PlayerAction[dchar] keymap = [
             'i': PlayerAction(PlayerAction.Type.move, Dir.up),
@@ -1078,6 +1065,14 @@ class TextUi : GameUi
         scrn.clearToEol();
     }
 
+    private static struct InventoryButton
+    {
+        dchar key;
+        string label;
+        bool exitOnClick;
+        void delegate(InventoryItem) onClick;
+    }
+
     /**
      * Params:
      *  promptStr = Heading to display on inventory screen.
@@ -1094,23 +1089,30 @@ class TextUi : GameUi
      * Returns: true if inventory UI mode is pushed on stack, otherwise false
      * (e.g., if inventory is empty).
      */
-    private bool inventoryUi(InventoryItem[] inven,
-                             string promptStr, string selectHint = "",
-                             bool delegate(InventoryItem) selectAction = null,
-                             void delegate(InventoryItem) onDrop = null,
-                             void delegate() onExit = null)
+    private bool inventoryUi(InventoryItem[] inven, string promptStr,
+                             InventoryButton[] buttons, bool canSelect = true)
     {
+        string makeHintString()
+        {
+            string[] hints;
+            if (canSelect)
+                hints ~= "j/k:select";
+
+            foreach (button; buttons)
+            {
+                string key = (button.key == keyEnter) ? "Enter" :
+                             (button.key == '\t')     ? "Tab" :
+                             (button.key == ' ')      ? "Space" :
+                             button.key.to!string;
+                hints ~= key ~ ":" ~ button.label;
+            }
+            return format("%-(%s, %)", hints);
+        }
+
         if (inven.length == 0)
             return false;
 
-        auto canSelect = (selectAction || onDrop);
-        string[] hints;
-        if (canSelect) hints ~= "j/k:select";
-        if (selectAction !is null) hints ~= "Enter:" ~ selectHint;
-        if (onDrop !is null)       hints ~= "d:drop";
-        hints ~= "Space:done";
-
-        auto hintString = format("%-(%s, %)", hints);
+        auto hintString = makeHintString();
         auto hintStringLen = hintString.displayLength;
         auto width = (max(2 + promptStr.displayLength, 2 + hintStringLen,
                           6 + inven.map!(item => item.name.displayLength +
@@ -1125,6 +1127,12 @@ class TextUi : GameUi
                                                  scrnY + height)));
         int curIdx = canSelect ? 0 : -1;
         int yStart = 3;
+
+        InventoryButton[dchar] keymap;
+        foreach (button; buttons)
+        {
+            keymap[button.key] = button;
+        }
 
         auto invenMode = Mode(
             () {
@@ -1163,14 +1171,6 @@ class TextUi : GameUi
             (dchar ch) {
                 switch (ch)
                 {
-                    case 'q', ' ':
-                        dispatch.pop();
-                        disp.color(Color.DEFAULT, Color.DEFAULT);
-                        disp.clear();
-                        if (onExit !is null)
-                            onExit();
-                        break;
-
                     case 'i', 'k':
                         if (canSelect && curIdx > 0)
                             curIdx--;
@@ -1181,25 +1181,20 @@ class TextUi : GameUi
                             curIdx++;
                         break;
 
-                    case '\n':
-                        if (selectAction !is null)
-                        {
-                            if (selectAction(inven[curIdx]))
-                                // selectAction wants to stop interaction now,
-                                // go back to previous mode.
-                                goto case 'q';
-                        }
-                        break;
-
-                    case 'd':
-                        if (onDrop !is null)
-                        {
-                            onDrop(inven[curIdx]);
-                            goto case 'q';
-                        }
-                        break;
-
                     default:
+                        auto button = ch in keymap;
+                        if (button is null)
+                            break;
+
+                        if (button.exitOnClick)
+                        {
+                            dispatch.pop();
+                            disp.color(Color.DEFAULT, Color.DEFAULT);
+                            disp.clear();
+                        }
+
+                        if (button.onClick)
+                            button.onClick(inven[curIdx]);
                         break;
                 }
             }
@@ -1215,37 +1210,35 @@ class TextUi : GameUi
         void delegate() onExit = null;
 
         if (!inventoryUi(g.getInventory, "You are carrying:",
-            "use/equip/unequip",
-            (InventoryItem applyItem) {
-                onExit = { onApply(applyItem); };
-                return true;
-            },
-            (InventoryItem dropItem) {
-                onExit = {
-                    if (dropItem.count == 1)
+            [
+                InventoryButton(keyEnter, "use/equip/unequip", true, (item) {
+                    onApply(item);
+                }),
+                InventoryButton('d',  "drop", true, (item) {
+                    if (item.count == 1)
                     {
-                        onDrop(dropItem);
+                        onDrop(item);
                     }
                     else
                     {
                         auto promptStr = format(
-                            "How many %s do you want to drop?", dropItem.name);
-                        promptNumber(promptStr, 0, dropItem.count,
+                            "How many %s do you want to drop?", item.name);
+                        promptNumber(promptStr, 0, item.count,
                             (count) {
                                 if (count > 0)
                                 {
-                                    auto toDrop = dropItem;
+                                    auto toDrop = item;
                                     toDrop.count = count;
                                     onDrop(toDrop);
                                 }
                                 else
                                     message("You decide against dropping "~
                                             "anything.");
-                            }, dropItem.count.to!string);
+                            }, item.count.to!string);
                     }
-                };
-            },
-            () { if (onExit) onExit(); }))
+                }),
+                InventoryButton('\t', "done", true, null),
+            ]))
         {
             message("You are not carrying anything right now.");
         }
