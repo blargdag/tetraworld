@@ -23,6 +23,8 @@ module ui;
 import core.thread : Fiber;
 import std.algorithm;
 import std.array;
+import std.conv : to;
+import std.format : format;
 import std.range;
 
 import arsd.terminal;
@@ -277,7 +279,6 @@ unittest
 
         void writef(Args...)(string fmt, Args args)
         {
-            import std.format : format;
             foreach (ch; format(fmt, args))
             {
                 impl[curX + width*curY] = ch;
@@ -566,7 +567,6 @@ class TextUi : GameUi
                         }
                         else
                         {
-                            import std.format : format;
                             import std.uni : isGraphical;
 
                             if (ch.isGraphical)
@@ -598,9 +598,9 @@ class TextUi : GameUi
      *  dg = Callback to invoke with the inputted number.
      */
     void promptNumber(string promptStr, int minVal, int maxVal,
-                      void delegate(int) dg)
+                      void delegate(int) dg, string defaultVal = "")
+        in (defaultVal.length <= 12)
     {
-        import std.format : format;
         auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
         auto width = min(fullPrompt.displayLength() + 2, disp.width);
         auto height = 5;
@@ -612,6 +612,9 @@ class TextUi : GameUi
         string err;
         dchar[12] input;
         int curPos;
+
+        defaultVal.copy(input[]);
+        curPos = defaultVal.length.to!int;
 
         auto promptMode = Mode(
             () {
@@ -713,7 +716,6 @@ class TextUi : GameUi
             if (result.id != invalidId && countPromptFmt.length > 0 &&
                 result.count > 1)
             {
-                import std.format : format;
                 promptNumber(countPromptFmt.format(result.name), 0,
                              result.count, (count) {
                                 result.count = count;
@@ -1038,12 +1040,10 @@ class TextUi : GameUi
 
         if (objs.length == 1)
         {
-            import std.format : format;
             message("There's %s here.".format(objs[0]));
             return;
         }
 
-        import std.conv : to;
         static immutable heading = "You see here:";
         auto width = max(heading.displayLength + 2,
                          objs.map!(item => item.name.displayLength + 6)
@@ -1067,7 +1067,6 @@ class TextUi : GameUi
 
                 foreach (i; 0 .. objs.length)
                 {
-                    import std.conv : to;
                     scrn.moveTo(1, (3 + i).to!int);
                     renderItem(scrn, objs[i], Color.black, Color.white);
                 }
@@ -1132,9 +1131,6 @@ class TextUi : GameUi
         if (inven.length == 0)
             return false;
 
-        import std.conv : to;
-        import std.format : format;
-
         auto canSelect = (selectAction || onDrop);
         string[] hints;
         if (canSelect) hints ~= "j/k:select";
@@ -1179,7 +1175,6 @@ class TextUi : GameUi
 
                 foreach (i; 0 .. inven.length)
                 {
-                    import std.conv : to;
                     scrn.moveTo(1, (yStart + i).to!int);
 
                     auto fg = Color.black;
@@ -1254,7 +1249,29 @@ class TextUi : GameUi
                 return true;
             },
             (InventoryItem dropItem) {
-                onExit = { onDrop(dropItem); };
+                onExit = {
+                    if (dropItem.count == 1)
+                    {
+                        onDrop(dropItem);
+                    }
+                    else
+                    {
+                        auto promptStr = format(
+                            "How many %s do you want to drop?", dropItem.name);
+                        promptNumber(promptStr, 0, dropItem.count,
+                            (count) {
+                                if (count > 0)
+                                {
+                                    auto toDrop = dropItem;
+                                    toDrop.count = count;
+                                    onDrop(toDrop);
+                                }
+                                else
+                                    message("You decide against dropping "~
+                                            "anything.");
+                            }, dropItem.count.to!string);
+                    }
+                };
             },
             () { if (onExit) onExit(); }))
         {
