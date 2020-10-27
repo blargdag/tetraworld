@@ -107,13 +107,6 @@ interface GameUi
     PlayerAction getPlayerAction();
 
     /**
-     * Prompt the user to select an inventory item to perform an action on.
-     * Returns: invalidId if the user cancels the action.
-     */
-    InventoryItem pickItem(InventoryItem[], string whatPrompt,
-                           string countPromptFmt);
-
-    /**
      * Notify UI that a map change has occurred.
      *
      * Params:

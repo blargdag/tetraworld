@@ -699,35 +699,6 @@ class TextUi : GameUi
         dispatch.push(promptMode);
     }
 
-    InventoryItem pickItem(InventoryItem[] items, string whatPrompt,
-                           string countPromptFmt)
-    {
-        InventoryItem result;
-        if (inventoryUi(items, whatPrompt, "pick", (InventoryItem item) {
-                result = item;
-                return true;
-            }, null, {
-                // Return result to game fiber.
-                gameFiber.call();
-            }))
-        {
-            Fiber.yield();
-
-            if (result.id != invalidId && countPromptFmt.length > 0 &&
-                result.count > 1)
-            {
-                promptNumber(countPromptFmt.format(result.name), 0,
-                             result.count, (count) {
-                                result.count = count;
-                                gameFiber.call();
-                             });
-                Fiber.yield();
-            }
-        }
-
-        return result;
-    }
-
     void updateMap(Pos[] where...)
     {
         // Only update the on-screen tiles that have changed.
