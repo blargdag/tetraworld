@@ -376,4 +376,36 @@ struct Weapon
     string attackVerb = "hits";
 }
 
+/**
+ * Component of tiles that have special effects.
+ */
+@Component
+struct TileEffect
+{
+    @BitFlags
+    enum OnEnter
+    {
+        none    = 0,
+        splash  = 1 << 0,
+    }
+
+    @BitFlags
+    enum OnStay
+    {
+        none    = 0,
+        drown   = 1 << 0,
+    }
+
+    @BitFlags
+    enum OnLeave
+    {
+        none    = 0,
+        splash  = 1 << 0,
+    }
+
+    OnEnter onEnter;
+    OnStay  onStay;
+    OnLeave onLeave;
+}
+
 // vim:set ai sw=4 ts=4 et:

@@ -686,6 +686,18 @@ class Game
                 case EventType.mchgMessage:
                     return (isPlayer) ? ev.msg : "";
 
+                case EventType.mchgSplashIn: {
+                    auto verb = isPlayer ? "fall" : "falls";
+                    return format("%s %s into the water with a splash!",
+                                  subjName.asCapitalized, verb);
+                }
+
+                case EventType.mchgSplashOut: {
+                    auto verb = isPlayer ? "splash" : "splashes";
+                    return format("%s %s out of the water.",
+                                  subjName.asCapitalized, verb);
+                }
+
                 default:
                     assert(0, "Unhandled event type: %s"
                               .format(ev.type));
@@ -773,8 +785,9 @@ class Game
                 case EventType.mchgDoorClose:
                     return "You hear a door shut in the distance!";
 
-                case EventType.mchgMessage:
-                    return "";
+                case EventType.mchgSplashIn:
+                case EventType.mchgSplashOut:
+                    return "You hear a splash.";
 
                 default:
                     assert(0, "Unhandled event type: %s"

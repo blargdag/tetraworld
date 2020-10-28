@@ -148,6 +148,8 @@ enum EventType
     mchgDoorOpen        = 0x0403,
     mchgDoorClose       = 0x0404,
     mchgMessage         = 0x0405,
+    mchgSplashIn        = 0x0406,
+    mchgSplashOut       = 0x0407,
 }
 
 /**

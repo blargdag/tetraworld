@@ -192,7 +192,20 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
 {
     import stacking;
 
-    w.store.remove!Pos(subj);
+    // Trigger onLeave effects
+    bool splashOut; // FIXME: this is a hack
+    auto oldPos = w.store.get!Pos(subj.id);
+    if (oldPos)
+    {
+        foreach (te; w.getAllAt(*oldPos)
+                      .map!(id => w.store.get!TileEffect(id))
+                      .filter!(te => te !is null))
+        {
+            if (te.onLeave & TileEffect.OnLeave.splash)
+                splashOut = true;
+        }
+        w.store.remove!Pos(subj);
+    }
 
     // If subject is stackable, try to merge it into an existing stack in the
     // target location.
@@ -216,6 +229,26 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
         w.store.add!Pos(subj, newPos);
 
     notifyMove();
+
+    // Trigger onEnter effects
+    bool splashIn;
+    foreach (te; w.getAllAt(newPos)
+                  .map!(id => w.store.get!TileEffect(id))
+                  .filter!(te => te !is null))
+    {
+        if (te.onEnter & TileEffect.OnEnter.splash)
+            splashIn = true;
+    }
+
+    // Merge splash events so that they cancel each other out if the object is
+    // merely moving within the medium.
+    // FIXME: this is a hack; we really should track the current medium
+    // instead!
+    if (splashOut && !splashIn)
+        w.events.emit(Event(EventType.mchgSplashOut, *oldPos, subj.id));
+
+    if (splashIn && !splashOut)
+        w.events.emit(Event(EventType.mchgSplashIn, newPos, subj.id));
 
     // Autopickup
     auto inven = w.store.get!Inventory(subj.id);

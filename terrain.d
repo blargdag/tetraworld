@@ -69,6 +69,9 @@ void registerTerrains(Store* store)
     store.registerTerrain(water, Tiled(TileId.water, -2),
                           SupportsWeight(SupportType.within,
                                          SupportCond.buoyant),
+                          TileEffect(TileEffect.OnEnter.splash,
+                                     TileEffect.OnStay.drown,
+                                     TileEffect.OnLeave.splash),
                           Name("water"));
 }
 
