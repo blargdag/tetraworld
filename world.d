@@ -141,6 +141,7 @@ enum EventType
     dmgFallOn       = 0x0302,
     dmgKill         = 0x0303,
     dmgBlock        = 0x0304,
+    dmgDrown        = 0x0305,
 
     // EventCat.mapChg
     mchgRevealPitTrap   = 0x0401,

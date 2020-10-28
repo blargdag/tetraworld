@@ -205,6 +205,45 @@ unittest
     assert(!canHear(w, 20, vec(0,0,0,0), vec(11,11,11,11)));
 }
 
+void registerTileEffectAgent(Store* store, SysAgent* sysAgent)
+{
+    static Thing teAgent = Thing(tileEffectAgentId);
+
+    AgentImpl agImpl;
+    agImpl.chooseAction = (World w, ThingId agentId) {
+        return (World w) {
+            // FIXME: there must be a better way to track objects in shared
+            // terrain tiles that contain effects?
+            foreach (mortalId; w.store.getAll!Mortal())
+            {
+                auto pos = w.store.get!Pos(mortalId);
+                if (pos is null) continue;
+
+                foreach (obj; w.getAllAt(*pos)
+                              .map!(id => w.store.getObj(id))
+                              .filter!(obj => (obj.systems &
+                                               SysMask.tileeffect) != 0))
+                {
+                    auto te = w.store.get!TileEffect(obj.id);
+                    if (te.onStay & TileEffect.OnStay.drown)
+                    {
+                        import damage : injure;
+                        injure(w, obj.id, mortalId, DmgType.drown, 1, (dam) {
+                            w.events.emit(Event(EventType.dmgDrown, *pos,
+                                                mortalId, obj.id));
+                        });
+                    }
+                }
+            }
+
+            return ActionResult(true, 10);
+        };
+    };
+
+    sysAgent.registerAgentImpl(Agent.Type.tileEffectAgent, agImpl);
+    store.registerSpecial(teAgent, Agent(Agent.type.tileEffectAgent));
+}
+
 /**
  * Game simulation.
  */
@@ -646,6 +685,11 @@ class Game
                     return format("%s %s shields %s from the blow!",
                                   subjPoss.asCapitalized, armorName, pronoun);
 
+                case EventType.dmgDrown:
+                    return isPlayer ? "You're drowning!"
+                                    : format("%s is drowning!",
+                                             subjName.asCapitalized);
+
                 default:
                     assert(0, "Unhandled event type: %s"
                               .format(ev.type));
@@ -764,6 +808,9 @@ class Game
 
                 case EventType.dmgBlock:
                     return "";
+
+                case EventType.dmgDrown:
+                    return "You hear bubbles in water.";
 
                 default:
                     assert(0, "Unhandled event type: %s"
@@ -944,6 +991,9 @@ class Game
 
         // Gravity system proxy for sinking objects over time.
         registerGravityObjs(&w.store, &sysAgent, &sysGravity);
+
+        // Background agent that applies tile effects per turn.
+        registerTileEffectAgent(&w.store, &sysAgent);
     }
 
     void run(GameUi _ui)

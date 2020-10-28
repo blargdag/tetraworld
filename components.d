@@ -321,7 +321,7 @@ struct Triggerable
 @Component @TrackNew
 struct Agent
 {
-    enum Type { ai, player, sinkAgent }
+    enum Type { ai, player, sinkAgent, tileEffectAgent }
     Type type;
     int ticksPerTurn = 10;
     // TBD: AI state goes here
@@ -353,6 +353,7 @@ enum DmgType
     bite = 1 << 1,
     pierce = 1 << 2,
     fallOn = 1 << 3,
+    drown =  1 << 4,
 }
 
 /**
