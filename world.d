@@ -109,6 +109,7 @@ enum EventCat
     itemAct = 0x0200,
     dmg     = 0x0300,
     mapChg  = 0x0400,
+    statChg = 0x0500,
 }
 
 enum EventCatMask = 0xFF00;
@@ -151,6 +152,10 @@ enum EventType
     mchgMessage         = 0x0405,
     mchgSplashIn        = 0x0406,
     mchgSplashOut       = 0x0407,
+
+    // EventCat.statChg
+    schgBreathHold      = 0x0501,
+    schgBreathReplenish = 0x0502,
 }
 
 /**

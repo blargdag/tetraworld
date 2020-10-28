@@ -327,6 +327,14 @@ struct Agent
     // TBD: AI state goes here
 }
 
+@BitFlags
+enum BreathType
+{
+    none = 0,
+    air = 1 << 0,
+    water = 1 << 1,
+}
+
 /**
  * Component for objects that can be injured and killed.
  */
@@ -335,6 +343,9 @@ struct Mortal
 {
     int maxhp;
     int hp; // FIXME: is there a better system than this lousy old thing?!
+
+    BreathType breathType;
+    int maxair, air;
 }
 
 /**

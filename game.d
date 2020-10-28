@@ -214,25 +214,59 @@ void registerTileEffectAgent(Store* store, SysAgent* sysAgent)
         return (World w) {
             // FIXME: there must be a better way to track objects in shared
             // terrain tiles that contain effects?
-            foreach (mortalId; w.store.getAll!Mortal())
+            foreach (mortalId; w.store.getAll!Mortal().dup)
             {
+                auto m = w.store.get!Mortal(mortalId);
                 auto pos = w.store.get!Pos(mortalId);
-                if (pos is null) continue;
+                if (m is null || pos is null) continue;
 
+                // FIXME: this is a water-specific hack. Should generalize to
+                // other media?
+                if (m.breathType & BreathType.water)
+                {
+                    continue;
+                }
+
+                bool underwater;
                 foreach (obj; w.getAllAt(*pos)
                               .map!(id => w.store.getObj(id))
                               .filter!(obj => (obj.systems &
                                                SysMask.tileeffect) != 0))
                 {
                     auto te = w.store.get!TileEffect(obj.id);
-                    if (te.onStay & TileEffect.OnStay.drown)
+                    if ((te.onStay & TileEffect.OnStay.drown) == 0)
+                        continue;
+
+                    // Drowning doesn't take effect unless we're completely
+                    // submerged (i.e., there's a drowning tile above us).
+                    auto ceilPos = Pos(*pos + vec(-1,0,0,0));
+                    if (!w.getAllAt(ceilPos)
+                          .map!(id => w.store.get!TileEffect(id))
+                          .filter!(te => te !is null)
+                          .canFind!(te => te.onStay & TileEffect.OnStay.drown))
+                        continue;
+
+                    underwater = true;
+                    m.air--;
+                    if (m.air > 0)
                     {
-                        import damage : injure;
-                        injure(w, obj.id, mortalId, DmgType.drown, 1, (dam) {
-                            w.events.emit(Event(EventType.dmgDrown, *pos,
-                                                mortalId, obj.id));
-                        });
+                        w.events.emit(Event(EventType.schgBreathHold, *pos,
+                                            mortalId));
+                        continue;
                     }
+
+                    import damage : injure;
+                    injure(w, obj.id, mortalId, DmgType.drown, 1, (dam) {
+                        w.events.emit(Event(EventType.dmgDrown, *pos,
+                                            mortalId, obj.id));
+                    });
+                }
+
+                if (!underwater && m.air < m.maxair)
+                {
+                    m.air = m.maxair; // replenish air
+                    w.events.emit(Event(EventType.schgBreathReplenish, *pos,
+                                        mortalId));
                 }
             }
 
@@ -291,7 +325,10 @@ class Game
 
         auto m = w.store.get!Mortal(player.id);
         if (m !is null)
-            result ~= PlayerStatus("hp", m.hp, m.maxhp);
+            result ~= [
+                PlayerStatus("hp", m.hp, m.maxhp),
+                PlayerStatus("air", m.air, m.maxair),
+            ];
 
         return result;
     }
@@ -498,7 +535,7 @@ class Game
         player = w.store.createObj(
             Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
             Agent(Agent.Type.player), Inventory([], true), Weight(1000),
-            BlocksMovement(), Mortal(5,5),
+            BlocksMovement(), Mortal(5,5, BreathType.air,5,5),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
         );
@@ -514,12 +551,15 @@ class Game
         sysGravity = SysGravity.init;
         setupLevel();
 
-        setupEventWatchers();
         setupAgentImpls();
+        sysGravity.run(w);
 
         // Move player to starting position.
         rawMove(w, player, Pos(startPos), {});
+        sysGravity.run(w);
         ui.moveViewport(playerPos);
+
+        setupEventWatchers();
     }
 
     private void portalSystem()
@@ -747,6 +787,30 @@ class Game
                               .format(ev.type));
             }
         }
+        else if (ev.cat == EventCat.statChg)
+        {
+            auto isPlayer = (ev.subjId == player.id);
+            auto subjName_ = w.store.get!Name(ev.subjId);
+            string subjName = isPlayer ? "you" :
+                              subjName_ ? subjName_.name : "";
+
+            switch (ev.type)
+            {
+                case EventType.schgBreathHold:
+                    return (isPlayer) ? "You hold your breath." : "";
+
+                case EventType.schgBreathReplenish:
+                    if (isPlayer)
+                        return "You draw in a big gulp of air!";
+                    else
+                        return format("%s gasps for air!",
+                                      subjName.asCapitalized);
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+        }
         assert(0);
     }
 
@@ -835,6 +899,21 @@ class Game
                 case EventType.mchgSplashIn:
                 case EventType.mchgSplashOut:
                     return "You hear a splash.";
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+        }
+        else if (ev.cat == EventCat.mapChg)
+        {
+            switch (ev.type)
+            {
+                case EventType.schgBreathHold:
+                    return "";
+
+                case EventType.schgBreathReplenish:
+                    return "You hear gasping.";
 
                 default:
                     assert(0, "Unhandled event type: %s"
@@ -1018,10 +1097,10 @@ class Game
 
         while (!quit)
         {
-            sysGravity.run(w);
             if (!sysAgent.run(w))
                 quit = true;
             portalSystem();
+            sysGravity.run(w);
         }
     }
 }
