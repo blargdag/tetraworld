@@ -1,3 +1,7 @@
+- Current drowning implementation is broken: the criterion for not drowning on
+  surface is that there's no water above: but sometimes it can be a ceiling, in
+  which you should *still* drown!
+   - Really should forego these hacks, and implement media for real instead!
 - Should run gravity system once before placing player in a new map, to avoid
   awkward messages of falling furniture on first move. :-D
 - Implement throwing rocks at monsters. :-D

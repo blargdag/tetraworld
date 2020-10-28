@@ -714,8 +714,12 @@ class Game
                                   subjName.asCapitalized, verb, objName);
 
                 case EventType.dmgKill:
-                    return format("%s killed %s!", subjName.asCapitalized,
-                                  objName);
+                    import terrain : water;
+                    if (ev.subjId == water.id)
+                        return format("%s drowned!", objName.asCapitalized);
+                    else
+                        return format("%s killed %s!", subjName.asCapitalized,
+                                      objName);
 
                 case EventType.dmgBlock:
                     auto subjPoss = (ev.subjId == player.id) ? "your" :
@@ -905,7 +909,7 @@ class Game
                               .format(ev.type));
             }
         }
-        else if (ev.cat == EventCat.mapChg)
+        else if (ev.cat == EventCat.statChg)
         {
             switch (ev.type)
             {
