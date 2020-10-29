@@ -45,6 +45,7 @@ import std.range;
 import bsp;
 import components;
 import gamemap;
+import objects;
 import rndutil;
 import terrain;
 import vector;
@@ -1455,10 +1456,8 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
         ceilingPos[0] = room.interior.min[0];
         pos[0] = room.interior.max[0] - 1;
 
-        w.store.createObj(Pos(pos),
-                          Trigger(Trigger.Type.onWeight, w.triggerId, 500));
-        w.store.createObj(Pos(ceilingPos),
-                          Triggerable(w.triggerId, TriggerEffect.rockTrap));
+        createRockTrapTrig(&w.store, pos, w.triggerId);
+        createRockTrap(&w.store, ceilingPos, w.triggerId);
         w.triggerId++;
         count--;
     }
@@ -1642,8 +1641,7 @@ void genPortal(World w, MapNode tree, Region!(int,4) bounds)
            !w.locationHas!BlocksMovement(pos + vec(1,0,0,0)))
         pos = randomDryPos(tree, bounds, w.map.waterLevel);
 
-    w.store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
-                      Usable(UseEffect.portal, "activate"), Weight(1));
+    createPortal(&w.store, pos);
 }
 
 unittest
