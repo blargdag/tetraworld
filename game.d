@@ -731,7 +731,7 @@ class Game
 
                 case EventType.schgBreathReplenish:
                     if (isPlayer)
-                        return "You draw in a big gulp of air!";
+                        return "You draw in a gulp of air!";
                     else
                         return format("%s gasps for air!",
                                       subjName.asCapitalized);
