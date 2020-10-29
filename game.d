@@ -702,17 +702,15 @@ class Game
                 case EventType.mchgMessage:
                     return (isPlayer) ? ev.msg : "";
 
-                case EventType.mchgSplashIn: {
-                    auto verb = isPlayer ? "fall" : "falls";
-                    return format("%s %s into the water with a splash!",
-                                  subjName.asCapitalized, verb);
-                }
+                case EventType.mchgSplashIn:
+                    return isPlayer ? "Splash!" :
+                            format("%s falls into the water with a splash!",
+                                   subjName.asCapitalized);
 
-                case EventType.mchgSplashOut: {
-                    auto verb = isPlayer ? "splash" : "splashes";
-                    return format("%s %s out of the water.",
-                                  subjName.asCapitalized, verb);
-                }
+                case EventType.mchgSplashOut:
+                    return isPlayer ? "Splash!" :
+                            format("%s splashes out of the water.",
+                                   subjName.asCapitalized);
 
                 default:
                     assert(0, "Unhandled event type: %s"

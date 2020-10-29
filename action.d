@@ -224,10 +224,10 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     if (oldMaterial == Material.water && newMaterial != Material.water)
         w.events.emit(Event(EventType.mchgSplashOut, *oldPos, subj.id));
 
+    notifyMove();
+
     if (oldMaterial != Material.water && newMaterial == Material.water)
         w.events.emit(Event(EventType.mchgSplashIn, newPos, subj.id));
-
-    notifyMove();
 
     // Autopickup
     auto inven = w.store.get!Inventory(subj.id);
