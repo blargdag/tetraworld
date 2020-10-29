@@ -1837,12 +1837,12 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
         // farther away from water line.
         if (uniform(0, 100) < vegDensePct)
             w.store.createObj(Pos(randomLocation(tree, bounds)),
-                              Tiled(TileId.vegetation2), Weight(100),
+                              Tiled(TileId.vegetation2, -1), Weight(100),
                               BlocksView(), Name("dense vegetation"));
         else
             w.store.createObj(Pos(randomLocation(tree, bounds)),
-                              Tiled(TileId.vegetation1), Name("vegetation"),
-                              Weight(100));
+                              Tiled(TileId.vegetation1, -1), Weight(100),
+                              Name("vegetation"));
     }
 
     // Note: this should be done after all other items / deco, so that it
