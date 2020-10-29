@@ -37,6 +37,7 @@ import fov;
 import gravity;
 import loadsave;
 import mapgen;
+import materials;
 import rndutil;
 import store;
 import store_traits;
@@ -203,79 +204,6 @@ unittest
     // TBD: test geometry
     assert( canHear(w, 20, vec(0,0,0,0), vec(10,10,10,10)));
     assert(!canHear(w, 20, vec(0,0,0,0), vec(11,11,11,11)));
-}
-
-void registerTileEffectAgent(Store* store, SysAgent* sysAgent)
-{
-    static Thing teAgent = Thing(tileEffectAgentId);
-
-    AgentImpl agImpl;
-    agImpl.chooseAction = (World w, ThingId agentId) {
-        return (World w) {
-            // FIXME: there must be a better way to track objects in shared
-            // terrain tiles that contain effects?
-            foreach (mortalId; w.store.getAll!Mortal().dup)
-            {
-                auto m = w.store.get!Mortal(mortalId);
-                auto pos = w.store.get!Pos(mortalId);
-                if (m is null || pos is null) continue;
-
-                // FIXME: this is a water-specific hack. Should generalize to
-                // other media?
-                if (m.breathType & BreathType.water)
-                {
-                    continue;
-                }
-
-                bool underwater;
-                foreach (obj; w.getAllAt(*pos)
-                              .map!(id => w.store.getObj(id))
-                              .filter!(obj => (obj.systems &
-                                               SysMask.tileeffect) != 0))
-                {
-                    auto te = w.store.get!TileEffect(obj.id);
-                    if ((te.onStay & TileEffect.OnStay.drown) == 0)
-                        continue;
-
-                    // Drowning doesn't take effect unless we're completely
-                    // submerged (i.e., there's a drowning tile above us).
-                    auto ceilPos = Pos(*pos + vec(-1,0,0,0));
-                    if (!w.getAllAt(ceilPos)
-                          .map!(id => w.store.get!TileEffect(id))
-                          .filter!(te => te !is null)
-                          .canFind!(te => te.onStay & TileEffect.OnStay.drown))
-                        continue;
-
-                    underwater = true;
-                    m.air--;
-                    if (m.air > 0)
-                    {
-                        w.events.emit(Event(EventType.schgBreathHold, *pos,
-                                            mortalId));
-                        continue;
-                    }
-
-                    import damage : injure;
-                    injure(w, obj.id, mortalId, DmgType.drown, 1, (dam) {
-                        w.events.emit(Event(EventType.dmgDrown, *pos,
-                                            mortalId, obj.id));
-                    });
-                }
-
-                if (!underwater && m.air < m.maxair)
-                {
-                    m.air = m.maxair; // replenish air
-                    w.events.emit(Event(EventType.schgBreathReplenish, *pos,
-                                        mortalId));
-                }
-            }
-
-            return ActionResult(true, 10);
-        };
-    };
-
-    sysAgent.registerAgentImpl(Agent.Type.tileEffectAgent, agImpl);
-    store.registerSpecial(teAgent, Agent(Agent.type.tileEffectAgent));
 }
 
 /**
@@ -535,7 +463,7 @@ class Game
         player = w.store.createObj(
             Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
             Agent(Agent.Type.player), Inventory([], true), Weight(1000),
-            BlocksMovement(), Mortal(5,5, BreathType.air,5,5),
+            BlocksMovement(), Mortal(5,5, Material.air,10,10),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
         );
