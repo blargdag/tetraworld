@@ -321,10 +321,26 @@ struct Triggerable
 @Component @TrackNew
 struct Agent
 {
-    enum Type { ai, player, sinkAgent }
+    enum Type { ai, player, sinkAgent, tileEffectAgent }
     Type type;
     int ticksPerTurn = 10;
     // TBD: AI state goes here
+}
+
+/**
+ * Component of space-like objects that have a material that can be occupied by
+ * other objects.
+ */
+@Component @BitFlags
+enum Material
+{
+    none    = 0,
+
+    // NOTE: the following is ordered such that if there are multiple materials
+    // m[] in one location, the effective material will be m.max().
+    air     = 1 << 0,
+    water   = 1 << 1,
+    rock    = 1 << 2,
 }
 
 /**
@@ -335,6 +351,9 @@ struct Mortal
 {
     int maxhp;
     int hp; // FIXME: is there a better system than this lousy old thing?!
+
+    Material canBreatheIn;
+    int maxair, air;
 }
 
 /**
@@ -353,6 +372,7 @@ enum DmgType
     bite = 1 << 1,
     pierce = 1 << 2,
     fallOn = 1 << 3,
+    drown =  1 << 4,
 }
 
 /**

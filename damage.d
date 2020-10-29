@@ -68,19 +68,24 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
  *  inflictor = The attacker.
  *  victim = The victim.
  *  dmgType = The kind of damage to apply.
- *  hp = The base damage value. This will be reduced by any armor the victim is
+ *  dam = The base damage value. This will be reduced by any armor the victim is
  *      wearing that confers protection against the specified damage type.
+ *  notifyInjure = An optional delegate to invoke when the effective damage is
+ *      non-zero. Intended for emitting damage messages that are suppressed if
+ *      damage is zero.
  */
 void injure(World w, ThingId inflictor, ThingId victim, DmgType dmgType,
-            int hp)
+            int dam, void delegate(int dam) notifyInjure = null)
 {
     auto m = w.store.get!Mortal(victim);
     if (m is null) // TBD: emit a message about target being impervious
         return;
 
-    hp = calcEffectiveDmg(w, inflictor, victim, dmgType, hp);
+    dam = calcEffectiveDmg(w, inflictor, victim, dmgType, dam);
+    if (dam > 0 && notifyInjure !is null)
+        notifyInjure(dam);
 
-    m.hp -= hp;
+    m.hp -= dam;
     if (m.hp <= 0)
     {
         auto pos = w.store.get!Pos(victim);

@@ -1867,7 +1867,8 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                                            Weapon(DmgType.blunt, 1));
         w.store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
                           Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
-                          BlocksMovement(), Agent(), Mortal(5,5),
+                          BlocksMovement(), Agent(),
+                          Mortal(5,5, Material.air,5,5),
                           CanMove(CanMove.Type.walk | CanMove.Type.climb),
                           Inventory([
                             Inventory.Item(tentacles.id,
@@ -1890,7 +1891,8 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                                        Tiled(TileId.crabShell), Pickable());
         w.store.createObj(Pos(pos), Name("clawed shelled creature"),
             Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
-            Mortal(3,3), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+            Mortal(3,3, Material.air | Material.water),
+            Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
             CanMove(CanMove.Type.walk),
             Inventory([
                 Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),

@@ -37,6 +37,7 @@ import fov;
 import gravity;
 import loadsave;
 import mapgen;
+import materials;
 import rndutil;
 import store;
 import store_traits;
@@ -252,7 +253,10 @@ class Game
 
         auto m = w.store.get!Mortal(player.id);
         if (m !is null)
-            result ~= PlayerStatus("hp", m.hp, m.maxhp);
+            result ~= [
+                PlayerStatus("hp", m.hp, m.maxhp),
+                PlayerStatus("air", m.air, m.maxair),
+            ];
 
         return result;
     }
@@ -459,7 +463,7 @@ class Game
         player = w.store.createObj(
             Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
             Agent(Agent.Type.player), Inventory([], true), Weight(1000),
-            BlocksMovement(), Mortal(5,5),
+            BlocksMovement(), Mortal(5,5, Material.air,10,10),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
         );
@@ -475,12 +479,15 @@ class Game
         sysGravity = SysGravity.init;
         setupLevel();
 
-        setupEventWatchers();
         setupAgentImpls();
+        sysGravity.run(w);
 
         // Move player to starting position.
         rawMove(w, player, Pos(startPos), {});
+        sysGravity.run(w);
         ui.moveViewport(playerPos);
+
+        setupEventWatchers();
     }
 
     private void portalSystem()
@@ -635,8 +642,12 @@ class Game
                                   subjName.asCapitalized, verb, objName);
 
                 case EventType.dmgKill:
-                    return format("%s killed %s!", subjName.asCapitalized,
-                                  objName);
+                    import terrain : water;
+                    if (ev.subjId == water.id)
+                        return format("%s drowned!", objName.asCapitalized);
+                    else
+                        return format("%s killed %s!", subjName.asCapitalized,
+                                      objName);
 
                 case EventType.dmgBlock:
                     auto subjPoss = (ev.subjId == player.id) ? "your" :
@@ -645,6 +656,11 @@ class Game
                     auto pronoun = (ev.subjId == player.id) ? "you" : "it";
                     return format("%s %s shields %s from the blow!",
                                   subjPoss.asCapitalized, armorName, pronoun);
+
+                case EventType.dmgDrown:
+                    return isPlayer ? "You're drowning!"
+                                    : format("%s is drowning!",
+                                             subjName.asCapitalized);
 
                 default:
                     assert(0, "Unhandled event type: %s"
@@ -685,6 +701,42 @@ class Game
 
                 case EventType.mchgMessage:
                     return (isPlayer) ? ev.msg : "";
+
+                case EventType.mchgSplashIn: {
+                    auto verb = isPlayer ? "fall" : "falls";
+                    return format("%s %s into the water with a splash!",
+                                  subjName.asCapitalized, verb);
+                }
+
+                case EventType.mchgSplashOut: {
+                    auto verb = isPlayer ? "splash" : "splashes";
+                    return format("%s %s out of the water.",
+                                  subjName.asCapitalized, verb);
+                }
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+        }
+        else if (ev.cat == EventCat.statChg)
+        {
+            auto isPlayer = (ev.subjId == player.id);
+            auto subjName_ = w.store.get!Name(ev.subjId);
+            string subjName = isPlayer ? "you" :
+                              subjName_ ? subjName_.name : "";
+
+            switch (ev.type)
+            {
+                case EventType.schgBreathHold:
+                    return (isPlayer) ? "You hold your breath." : "";
+
+                case EventType.schgBreathReplenish:
+                    if (isPlayer)
+                        return "You draw in a big gulp of air!";
+                    else
+                        return format("%s gasps for air!",
+                                      subjName.asCapitalized);
 
                 default:
                     assert(0, "Unhandled event type: %s"
@@ -753,6 +805,9 @@ class Game
                 case EventType.dmgBlock:
                     return "";
 
+                case EventType.dmgDrown:
+                    return "You hear bubbles in water.";
+
                 default:
                     assert(0, "Unhandled event type: %s"
                               .format(ev.type));
@@ -773,8 +828,24 @@ class Game
                 case EventType.mchgDoorClose:
                     return "You hear a door shut in the distance!";
 
-                case EventType.mchgMessage:
+                case EventType.mchgSplashIn:
+                case EventType.mchgSplashOut:
+                    return "You hear a splash.";
+
+                default:
+                    assert(0, "Unhandled event type: %s"
+                              .format(ev.type));
+            }
+        }
+        else if (ev.cat == EventCat.statChg)
+        {
+            switch (ev.type)
+            {
+                case EventType.schgBreathHold:
                     return "";
+
+                case EventType.schgBreathReplenish:
+                    return "You hear gasping.";
 
                 default:
                     assert(0, "Unhandled event type: %s"
@@ -931,6 +1002,9 @@ class Game
 
         // Gravity system proxy for sinking objects over time.
         registerGravityObjs(&w.store, &sysAgent, &sysGravity);
+
+        // Background agent that applies tile effects per turn.
+        registerTileEffectAgent(&w.store, &sysAgent);
     }
 
     void run(GameUi _ui)
@@ -955,10 +1029,10 @@ class Game
 
         while (!quit)
         {
-            sysGravity.run(w);
             if (!sysAgent.run(w))
                 quit = true;
             portalSystem();
+            sysGravity.run(w);
         }
     }
 }

@@ -192,6 +192,10 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
 {
     import stacking;
 
+    auto oldPos = w.store.get!Pos(subj.id);
+    auto oldMaterial = (oldPos is null) ? Material.none :
+                        w.getMaterialAt(*oldPos);
+
     w.store.remove!Pos(subj);
 
     // If subject is stackable, try to merge it into an existing stack in the
@@ -214,6 +218,14 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     // If subject was not merged, explicitly move it to the new location.
     if (!merged)
         w.store.add!Pos(subj, newPos);
+
+    // Material effects
+    auto newMaterial = w.getMaterialAt(newPos);
+    if (oldMaterial == Material.water && newMaterial != Material.water)
+        w.events.emit(Event(EventType.mchgSplashOut, *oldPos, subj.id));
+
+    if (oldMaterial != Material.water && newMaterial == Material.water)
+        w.events.emit(Event(EventType.mchgSplashIn, newPos, subj.id));
 
     notifyMove();
 

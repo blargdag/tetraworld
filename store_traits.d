@@ -39,6 +39,7 @@ enum ThingId invalidId = 0;
 enum terrainMaxId = 256;
 
 enum ThingId gravityId = 257;
+enum ThingId tileEffectAgentId = 258;
 
 /**
  * First ThingId not reserved for special purposes.

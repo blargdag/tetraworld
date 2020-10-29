@@ -109,6 +109,7 @@ enum EventCat
     itemAct = 0x0200,
     dmg     = 0x0300,
     mapChg  = 0x0400,
+    statChg = 0x0500,
 }
 
 enum EventCatMask = 0xFF00;
@@ -141,6 +142,7 @@ enum EventType
     dmgFallOn       = 0x0302,
     dmgKill         = 0x0303,
     dmgBlock        = 0x0304,
+    dmgDrown        = 0x0305,
 
     // EventCat.mapChg
     mchgRevealPitTrap   = 0x0401,
@@ -148,6 +150,12 @@ enum EventType
     mchgDoorOpen        = 0x0403,
     mchgDoorClose       = 0x0404,
     mchgMessage         = 0x0405,
+    mchgSplashIn        = 0x0406,
+    mchgSplashOut       = 0x0407,
+
+    // EventCat.statChg
+    schgBreathHold      = 0x0501,
+    schgBreathReplenish = 0x0502,
 }
 
 /**
@@ -252,6 +260,29 @@ class World
     {
         return !getAllAt(pos).filter!(id => store.get!Comp(id) !is null)
                              .empty;
+    }
+
+    /**
+     * Returns: The effective material type at the given location. If there are
+     * multiple entities at the given location, the material returned is the
+     * first in this order: rock, water, air. If no materials are present,
+     * defaults to Material.air.
+     */
+    Material getMaterialAt(Vec!(int,4) pos, ThingId* materialEntity = null)
+    {
+        auto result = Material.air;
+        foreach (id; this.getAllAt(pos))
+        {
+            auto m = store.get!Material(id);
+            if (m is null) continue;
+            if (*m > result)
+            {
+                result = *m;
+                if (materialEntity !is null)
+                    *materialEntity = id;
+            }
+        }
+        return result;
     }
 
     void load(L)(ref L loadfile)

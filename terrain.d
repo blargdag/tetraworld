@@ -41,32 +41,32 @@ Thing* createLadder(Store* store, Pos pos)
 
 void registerTerrains(Store* store)
 {
-    store.registerTerrain(emptySpace, Tiled(TileId.space, -2),
+    store.registerTerrain(emptySpace, Tiled(TileId.space, -2), Material.air,
                           Name("Thin air"));
     store.registerTerrain(doorway, Tiled(TileId.doorway, -2), Name("door"));
 
     store.registerTerrain(blockBare, Tiled(TileId.wall, -2), Name("wall"),
-                          TiledAbove(TileId.floorBare, -1),
+                          TiledAbove(TileId.floorBare, -1), Material.rock,
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within,
                                          SupportCond.permanent));
 
     store.registerTerrain(blockGrassy, Tiled(TileId.wall, -2), Name("wall"),
-                          TiledAbove(TileId.floorGrassy, -1),
+                          TiledAbove(TileId.floorGrassy, -1), Material.rock,
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within,
                                          SupportCond.permanent));
 
     store.registerTerrain(blockMuddy, Tiled(TileId.wall, -2), Name("wall"),
-                          TiledAbove(TileId.floorMuddy, -1),
+                          TiledAbove(TileId.floorMuddy, -1), Material.rock,
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within,
                                          SupportCond.permanent));
 
-    store.registerTerrain(water, Tiled(TileId.water, -2),
+    store.registerTerrain(water, Tiled(TileId.water, -2), Material.water,
                           SupportsWeight(SupportType.within,
                                          SupportCond.buoyant),
                           Name("water"));
