@@ -262,6 +262,29 @@ class World
                              .empty;
     }
 
+    /**
+     * Returns: The effective material type at the given location. If there are
+     * multiple entities at the given location, the material returned is the
+     * first in this order: rock, water, air. If no materials are present,
+     * defaults to Material.air.
+     */
+    Material getMaterialAt(Vec!(int,4) pos, ThingId* materialEntity = null)
+    {
+        auto result = Material.air;
+        foreach (id; this.getAllAt(pos))
+        {
+            auto m = store.get!Material(id);
+            if (m is null) continue;
+            if (*m > result)
+            {
+                result = *m;
+                if (materialEntity !is null)
+                    *materialEntity = id;
+            }
+        }
+        return result;
+    }
+
     void load(L)(ref L loadfile)
         if (isLoadFile!L)
     {

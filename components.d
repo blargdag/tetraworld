@@ -327,12 +327,20 @@ struct Agent
     // TBD: AI state goes here
 }
 
-@BitFlags
-enum BreathType
+/**
+ * Component of space-like objects that have a material that can be occupied by
+ * other objects.
+ */
+@Component @BitFlags
+enum Material
 {
-    none = 0,
-    air = 1 << 0,
-    water = 1 << 1,
+    none    = 0,
+
+    // NOTE: the following is ordered such that if there are multiple materials
+    // m[] in one location, the effective material will be m.max().
+    air     = 1 << 0,
+    water   = 1 << 1,
+    rock    = 1 << 2,
 }
 
 /**
@@ -344,7 +352,7 @@ struct Mortal
     int maxhp;
     int hp; // FIXME: is there a better system than this lousy old thing?!
 
-    BreathType breathType;
+    Material canBreatheIn;
     int maxair, air;
 }
 
@@ -386,38 +394,6 @@ struct Weapon
     DmgType dmgType;
     int dmg;
     string attackVerb = "hits";
-}
-
-/**
- * Component of tiles that have special effects.
- */
-@Component
-struct TileEffect
-{
-    @BitFlags
-    enum OnEnter
-    {
-        none    = 0,
-        splash  = 1 << 0,
-    }
-
-    @BitFlags
-    enum OnStay
-    {
-        none    = 0,
-        drown   = 1 << 0,
-    }
-
-    @BitFlags
-    enum OnLeave
-    {
-        none    = 0,
-        splash  = 1 << 0,
-    }
-
-    OnEnter onEnter;
-    OnStay  onStay;
-    OnLeave onLeave;
 }
 
 // vim:set ai sw=4 ts=4 et:
