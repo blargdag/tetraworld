@@ -55,6 +55,14 @@ Thing* createRock(Store* store, Vec!(int,4) pos)
                            Pickable(), Stackable(1), Weight(50));
 }
 
+Thing* createSharpRock(Store* store, Vec!(int,4) pos)
+{
+    auto rock = createRock(store, pos);
+    store.add(rock, Name("sharp rock"));
+    store.add(rock, Weapon(DmgType.pierce, 1, "cut"));
+    return rock;
+}
+
 Thing* createDenseVeg(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.vegetation2, -1),

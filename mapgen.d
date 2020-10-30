@@ -1814,12 +1814,11 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     auto mapFloorArea = floorArea(tree);
     foreach (i; 0 .. mapFloorArea * args.rockPct / 100)
     {
-        auto rock = createRock(&w.store, randomLocation(tree, bounds));
+        auto pos = randomLocation(tree, bounds);
         if (uniform(0, 100) < args.sharpRockPct)
-        {
-            w.store.add(rock, Name("sharp rock"));
-            w.store.add(rock, Weapon(DmgType.pierce, 1, "cut"));
-        }
+            createSharpRock(&w.store, pos);
+        else
+            createRock(&w.store, pos);
     }
 
     // Generate random vegetation for creatures to seek out once in a while.
