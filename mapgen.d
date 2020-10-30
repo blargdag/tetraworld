@@ -1807,18 +1807,14 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     foreach (i; 0 .. args.nCrabShells.pick())
     {
         auto pos = randomLocation(tree, bounds);
-        w.store.createObj(Pos(pos), Name("hard hemiglomic shell"), Weight(5),
-                          Armor(DmgType.fallOn), Tiled(TileId.crabShell),
-                          Pickable());
+        createCrabShell(&w.store, pos);
     }
 
     // Generate random rocks as additional deco.
     auto mapFloorArea = floorArea(tree);
     foreach (i; 0 .. mapFloorArea * args.rockPct / 100)
     {
-        auto rock = w.store.createObj(Pos(randomLocation(tree, bounds)),
-                                      Tiled(TileId.rock), Name("rock"),
-                                      Pickable(), Stackable(1), Weight(50));
+        auto rock = createRock(&w.store, randomLocation(tree, bounds));
         if (uniform(0, 100) < args.sharpRockPct)
         {
             w.store.add(rock, Name("sharp rock"));
@@ -1834,13 +1830,9 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
         // TBD: bias the distribution to be closer to water line, fade away
         // farther away from water line.
         if (uniform(0, 100) < vegDensePct)
-            w.store.createObj(Pos(randomLocation(tree, bounds)),
-                              Tiled(TileId.vegetation2, -1), Weight(100),
-                              BlocksView(), Name("dense vegetation"));
+            createDenseVeg(&w.store, randomLocation(tree, bounds));
         else
-            w.store.createObj(Pos(randomLocation(tree, bounds)),
-                              Tiled(TileId.vegetation1, -1), Weight(100),
-                              Name("vegetation"));
+            createVeg(&w.store, randomLocation(tree, bounds));
     }
 
     // Note: this should be done after all other items / deco, so that it
@@ -1848,9 +1840,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     auto ngold = cast(int)(mapFloorArea * args.goldPct / 100);
     foreach (i; 0 .. ngold)
     {
-        w.store.createObj(Pos(randomLocation(tree, bounds)),
-                          Tiled(TileId.gold), Name("gold"), Pickable(),
-                          QuestItem(1), Stackable(1), Weight(1));
+        createGold(&w.store, randomLocation(tree, bounds));
     }
 
     foreach (i; 0 .. args.nMonstersA.pick())
@@ -1861,17 +1851,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
         while (startRoom && startRoom.interior.contains(pos))
             pos = randomLocation(tree, bounds);
 
-        auto tentacles = w.store.createObj(Name("tentacles"),
-                                           Weapon(DmgType.blunt, 1));
-        w.store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
-                          Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic),
-                          BlocksMovement(), Agent(),
-                          Mortal(5,5, Material.air,5,5),
-                          CanMove(CanMove.Type.walk | CanMove.Type.climb),
-                          Inventory([
-                            Inventory.Item(tentacles.id,
-                                           Inventory.Item.Type.intrinsic)
-                          ]));
+        createMonsterA(&w.store, pos);
     }
 
     foreach (i; 0 .. args.nMonstersC.pick())
@@ -1882,20 +1862,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
         while (startRoom && startRoom.interior.contains(pos))
             pos = randomLocation(tree, bounds);
 
-        auto claws = w.store.createObj(Name("claws"), Weapon(DmgType.pierce,
-                                                             2, "pinches"));
-        auto shell = w.store.createObj(Name("hard hemiglomic shell"),
-                                       Weight(5), Armor(DmgType.fallOn),
-                                       Tiled(TileId.crabShell), Pickable());
-        w.store.createObj(Pos(pos), Name("clawed shelled creature"),
-            Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
-            Mortal(3,3, Material.air | Material.water),
-            Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
-            CanMove(CanMove.Type.walk),
-            Inventory([
-                Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
-                Inventory.Item(shell.id, Inventory.Item.Type.equipped),
-            ]));
+        createMonsterB(&w.store, pos);
     }
 }
 
@@ -2146,8 +2113,7 @@ World genTutorialLevel(out int[4] startPos)
     ];
     foreach (pos; goldPos)
     {
-        w.store.createObj(pos, Tiled(TileId.gold), Name("gold"), Pickable(),
-                          QuestItem(1), Stackable(1), Weight(1));
+        createGold(&w.store, pos);
     }
 
     // Some in-game instructions to guide the player along.
