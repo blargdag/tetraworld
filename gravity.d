@@ -392,13 +392,13 @@ unittest
     //  3 ####      3 ####
     auto rock = w.store.createObj(Name("rock"), Pos(1,1,1,1), Weight(10));
     auto victim = w.store.createObj(Name("victim"), Pos(2,1,1,1), Weight(100),
-                                    Mortal(2, 2), BlocksMovement());
+                                    Mortal(Stats(2,2)), BlocksMovement());
     assert(!w.locationHas!BlocksMovement(Pos(1,2,1,1)));
     grav.run(w);
 
     assert(*w.store.get!Pos(rock.id) == Pos(2,2,1,1));
     assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
-    assert(*w.store.get!Mortal(victim.id) == Mortal(2, 1));
+    assert(w.store.get!Mortal(victim.id).curStats == Stats(2, 1));
 
     // Scenario 2:
     //    0123        0123
@@ -422,7 +422,7 @@ unittest
     w.store.remove!Pos(rock);
     w.store.add!Pos(rock, Pos(1,1,1,1));
     victim = w.store.createObj(Name("victim"), Pos(2,1,1,1), Weight(100),
-                               Mortal(3, 3), BlocksMovement());
+                               Mortal(Stats(3,3)), BlocksMovement());
     auto corner = w.store.createObj(Name("artificial wall"), Pos(1,2,1,1),
                                     BlocksMovement());
     assert(w.locationHas!BlocksMovement(Pos(1,2,1,1)));
@@ -430,7 +430,7 @@ unittest
 
     assert(*w.store.get!Pos(rock.id) == Pos(1,1,1,1));
     assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
-    assert(*w.store.get!Mortal(victim.id) == Mortal(3, 2));
+    assert(w.store.get!Mortal(victim.id).curStats == Stats(3, 2));
     assert(*w.store.get!Pos(corner.id) == Pos(1,2,1,1));
 
     // Scenario 4:
@@ -449,7 +449,7 @@ unittest
 
     assert(*w.store.get!Pos(rock.id) == Pos(1,1,1,1));
     assert(*w.store.get!Pos(victim.id) == Pos(2,1,1,1));
-    assert(*w.store.get!Mortal(victim.id) == Mortal(3, 1));
+    assert(w.store.get!Mortal(victim.id).curStats == Stats(3, 1));
     assert(*w.store.get!Pos(corner.id) == Pos(2,2,1,1));
 
     // Scenario 5:
@@ -841,7 +841,7 @@ unittest
     w.store.add!Pos(fatso, Pos(1,1,1,1));
     w.store.destroyObj(platform.id);
     auto victim = w.store.createObj(Name("бедняжка"), Pos(4,1,1,1),
-                                    Mortal(5,5), BlocksMovement());
+                                    Mortal(Stats(5,5)), BlocksMovement());
     auto blocker = w.store.createObj(Name("wall"), Pos(4,2,1,1),
                                      BlocksMovement());
     w.map.waterLevel = int.max;
@@ -849,14 +849,14 @@ unittest
     grav.run(w);
 
     assert(*w.store.get!Pos(fatso.id) == Pos(3,1,1,1));
-    assert(w.store.get!Mortal(victim.id).hp == 4);
+    assert(w.store.get!Mortal(victim.id).curStats.hp == 4);
 
     // Once we've come to rest, further invocations should not trigger fallOn
     // anymore.
     grav.run(w);
 
     assert(*w.store.get!Pos(fatso.id) == Pos(3,1,1,1));
-    assert(w.store.get!Mortal(victim.id).hp == 4);
+    assert(w.store.get!Mortal(victim.id).curStats.hp == 4);
 }
 
 // Float-in-midair bug

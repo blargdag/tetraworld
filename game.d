@@ -254,8 +254,8 @@ class Game
         auto m = w.store.get!Mortal(player.id);
         if (m !is null)
             result ~= [
-                PlayerStatus("hp", m.hp, m.maxhp),
-                PlayerStatus("air", m.air, m.maxair),
+                PlayerStatus("hp", m.curStats.hp, m.curStats.maxhp),
+                PlayerStatus("air", m.curStats.air, m.curStats.maxair),
             ];
 
         return result;
@@ -460,10 +460,15 @@ class Game
         plMapMemory = MapMemory(region(w.map.bounds.min,
                                        w.map.bounds.max + vec(1,1,1,1)));
 
+        Stats stats;
+        stats.maxhp = stats.hp = 5;
+        stats.canBreatheIn = Material.air;
+        stats.maxair = stats.air = 8;
+
         player = w.store.createObj(
             Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
             Agent(Agent.Type.player), Inventory([], true), Weight(1000),
-            BlocksMovement(), Mortal(5,5, Material.air,10,10),
+            BlocksMovement(), Mortal(stats),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
         );
@@ -1152,6 +1157,7 @@ StoryNode[] storyNodes = [
         args.waterLevel = ValRange(6, 10);
         args.nMonstersA = ValRange(4, 6);
         args.nMonstersC = ValRange(0, 3);
+        args.nScubas = ValRange(1, 2); // FIXME: for testing only
         return genBspLevel(region(vec(11,11,11,11)), args, startPos);
     }),
 
@@ -1232,6 +1238,7 @@ StoryNode[] storyNodes = [
         args.waterLevel = ValRange(10, 15);
         args.nMonstersA = ValRange(25, 40);
         args.nMonstersC = ValRange(12, 20);
+        args.nScubas = ValRange(1, 2);
         return genBspLevel(region(vec(20,20,20,20)), args, startPos);
     }),
 ];
