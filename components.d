@@ -93,6 +93,7 @@ enum TileId : ushort
     gold,
     rock,
     scuba1,
+    scuba2,
 
     vegetation1,
     vegetation2,

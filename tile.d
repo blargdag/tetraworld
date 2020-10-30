@@ -55,7 +55,8 @@ Tile16[TileId.max+1] tiles = [
 
     TileId.gold:        Tile16('$', Color.yellow),
     TileId.rock:        Tile16('*'),
-    TileId.scuba1:      Tile16('?', Color.blue),
+    TileId.scuba1:      Tile16('['),
+    TileId.scuba2:      Tile16('[', Color.magenta),
 
     TileId.vegetation1: Tile16('%', Color.green),
     TileId.vegetation2: Tile16('%'),

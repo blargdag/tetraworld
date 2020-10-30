@@ -67,15 +67,15 @@ Thing* createScuba(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.scuba1), Pickable(),
         Weight(5), Name("basic diving gear"),
-        Armor(DmgType.none, Stats(0, 0, Material.air, 120,120)));
+        Armor(DmgType.none, Stats(0, 0, Material.air, 30,30)));
 }
 
-//Thing* createScuba2(Store* store, Vec!(int,4) pos)
-//{
-//    return store.createObj(Pos(pos), Tiled(TileId.scuba2), Pickable(),
-//        Weight(20), Name("advanced diving gear"),
-//        Armor(DmgType.none, Stats(0, 0, Material.air, 500,500)));
-//}
+Thing* createScuba2(Store* store, Vec!(int,4) pos)
+{
+    return store.createObj(Pos(pos), Tiled(TileId.scuba2), Pickable(),
+        Weight(20), Name("advanced diving gear"),
+        Armor(DmgType.none, Stats(0, 0, Material.air, 100,100)));
+}
 
 Thing* createDenseVeg(Store* store, Vec!(int,4) pos)
 {
