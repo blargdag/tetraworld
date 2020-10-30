@@ -1,5 +1,9 @@
 - Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
   doesn't make sense. Maybe call it "diving equipment"?
+   - Hmph. It was a mistake to implement it as armor that enhances max/air;
+     that's like installing a lung expander. :-D Diving equipment is more like
+     a replacement medium that you're breathing *in*. Lung capacity remains the
+     same, but the equipment is now the breathing medium.
 - Should run gravity system once before placing player in a new map, to avoid
   awkward messages of falling furniture on first move. :-D
 - Implement throwing rocks at monsters. :-D
