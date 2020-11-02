@@ -521,6 +521,11 @@ class Game
         if (ev.cat == EventCat.move)
         {
             auto isPlayer = (ev.subjId == player.id);
+            bool canSeeWhere = canSee(w, playerPos, ev.where);
+            bool canSeeWhereTo = canSee(w, playerPos, ev.whereTo);
+            bool moveIntoView = !canSeeWhere && canSeeWhereTo;
+            bool moveOutOfView = canSeeWhere && !canSeeWhereTo;
+
             string subjName = "you";
             if (!isPlayer)
             {
@@ -551,7 +556,9 @@ class Game
 
                 case EventType.moveFall:
                     verb = isPlayer ? "fall" : "falls";
-                    return format("%s %s!", subjName.asCapitalized, verb);
+                    return (isPlayer || moveIntoView || moveOutOfView) ?
+                            format("%s %s!", subjName.asCapitalized, verb) :
+                            "";
                     break;
 
                 case EventType.moveFallAside:
