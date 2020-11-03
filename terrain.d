@@ -41,32 +41,32 @@ Thing* createLadder(Store* store, Pos pos)
 
 void registerTerrains(Store* store)
 {
-    store.registerTerrain(emptySpace, Tiled(TileId.space, -2), Material.air,
+    store.registerTerrain(emptySpace, Tiled(TileId.space, -2), Medium.air,
                           Name("Thin air"));
     store.registerTerrain(doorway, Tiled(TileId.doorway, -2), Name("door"));
 
     store.registerTerrain(blockBare, Tiled(TileId.wall, -2), Name("wall"),
-                          TiledAbove(TileId.floorBare, -1), Material.rock,
+                          TiledAbove(TileId.floorBare, -1), Medium.rock,
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within,
                                          SupportCond.permanent));
 
     store.registerTerrain(blockGrassy, Tiled(TileId.wall, -2), Name("wall"),
-                          TiledAbove(TileId.floorGrassy, -1), Material.rock,
+                          TiledAbove(TileId.floorGrassy, -1), Medium.rock,
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within,
                                          SupportCond.permanent));
 
     store.registerTerrain(blockMuddy, Tiled(TileId.wall, -2), Name("wall"),
-                          TiledAbove(TileId.floorMuddy, -1), Material.rock,
+                          TiledAbove(TileId.floorMuddy, -1), Medium.rock,
                           BlocksMovement(Climbable.yes), BlocksView(),
                           SupportsWeight(SupportType.above |
                                          SupportType.within,
                                          SupportCond.permanent));
 
-    store.registerTerrain(water, Tiled(TileId.water, -2), Material.water,
+    store.registerTerrain(water, Tiled(TileId.water, -2), Medium.water,
                           SupportsWeight(SupportType.within,
                                          SupportCond.buoyant),
                           Name("water"));

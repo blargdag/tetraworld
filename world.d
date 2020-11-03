@@ -263,23 +263,23 @@ class World
     }
 
     /**
-     * Returns: The effective material type at the given location. If there are
-     * multiple entities at the given location, the material returned is the
-     * first in this order: rock, water, air. If no materials are present,
-     * defaults to Material.air.
+     * Returns: The effective medium type at the given location. If there are
+     * multiple entities at the given location, the medium returned is the
+     * first in this order: rock, water, air. If no mediums are present,
+     * defaults to Medium.air.
      */
-    Material getMaterialAt(Vec!(int,4) pos, ThingId* materialEntity = null)
+    Medium getMediumAt(Vec!(int,4) pos, ThingId* mediumEntity = null)
     {
-        auto result = Material.air;
+        auto result = Medium.air;
         foreach (id; this.getAllAt(pos))
         {
-            auto m = store.get!Material(id);
+            auto m = store.get!Medium(id);
             if (m is null) continue;
             if (*m > result)
             {
                 result = *m;
-                if (materialEntity !is null)
-                    *materialEntity = id;
+                if (mediumEntity !is null)
+                    *mediumEntity = id;
             }
         }
         return result;

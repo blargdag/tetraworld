@@ -67,14 +67,14 @@ Thing* createScuba(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.scuba1), Pickable(),
         Weight(5), Name("basic diving gear"),
-        Armor(DmgType.none, Stats(0, 0, Material.air, 30,30)));
+        Armor(DmgType.none, Stats(0, 0, Medium.air, 30,30)));
 }
 
 Thing* createScuba2(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.scuba2), Pickable(),
         Weight(20), Name("advanced diving gear"),
-        Armor(DmgType.none, Stats(0, 0, Material.air, 100,100)));
+        Armor(DmgType.none, Stats(0, 0, Medium.air, 100,100)));
 }
 
 Thing* createDenseVeg(Store* store, Vec!(int,4) pos)
@@ -100,7 +100,7 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
 {
     Stats stats;
     stats.maxhp = stats.hp = 5;
-    stats.canBreatheIn = Material.air;
+    stats.canBreatheIn = Medium.air;
     stats.maxair = stats.air = 3;
 
     auto tentacles = store.createObj(Name("tentacles"),
@@ -118,7 +118,7 @@ Thing* createMonsterB(Store* store, Vec!(int,4) pos)
 {
     Stats stats;
     stats.maxhp = stats.hp = 3;
-    stats.canBreatheIn = Material.air | Material.water;
+    stats.canBreatheIn = Medium.air | Medium.water;
 
     auto claws = store.createObj(Name("claws"),
                                  Weapon(DmgType.pierce, 2, "pinches"));

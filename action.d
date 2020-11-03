@@ -193,8 +193,7 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     import stacking;
 
     auto oldPos = w.store.get!Pos(subj.id);
-    auto oldMaterial = (oldPos is null) ? Material.none :
-                        w.getMaterialAt(*oldPos);
+    auto oldMedium = (oldPos is null) ? Medium.none : w.getMediumAt(*oldPos);
 
     w.store.remove!Pos(subj);
 
@@ -219,14 +218,14 @@ void rawMove(World w, Thing* subj, Pos newPos, void delegate() notifyMove)
     if (!merged)
         w.store.add!Pos(subj, newPos);
 
-    // Material effects
-    auto newMaterial = w.getMaterialAt(newPos);
-    if (oldMaterial == Material.water && newMaterial != Material.water)
+    // Medium effects
+    auto newMedium = w.getMediumAt(newPos);
+    if (oldMedium == Medium.water && newMedium != Medium.water)
         w.events.emit(Event(EventType.mchgSplashOut, *oldPos, subj.id));
 
     notifyMove();
 
-    if (oldMaterial != Material.water && newMaterial == Material.water)
+    if (oldMedium != Medium.water && newMedium == Medium.water)
         w.events.emit(Event(EventType.mchgSplashIn, newPos, subj.id));
 
     // Autopickup

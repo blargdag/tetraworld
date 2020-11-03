@@ -336,16 +336,15 @@ struct Agent
 }
 
 /**
- * Component of space-like objects that have a material that can be occupied by
- * other objects.
+ * Component of objects that act as a medium for other objects.
  */
 @Component @BitFlags
-enum Material
+enum Medium
 {
     none    = 0,
 
-    // NOTE: the following is ordered such that if there are multiple materials
-    // m[] in one location, the effective material will be m.max().
+    // NOTE: the following is ordered such that if there are multiple mediums
+    // m[] in one location, the effective mediums will be m.max().
     air     = 1 << 0,
     water   = 1 << 1,
     rock    = 1 << 2,
@@ -359,7 +358,7 @@ struct Stats
     int maxhp;
     int hp; // FIXME: is there a better system than this lousy old thing?!
 
-    Material canBreatheIn;
+    Medium canBreatheIn;
     int maxair, air;
 }
 

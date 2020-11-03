@@ -1,5 +1,5 @@
 /**
- * Materials module.
+ * Medium module.
  *
  * Copyright: (C) 2012-2021  blargdag@quickfur.ath.cx
  *
@@ -18,7 +18,7 @@
  * You should have received a copy of the GNU General Public License along with
  * Tetraworld.  If not, see <http://www.gnu.org/licenses/>.
  */
-module materials;
+module medium;
 
 import std.algorithm;
 
@@ -45,25 +45,25 @@ auto findBreathingEquip(World w, ThingId mortalId, Mortal* m)
                        am.bonuses.maxair > 0);
 }
 
-private void applyMaterialEffects(World w)
+private void applyMediumEffects(World w)
 {
     foreach (mortalId; w.store.getAll!Mortal().dup)
     {
         auto m = w.store.get!Mortal(mortalId);
         auto pos = w.store.get!Pos(mortalId);
         if (pos is null || m is null ||
-            m.curStats.canBreatheIn == Material.init)
+            m.curStats.canBreatheIn == Medium.init)
         {
             continue;
         }
 
         // Check for breathability. If current tile is not breathable, check
         // tile above (for air-breathers wading in water).
-        ThingId materialId;
-        auto material = w.getMaterialAt(*pos, &materialId);
-        if ((m.curStats.canBreatheIn & material) != 0 || 
-            (material == Material.water &&
-             (m.curStats.canBreatheIn & w.getMaterialAt(*pos + vec(-1,0,0,0))) != 0))
+        ThingId mediumId;
+        auto medium = w.getMediumAt(*pos, &mediumId);
+        if ((m.curStats.canBreatheIn & medium) != 0 || 
+            (medium == Medium.water &&
+             (m.curStats.canBreatheIn & w.getMediumAt(*pos + vec(-1,0,0,0))) != 0))
         {
             if (m.curStats.air < m.curStats.maxair)
             {
@@ -101,15 +101,14 @@ private void applyMaterialEffects(World w)
 
         // Out of air. Begin drowning.
         import damage : injure;
-        injure(w, materialId, mortalId, DmgType.drown, 1, (dam) {
-            w.events.emit(Event(EventType.dmgDrown, *pos,
-                                mortalId, materialId));
+        injure(w, mediumId, mortalId, DmgType.drown, 1, (dam) {
+            w.events.emit(Event(EventType.dmgDrown, *pos, mortalId, mediumId));
         });
     }
 }
 
 /**
- * Register special agent that applies material effects and other tile effects.
+ * Register special agent that applies medium effects and other tile effects.
  */
 void registerTileEffectAgent(Store* store, SysAgent* sysAgent)
 {
@@ -118,7 +117,7 @@ void registerTileEffectAgent(Store* store, SysAgent* sysAgent)
     AgentImpl agImpl;
     agImpl.chooseAction = (World w, ThingId agentId) {
         return (World w) {
-            applyMaterialEffects(w);
+            applyMediumEffects(w);
             return ActionResult(true, 10);
         };
     };

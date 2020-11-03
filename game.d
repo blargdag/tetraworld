@@ -37,7 +37,7 @@ import fov;
 import gravity;
 import loadsave;
 import mapgen;
-import materials;
+import medium;
 import rndutil;
 import store;
 import store_traits;
@@ -467,7 +467,7 @@ class Game
 
         Stats stats;
         stats.maxhp = stats.hp = 5;
-        stats.canBreatheIn = Material.air;
+        stats.canBreatheIn = Medium.air;
         stats.maxair = stats.air = 8;
 
         player = w.store.createObj(
