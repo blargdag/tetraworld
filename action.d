@@ -815,8 +815,7 @@ ThingId hasEquippedWeapon(World w, ThingId agentId)
         return false;
 
     auto wpn = inven.contents
-        .filter!(item => item.type == Inventory.Item.Type.equipped ||
-                         item.type == Inventory.Item.Type.intrinsic)
+        .filter!(item => item.inEffect)
         .map!(item => item.id)
         .filter!(id => w.store.get!Weapon(id) !is null);
 
@@ -890,10 +889,8 @@ void updateStats(World w, Thing* subj)
         return;
 
     Stats stats = m.baseStats;
-    auto equipped = inven.contents
-        .filter!(item => item.type == Inventory.Item.Type.equipped ||
-                         item.type == Inventory.Item.Type.intrinsic);
-    foreach (item; equipped)
+    foreach (item; inven.contents
+                        .filter!(item => item.inEffect))
     {
         Stats bonuses;
         if (auto a = w.store.get!Armor(item.id))

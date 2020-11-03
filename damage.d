@@ -35,7 +35,7 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
     if (auto inven = w.store.get!Inventory(victim))
     {
         auto equipped = inven.contents
-            .filter!(item => item.type == Inventory.Item.Type.equipped)
+            .filter!(item => item.inEffect)
             .map!(item => item.id);
 
         foreach (armorId; equipped)
