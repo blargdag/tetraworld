@@ -1,14 +1,5 @@
 - Should run gravity system once before placing player in a new map, to avoid
   awkward messages of falling furniture on first move. :-D
-- Implement throwing rocks at monsters. :-D
-   - Implement UI targeting mode.
-- Need better control over branchiness of second level.
-- [mapgen] Different styled rooms.
-   - Need to support polymorphism in load/save. :-/
-   - Maybe occasionally block off leaf nodes?
-   - Maybe some rooms can turn into corridors.
-- Improve creature AI.
-   - Pathfinding.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -33,6 +24,15 @@
         random mover in water tiles?
    - Per-room water levels?
    - Waterfalls? Rivers? :-D
+- Implement throwing rocks at monsters. :-D
+   - Implement UI targeting mode.
+- Need better control over branchiness of second level.
+- [mapgen] Different styled rooms.
+   - Need to support polymorphism in load/save. :-/
+   - Maybe occasionally block off leaf nodes?
+   - Maybe some rooms can turn into corridors.
+- Improve creature AI.
+   - Pathfinding.
 - Should start encapsulating all uses of the RNG so that we can start
   generating seedable levels.
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
