@@ -258,6 +258,11 @@ class Game
                 PlayerStatus("air", m.curStats.air, m.curStats.maxair),
             ];
 
+        foreach (be; findBreathingEquip(w, player.id, m))
+        {
+            result ~= PlayerStatus("scuba", be.bonuses.air, be.bonuses.maxair);
+        }
+
         return result;
     }
 

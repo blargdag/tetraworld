@@ -903,12 +903,16 @@ void updateStats(World w, Thing* subj)
 
         // Merge
         stats.maxhp += bonuses.maxhp;
-        stats.canBreatheIn |= bonuses.canBreatheIn;
-        stats.maxair += bonuses.maxair;
+
+        // Breathing equipment treated separately; they are not bonuses to lung
+        // capacity, but more like portable mediums. Better to treat them
+        // specifically.
+        //stats.canBreatheIn |= bonuses.canBreatheIn;
+        //stats.maxair += bonuses.maxair;
     }
 
     stats.hp = min(m.curStats.hp, stats.maxhp);
-    stats.air = min(m.curStats.air, stats.maxair);
+    //stats.air = min(m.curStats.air, stats.maxair);
 
     // TBD: emit messages based on stat diff
     m.curStats = stats;

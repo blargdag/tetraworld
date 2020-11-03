@@ -20,6 +20,8 @@
  */
 module materials;
 
+import std.algorithm;
+
 import action;
 import agent;
 import components;
@@ -27,6 +29,21 @@ import store;
 import store_traits;
 import world;
 import vector;
+
+/**
+ * Returns: Input range of Armor component of currently-active breathing
+ * equipment.
+ */
+auto findBreathingEquip(World w, ThingId mortalId, Mortal* m)
+{
+    auto inven = w.store.get!Inventory(mortalId);
+    return inven.contents
+        .filter!(item => item.inEffect)
+        .map!(item => w.store.get!Armor(item.id))
+        .filter!(am => am !is null && (am.bonuses.canBreatheIn |
+                                       m.curStats.canBreatheIn) != 0 &&
+                       am.bonuses.maxair > 0);
+}
 
 private void applyMaterialEffects(World w)
 {
@@ -54,6 +71,22 @@ private void applyMaterialEffects(World w)
                 w.events.emit(Event(EventType.schgBreathReplenish, *pos,
                                     mortalId));
             }
+
+            // Replenish breathing equipment.
+            foreach (be; findBreathingEquip(w, mortalId, m))
+            {
+                be.bonuses.air = be.bonuses.maxair;
+            }
+
+            continue;
+        }
+
+        // Not in breathable medium. Check for presence of equipped breathing
+        // equipment.
+        auto beq = findBreathingEquip(w, mortalId, m);
+        if (!beq.empty && beq.front.bonuses.air > 0)
+        {
+            beq.front.bonuses.air--;
             continue;
         }
 

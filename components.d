@@ -175,6 +175,11 @@ struct Inventory
         ThingId id;
         enum Type { carrying, equipped, intrinsic }
         Type type;
+
+        bool inEffect()
+        {
+            return type == Type.equipped || type == Type.intrinsic;
+        }
     }
     Item[] contents;
     bool autopickup; // TBD: should have some kind of object type preference here
