@@ -35,7 +35,7 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
     if (auto inven = w.store.get!Inventory(victim))
     {
         auto equipped = inven.contents
-            .filter!(item => item.type == Inventory.Item.Type.equipped)
+            .filter!(item => item.inEffect)
             .map!(item => item.id);
 
         foreach (armorId; equipped)
@@ -85,8 +85,8 @@ void injure(World w, ThingId inflictor, ThingId victim, DmgType dmgType,
     if (dam > 0 && notifyInjure !is null)
         notifyInjure(dam);
 
-    m.hp -= dam;
-    if (m.hp <= 0)
+    m.curStats.hp -= dam;
+    if (m.curStats.hp <= 0)
     {
         auto pos = w.store.get!Pos(victim);
         w.events.emit(Event(EventType.dmgKill, *pos, inflictor, victim,
@@ -142,7 +142,7 @@ unittest
     auto coat = w.store.createObj(Name("палто"), Armor());
     auto fear = w.store.createObj(Name("страх"));
     auto victim = w.store.createObj(Name("бедняжка"), Pos(2,1,1,2),
-        Mortal(1,1),
+        Mortal(Stats(1,1)),
         Inventory([
             Inventory.Item(coin.id, Inventory.Item.Type.carrying),
             Inventory.Item(coat.id, Inventory.Item.Type.equipped),

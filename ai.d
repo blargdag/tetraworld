@@ -77,9 +77,8 @@ Action chooseAiAction(World w, ThingId agentId)
             auto inven = w.store.get!Inventory(agentId);
             auto contents = inven ? inven.contents : [];
             auto weapons = contents
-                .filter!(item => (item.type == Inventory.Item.Type.equipped ||
-                                  item.type == Inventory.Item.Type.intrinsic)
-                                  && w.store.get!Weapon(item.id) !is null)
+                .filter!(item => item.inEffect &&
+                                 w.store.get!Weapon(item.id) !is null)
                 .map!(item => item.id);
 
             auto diff = targetPos - curPos;

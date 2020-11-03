@@ -1,7 +1,3 @@
-- Current drowning implementation is broken: the criterion for not drowning on
-  surface is that there's no water above: but sometimes it can be a ceiling, in
-  which you should *still* drown!
-   - Really should forego these hacks, and implement media for real instead!
 - Should run gravity system once before placing player in a new map, to avoid
   awkward messages of falling furniture on first move. :-D
 - Implement throwing rocks at monsters. :-D
@@ -37,8 +33,6 @@
         random mover in water tiles?
    - Per-room water levels?
    - Waterfalls? Rivers? :-D
-- Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
-  doesn't make sense. Maybe call it "diving equipment"?
 - Should start encapsulating all uses of the RNG so that we can start
   generating seedable levels.
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
@@ -351,3 +345,13 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
    + Also, the drop dialogue is stupid and klunky; you should follow nethack's
      way of dropping all by default, limited number only if player prefixes it
      with a count.
++ Current drowning implementation is broken: the criterion for not drowning on
+  surface is that there's no water above: but sometimes it can be a ceiling, in
+  which you should *still* drown!
+   + Really should forego these hacks, and implement media for real instead!
++ Implement drowning and oxygen masks... Well, OK, this is 4D, so "oxygen"
+  doesn't make sense. Maybe call it "diving equipment"?
+   + Hmph. It was a mistake to implement it as armor that enhances max/air;
+     that's like installing a lung expander. :-D Diving equipment is more like
+     a replacement medium that you're breathing *in*. Lung capacity remains the
+     same, but the equipment is now the breathing medium.

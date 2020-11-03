@@ -20,6 +20,8 @@
  */
 module materials;
 
+import std.algorithm;
+
 import action;
 import agent;
 import components;
@@ -28,35 +30,69 @@ import store_traits;
 import world;
 import vector;
 
+/**
+ * Returns: Input range of Armor component of currently-active breathing
+ * equipment.
+ */
+auto findBreathingEquip(World w, ThingId mortalId, Mortal* m)
+{
+    auto inven = w.store.get!Inventory(mortalId);
+    return inven.contents
+        .filter!(item => item.inEffect)
+        .map!(item => w.store.get!Armor(item.id))
+        .filter!(am => am !is null && (am.bonuses.canBreatheIn |
+                                       m.curStats.canBreatheIn) != 0 &&
+                       am.bonuses.maxair > 0);
+}
+
 private void applyMaterialEffects(World w)
 {
     foreach (mortalId; w.store.getAll!Mortal().dup)
     {
         auto m = w.store.get!Mortal(mortalId);
         auto pos = w.store.get!Pos(mortalId);
-        if (pos is null || m is null || m.canBreatheIn == Material.init)
+        if (pos is null || m is null ||
+            m.curStats.canBreatheIn == Material.init)
+        {
             continue;
+        }
 
         // Check for breathability. If current tile is not breathable, check
         // tile above (for air-breathers wading in water).
         ThingId materialId;
         auto material = w.getMaterialAt(*pos, &materialId);
-        if ((m.canBreatheIn & material) != 0 || 
+        if ((m.curStats.canBreatheIn & material) != 0 || 
             (material == Material.water &&
-             (m.canBreatheIn & w.getMaterialAt(*pos + vec(-1,0,0,0))) != 0))
+             (m.curStats.canBreatheIn & w.getMaterialAt(*pos + vec(-1,0,0,0))) != 0))
         {
-            if (m.air < m.maxair)
+            if (m.curStats.air < m.curStats.maxair)
             {
-                m.air = m.maxair;   // replenish air
+                m.curStats.air = m.curStats.maxair;   // replenish air
                 w.events.emit(Event(EventType.schgBreathReplenish, *pos,
                                     mortalId));
             }
+
+            // Replenish breathing equipment.
+            foreach (be; findBreathingEquip(w, mortalId, m))
+            {
+                be.bonuses.air = be.bonuses.maxair;
+            }
+
+            continue;
+        }
+
+        // Not in breathable medium. Check for presence of equipped breathing
+        // equipment.
+        auto beq = findBreathingEquip(w, mortalId, m);
+        if (!beq.empty && beq.front.bonuses.air > 0)
+        {
+            beq.front.bonuses.air--;
             continue;
         }
 
         // Can't breathe. Drain air supply.
-        m.air--;
-        if (m.air > 0)
+        m.curStats.air--;
+        if (m.curStats.air > 0)
         {
             w.events.emit(Event(EventType.schgBreathHold, *pos,
                                 mortalId));
