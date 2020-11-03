@@ -34,20 +34,23 @@ private void applyMaterialEffects(World w)
     {
         auto m = w.store.get!Mortal(mortalId);
         auto pos = w.store.get!Pos(mortalId);
-        if (pos is null || m is null || m.canBreatheIn == Material.init)
+        if (pos is null || m is null ||
+            m.curStats.canBreatheIn == Material.init)
+        {
             continue;
+        }
 
         // Check for breathability. If current tile is not breathable, check
         // tile above (for air-breathers wading in water).
         ThingId materialId;
         auto material = w.getMaterialAt(*pos, &materialId);
-        if ((m.canBreatheIn & material) != 0 || 
+        if ((m.curStats.canBreatheIn & material) != 0 || 
             (material == Material.water &&
-             (m.canBreatheIn & w.getMaterialAt(*pos + vec(-1,0,0,0))) != 0))
+             (m.curStats.canBreatheIn & w.getMaterialAt(*pos + vec(-1,0,0,0))) != 0))
         {
-            if (m.air < m.maxair)
+            if (m.curStats.air < m.curStats.maxair)
             {
-                m.air = m.maxair;   // replenish air
+                m.curStats.air = m.curStats.maxair;   // replenish air
                 w.events.emit(Event(EventType.schgBreathReplenish, *pos,
                                     mortalId));
             }
@@ -55,8 +58,8 @@ private void applyMaterialEffects(World w)
         }
 
         // Can't breathe. Drain air supply.
-        m.air--;
-        if (m.air > 0)
+        m.curStats.air--;
+        if (m.curStats.air > 0)
         {
             w.events.emit(Event(EventType.schgBreathHold, *pos,
                                 mortalId));

@@ -1729,6 +1729,7 @@ struct MapGenArgs
     ValRange nMonstersA;
     ValRange nMonstersC;
     ValRange nCrabShells;
+    ValRange nScubas;
 
     bool sinkDoors = true;
 }
@@ -1807,7 +1808,13 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     foreach (i; 0 .. args.nCrabShells.pick())
     {
         auto pos = randomLocation(tree, bounds);
-        createCrabShell(&w.store, pos);
+        createCrabShell(&w.store, Pos(pos));
+    }
+
+    foreach (i; 0 .. args.nScubas.pick())
+    {
+        auto pos = randomDryPos(tree, bounds, w.map.waterLevel);
+        createScuba(&w.store, Pos(pos));
     }
 
     // Generate random rocks as additional deco.
@@ -2435,7 +2442,7 @@ World genTestLevel()(out int[4] startPos)
                                    Weapon(DmgType.pierce, 0, "pinches"));
     w.store.createObj(Pos(2,2,2,2), Name("miserable creature"),
         Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
-        Mortal(3,3), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+        Mortal(Stats(3,3)), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
         CanMove(CanMove.Type.walk), Inventory([
             Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
         ]));

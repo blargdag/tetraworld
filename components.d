@@ -92,6 +92,9 @@ enum TileId : ushort
 
     gold,
     rock,
+    scuba1,
+    scuba2,
+
     vegetation1,
     vegetation2,
     crabShell,
@@ -344,16 +347,30 @@ enum Material
 }
 
 /**
- * Component for objects that can be injured and killed.
+ * Stats block.
  */
-@Component
-struct Mortal
+struct Stats
 {
     int maxhp;
     int hp; // FIXME: is there a better system than this lousy old thing?!
 
     Material canBreatheIn;
     int maxair, air;
+}
+
+/**
+ * Component for objects that can be injured and killed.
+ */
+@Component
+struct Mortal
+{
+    Stats baseStats;
+    Stats curStats;
+
+    this(Stats _baseStats)
+    {
+        baseStats = curStats = _baseStats;
+    }
 }
 
 /**
@@ -368,6 +385,8 @@ struct Message
 @BitFlags
 enum DmgType
 {
+    none = 0,
+
     blunt = 1 << 0,
     bite = 1 << 1,
     pierce = 1 << 2,
@@ -383,6 +402,8 @@ struct Armor
 {
     DmgType protection;
     //int durability;
+
+    Stats bonuses;
 }
 
 /**

@@ -878,6 +878,43 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
 }
 
 /**
+ * Universal function for computing derived stats from base stats and
+ * equipment.
+ */
+void updateStats(World w, Thing* subj)
+{
+    auto m = w.store.get!Mortal(subj.id);
+    auto inven = w.store.get!Inventory(subj.id);
+
+    if (m is null || inven is null)
+        return;
+
+    Stats stats = m.baseStats;
+    auto equipped = inven.contents
+        .filter!(item => item.type == Inventory.Item.Type.equipped ||
+                         item.type == Inventory.Item.Type.intrinsic);
+    foreach (item; equipped)
+    {
+        Stats bonuses;
+        if (auto a = w.store.get!Armor(item.id))
+        {
+            bonuses = a.bonuses;
+        }
+
+        // Merge
+        stats.maxhp += bonuses.maxhp;
+        stats.canBreatheIn |= bonuses.canBreatheIn;
+        stats.maxair += bonuses.maxair;
+    }
+
+    stats.hp = min(m.curStats.hp, stats.maxhp);
+    stats.air = min(m.curStats.air, stats.maxair);
+
+    // TBD: emit messages based on stat diff
+    m.curStats = stats;
+}
+
+/**
  * Wear some equipment.
  */
 ActionResult equip(World w, Thing* subj, ThingId objId)
@@ -913,6 +950,7 @@ ActionResult equip(World w, Thing* subj, ThingId objId)
                                               "equippable!");
 
     inven.contents[idx].type = Inventory.Item.Type.equipped;
+    updateStats(w, subj);
 
     return ActionResult(true, baseTicks);
 }
@@ -935,8 +973,11 @@ ActionResult unequip(World w, Thing* subj, ThingId objId)
         return ActionResult(false, baseTicks, "You're not wearing that!");
 
     inven.contents[idx].type = Inventory.Item.Type.carrying;
+    updateStats(w, subj);
+
     w.events.emit(Event(EventType.itemUnequip, *w.store.get!Pos(subj.id),
                         subj.id, objId));
+
     return ActionResult(true, baseTicks);
 }
 
