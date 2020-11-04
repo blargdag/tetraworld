@@ -332,7 +332,16 @@ struct Agent
     enum Type { ai, player, sinkAgent, tileEffectAgent }
     Type type;
     int ticksPerTurn = 10;
-    // TBD: AI state goes here
+
+    static struct Goal
+    {
+        enum Type { eat, hunt, seekAir }
+
+        Type type;
+        int mapRange;
+        int cost;
+    }
+    Goal[] goals;
 }
 
 /**
@@ -360,6 +369,9 @@ struct Stats
 
     Medium canBreatheIn;
     int maxair, air;
+
+    //TBD: food type
+    int maxfood, food;
 }
 
 /**
@@ -419,6 +431,12 @@ struct Weapon
     DmgType dmgType;
     int dmg;
     string attackVerb = "hits";
+}
+
+@Component
+struct Edible
+{
+    // TBD: food type
 }
 
 // vim:set ai sw=4 ts=4 et:
