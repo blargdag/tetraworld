@@ -208,6 +208,9 @@ struct SysAi
             Action nextAct;
             if (executePlan(w, subj, *agentPos, plan, nextAct))
                 return nextAct;
+
+            // Plan failed, abort and make a new plan next turn.
+            plan = [];
         }
 
         // Plan failed, or no plan. Make a random move, and make a new plan
