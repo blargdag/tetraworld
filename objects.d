@@ -107,8 +107,11 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
                                      Weapon(DmgType.blunt, 1));
     return store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
         Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic), BlocksMovement(),
-        Agent(), Mortal(stats),
-        CanMove(CanMove.Type.walk | CanMove.Type.climb),
+        Mortal(stats), CanMove(CanMove.Type.walk | CanMove.Type.climb),
+        Agent(Agent.Type.ai, 10, [
+            Agent.Goal(Agent.Goal.Type.hunt, 5, 1),
+            //Agent.Goal(Agent.Goal.Type.eat, 25, 1),
+        ]),
         Inventory([
             Inventory.Item(tentacles.id, Inventory.Item.Type.intrinsic),
         ]));
@@ -125,9 +128,12 @@ Thing* createMonsterB(Store* store, Vec!(int,4) pos)
     auto shell = createCrabShell(store);
 
     return store.createObj(Pos(pos), Name("shelled creature"),
-        Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
-        CanMove(CanMove.Type.walk), Mortal(stats),
-        Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+        Weight(1200), BlocksMovement(), CanMove(CanMove.Type.walk),
+        Mortal(stats), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+        Agent(Agent.Type.ai, 20, [
+            Agent.Goal(Agent.Goal.Type.hunt, 8, 1),
+            //Agent.Goal(Agent.Goal.Type.eat, 12, 1),
+        ]),
         Inventory([
             Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
             Inventory.Item(shell.id, Inventory.Item.Type.equipped),

@@ -80,12 +80,12 @@ static struct Target
 /**
  * Returns: Nearest entity in the given ids to the given reference point.
  */
-Target nearestTarget(R)(R ids, World w, Pos refPos,
+Target nearestTarget(R)(R ids, World w, Pos refPos, int maxRange,
                         bool delegate(ThingId,Pos) filter = null)
     if (isInputRange!R && is(ElementType!R == ThingId))
 {
     Target result;
-    result.dist = int.max;
+    result.dist = maxRange;
     foreach (id; ids)
     {
         auto pos = w.store.get!Pos(id);
@@ -110,7 +110,7 @@ class GoalDef
 {
     abstract bool isActive(World w, ThingId agentId);
     abstract bool findTarget(World w, ThingId agentId, Pos agentPos,
-                             out Target target);
+                             int maxRange, out Target target);
     abstract AiAction[] makePlan(World w, Target target);
 }
 
@@ -126,7 +126,7 @@ class EatGoal : GoalDef
     }
 
     override bool findTarget(World w, ThingId agentId, Pos agentPos,
-                             out Target target)
+                             int maxRange, out Target target)
     {
         // FIXME: TBD
         return false;
@@ -146,12 +146,13 @@ class HuntGoal : GoalDef
     }
 
     override bool findTarget(World w, ThingId agentId, Pos agentPos,
-                             out Target target)
+                             int maxRange, out Target target)
     {
         // FIXME: we really should use the BSP tree for indexing entities by
         // Pos, so that we can do proximity searches more efficiently!
         auto result = w.store.getAll!Mortal()
-                       .nearestTarget(w, agentPos,
+                       .filter!(id => id != agentId)
+                       .nearestTarget(w, agentPos, maxRange,
                                       (id, pos) => canSee(w, agentPos, pos));
         if (result.id == invalidId)
             return false;
@@ -239,7 +240,7 @@ struct SysAi
                 continue;
 
             Target tgt;
-            if (!gdef.findTarget(w, agentId, *agentPos, tgt))
+            if (!gdef.findTarget(w, agentId, *agentPos, g.mapRange, tgt))
                 continue;
 
             auto cost = g.cost * tgt.dist;
