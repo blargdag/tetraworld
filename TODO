@@ -1,3 +1,4 @@
+- [new AI] Implement factions.
 - Should run gravity system once before placing player in a new map, to avoid
   awkward messages of falling furniture on first move. :-D
 - Water-related issues:
