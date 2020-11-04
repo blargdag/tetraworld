@@ -184,7 +184,7 @@ static this()
  */
 struct SysAi
 {
-    AiAction[][ThingId] actQueues;
+    AiAction[][ThingId] plans;
 
     /**
      * AI decision-making routine.
@@ -197,23 +197,21 @@ struct SysAi
             return (World w) => pass(w, subj);
 
         // Retrieve current plan. Make a new one if there isn't one.
-        auto plan = actQueues.get(agentId, []);
+        auto plan = plans.get(agentId, []);
         if (plan.empty)
             plan = planNewGoal(w, agentId, agentPos);
-        scope(exit) actQueues[agentId] = plan;
+        scope(exit) plans[agentId] = plan;
 
         // Execute current plan.
-        while (!plan.empty)
+        if (!plan.empty)
         {
             Action nextAct;
             if (executePlan(w, subj, *agentPos, plan, nextAct))
                 return nextAct;
-
-            // Plan failed. Try a new one.
-            plan = planNewGoal(w, agentId, agentPos);
         }
 
-        // Nothing to do, just wander aimlessly.
+        // Plan failed, or no plan. Make a random move, and make a new plan
+        // next turn.
         int[4] dir;
         if (findViableMove(w, agentId, *agentPos, 6,
                            () => dir2vec(randomDir), dir))
