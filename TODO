@@ -1,3 +1,8 @@
+- Bug: when air < maxair, equipping scuba gear should replenish air and
+  subtract that amount of air from scuba.
+   - Basically, treat air tiles as infinite static sources of air, and scuba
+     gear as finite mobile source of air. Every time lungs draw air, air should
+     be subtracted from the air source.
 - Should run gravity system once before placing player in a new map, to avoid
   awkward messages of falling furniture on first move. :-D
 - Water-related issues:
