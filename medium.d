@@ -21,6 +21,7 @@
 module medium;
 
 import std.algorithm;
+import std.typecons : tuple;
 
 import action;
 import agent;
@@ -39,10 +40,10 @@ auto findBreathingEquip(World w, ThingId mortalId, Mortal* m)
     auto inven = w.store.get!Inventory(mortalId);
     return inven.contents
         .filter!(item => item.inEffect)
-        .map!(item => w.store.get!Armor(item.id))
-        .filter!(am => am !is null && (am.bonuses.canBreatheIn |
-                                       m.curStats.canBreatheIn) != 0 &&
-                       am.bonuses.maxair > 0);
+        .map!(item => tuple(item.id, w.store.get!Armor(item.id)))
+        .filter!(t => t[1] !is null && (t[1].bonuses.canBreatheIn |
+                                        m.curStats.canBreatheIn) != 0 &&
+                      t[1].bonuses.maxair > 0);
 }
 
 private void applyMediumEffects(World w)
@@ -73,9 +74,13 @@ private void applyMediumEffects(World w)
             }
 
             // Replenish breathing equipment.
-            foreach (be; findBreathingEquip(w, mortalId, m))
+            foreach (p; findBreathingEquip(w, mortalId, m))
             {
+                auto id = p[0];
+                auto be = p[1];
                 be.bonuses.air = be.bonuses.maxair;
+                w.events.emit(Event(EventType.itemReplenish, *pos, mortalId,
+                                    id));
             }
 
             continue;
@@ -84,9 +89,9 @@ private void applyMediumEffects(World w)
         // Not in breathable medium. Check for presence of equipped breathing
         // equipment.
         auto beq = findBreathingEquip(w, mortalId, m);
-        if (!beq.empty && beq.front.bonuses.air > 0)
+        if (!beq.empty && beq.front[1].bonuses.air > 0)
         {
-            beq.front.bonuses.air--;
+            beq.front[1].bonuses.air--;
             continue;
         }
 
@@ -94,8 +99,7 @@ private void applyMediumEffects(World w)
         m.curStats.air--;
         if (m.curStats.air > 0)
         {
-            w.events.emit(Event(EventType.schgBreathHold, *pos,
-                                mortalId));
+            w.events.emit(Event(EventType.schgBreathHold, *pos, mortalId));
             continue;
         }
 

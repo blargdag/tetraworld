@@ -272,8 +272,10 @@ class Game
                                    urgency(st.air, st.maxair));
         }
 
-        foreach (be; findBreathingEquip(w, player.id, m))
+        foreach (p; findBreathingEquip(w, player.id, m))
         {
+            auto id = p[0];
+            auto be = p[1];
             result ~= PlayerStatus("scuba", be.bonuses.air, be.bonuses.maxair,
                                    urgency(be.bonuses.air, be.bonuses.maxair));
         }
@@ -641,6 +643,10 @@ class Game
                     verb = isPlayer ? "eat" : "eats";
                     break;
 
+                case EventType.itemReplenish:
+                    return isPlayer ? format("You refill your %s.",
+                                             objName.name) : "";
+
                 default:
                     assert(0, "Unhandled event type: %s"
                               .format(ev.type));
@@ -821,6 +827,7 @@ class Game
                 case EventType.itemEquip:
                 case EventType.itemUnequip:
                 case EventType.itemEat:
+                case EventType.itemReplenish:
                     return "";
 
                 default:
