@@ -135,6 +135,18 @@ struct SysAgent
             auto ag = w.store.get!Agent(id);
             if (ag is null) continue;
 
+            import std.algorithm : canFind;
+            if (id >= terrainMaxId && id < specialMaxId &&
+                turnQueue.dup.release.canFind!(qe => qe.id == id))
+            {
+                // Ignore special agents that are already in the queue: this
+                // happens when loading a saved game. We save and restore
+                // special agents in the save file to keep proper turn sequence
+                // across saves; otherwise the turn order after loading will be
+                // incongruent with the turn order had a save not occurred.
+                return;
+            }
+
             auto nextTurn = curTick();
             turnQueue.insert(QueueEntry(nextTurn, id));
         }
@@ -207,8 +219,7 @@ struct SysAgent
         if (isSaveFile!S)
     {
         import std.algorithm : filter;
-        savefile.put("turnQueue",
-                     turnQueue.filter!(ent => ent.id >= specialMaxId));
+        savefile.put("turnQueue", turnQueue);
     }
 
     /**

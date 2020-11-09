@@ -1,10 +1,18 @@
+- [new AI] Implement factions.
 - Bug: when air < maxair, equipping scuba gear should replenish air and
   subtract that amount of air from scuba.
    - Basically, treat air tiles as infinite static sources of air, and scuba
      gear as finite mobile source of air. Every time lungs draw air, air should
      be subtracted from the air source.
-- Should run gravity system once before placing player in a new map, to avoid
-  awkward messages of falling furniture on first move. :-D
+- Implement throwing rocks at monsters. :-D
+   - Implement UI targeting mode.
+- Need better control over branchiness of second level.
+- [mapgen] Different styled rooms.
+   - Need to support polymorphism in load/save. :-/
+   - Maybe occasionally block off leaf nodes?
+   - Maybe some rooms can turn into corridors.
+- Improve creature AI.
+   - Pathfinding.
 - Water-related issues:
    X Climb-ledge action should not trigger while in water.
       * Why shouldn't it?
@@ -29,15 +37,6 @@
         random mover in water tiles?
    - Per-room water levels?
    - Waterfalls? Rivers? :-D
-- Implement throwing rocks at monsters. :-D
-   - Implement UI targeting mode.
-- Need better control over branchiness of second level.
-- [mapgen] Different styled rooms.
-   - Need to support polymorphism in load/save. :-/
-   - Maybe occasionally block off leaf nodes?
-   - Maybe some rooms can turn into corridors.
-- Improve creature AI.
-   - Pathfinding.
 - Should start encapsulating all uses of the RNG so that we can start
   generating seedable levels.
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
@@ -360,3 +359,12 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
      that's like installing a lung expander. :-D Diving equipment is more like
      a replacement medium that you're breathing *in*. Lung capacity remains the
      same, but the equipment is now the breathing medium.
++ Should run gravity system once before placing player in a new map, to avoid
+  awkward messages of falling furniture on first move. :-D
+   + Fixed also a sync bug with the agent system save/load sequence: we
+     actually *must* save special IDs and load them, in order to keep special
+     agents synced to their pre-save ticks. Otherwise they will go out of sync
+     and may run ahead of the player's turn, causing the load/save gravity
+     triggering bug.
+      + So registering a special agent should scan the current queue and ignore
+        the registration if it's already in the queue.

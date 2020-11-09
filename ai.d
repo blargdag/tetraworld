@@ -28,6 +28,7 @@ import action;
 import components;
 import dir;
 import fov;
+import store;
 import store_traits;
 import vector;
 import world;
@@ -57,58 +58,276 @@ bool findViableMove(World w, ThingId agentId, Pos curPos, int numTries,
 }
 
 /**
- * AI decision-making routine.
+ * Low-level actions constituting steps toward reaching a goal.
  */
-Action chooseAiAction(World w, ThingId agentId)
+struct AiAction
 {
-    auto agent = w.store.getObj(agentId);
-    auto curPos = *w.store.get!Pos(agentId);
+    enum Type { attack, eat }
 
-    // For now, chase player.
-    auto r = w.store.getAll!Agent()
-              .filter!(id => w.store.get!Agent(id).type == Agent.Type.player);
-    if (!r.empty)
+    Type type;
+    int range;
+    ThingId target;
+    Pos targetPos;
+}
+
+static struct Target
+{
+    ThingId id;
+    Pos pos;
+    int dist;
+}
+
+/**
+ * Returns: Nearest entity in the given ids to the given reference point.
+ */
+Target nearestTarget(R)(R ids, World w, Pos refPos, int maxRange,
+                        bool delegate(ThingId,Pos) filter = null)
+    if (isInputRange!R && is(ElementType!R == ThingId))
+{
+    Target result;
+    result.dist = maxRange;
+    foreach (id; ids)
     {
-        auto targetId = r.front;
-        auto targetPos = *w.store.get!Pos(targetId);
+        auto pos = w.store.get!Pos(id);
+        if (pos is null || !filter(id, *pos))
+            continue;
 
-        if (w.canSee(curPos, targetPos))
+        auto d = rectNorm(*pos - refPos);
+        if (d < result.dist)
         {
-            auto inven = w.store.get!Inventory(agentId);
-            auto contents = inven ? inven.contents : [];
-            auto weapons = contents
-                .filter!(item => item.inEffect &&
-                                 w.store.get!Weapon(item.id) !is null)
-                .map!(item => item.id);
-
-            auto diff = targetPos - curPos;
-            if (!weapons.empty && diff[].map!(x => abs(x)).sum == 1)
-            {
-                // Adjacent to player. Attack!
-                import rndutil : pickOne;
-                return (World w) => attack(w, agent, targetId, weapons.pickOne);
-            }
-
-            // If no weapons, flee from player instead of attack.
-            if (weapons.empty)
-                diff = -diff;
-
-            int[4] dir;
-            if (findViableMove(w, agentId, curPos, 6, () => chooseDir(diff),
-                               dir))
-                return (World w) => move(w, agent, vec(dir));
+            result.dist = d;
+            result.id = id;
+            result.pos = *pos;
         }
-        // Couldn't find a way to reach target, or can't see target, fallback
-        // to random move.
+    }
+    return result;
+}
+
+/**
+ * Goal definition.
+ */
+class GoalDef
+{
+    abstract bool isActive(World w, ThingId agentId);
+    abstract bool findTarget(World w, ThingId agentId, Pos agentPos,
+                             int maxRange, out Target target);
+    abstract AiAction[] makePlan(World w, Target target);
+}
+
+class EatGoal : GoalDef
+{
+    override bool isActive(World w, ThingId agentId)
+    {
+        auto m = w.store.get!Mortal(agentId);
+        if (m is null || m.curStats.maxfood == 0)
+            return false;
+
+        return (m.curStats.maxfood / m.curStats.food) > 4;
     }
 
-    // Nothing to do, just wander aimlessly.
-    int[4] dir;
-    if (findViableMove(w, agentId, curPos, 6, () => dir2vec(randomDir), dir))
-        return (World w) => move(w, agent, vec(dir));
+    override bool findTarget(World w, ThingId agentId, Pos agentPos,
+                             int maxRange, out Target target)
+    {
+        // FIXME: we really should use the BSP tree for indexing entities by
+        // Pos, so that we can do proximity searches more efficiently!
+        auto result = w.store.getAll!Edible()
+                       .nearestTarget(w, agentPos, maxRange,
+                                      (id, pos) => canSee(w, agentPos, pos));
+        if (result.id == invalidId)
+            return false;
 
-    // Can't even do that; give up.
-    return (World w) => pass(w, agent);
+        target = result;
+        return true;
+    }
+
+    override AiAction[] makePlan(World w, Target target)
+    {
+        return [ AiAction(AiAction.Type.eat, 0, target.id, target.pos) ];
+    }
+}
+
+class HuntGoal : GoalDef
+{
+    override bool isActive(World w, ThingId agentId)
+    {
+        return hasEquippedWeapon(w, agentId) != invalidId;
+    }
+
+    override bool findTarget(World w, ThingId agentId, Pos agentPos,
+                             int maxRange, out Target target)
+    {
+        // FIXME: we really should use the BSP tree for indexing entities by
+        // Pos, so that we can do proximity searches more efficiently!
+        auto result = w.store.getAll!Mortal()
+                       .filter!(id => id != agentId)
+                       .nearestTarget(w, agentPos, maxRange,
+                                      (id, pos) => canSee(w, agentPos, pos));
+        if (result.id == invalidId)
+            return false;
+
+        target = result;
+        return true;
+    }
+
+    override AiAction[] makePlan(World w, Target target)
+    {
+        auto weaponRange = 1; // FIXME
+        return [
+            AiAction(AiAction.Type.attack, weaponRange, target.id, target.pos),
+        ];
+    }
+}
+
+GoalDef[Agent.Goal.Type.max] goalDefs;
+
+static this()
+{
+    goalDefs[Agent.Goal.Type.eat] = new EatGoal();
+    goalDefs[Agent.Goal.Type.hunt] = new HuntGoal();
+    //goalDefs[Agent.Goal.Type.seekAir] = new SeekAirGoal();
+}
+
+/**
+ * AI state and shared data.
+ */
+struct SysAi
+{
+    AiAction[][ThingId] plans;
+
+    /**
+     * AI decision-making routine.
+     */
+    Action chooseAiAction(World w, ThingId agentId)
+    {
+        auto subj = w.store.getObj(agentId);
+        auto agentPos = w.store.get!Pos(agentId);
+        if (agentPos is null)
+            return (World w) => pass(w, subj);
+
+        // Retrieve current plan. Make a new one if there isn't one.
+        auto plan = plans.get(agentId, []);
+        if (plan.empty)
+            plan = planNewGoal(w, agentId, agentPos);
+        scope(exit) plans[agentId] = plan;
+
+        // Execute current plan.
+        if (!plan.empty)
+        {
+            Action nextAct;
+            if (executePlan(w, subj, *agentPos, plan, nextAct))
+                return nextAct;
+
+            // Plan failed, abort and make a new plan next turn.
+            plan = [];
+        }
+
+        // Plan failed, or no plan. Make a random move, and make a new plan
+        // next turn.
+        int[4] dir;
+        if (findViableMove(w, agentId, *agentPos, 6,
+                           () => dir2vec(randomDir), dir))
+            return (World w) => move(w, subj, vec(dir));
+
+        // Can't even do that; give up.
+        return (World w) => pass(w, subj);
+    }
+
+    private AiAction[] planNewGoal(World w, ThingId agentId, Pos* agentPos)
+        in (agentPos !is null)
+    {
+        auto ag = w.store.get!Agent(agentId);
+        assert(ag !is null);
+
+        int minCost = int.max;
+        Target bestTgt;
+        GoalDef bestGoal;
+        foreach (g; ag.goals)
+        {
+            auto gdef = goalDefs[g.type];
+            if (gdef is null) continue; // TBD: temporary stop-gap
+            if (!gdef.isActive(w, agentId))
+                continue;
+
+            Target tgt;
+            if (!gdef.findTarget(w, agentId, *agentPos, g.mapRange, tgt))
+                continue;
+
+            auto cost = g.cost * tgt.dist;
+            if (cost < minCost)
+            {
+                minCost = cost;
+                bestTgt = tgt;
+                bestGoal = gdef;
+            }
+        }
+
+        if (bestTgt.id == invalidId)
+            return [];  // couldn't find a suitable goal
+
+        return bestGoal.makePlan(w, bestTgt);
+    }
+
+    private bool executePlan(World w, Thing* subj, Pos agentPos,
+                             ref AiAction[] plan, out Action nextAct)
+    {
+        if (plan.empty)
+            return false;
+
+        auto aiAct = plan.front;
+
+        // Track target. If it's within sight, update its tracked position.
+        // Otherwise move towards its last-known location.
+        auto p = w.store.get!Pos(aiAct.target);
+        bool inSight;
+        if (p !is null && canSee(w, agentPos, *p))
+        {
+            aiAct.targetPos = *p;
+            inSight = true;
+        }
+
+        auto dist = rectNorm(agentPos - aiAct.targetPos);
+        if (dist <= aiAct.range && inSight)
+        {
+            // Within range of target; run action.
+            plan.popFront();
+
+            final switch (aiAct.type)
+            {
+                case AiAction.Type.attack:
+                    auto weaponId = hasEquippedWeapon(w, subj.id);
+                    if (weaponId == invalidId)
+                        return false;   // oops :-D
+
+                    nextAct = (World w) => attack(w, subj, aiAct.target,
+                                                  weaponId);
+                    return true;
+
+                case AiAction.Type.eat:
+                    nextAct = (World w) => eat(w, subj, aiAct.target);
+                    return true;
+            }
+        }
+        else if (dist > 0)
+        {
+            // Out of range, or not in sight. Try to move towards it.
+
+            // TBD: should do a pathfinding step here.
+
+            int[4] dir;
+            auto diff = aiAct.targetPos - agentPos;
+            if (findViableMove(w, subj.id, agentPos, 6, () => chooseDir(diff),
+                               dir))
+            {
+                nextAct = (World w) => move(w, subj, vec(dir));
+                return true;
+            }
+        }
+
+        // If we got here, it means either the target no longer exists, or we
+        // cannot see it, or we couldn't find a viable move towards it. Give up
+        // and plan a new course of action.
+        return false;
+    }
 }
 
 // vim:set ai sw=4 ts=4 et:

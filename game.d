@@ -215,6 +215,7 @@ class Game
     private World w;
     private SysAgent sysAgent;
     private SysGravity sysGravity;
+    private SysAi sysAi;
 
     private Thing* player;
     private MapMemory plMapMemory;
@@ -336,6 +337,7 @@ class Game
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
+        sf.put("ai", sysAi);
         sf.put("memory", plMapMemory);
     }
 
@@ -349,6 +351,7 @@ class Game
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
+        game.sysAi = lf.parse!SysAi("ai");
         game.plMapMemory = lf.parse!MapMemory("memory");
 
         game.player = game.w.store.getObj(playerId);
@@ -487,6 +490,7 @@ class Game
         w = storyNodes[storyNode].genMap(startPos);
         sysAgent = SysAgent.init;
         sysGravity = SysGravity.init;
+        sysAi = SysAi.init;
         setupLevel();
 
         setupAgentImpls();
@@ -531,6 +535,11 @@ class Game
         if (ev.cat == EventCat.move)
         {
             auto isPlayer = (ev.subjId == player.id);
+            bool canSeeWhere = canSee(w, playerPos, ev.where);
+            bool canSeeWhereTo = canSee(w, playerPos, ev.whereTo);
+            bool moveIntoView = !canSeeWhere && canSeeWhereTo;
+            bool moveOutOfView = canSeeWhere && !canSeeWhereTo;
+
             string subjName = "you";
             if (!isPlayer)
             {
@@ -561,7 +570,9 @@ class Game
 
                 case EventType.moveFall:
                     verb = isPlayer ? "fall" : "falls";
-                    return format("%s %s!", subjName.asCapitalized, verb);
+                    return (isPlayer || moveIntoView || moveOutOfView) ?
+                            format("%s %s!", subjName.asCapitalized, verb) :
+                            "";
                     break;
 
                 case EventType.moveFallAside:
@@ -610,6 +621,10 @@ class Game
 
                 case EventType.itemUnequip:
                     verb = isPlayer ? "unequip" : "unequips";
+                    break;
+
+                case EventType.itemEat:
+                    verb = isPlayer ? "eat" : "eats";
                     break;
 
                 default:
@@ -791,6 +806,7 @@ class Game
                 case EventType.itemUse:
                 case EventType.itemEquip:
                 case EventType.itemUnequip:
+                case EventType.itemEat:
                     return "";
 
                 default:
@@ -1005,7 +1021,7 @@ class Game
         sysAgent.registerAgentImpl(Agent.Type.player, playerImpl);
 
         AgentImpl aiImpl;
-        aiImpl.chooseAction = (w, agentId) => chooseAiAction(w, agentId);
+        aiImpl.chooseAction = (w, agentId) => sysAi.chooseAiAction(w, agentId);
         sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
 
         // Gravity system proxy for sinking objects over time.

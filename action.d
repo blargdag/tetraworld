@@ -636,6 +636,24 @@ bool canClimbLedge(World w, Vec!(int,4) pos, Vec!(int,4) displacement)
 }
 
 /**
+ * TBD: should be consolidated with other hunger-related code in separate
+ * module.
+ */
+void consumeFood(World w, Thing* subj, int actionCost)
+{
+    auto m = w.store.get!Mortal(subj.id);
+    if (m is null || m.curStats.maxfood == 0)
+        return;     // subject does not consume food
+
+    // TBD: probably should use probabilistic reduced rate here?
+    m.curStats.food = max(0, m.curStats.food - actionCost);
+
+    // TBD: trigger hunger message if below hunger threshold
+
+    // TBD: trigger hunger effects if starving
+}
+
+/**
  * Moves an object from its current location to a new location.
  */
 ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
@@ -661,6 +679,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
                                     subj.id));
             });
 
+            consumeFood(w, subj, 1);
             return ActionResult(true, 3*baseTicks/2);
         }
         else
@@ -679,6 +698,7 @@ ActionResult move(World w, Thing* subj, Vec!(int,4) displacement)
         });
     }
 
+    consumeFood(w, subj, 1);
     return ActionResult(true, baseTicks);
 }
 
@@ -709,6 +729,7 @@ ActionResult pickupItem(World w, Thing* subj, ThingId objId)
     w.events.emit(Event(EventType.itemPickup, *subjPos, subj.id, objId));
     w.store.mergeToInven(objId, inven.contents);
 
+    consumeFood(w, subj, 1);
     return ActionResult(true, baseTicks);
 }
 
@@ -780,11 +801,13 @@ ActionResult useItem(World w, Thing* subj, ThingId objId)
         case UseEffect.portal:
             // Experimental
             w.store.add!UsePortal(subj, UsePortal());
+            consumeFood(w, subj, 1);
             return ActionResult(true, baseTicks);
 
         case UseEffect.trigger:
             auto trigObj = w.store.getObj(objId);
             activateTrigger(w, subj, pos, trigObj, u.triggerId);
+            consumeFood(w, subj, 1);
             return ActionResult(true, baseTicks);
     }
 }
@@ -799,6 +822,7 @@ ActionResult pass(World w, Thing* subj)
     auto pos = *w.store.get!Pos(subj.id);
 
     w.events.emit(Event(EventType.movePass, pos, subj.id));
+    consumeFood(w, subj, 1);
     return ActionResult(true, baseTicks);
 }
 
@@ -872,6 +896,7 @@ ActionResult attack(World w, Thing* subj, ThingId objId, ThingId weaponId)
                         weaponId));
     w.injure(subj.id, objId, weapon.dmgType, weapon.dmg);
 
+    consumeFood(w, subj, 2);
     return ActionResult(true, baseTicks);
 }
 
@@ -952,6 +977,7 @@ ActionResult equip(World w, Thing* subj, ThingId objId)
     inven.contents[idx].type = Inventory.Item.Type.equipped;
     updateStats(w, subj);
 
+    consumeFood(w, subj, 2);
     return ActionResult(true, baseTicks);
 }
 
@@ -978,6 +1004,55 @@ ActionResult unequip(World w, Thing* subj, ThingId objId)
     w.events.emit(Event(EventType.itemUnequip, *w.store.get!Pos(subj.id),
                         subj.id, objId));
 
+    consumeFood(w, subj, 2);
+    return ActionResult(true, baseTicks);
+}
+
+/**
+ * Eat a comestible.
+ */
+ActionResult eat(World w, Thing* subj, ThingId objId)
+{
+    auto ag = w.store.get!Agent(subj.id);
+    auto subjPos = w.store.get!Pos(subj.id);
+    auto inven = w.store.get!Inventory(subj.id);
+    auto foodPos = w.store.get!Pos(objId);
+    auto baseTicks = ag ? ag.ticksPerTurn : 10;
+
+    if ((inven is null || !inven.contents.canFind!(it => it.id == objId)) &&
+        (subjPos is null || foodPos is null || *subjPos != *foodPos))
+    {
+        return ActionResult(false, baseTicks, "You can't reach that!");
+    }
+
+    auto ed = w.store.get!Edible(objId);
+    if (ed is null)
+        return ActionResult(false, baseTicks, "That's not edible!");
+
+    auto m = w.store.get!Mortal(subj.id);
+    if (m is null || m.curStats.maxfood == 0)
+        return ActionResult(false, baseTicks, "You have no need of eating!");
+
+    auto needed = m.curStats.maxfood - m.curStats.food;
+    if (needed <= 0)
+        return ActionResult(false, baseTicks, "You're already satiated!");
+
+    auto eaten = min(needed, ed.nutrition);
+
+    ed.nutrition -= eaten;
+    m.curStats.food += eaten;
+
+    if (eaten <= 0)
+    {
+        // TBD: message about meal not being nutritious
+    }
+
+    w.events.emit(Event(EventType.itemEat, *subjPos, subj.id, objId));
+
+    if (ed.nutrition <= 0)
+        w.store.destroyObj(objId);
+
+    consumeFood(w, subj, 1);
     return ActionResult(true, baseTicks);
 }
 

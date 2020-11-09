@@ -2438,28 +2438,10 @@ World genTestLevel()(out int[4] startPos)
 
     addLadders(w, w.map.tree, w.map.bounds);
 
-    auto claws = w.store.createObj(Name("blunt claws"),
-                                   Weapon(DmgType.pierce, 0, "pinches"));
-    w.store.createObj(Pos(2,2,2,2), Name("miserable creature"),
-        Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
-        Mortal(Stats(3,3)), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
-        CanMove(CanMove.Type.walk), Inventory([
-            Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
-        ]));
-
-    // Testing rock trap over water, for catching the disappearing bug.
-    {
-        auto pos = Pos(8,2,2,2);
-        auto room = root.right;
-
-        auto ceilingPos = pos;
-        ceilingPos[0] = room.interior.min[0];
-        w.store.createObj(Pos(pos), Weight(1) /*FIXME:this is a hack*/,
-                          Trigger(Trigger.Type.onWeight, w.triggerId, 500));
-        w.store.createObj(Pos(ceilingPos),
-                          Triggerable(w.triggerId, TriggerEffect.rockTrap));
-        w.triggerId++;
-    }
+    createMonsterB(&w.store, Pos(2,2,2,2));
+    createVeg(&w.store, Pos(2,1,2,2));
+    createVeg(&w.store, Pos(2,1,3,2));
+    createVeg(&w.store, Pos(4,1,3,1));
 
     startPos = [5,2,2,2];
     return w;
