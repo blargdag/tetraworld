@@ -1,9 +1,4 @@
 - [new AI] Implement factions.
-- Bug: when air < maxair, equipping scuba gear should replenish air and
-  subtract that amount of air from scuba.
-   - Basically, treat air tiles as infinite static sources of air, and scuba
-     gear as finite mobile source of air. Every time lungs draw air, air should
-     be subtracted from the air source.
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
@@ -368,3 +363,8 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
      triggering bug.
       + So registering a special agent should scan the current queue and ignore
         the registration if it's already in the queue.
++ Bug: when air < maxair, equipping scuba gear should replenish air and
+  subtract that amount of air from scuba.
+   + Basically, treat air tiles as infinite static sources of air, and scuba
+     gear as finite mobile source of air. Every time lungs draw air, air should
+     be subtracted from the air source.
