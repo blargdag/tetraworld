@@ -122,7 +122,7 @@ class EatGoal : GoalDef
         if (m is null || m.curStats.maxfood == 0)
             return false;
 
-        return (m.curStats.maxfood / m.curStats.food) > 4;
+        return m.curStats.food <= m.curStats.maxfood / 4;
     }
 
     override bool findTarget(World w, ThingId agentId, Pos agentPos,
