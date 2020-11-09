@@ -151,6 +151,9 @@ struct PlayerStatus
     string label;
     int curval;
     int maxval;
+
+    enum Urgency { none, warn, critical }
+    Urgency urgency;
 }
 
 /**
@@ -248,20 +251,31 @@ class Game
      */
     PlayerStatus[] getStatuses()
     {
+        static PlayerStatus.Urgency urgency(int val, int max)
+        {
+            return (val <= max / 4) ? PlayerStatus.Urgency.critical :
+                   (val <= max / 2) ? PlayerStatus.Urgency.warn :
+                   PlayerStatus.Urgency.none;
+        }
+
         PlayerStatus[] result;
         if (w.store.get!Inventory(player.id) !is null)
             result ~= PlayerStatus("$", numGold(), maxGold());
 
         auto m = w.store.get!Mortal(player.id);
         if (m !is null)
-            result ~= [
-                PlayerStatus("hp", m.curStats.hp, m.curStats.maxhp),
-                PlayerStatus("air", m.curStats.air, m.curStats.maxair),
-            ];
+        {
+            auto st = m.curStats;
+            result ~= PlayerStatus("hp", st.hp, st.maxhp,
+                                   urgency(st.hp, st.maxhp));
+            result ~= PlayerStatus("air", st.air, st.maxair,
+                                   urgency(st.air, st.maxair));
+        }
 
         foreach (be; findBreathingEquip(w, player.id, m))
         {
-            result ~= PlayerStatus("scuba", be.bonuses.air, be.bonuses.maxair);
+            result ~= PlayerStatus("scuba", be.bonuses.air, be.bonuses.maxair,
+                                   urgency(be.bonuses.air, be.bonuses.maxair));
         }
 
         return result;

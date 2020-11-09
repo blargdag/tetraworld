@@ -1319,8 +1319,24 @@ class TextUi : GameUi
         statusview.color(Color.DEFAULT, Color.DEFAULT);
         foreach (stat; g.getStatuses())
         {
-            statusview.writef("%s:%d/%d ", stat.label, stat.curval,
-                              stat.maxval);
+            statusview.writef("%s:", stat.label);
+            final switch (stat.urgency)
+            {
+                case PlayerStatus.Urgency.none:
+                    statusview.color(Color.DEFAULT, Color.DEFAULT);
+                    break;
+
+                case PlayerStatus.Urgency.warn:
+                    statusview.color(Color.yellow, Color.DEFAULT);
+                    break;
+
+                case PlayerStatus.Urgency.critical:
+                    statusview.color(Color.red | Bright, Color.DEFAULT);
+                    break;
+            }
+            statusview.writef("%d", stat.curval);
+            statusview.color(Color.DEFAULT, Color.DEFAULT);
+            statusview.writef("/%d ", stat.maxval);
         }
         statusview.clearToEol();
     }

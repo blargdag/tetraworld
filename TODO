@@ -1,4 +1,6 @@
 - [new AI] Implement factions.
+- [scuba] Need to add warning messages when air goes low.
+   - Possibly add red highlight to status line too?
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
