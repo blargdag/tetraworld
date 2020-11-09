@@ -48,6 +48,21 @@ auto findBreathingEquip(World w, ThingId mortalId, Mortal* m)
 
 private void applyMediumEffects(World w)
 {
+    void replenishBreathEquip(ThingId mortalId, Mortal* m, Pos pos)
+    {
+        foreach (p; findBreathingEquip(w, mortalId, m))
+        {
+            auto id = p[0];
+            auto be = p[1];
+            if (be.bonuses.air < be.bonuses.maxair)
+            {
+                be.bonuses.air = be.bonuses.maxair;
+                w.events.emit(Event(EventType.itemReplenish, pos, mortalId,
+                                    id));
+            }
+        }
+    }
+
     foreach (mortalId; w.store.getAll!Mortal().dup)
     {
         auto m = w.store.get!Mortal(mortalId);
@@ -55,6 +70,7 @@ private void applyMediumEffects(World w)
         if (pos is null || m is null ||
             m.curStats.canBreatheIn == Medium.init)
         {
+            replenishBreathEquip(mortalId, m, *pos);
             continue;
         }
 
@@ -73,16 +89,7 @@ private void applyMediumEffects(World w)
                                     mortalId));
             }
 
-            // Replenish breathing equipment.
-            foreach (p; findBreathingEquip(w, mortalId, m))
-            {
-                auto id = p[0];
-                auto be = p[1];
-                be.bonuses.air = be.bonuses.maxair;
-                w.events.emit(Event(EventType.itemReplenish, *pos, mortalId,
-                                    id));
-            }
-
+            replenishBreathEquip(mortalId, m, *pos);
             continue;
         }
 
