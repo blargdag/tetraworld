@@ -119,7 +119,7 @@ class EatGoal : GoalDef
     override bool isActive(World w, ThingId agentId)
     {
         auto m = w.store.get!Mortal(agentId);
-        if (m is null || m.curStats.maxfood <= 0)
+        if (m is null || m.curStats.maxfood == 0)
             return false;
 
         return (m.curStats.maxfood / m.curStats.food) > 4;
@@ -128,8 +128,16 @@ class EatGoal : GoalDef
     override bool findTarget(World w, ThingId agentId, Pos agentPos,
                              int maxRange, out Target target)
     {
-        // FIXME: TBD
-        return false;
+        // FIXME: we really should use the BSP tree for indexing entities by
+        // Pos, so that we can do proximity searches more efficiently!
+        auto result = w.store.getAll!Edible()
+                       .nearestTarget(w, agentPos, maxRange,
+                                      (id, pos) => canSee(w, agentPos, pos));
+        if (result.id == invalidId)
+            return false;
+
+        target = result;
+        return true;
     }
 
     override AiAction[] makePlan(World w, Target target)
@@ -295,8 +303,8 @@ struct SysAi
                     return true;
 
                 case AiAction.Type.eat:
-                    assert(0, "Eat action not implemented yet");
-                    break;
+                    nextAct = (World w) => eat(w, subj, aiAct.target);
+                    return true;
             }
         }
         else if (dist > 0)

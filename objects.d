@@ -81,13 +81,13 @@ Thing* createDenseVeg(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.vegetation2, -1),
                            Weight(100), BlocksView(),
-                           Name("dense vegetation"));
+                           Name("dense vegetation"), Edible(500));
 }
 
 Thing* createVeg(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.vegetation1, -1),
-                           Weight(100), Name("vegetation"));
+                           Weight(100), Name("vegetation"), Edible(200));
 }
 
 Thing* createGold(Store* store, Vec!(int,4) pos)
@@ -102,6 +102,7 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
     stats.maxhp = stats.hp = 5;
     stats.canBreatheIn = Medium.air;
     stats.maxair = stats.air = 3;
+    stats.maxfood = stats.food = 100;
 
     auto tentacles = store.createObj(Name("tentacles"),
                                      Weapon(DmgType.blunt, 1));
@@ -110,7 +111,7 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
         Mortal(stats), CanMove(CanMove.Type.walk | CanMove.Type.climb),
         Agent(Agent.Type.ai, 10, [
             Agent.Goal(Agent.Goal.Type.hunt, 5, 1),
-            //Agent.Goal(Agent.Goal.Type.eat, 25, 1),
+            Agent.Goal(Agent.Goal.Type.eat, 25, 1),
         ]),
         Inventory([
             Inventory.Item(tentacles.id, Inventory.Item.Type.intrinsic),
@@ -122,6 +123,7 @@ Thing* createMonsterB(Store* store, Vec!(int,4) pos)
     Stats stats;
     stats.maxhp = stats.hp = 3;
     stats.canBreatheIn = Medium.air | Medium.water;
+    stats.maxfood = stats.food = 60;
 
     auto claws = store.createObj(Name("claws"),
                                  Weapon(DmgType.pierce, 2, "pinches"));
@@ -131,8 +133,8 @@ Thing* createMonsterB(Store* store, Vec!(int,4) pos)
         Weight(1200), BlocksMovement(), CanMove(CanMove.Type.walk),
         Mortal(stats), Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
         Agent(Agent.Type.ai, 20, [
-            Agent.Goal(Agent.Goal.Type.hunt, 8, 1),
-            //Agent.Goal(Agent.Goal.Type.eat, 12, 1),
+            Agent.Goal(Agent.Goal.Type.hunt, 8, 2),
+            Agent.Goal(Agent.Goal.Type.eat, 12, 1),
         ]),
         Inventory([
             Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),

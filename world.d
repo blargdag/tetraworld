@@ -136,6 +136,7 @@ enum EventType
     itemUse         = 0x0203,
     itemEquip       = 0x0204,
     itemUnequip     = 0x0205,
+    itemEat         = 0x0206,
 
     // EventCat.dmg
     dmgAttack       = 0x0301,

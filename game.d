@@ -623,6 +623,10 @@ class Game
                     verb = isPlayer ? "unequip" : "unequips";
                     break;
 
+                case EventType.itemEat:
+                    verb = isPlayer ? "eat" : "eats";
+                    break;
+
                 default:
                     assert(0, "Unhandled event type: %s"
                               .format(ev.type));
@@ -802,6 +806,7 @@ class Game
                 case EventType.itemUse:
                 case EventType.itemEquip:
                 case EventType.itemUnequip:
+                case EventType.itemEat:
                     return "";
 
                 default:

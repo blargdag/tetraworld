@@ -437,6 +437,7 @@ struct Weapon
 struct Edible
 {
     // TBD: food type
+    int nutrition;
 }
 
 // vim:set ai sw=4 ts=4 et:
