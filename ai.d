@@ -158,8 +158,15 @@ class HuntGoal : GoalDef
     {
         // FIXME: we really should use the BSP tree for indexing entities by
         // Pos, so that we can do proximity searches more efficiently!
+        auto m = w.store.get!Mortal(agentId);
+        auto agentFaction = (m is null) ? Faction.loner : m.faction;
         auto result = w.store.getAll!Mortal()
                        .filter!(id => id != agentId)
+                       .filter!((id) {
+                            auto m = w.store.get!Mortal(id);
+                            return m.faction == Faction.loner ||
+                                   m.faction != agentFaction;
+                       })
                        .nearestTarget(w, agentPos, maxRange,
                                       (id, pos) => canSee(w, agentPos, pos));
         if (result.id == invalidId)

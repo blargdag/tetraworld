@@ -375,6 +375,17 @@ struct Stats
 }
 
 /**
+ * Creature AI will not target other members of its own faction, except the
+ * 'loner' faction, which is always targetable.
+ */
+enum Faction
+{
+    loner,
+    crawlers,
+    swimmers,
+}
+
+/**
  * Component for objects that can be injured and killed.
  */
 @Component
@@ -383,9 +394,12 @@ struct Mortal
     Stats baseStats;
     Stats curStats;
 
-    this(Stats _baseStats)
+    Faction faction;
+
+    this(Stats _baseStats, Faction _faction = Faction.init)
     {
         baseStats = curStats = _baseStats;
+        faction = _faction;
     }
 }
 

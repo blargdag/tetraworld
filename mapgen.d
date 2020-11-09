@@ -2438,6 +2438,8 @@ World genTestLevel()(out int[4] startPos)
 
     addLadders(w, w.map.tree, w.map.bounds);
 
+    createMonsterA(&w.store, Pos(2,2,1,2));
+    createMonsterA(&w.store, Pos(2,3,2,2));
     createMonsterB(&w.store, Pos(2,2,2,2));
     createVeg(&w.store, Pos(2,1,2,2));
     createVeg(&w.store, Pos(2,1,3,2));
