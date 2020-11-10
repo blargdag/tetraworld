@@ -1,3 +1,10 @@
+- [newAI] BP: AI sticks to goal too persistently; once a hunt goal is decided
+  on, it doesn't reevaluate goals until target is dead or escaped, so seekAir
+  goal remains inactive during the hunt even if hunter is in non-breathable
+  medium.
+   - Need conditions for reevaluating goals every so often. Too much
+     persistence makes the AI dumber!
+   - Or maybe medium awareness should be done outside of the goal system...
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
