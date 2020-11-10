@@ -126,9 +126,10 @@ enum EventType
     moveClimbLedge0 = 0x0104,
     moveClimbLedge1 = 0x0105,
     moveFall        = 0x0106,
-    moveFallAside   = 0x0107,
-    moveSink        = 0x0108,
-    movePass        = 0x0109,
+    moveFall2       = 0x0107,
+    moveFallAside   = 0x0108,
+    moveSink        = 0x0109,
+    movePass        = 0x010A,
 
     // EventCat.itemAct
     itemPickup      = 0x0201,

@@ -195,6 +195,7 @@ struct SysGravity
     {
         Pos oldPos, floorPos;
         FallType type = computeFallType(w, t.id, false, oldPos, floorPos);
+        EventType etype = EventType.moveFall;
         OUTER: while (type > FallType.rest)
         {
             final switch (type)
@@ -233,10 +234,11 @@ struct SysGravity
                     else
                     {
                         rawMove(w, t, floorPos, {
-                            w.events.emit(Event(EventType.moveFall, oldPos,
-                                                floorPos, t.id));
+                            w.events.emit(Event(etype, oldPos, floorPos,
+                                                t.id));
                         });
                         prevType = type;
+                        etype = EventType.moveFall2;
                     }
                     break;
             }

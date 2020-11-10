@@ -589,7 +589,12 @@ class Game
                     return (isPlayer || moveIntoView || moveOutOfView) ?
                             format("%s %s!", subjName.asCapitalized, verb) :
                             "";
-                    break;
+
+                case EventType.moveFall2:
+                    // Suppress consecutive fall messages unless it conveys new
+                    // information.
+                    return (!isPlayer && (moveIntoView || moveOutOfView)) ?
+                            format("%s falls!", subjName.asCapitalized) : "";
 
                 case EventType.moveFallAside:
                     return format("The impact sends %s rolling to the side!",
@@ -802,6 +807,7 @@ class Game
                 case EventType.moveClimbLedge1:
                 case EventType.moveClimbLedge0:
                 case EventType.moveFall:
+                case EventType.moveFall2:
                 case EventType.movePass:
                     return "";
 
