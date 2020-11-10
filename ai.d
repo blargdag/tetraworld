@@ -34,6 +34,78 @@ import vector;
 import world;
 
 /**
+ * Predict the final resting position of the given agent if it were to move in
+ * the given direction from the given location.
+ *
+ * The main purpose of this is to evaluate whether a move would end up in an
+ * undesirable place, like an unbreathable medium.
+ *
+ * Prerequisites: The caller must have determined beforehand that the agent can
+ * actually move in the given direction. No checks to that end are made; this
+ * function assumes that the move is valid.
+ */
+Pos predictDest(World w, ThingId agentId, Pos curPos, Vec!(int,4) dir)
+{
+    auto pos = Pos(curPos + dir);
+    if (w.locationHas!BlocksMovement(pos) &&
+        !w.locationHas!BlocksMovement(pos + vec(-1,0,0,0)) &&
+        !w.locationHas!BlocksMovement(curPos + vec(-1,0,0,0)))
+    {
+        // Climb-ledge.
+        return Pos(pos + vec(-1,0,0,0));
+    }
+
+    import gravity : willFall;
+    while (willFall(w, agentId, pos))
+    {
+        pos = pos + vec(1,0,0,0);
+    }
+
+    return pos;
+}
+
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //    01234
+    //  0 #####
+    //  1 #   #
+    //  2 ##@ #
+    //  3 #~#~#
+    //  4 #~~~#
+    //  5 #####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,4,2,2));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,5,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = 3;
+
+    w.store.createObj(Name("block"), Pos(2,1,1,1), BlocksMovement(),
+                      SupportsWeight(SupportType.above));
+    w.store.createObj(Name("block"), Pos(3,2,1,1), BlocksMovement(),
+                      SupportsWeight(SupportType.above));
+
+    auto creature = w.store.createObj(Name("ехидна"), Pos(2,2,1,1),
+        CanMove(CanMove.Type.walk | CanMove.Type.climb | CanMove.Type.swim));
+
+    assert(predictDest(w, creature.id, Pos(2,2,1,1), vec(-1,0,0,0)) ==
+           Pos(2,2,1,1));
+    assert(predictDest(w, creature.id, Pos(2,2,1,1), vec(0,-1,0,0)) ==
+           Pos(1,1,1,1));
+    assert(predictDest(w, creature.id, Pos(2,2,1,1), vec(0,1,0,0)) ==
+           Pos(3,3,1,1));
+
+    w.map.waterLevel = 4;
+    assert(predictDest(w, creature.id, Pos(2,2,1,1), vec(0,1,0,0)) ==
+           Pos(4,3,1,1));
+}
+
+/**
  * Tries to call the given move generator up to numTries times until a viable
  * move is found.
  *

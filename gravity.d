@@ -54,22 +54,105 @@ void registerGravityObjs(Store* store, SysAgent* sysAgent, SysGravity* sysGravit
                           Agent(Agent.type.sinkAgent));
 }
 
+private enum FallType
+{
+    // NOTE: this is ordered in such a way that when multiple objects
+    // provide different kinds of support, min(FallType) gives the
+    // resulting overall effect.
+    none = 0,
+    rest = 1,
+    sink = 2,
+    fall = 3,
+}
+
+private FallType checkSupport(World w, ThingId id, bool alreadyFalling,
+                              SupportsWeight* sw, SupportType type)
+{
+    if (sw is null || (sw.type & type) == 0)
+        return FallType.fall;
+
+    auto cm = w.store.get!CanMove(id);
+
+    final switch (sw.cond)
+    {
+        case SupportCond.always:
+            return FallType.rest;
+
+        case SupportCond.permanent:
+            return FallType.none;
+
+        case SupportCond.climbing:
+            if (!alreadyFalling && cm !is null &&
+                (cm.types & CanMove.Type.climb))
+            {
+                return FallType.rest;
+            }
+            break;
+
+        case SupportCond.buoyant:
+            if (cm !is null && (cm.types & CanMove.Type.swim))
+                return FallType.rest;
+
+            // Non-buoyant objects will sink, but only slowly.
+            return FallType.sink;
+    }
+    return FallType.fall;
+}
+
+private FallType computeFallType(World w, ThingId id, bool alreadyFalling,
+                                 out Pos oldPos, out Pos floorPos)
+{
+    // NOTE: race condition: a falling object may autopickup another object and
+    // remove its Pos while we're still iterating, which will cause posp to be
+    // null.
+    auto posp = w.store.get!Pos(id);
+    if (posp is null)
+        return FallType.none;
+
+    oldPos = *posp;
+    floorPos = Pos(oldPos + vec(1,0,0,0));
+
+    return computeFallTypeImpl(w, id, alreadyFalling, oldPos, floorPos);
+}
+
+private FallType computeFallTypeImpl(World w, ThingId id, bool alreadyFalling,
+                                     Pos oldPos, Pos floorPos)
+{
+    // Check if something at current location is supporting this object.
+    auto ft = w.getAllAt(oldPos)
+               .map!(swid => checkSupport(w, id, alreadyFalling,
+                                          w.store.get!SupportsWeight(swid),
+                                          SupportType.within))
+               .minElement;
+    if (ft <= FallType.rest)
+        return ft;
+
+    // Check if something on the floor is supporting this object.
+    ft = min(ft,
+        w.getAllAt(floorPos)
+         .map!(swid => checkSupport(w, id, alreadyFalling,
+                                    w.store.get!SupportsWeight(swid),
+                                    SupportType.above))
+         .minElement);
+    return ft;
+}
+
+/**
+ * Returns: true if the given entity, if it were to be at the given position,
+ * would fall; false otherwise.
+ */
+bool willFall(World w, ThingId id, Pos pos)
+{
+    Pos floorPos = Pos(pos + vec(1,0,0,0));
+    auto ft = computeFallTypeImpl(w, id, false, pos, floorPos);
+    return ft == FallType.fall;
+}
+
 /**
  * Gravity system.
  */
 struct SysGravity
 {
-    private enum FallType
-    {
-        // NOTE: this is ordered in such a way that when multiple objects
-        // provide different kinds of support, min(FallType) gives the
-        // resulting overall effect.
-        none = 0,
-        rest = 1,
-        sink = 2,
-        fall = 3,
-    }
-
     // List of objects that are sinking or could potentially be falling.
     //
     // NOTE: do NOT remove objects that have merely come to rest, as their
@@ -81,72 +164,6 @@ struct SysGravity
     // again. This is to prevent multiple over-invocations of fallOn when we
     // get called from the agent system multiple times per turn.
     private FallType[ThingId] trackedObjs;
-
-    private FallType checkSupport(World w, ThingId id, bool alreadyFalling,
-                                  SupportsWeight* sw, SupportType type)
-    {
-        if (sw is null || (sw.type & type) == 0)
-            return FallType.fall;
-
-        auto cm = w.store.get!CanMove(id);
-
-        final switch (sw.cond)
-        {
-            case SupportCond.always:
-                return FallType.rest;
-
-            case SupportCond.permanent:
-                return FallType.none;
-
-            case SupportCond.climbing:
-                if (!alreadyFalling && cm !is null &&
-                    (cm.types & CanMove.Type.climb))
-                {
-                    return FallType.rest;
-                }
-                break;
-
-            case SupportCond.buoyant:
-                if (cm !is null && (cm.types & CanMove.Type.swim))
-                    return FallType.rest;
-
-                // Non-buoyant objects will sink, but only slowly.
-                return FallType.sink;
-        }
-        return FallType.fall;
-    }
-
-    private FallType computeFallType(World w, ThingId id, bool alreadyFalling,
-                                     out Pos oldPos, out Pos floorPos)
-    {
-        // NOTE: race condition: a falling object may autopickup another
-        // object and remove its Pos while we're still iterating, which
-        // will cause posp to be null.
-        auto posp = w.store.get!Pos(id);
-        if (posp is null)
-            return FallType.none;
-
-        oldPos = *posp;
-        floorPos = Pos(oldPos + vec(1,0,0,0));
-
-        // Check if something at current location is supporting this object.
-        auto ft = w.getAllAt(oldPos)
-                   .map!(swid => checkSupport(w, id, alreadyFalling,
-                                              w.store.get!SupportsWeight(swid),
-                                              SupportType.within))
-                   .minElement;
-        if (ft <= FallType.rest)
-            return ft;
-
-        // Check if something on the floor is supporting this object.
-        ft = min(ft,
-            w.getAllAt(floorPos)
-             .map!(swid => checkSupport(w, id, alreadyFalling,
-                                        w.store.get!SupportsWeight(swid),
-                                        SupportType.above))
-             .minElement);
-        return ft;
-    }
 
     /**
      * Called when a falling object is on top of an object that blocks movement
@@ -911,7 +928,7 @@ unittest
 
     // Check fall status after landing in water
     assert(jumper.id in grav.trackedObjs &&
-           grav.trackedObjs[jumper.id] == SysGravity.FallType.rest);
+           grav.trackedObjs[jumper.id] == FallType.rest);
 
     // Move up
     w.store.remove!Pos(jumper);
@@ -921,7 +938,7 @@ unittest
     grav.sinkObjects(w);
     assert(*w.store.get!Pos(jumper.id) == Pos(2,1,1,1));
     assert(jumper.id !in grav.trackedObjs ||
-           grav.trackedObjs[jumper.id] != SysGravity.FallType.sink);
+           grav.trackedObjs[jumper.id] != FallType.sink);
 
     // Jump
     w.store.remove!Pos(jumper);
@@ -930,18 +947,18 @@ unittest
     // Should be falling again
     grav.sinkObjects(w);
     assert(jumper.id in grav.trackedObjs &&
-           grav.trackedObjs[jumper.id] != SysGravity.FallType.sink);
+           grav.trackedObjs[jumper.id] != FallType.sink);
 
     grav.run(w);
     assert(*w.store.get!Pos(jumper.id) == Pos(3,1,1,1));
 
     // Check fall status after landing in water the second time.
     assert(jumper.id in grav.trackedObjs &&
-           grav.trackedObjs[jumper.id] == SysGravity.FallType.sink);
+           grav.trackedObjs[jumper.id] == FallType.sink);
 
     grav.sinkObjects(w);
     assert(jumper.id in grav.trackedObjs &&
-           grav.trackedObjs[jumper.id] == SysGravity.FallType.rest);
+           grav.trackedObjs[jumper.id] == FallType.rest);
 }
 
 // vim:set ai sw=4 ts=4 et:
