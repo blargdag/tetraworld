@@ -62,7 +62,7 @@ bool findViableMove(World w, ThingId agentId, Pos curPos, int numTries,
  */
 struct AiAction
 {
-    enum Type { attack, eat }
+    enum Type { none, attack, eat }
 
     Type type;
     int range;
@@ -101,6 +101,86 @@ Target nearestTarget(R)(R ids, World w, Pos refPos, int maxRange,
         }
     }
     return result;
+}
+
+/**
+ * Invokes a delegate with coordinates of points in the 16-cell of the given
+ * radius, in order of increasing Manhattan distance from the given origin.
+ *
+ * Params:
+ *  origin = The center of the 16-cell.
+ *  radius = The out-radius of the 16-cell.
+ *  cb = Delegate to invoke. Should return non-zero to terminate the iteration
+ *      immediately, 0 to continue. Any non-zero return value is propagated to
+ *      the return value of this function.
+ */
+int diamondOnion(Vec!(int,4) origin, int radius,
+                 int delegate(Vec!(int,4) pos, int dist) cb)
+{
+    foreach (r; 0 .. radius+1)
+    {
+        foreach (i; -r .. r+1)
+        {
+            auto r0 = r - abs(i);
+            foreach (j; -r0 .. r0 + 1)
+            {
+                auto r1 = r0 - abs(j);
+                foreach (k; -r1 .. r1 + 1)
+                {
+                    auto r2 = r1 - abs(k);
+                    auto l = -r2;
+                    assert(i.abs + j.abs + k.abs + l.abs == r);
+
+                    auto pos = Pos(origin + vec(i,j,k,l));
+                    auto ret = cb(pos, r);
+                    if (ret != 0)
+                        return ret;
+
+                    if (l != 0)
+                    {
+                        pos = Pos(origin + vec(i,j,k,-l));
+                        ret = cb(pos, r);
+                        if (ret != 0)
+                            return ret;
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+unittest
+{
+    int n;
+    int curRad;
+    diamondOnion(vec(0,0,0,0), 1, (Vec!(int,4) pos, int dist) {
+        n++;
+        assert(dist == curRad || dist == curRad+1);
+        curRad = dist;
+        return 0;
+    });
+    assert(n == 9);
+
+    n = 0;
+    curRad = 0;
+    diamondOnion(vec(0,0,0,0), 2, (Vec!(int,4) pos, int dist) {
+        n++;
+        assert(dist == curRad || dist == curRad+1);
+        curRad = dist;
+        return 0;
+    });
+    assert(n == 41);
+
+    n = 0;
+    curRad = 0;
+    diamondOnion(vec(0,0,0,0), 3, (Vec!(int,4) pos, int dist) {
+        n++;
+        assert(dist == curRad || dist == curRad+1);
+        curRad = dist;
+        return 0;
+    });
+    assert(n == 129);
 }
 
 /**
@@ -185,13 +265,53 @@ class HuntGoal : GoalDef
     }
 }
 
-GoalDef[Agent.Goal.Type.max] goalDefs;
+class SeekAirGoal : GoalDef
+{
+    override bool isActive(World w, ThingId agentId)
+    {
+        auto pos = w.store.get!Pos(agentId);
+        auto m = w.store.get!Mortal(agentId);
+
+        // Active when agent is in a non-breathable medium.
+        return pos !is null && m !is null &&
+            (m.curStats.canBreatheIn & w.getMediumAt(*pos)) == 0;
+    }
+
+    override bool findTarget(World w, ThingId agentId, Pos agentPos,
+                             int maxRange, out Target target)
+    {
+        auto m = w.store.get!Mortal(agentId);
+        assert(m !is null);
+
+        // FIXME: probably needs optimization: this call scans O(n^3)
+        // surrounding tiles to find a breathable one. :-/
+        bool result;
+        diamondOnion(agentPos, maxRange, (pos, dist) {
+            ThingId airTile;
+            if (w.getMediumAt(pos, &airTile) & m.curStats.canBreatheIn)
+            {
+                target = Target(airTile, Pos(pos), dist);
+                result = true;
+                return 1;
+            }
+            return 0;
+        });
+        return result;
+    }
+
+    override AiAction[] makePlan(World w, Target target)
+    {
+        return [ AiAction(AiAction.Type.none, 0, target.id, target.pos) ];
+    }
+}
+
+GoalDef[Agent.Goal.Type.max+1] goalDefs;
 
 static this()
 {
     goalDefs[Agent.Goal.Type.eat] = new EatGoal();
     goalDefs[Agent.Goal.Type.hunt] = new HuntGoal();
-    //goalDefs[Agent.Goal.Type.seekAir] = new SeekAirGoal();
+    goalDefs[Agent.Goal.Type.seekAir] = new SeekAirGoal();
 }
 
 /**
@@ -300,6 +420,12 @@ struct SysAi
 
             final switch (aiAct.type)
             {
+                case AiAction.Type.none:
+                    // The whole point of the goal was to get to the target
+                    // position (or within some range of it); since that's
+                    // accomplished, it's time to move on to the next goal.
+                    return false;
+
                 case AiAction.Type.attack:
                     auto weaponId = hasEquippedWeapon(w, subj.id);
                     if (weaponId == invalidId)
