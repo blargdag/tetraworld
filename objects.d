@@ -113,6 +113,7 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
         Agent(Agent.Type.ai, 10, [
             Agent.Goal(Agent.Goal.Type.hunt, 5, 1),
             Agent.Goal(Agent.Goal.Type.eat, 25, 1),
+            Agent.Goal(Agent.Goal.Type.seekAir, 6, 0),
         ]),
         Inventory([
             Inventory.Item(tentacles.id, Inventory.Item.Type.intrinsic),
