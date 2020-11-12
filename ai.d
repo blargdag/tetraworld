@@ -22,12 +22,14 @@ module ai;
 
 import std.algorithm;
 import std.math;
+import std.random;
 import std.range;
 
 import action;
 import components;
 import dir;
 import fov;
+import medium;
 import store;
 import store_traits;
 import vector;
@@ -55,8 +57,8 @@ Pos predictDest(World w, ThingId agentId, Pos curPos, Vec!(int,4) dir)
         return Pos(pos + vec(-1,0,0,0));
     }
 
-    import gravity : willFall;
-    while (willFall(w, agentId, pos))
+    import gravity : FallType, computeFallType;
+    while (computeFallType(w, agentId, pos) >= FallType.sink)
     {
         pos = pos + vec(1,0,0,0);
     }
@@ -123,7 +125,26 @@ bool findViableMove(World w, ThingId agentId, Pos curPos, int numTries,
             (canMove(w, curPos, vec(dir)) ||
              canClimbLedge(w, curPos, vec(dir))))
         {
-            return true;
+            // Check phobias. Currently, just unbreathable mediums.
+            auto destPos = predictDest(w, agentId, curPos, vec(dir));
+            if (canBreatheIn(w, agentId, curPos))
+            {
+                // Currently in good medium. Try to stay there.
+                if (canSee(w, curPos, destPos))
+                    return canBreatheIn(w, agentId, destPos);
+
+                // Can't see where we'll end up; randomly choose to take a
+                // risk, or not.
+                // FIXME: this should be configurable per agent.
+                if (uniform(0, 2) == 0)
+                    return true;
+            }
+            else
+            {
+                // Currently in bad medium; just keep moving and hope we get
+                // out.
+                return true;
+            }
         }
     }
     return false;

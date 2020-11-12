@@ -32,6 +32,36 @@ import world;
 import vector;
 
 /**
+ * Returns: true if the given Mortal can breathe at the given location, false
+ * otherwise.
+ */
+bool canBreatheIn(World w, Mortal* m, Pos pos, out ThingId mediumId)
+{
+    if (m is null || m.curStats.canBreatheIn == Medium.none)
+        return true;    // this Mortal doesn't need to breathe
+
+    auto medium = w.getMediumAt(pos, &mediumId);
+    if ((m.curStats.canBreatheIn & medium) != 0)
+        return true;    // Can breathe in current tile
+
+    if (medium == Medium.water &&
+        (m.curStats.canBreatheIn & w.getMediumAt(pos + vec(-1,0,0,0))) != 0)
+    {
+        return true;    // Wading in water with air above.
+    }
+
+    return false;
+}
+
+/// ditto
+bool canBreatheIn(World w, ThingId mortalId, Pos pos)
+{
+    ThingId dummy;
+    auto m = w.store.get!Mortal(mortalId);
+    return canBreatheIn(w, m, pos, dummy);
+}
+
+/**
  * Returns: Input range of Armor component of currently-active breathing
  * equipment.
  */
@@ -65,22 +95,13 @@ private void applyMediumEffects(World w)
 
     foreach (mortalId; w.store.getAll!Mortal().dup)
     {
-        auto m = w.store.get!Mortal(mortalId);
         auto pos = w.store.get!Pos(mortalId);
-        if (pos is null || m is null ||
-            m.curStats.canBreatheIn == Medium.init)
-        {
-            replenishBreathEquip(mortalId, m, *pos);
+        if (pos is null)
             continue;
-        }
 
-        // Check for breathability. If current tile is not breathable, check
-        // tile above (for air-breathers wading in water).
+        auto m = w.store.get!Mortal(mortalId);
         ThingId mediumId;
-        auto medium = w.getMediumAt(*pos, &mediumId);
-        if ((m.curStats.canBreatheIn & medium) != 0 || 
-            (medium == Medium.water &&
-             (m.curStats.canBreatheIn & w.getMediumAt(*pos + vec(-1,0,0,0))) != 0))
+        if (canBreatheIn(w, m, *pos, mediumId))
         {
             if (m.curStats.air < m.curStats.maxair)
             {

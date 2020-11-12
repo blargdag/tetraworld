@@ -1855,7 +1855,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
 
         // Avoid placing monsters in player's starting room.
         while (startRoom && startRoom.interior.contains(pos))
-            pos = randomLocation(tree, bounds);
+            pos = randomDryPos(tree, bounds, w.map.waterLevel);
 
         createMonsterA(&w.store, pos);
     }

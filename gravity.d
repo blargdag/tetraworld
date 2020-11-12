@@ -54,7 +54,7 @@ void registerGravityObjs(Store* store, SysAgent* sysAgent, SysGravity* sysGravit
                           Agent(Agent.type.sinkAgent));
 }
 
-private enum FallType
+enum FallType
 {
     // NOTE: this is ordered in such a way that when multiple objects
     // provide different kinds of support, min(FallType) gives the
@@ -99,22 +99,6 @@ private FallType checkSupport(World w, ThingId id, bool alreadyFalling,
     return FallType.fall;
 }
 
-private FallType computeFallType(World w, ThingId id, bool alreadyFalling,
-                                 out Pos oldPos, out Pos floorPos)
-{
-    // NOTE: race condition: a falling object may autopickup another object and
-    // remove its Pos while we're still iterating, which will cause posp to be
-    // null.
-    auto posp = w.store.get!Pos(id);
-    if (posp is null)
-        return FallType.none;
-
-    oldPos = *posp;
-    floorPos = Pos(oldPos + vec(1,0,0,0));
-
-    return computeFallTypeImpl(w, id, alreadyFalling, oldPos, floorPos);
-}
-
 private FallType computeFallTypeImpl(World w, ThingId id, bool alreadyFalling,
                                      Pos oldPos, Pos floorPos)
 {
@@ -137,15 +121,30 @@ private FallType computeFallTypeImpl(World w, ThingId id, bool alreadyFalling,
     return ft;
 }
 
+private FallType computeFallType(World w, ThingId id, bool alreadyFalling,
+                                 out Pos oldPos, out Pos floorPos)
+{
+    // NOTE: race condition: a falling object may autopickup another object and
+    // remove its Pos while we're still iterating, which will cause posp to be
+    // null.
+    auto posp = w.store.get!Pos(id);
+    if (posp is null)
+        return FallType.none;
+
+    oldPos = *posp;
+    floorPos = Pos(oldPos + vec(1,0,0,0));
+
+    return computeFallTypeImpl(w, id, alreadyFalling, oldPos, floorPos);
+}
+
 /**
- * Returns: true if the given entity, if it were to be at the given position,
- * would fall; false otherwise.
+ * Returns: Whether given entity still fall or sink, if it were to be placed at
+ * the given position.
  */
-bool willFall(World w, ThingId id, Pos pos)
+FallType computeFallType(World w, ThingId id, Pos pos)
 {
     Pos floorPos = Pos(pos + vec(1,0,0,0));
-    auto ft = computeFallTypeImpl(w, id, false, pos, floorPos);
-    return ft == FallType.fall;
+    return computeFallTypeImpl(w, id, false, pos, floorPos);
 }
 
 /**
