@@ -332,20 +332,28 @@ struct Agent
     enum Type { ai, player, sinkAgent, tileEffectAgent }
     Type type;
     int ticksPerTurn = 10;
-    // TBD: AI state goes here
+
+    static struct Goal
+    {
+        enum Type { eat, hunt, seekAir }
+
+        Type type;
+        int mapRange;
+        int cost;
+    }
+    Goal[] goals;
 }
 
 /**
- * Component of space-like objects that have a material that can be occupied by
- * other objects.
+ * Component of objects that act as a medium for other objects.
  */
 @Component @BitFlags
-enum Material
+enum Medium
 {
     none    = 0,
 
-    // NOTE: the following is ordered such that if there are multiple materials
-    // m[] in one location, the effective material will be m.max().
+    // NOTE: the following is ordered such that if there are multiple mediums
+    // m[] in one location, the effective mediums will be m.max().
     air     = 1 << 0,
     water   = 1 << 1,
     rock    = 1 << 2,
@@ -359,8 +367,22 @@ struct Stats
     int maxhp;
     int hp; // FIXME: is there a better system than this lousy old thing?!
 
-    Material canBreatheIn;
+    Medium canBreatheIn;
     int maxair, air;
+
+    //TBD: food type
+    int maxfood, food;
+}
+
+/**
+ * Creature AI will not target other members of its own faction, except the
+ * 'loner' faction, which is always targetable.
+ */
+enum Faction
+{
+    loner,
+    crawlers,
+    swimmers,
 }
 
 /**
@@ -372,9 +394,12 @@ struct Mortal
     Stats baseStats;
     Stats curStats;
 
-    this(Stats _baseStats)
+    Faction faction;
+
+    this(Stats _baseStats, Faction _faction = Faction.init)
     {
         baseStats = curStats = _baseStats;
+        faction = _faction;
     }
 }
 
@@ -420,6 +445,13 @@ struct Weapon
     DmgType dmgType;
     int dmg;
     string attackVerb = "hits";
+}
+
+@Component
+struct Edible
+{
+    // TBD: food type
+    int nutrition;
 }
 
 // vim:set ai sw=4 ts=4 et:

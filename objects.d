@@ -67,27 +67,27 @@ Thing* createScuba(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.scuba1), Pickable(),
         Weight(5), Name("basic diving gear"),
-        Armor(DmgType.none, Stats(0, 0, Material.air, 30,30)));
+        Armor(DmgType.none, Stats(0, 0, Medium.air, 30,30)));
 }
 
 Thing* createScuba2(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.scuba2), Pickable(),
         Weight(20), Name("advanced diving gear"),
-        Armor(DmgType.none, Stats(0, 0, Material.air, 100,100)));
+        Armor(DmgType.none, Stats(0, 0, Medium.air, 100,100)));
 }
 
 Thing* createDenseVeg(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.vegetation2, -1),
                            Weight(100), BlocksView(),
-                           Name("dense vegetation"));
+                           Name("dense vegetation"), Edible(500));
 }
 
 Thing* createVeg(Store* store, Vec!(int,4) pos)
 {
     return store.createObj(Pos(pos), Tiled(TileId.vegetation1, -1),
-                           Weight(100), Name("vegetation"));
+                           Weight(100), Name("vegetation"), Edible(200));
 }
 
 Thing* createGold(Store* store, Vec!(int,4) pos)
@@ -100,15 +100,21 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
 {
     Stats stats;
     stats.maxhp = stats.hp = 5;
-    stats.canBreatheIn = Material.air;
+    stats.canBreatheIn = Medium.air;
     stats.maxair = stats.air = 3;
+    stats.maxfood = stats.food = 100;
 
     auto tentacles = store.createObj(Name("tentacles"),
                                      Weapon(DmgType.blunt, 1));
     return store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
         Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic), BlocksMovement(),
-        Agent(), Mortal(stats),
+        Mortal(stats, Faction.crawlers),
         CanMove(CanMove.Type.walk | CanMove.Type.climb),
+        Agent(Agent.Type.ai, 10, [
+            Agent.Goal(Agent.Goal.Type.hunt, 5, 1),
+            Agent.Goal(Agent.Goal.Type.eat, 25, 1),
+            Agent.Goal(Agent.Goal.Type.seekAir, 6, 0),
+        ]),
         Inventory([
             Inventory.Item(tentacles.id, Inventory.Item.Type.intrinsic),
         ]));
@@ -118,16 +124,21 @@ Thing* createMonsterB(Store* store, Vec!(int,4) pos)
 {
     Stats stats;
     stats.maxhp = stats.hp = 3;
-    stats.canBreatheIn = Material.air | Material.water;
+    stats.canBreatheIn = Medium.air | Medium.water;
+    stats.maxfood = stats.food = 60;
 
     auto claws = store.createObj(Name("claws"),
                                  Weapon(DmgType.pierce, 2, "pinches"));
     auto shell = createCrabShell(store);
 
     return store.createObj(Pos(pos), Name("shelled creature"),
-        Weight(1200), BlocksMovement(), Agent(Agent.Type.ai, 20),
-        CanMove(CanMove.Type.walk), Mortal(stats),
+        Weight(1200), BlocksMovement(), CanMove(CanMove.Type.walk),
+        Mortal(stats, Faction.loner),
         Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+        Agent(Agent.Type.ai, 20, [
+            Agent.Goal(Agent.Goal.Type.hunt, 8, 2),
+            Agent.Goal(Agent.Goal.Type.eat, 12, 1),
+        ]),
         Inventory([
             Inventory.Item(claws.id, Inventory.Item.Type.intrinsic),
             Inventory.Item(shell.id, Inventory.Item.Type.equipped),

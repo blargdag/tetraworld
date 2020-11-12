@@ -126,9 +126,10 @@ enum EventType
     moveClimbLedge0 = 0x0104,
     moveClimbLedge1 = 0x0105,
     moveFall        = 0x0106,
-    moveFallAside   = 0x0107,
-    moveSink        = 0x0108,
-    movePass        = 0x0109,
+    moveFall2       = 0x0107,
+    moveFallAside   = 0x0108,
+    moveSink        = 0x0109,
+    movePass        = 0x010A,
 
     // EventCat.itemAct
     itemPickup      = 0x0201,
@@ -136,6 +137,8 @@ enum EventType
     itemUse         = 0x0203,
     itemEquip       = 0x0204,
     itemUnequip     = 0x0205,
+    itemEat         = 0x0206,
+    itemReplenish   = 0x0207,
 
     // EventCat.dmg
     dmgAttack       = 0x0301,
@@ -263,23 +266,23 @@ class World
     }
 
     /**
-     * Returns: The effective material type at the given location. If there are
-     * multiple entities at the given location, the material returned is the
-     * first in this order: rock, water, air. If no materials are present,
-     * defaults to Material.air.
+     * Returns: The effective medium type at the given location. If there are
+     * multiple entities at the given location, the medium returned is the
+     * first in this order: rock, water, air. If no mediums are present,
+     * defaults to Medium.air.
      */
-    Material getMaterialAt(Vec!(int,4) pos, ThingId* materialEntity = null)
+    Medium getMediumAt(Vec!(int,4) pos, ThingId* mediumEntity = null)
     {
-        auto result = Material.air;
+        auto result = Medium.air;
         foreach (id; this.getAllAt(pos))
         {
-            auto m = store.get!Material(id);
+            auto m = store.get!Medium(id);
             if (m is null) continue;
             if (*m > result)
             {
                 result = *m;
-                if (materialEntity !is null)
-                    *materialEntity = id;
+                if (mediumEntity !is null)
+                    *mediumEntity = id;
             }
         }
         return result;

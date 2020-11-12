@@ -37,7 +37,7 @@ import fov;
 import gravity;
 import loadsave;
 import mapgen;
-import materials;
+import medium;
 import rndutil;
 import store;
 import store_traits;
@@ -151,6 +151,9 @@ struct PlayerStatus
     string label;
     int curval;
     int maxval;
+
+    enum Urgency { none, warn, critical }
+    Urgency urgency;
 }
 
 /**
@@ -215,6 +218,7 @@ class Game
     private World w;
     private SysAgent sysAgent;
     private SysGravity sysGravity;
+    private SysAi sysAi;
 
     private Thing* player;
     private MapMemory plMapMemory;
@@ -247,20 +251,33 @@ class Game
      */
     PlayerStatus[] getStatuses()
     {
+        static PlayerStatus.Urgency urgency(int val, int max)
+        {
+            return (val <= max / 4) ? PlayerStatus.Urgency.critical :
+                   (val <= max / 2) ? PlayerStatus.Urgency.warn :
+                   PlayerStatus.Urgency.none;
+        }
+
         PlayerStatus[] result;
         if (w.store.get!Inventory(player.id) !is null)
             result ~= PlayerStatus("$", numGold(), maxGold());
 
         auto m = w.store.get!Mortal(player.id);
         if (m !is null)
-            result ~= [
-                PlayerStatus("hp", m.curStats.hp, m.curStats.maxhp),
-                PlayerStatus("air", m.curStats.air, m.curStats.maxair),
-            ];
-
-        foreach (be; findBreathingEquip(w, player.id, m))
         {
-            result ~= PlayerStatus("scuba", be.bonuses.air, be.bonuses.maxair);
+            auto st = m.curStats;
+            result ~= PlayerStatus("hp", st.hp, st.maxhp,
+                                   urgency(st.hp, st.maxhp));
+            result ~= PlayerStatus("air", st.air, st.maxair,
+                                   urgency(st.air, st.maxair));
+        }
+
+        foreach (p; findBreathingEquip(w, player.id, m))
+        {
+            auto id = p[0];
+            auto be = p[1];
+            result ~= PlayerStatus("scuba", be.bonuses.air, be.bonuses.maxair,
+                                   urgency(be.bonuses.air, be.bonuses.maxair));
         }
 
         return result;
@@ -336,6 +353,7 @@ class Game
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
+        sf.put("ai", sysAi);
         sf.put("memory", plMapMemory);
     }
 
@@ -349,6 +367,7 @@ class Game
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
+        game.sysAi = lf.parse!SysAi("ai");
         game.plMapMemory = lf.parse!MapMemory("memory");
 
         game.player = game.w.store.getObj(playerId);
@@ -467,13 +486,13 @@ class Game
 
         Stats stats;
         stats.maxhp = stats.hp = 5;
-        stats.canBreatheIn = Material.air;
+        stats.canBreatheIn = Medium.air;
         stats.maxair = stats.air = 8;
 
         player = w.store.createObj(
             Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
             Agent(Agent.Type.player), Inventory([], true), Weight(1000),
-            BlocksMovement(), Mortal(stats),
+            BlocksMovement(), Mortal(stats, Faction.loner),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
                     CanMove.Type.jump | CanMove.Type.swim)
         );
@@ -487,6 +506,7 @@ class Game
         w = storyNodes[storyNode].genMap(startPos);
         sysAgent = SysAgent.init;
         sysGravity = SysGravity.init;
+        sysAi = SysAi.init;
         setupLevel();
 
         setupAgentImpls();
@@ -569,7 +589,12 @@ class Game
                     return (isPlayer || moveIntoView || moveOutOfView) ?
                             format("%s %s!", subjName.asCapitalized, verb) :
                             "";
-                    break;
+
+                case EventType.moveFall2:
+                    // Suppress consecutive fall messages unless it conveys new
+                    // information.
+                    return (!isPlayer && (moveIntoView || moveOutOfView)) ?
+                            format("%s falls!", subjName.asCapitalized) : "";
 
                 case EventType.moveFallAside:
                     return format("The impact sends %s rolling to the side!",
@@ -618,6 +643,14 @@ class Game
                 case EventType.itemUnequip:
                     verb = isPlayer ? "unequip" : "unequips";
                     break;
+
+                case EventType.itemEat:
+                    verb = isPlayer ? "eat" : "eats";
+                    break;
+
+                case EventType.itemReplenish:
+                    return isPlayer ? format("You refill your %s.",
+                                             objName.name) : "";
 
                 default:
                     assert(0, "Unhandled event type: %s"
@@ -774,6 +807,7 @@ class Game
                 case EventType.moveClimbLedge1:
                 case EventType.moveClimbLedge0:
                 case EventType.moveFall:
+                case EventType.moveFall2:
                 case EventType.movePass:
                     return "";
 
@@ -798,6 +832,8 @@ class Game
                 case EventType.itemUse:
                 case EventType.itemEquip:
                 case EventType.itemUnequip:
+                case EventType.itemEat:
+                case EventType.itemReplenish:
                     return "";
 
                 default:
@@ -1012,7 +1048,7 @@ class Game
         sysAgent.registerAgentImpl(Agent.Type.player, playerImpl);
 
         AgentImpl aiImpl;
-        aiImpl.chooseAction = (w, agentId) => chooseAiAction(w, agentId);
+        aiImpl.chooseAction = (w, agentId) => sysAi.chooseAiAction(w, agentId);
         sysAgent.registerAgentImpl(Agent.Type.ai, aiImpl);
 
         // Gravity system proxy for sinking objects over time.

@@ -46,7 +46,7 @@ sources = Split("""
 	game.d
 	gamemap.d
 	gravity.d
-	materials.d
+	medium.d
 	objects.d
 	rndutil.d
 	stacking.d

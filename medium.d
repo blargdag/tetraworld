@@ -1,5 +1,5 @@
 /**
- * Materials module.
+ * Medium module.
  *
  * Copyright: (C) 2012-2021  blargdag@quickfur.ath.cx
  *
@@ -18,9 +18,10 @@
  * You should have received a copy of the GNU General Public License along with
  * Tetraworld.  If not, see <http://www.gnu.org/licenses/>.
  */
-module materials;
+module medium;
 
 import std.algorithm;
+import std.typecons : tuple;
 
 import action;
 import agent;
@@ -31,6 +32,36 @@ import world;
 import vector;
 
 /**
+ * Returns: true if the given Mortal can breathe at the given location, false
+ * otherwise.
+ */
+bool canBreatheIn(World w, Mortal* m, Pos pos, out ThingId mediumId)
+{
+    if (m is null || m.curStats.canBreatheIn == Medium.none)
+        return true;    // this Mortal doesn't need to breathe
+
+    auto medium = w.getMediumAt(pos, &mediumId);
+    if ((m.curStats.canBreatheIn & medium) != 0)
+        return true;    // Can breathe in current tile
+
+    if (medium == Medium.water &&
+        (m.curStats.canBreatheIn & w.getMediumAt(pos + vec(-1,0,0,0))) != 0)
+    {
+        return true;    // Wading in water with air above.
+    }
+
+    return false;
+}
+
+/// ditto
+bool canBreatheIn(World w, ThingId mortalId, Pos pos)
+{
+    ThingId dummy;
+    auto m = w.store.get!Mortal(mortalId);
+    return canBreatheIn(w, m, pos, dummy);
+}
+
+/**
  * Returns: Input range of Armor component of currently-active breathing
  * equipment.
  */
@@ -39,31 +70,38 @@ auto findBreathingEquip(World w, ThingId mortalId, Mortal* m)
     auto inven = w.store.get!Inventory(mortalId);
     return inven.contents
         .filter!(item => item.inEffect)
-        .map!(item => w.store.get!Armor(item.id))
-        .filter!(am => am !is null && (am.bonuses.canBreatheIn |
-                                       m.curStats.canBreatheIn) != 0 &&
-                       am.bonuses.maxair > 0);
+        .map!(item => tuple(item.id, w.store.get!Armor(item.id)))
+        .filter!(t => t[1] !is null && (t[1].bonuses.canBreatheIn |
+                                        m.curStats.canBreatheIn) != 0 &&
+                      t[1].bonuses.maxair > 0);
 }
 
-private void applyMaterialEffects(World w)
+private void applyMediumEffects(World w)
 {
+    void replenishBreathEquip(ThingId mortalId, Mortal* m, Pos pos)
+    {
+        foreach (p; findBreathingEquip(w, mortalId, m))
+        {
+            auto id = p[0];
+            auto be = p[1];
+            if (be.bonuses.air < be.bonuses.maxair)
+            {
+                be.bonuses.air = be.bonuses.maxair;
+                w.events.emit(Event(EventType.itemReplenish, pos, mortalId,
+                                    id));
+            }
+        }
+    }
+
     foreach (mortalId; w.store.getAll!Mortal().dup)
     {
-        auto m = w.store.get!Mortal(mortalId);
         auto pos = w.store.get!Pos(mortalId);
-        if (pos is null || m is null ||
-            m.curStats.canBreatheIn == Material.init)
-        {
+        if (pos is null)
             continue;
-        }
 
-        // Check for breathability. If current tile is not breathable, check
-        // tile above (for air-breathers wading in water).
-        ThingId materialId;
-        auto material = w.getMaterialAt(*pos, &materialId);
-        if ((m.curStats.canBreatheIn & material) != 0 || 
-            (material == Material.water &&
-             (m.curStats.canBreatheIn & w.getMaterialAt(*pos + vec(-1,0,0,0))) != 0))
+        auto m = w.store.get!Mortal(mortalId);
+        ThingId mediumId;
+        if (canBreatheIn(w, m, *pos, mediumId))
         {
             if (m.curStats.air < m.curStats.maxair)
             {
@@ -72,21 +110,16 @@ private void applyMaterialEffects(World w)
                                     mortalId));
             }
 
-            // Replenish breathing equipment.
-            foreach (be; findBreathingEquip(w, mortalId, m))
-            {
-                be.bonuses.air = be.bonuses.maxair;
-            }
-
+            replenishBreathEquip(mortalId, m, *pos);
             continue;
         }
 
         // Not in breathable medium. Check for presence of equipped breathing
         // equipment.
         auto beq = findBreathingEquip(w, mortalId, m);
-        if (!beq.empty && beq.front.bonuses.air > 0)
+        if (!beq.empty && beq.front[1].bonuses.air > 0)
         {
-            beq.front.bonuses.air--;
+            beq.front[1].bonuses.air--;
             continue;
         }
 
@@ -94,22 +127,20 @@ private void applyMaterialEffects(World w)
         m.curStats.air--;
         if (m.curStats.air > 0)
         {
-            w.events.emit(Event(EventType.schgBreathHold, *pos,
-                                mortalId));
+            w.events.emit(Event(EventType.schgBreathHold, *pos, mortalId));
             continue;
         }
 
         // Out of air. Begin drowning.
         import damage : injure;
-        injure(w, materialId, mortalId, DmgType.drown, 1, (dam) {
-            w.events.emit(Event(EventType.dmgDrown, *pos,
-                                mortalId, materialId));
+        injure(w, mediumId, mortalId, DmgType.drown, 1, (dam) {
+            w.events.emit(Event(EventType.dmgDrown, *pos, mortalId, mediumId));
         });
     }
 }
 
 /**
- * Register special agent that applies material effects and other tile effects.
+ * Register special agent that applies medium effects and other tile effects.
  */
 void registerTileEffectAgent(Store* store, SysAgent* sysAgent)
 {
@@ -118,7 +149,7 @@ void registerTileEffectAgent(Store* store, SysAgent* sysAgent)
     AgentImpl agImpl;
     agImpl.chooseAction = (World w, ThingId agentId) {
         return (World w) {
-            applyMaterialEffects(w);
+            applyMediumEffects(w);
             return ActionResult(true, 10);
         };
     };

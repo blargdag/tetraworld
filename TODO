@@ -1,3 +1,10 @@
+- [newAI] BP: AI sticks to goal too persistently; once a hunt goal is decided
+  on, it doesn't reevaluate goals until target is dead or escaped, so seekAir
+  goal remains inactive during the hunt even if hunter is in non-breathable
+  medium.
+   - Need conditions for reevaluating goals every so often. Too much
+     persistence makes the AI dumber!
+   - Or maybe medium awareness should be done outside of the goal system...
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
@@ -362,3 +369,11 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
      triggering bug.
       + So registering a special agent should scan the current queue and ignore
         the registration if it's already in the queue.
++ Bug: when air < maxair, equipping scuba gear should replenish air and
+  subtract that amount of air from scuba.
+   + Basically, treat air tiles as infinite static sources of air, and scuba
+     gear as finite mobile source of air. Every time lungs draw air, air should
+     be subtracted from the air source.
++ [scuba] Need to add warning messages when air goes low.
+   + Possibly add red highlight to status line too?
++ [new AI] Implement factions.
