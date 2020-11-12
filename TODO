@@ -4,7 +4,7 @@
   medium.
    - Need conditions for reevaluating goals every so often. Too much
      persistence makes the AI dumber!
-   - Or maybe medium awareness should be done outside of the goal system...
+   + Or maybe medium awareness should be done outside of the goal system...
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
@@ -19,9 +19,9 @@
       * Why shouldn't it?
    + Creatures that can't swim shouldn't be able to move up in water, unless
      there's support from below!
-   - A-monsters should fear water.
-      - Create instead a water-dwelling creature that will terrorize the player
-        in whole new 4D ways. :-D
+   + A-monsters should fear water.
+   - Create instead a water-dwelling creature that will terrorize the player in
+     whole new 4D ways. :-D
    + Gravity system stops applying to sinking objects after initial sink
      because Pos doesn't change anymore.
       + Argh!! This is far more complex than anticipated. Basically we CANNOT
