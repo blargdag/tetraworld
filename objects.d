@@ -120,6 +120,32 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
         ]));
 }
 
+Thing* createMonsterB(Store* store, Vec!(int,4) pos)
+{
+    Stats stats;
+    stats.maxhp = stats.hp = 3;
+    stats.canBreatheIn = Medium.water;
+    stats.maxfood = stats.food = 40;
+
+    auto teeth = store.createObj(Name("sharp teeth"),
+                                 Weapon(DmgType.pierce, 1, "bites"));
+    auto spikes = store.createObj(Name("spikes"),
+                                  Weapon(DmgType.pierce, 1, "pierces"));
+
+    return store.createObj(Pos(pos), Name("spiky creature"),
+        Weight(800), BlocksMovement(), Mortal(stats, Faction.swimmers),
+        CanMove(CanMove.Type.swim | CanMove.Type.jump),
+        Tiled(TileId.creatureB, 1, Tiled.Hint.dynamic),
+        Agent(Agent.Type.ai, 8, [
+            Agent.Goal(Agent.Goal.Type.hunt, 8, 2),
+            Agent.Goal(Agent.Goal.Type.eat, 12, 1),
+        ]),
+        Inventory([
+            Inventory.Item(teeth.id, Inventory.Item.Type.intrinsic),
+            Inventory.Item(spikes.id, Inventory.Item.Type.intrinsic),
+        ]));
+}
+
 Thing* createMonsterC(Store* store, Vec!(int,4) pos)
 {
     Stats stats;

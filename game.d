@@ -1285,6 +1285,7 @@ StoryNode[] storyNodes = [
         args.goldPct = 0.7;
         args.waterLevel = ValRange(10, 15);
         args.nMonstersA = ValRange(25, 40);
+        args.nMonstersB = ValRange(6, 10);
         args.nMonstersC = ValRange(12, 20);
         args.nScubas = ValRange(1, 2);
         return genBspLevel(region(vec(20,20,20,20)), args, startPos);

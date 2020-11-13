@@ -1313,6 +1313,27 @@ unittest
 }
 
 /**
+ * Returns: A random room that's at least partially submerged, if not
+ * completely; null if there are no rooms with water.
+ */
+MapNode randomWetRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
+    out(node; node is null || node.isLeaf())
+{
+    auto wetRegion = bounds;
+    wetRegion.min[0] = waterLevel;
+
+    MapNode wetRoom;
+    int n = 0;
+    foreachFiltRoom(tree, bounds, wetRegion, (MapNode node, Region!(int,4) r) {
+        if (n == 0 || uniform(0, n) == 0)
+            wetRoom = node;
+        n++;
+        return 0;
+    });
+    return wetRoom;
+}
+
+/**
  * Generate pits and pit traps.
  *
  * Params:
@@ -1727,6 +1748,7 @@ struct MapGenArgs
     float rockPct = 2.0, sharpRockPct = 5.0;
     ValRange waterLevel = ValRange(int.max-1, int.max);
     ValRange nMonstersA;
+    ValRange nMonstersB;
     ValRange nMonstersC;
     ValRange nCrabShells;
     ValRange nScubas;
@@ -1858,6 +1880,18 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
             pos = randomDryPos(tree, bounds, w.map.waterLevel);
 
         createMonsterA(&w.store, pos);
+    }
+
+    foreach (i; 0 .. args.nMonstersB.pick())
+    {
+        auto room = randomWetRoom(tree, bounds, w.map.waterLevel);
+        if (room is null) break;
+
+        // Avoid placing monsters in player's starting room.
+        while (room is startRoom)
+            room = randomWetRoom(tree, bounds, w.map.waterLevel);
+
+        createMonsterB(&w.store, room.randomLocation(room.interior));
     }
 
     foreach (i; 0 .. args.nMonstersC.pick())
