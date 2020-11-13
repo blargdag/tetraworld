@@ -1,7 +1,5 @@
-- BUG: gravity system is broken; walking from a ladder to the top of a creature
-  will now get you stuck in midair.
-   - Worse, if you die while in such a state and your inventory items drop and
-     kill the creature, the game will segfault.
+- Segfault bug: if you die while on top of a creature and your inventory items
+  drop and kill the creature, the game will segfault.
 - [newAI] BP: AI sticks to goal too persistently; once a hunt goal is decided
   on, it doesn't reevaluate goals until target is dead or escaped, so seekAir
   goal remains inactive during the hunt even if hunter is in non-breathable
@@ -381,3 +379,5 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
 + [scuba] Need to add warning messages when air goes low.
    + Possibly add red highlight to status line too?
 + [new AI] Implement factions.
++ BUG: gravity system is broken; walking from a ladder to the top of a creature
+  will now get you stuck in midair.
