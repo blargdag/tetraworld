@@ -1868,7 +1868,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
         while (startRoom && startRoom.interior.contains(pos))
             pos = randomLocation(tree, bounds);
 
-        createMonsterB(&w.store, pos);
+        createMonsterC(&w.store, pos);
     }
 }
 
@@ -2440,7 +2440,7 @@ World genTestLevel()(out int[4] startPos)
 
     createMonsterA(&w.store, Pos(2,2,1,2));
     createMonsterA(&w.store, Pos(2,3,2,2));
-    createMonsterB(&w.store, Pos(2,2,2,2));
+    createMonsterC(&w.store, Pos(2,2,2,2));
     createVeg(&w.store, Pos(2,1,2,2));
     createVeg(&w.store, Pos(2,1,3,2));
     createVeg(&w.store, Pos(4,1,3,1));

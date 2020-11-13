@@ -120,7 +120,7 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
         ]));
 }
 
-Thing* createMonsterB(Store* store, Vec!(int,4) pos)
+Thing* createMonsterC(Store* store, Vec!(int,4) pos)
 {
     Stats stats;
     stats.maxhp = stats.hp = 3;
