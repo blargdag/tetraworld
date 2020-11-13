@@ -278,7 +278,7 @@ struct SysGravity
     void run(World w)
     {
         // Returns: true if new targets were added; false otherwise.
-        bool mergeNewTargets()
+        bool mergeNewTargets(bool first)
         {
             bool result = false;
             foreach (id; w.store.getAllNew!Pos()
@@ -287,7 +287,11 @@ struct SysGravity
                                 return (wgt !is null) ? wgt.value > 0 : false;
                           }))
             {
-                if (id !in trackedObjs)
+                // If object received new Pos since last call to .run,
+                // unconditionally overwrite its state to .init. Within the
+                // same .run call, however, retain previous state so that we
+                // don't trigger fallOn too many times.
+                if (first || id !in trackedObjs)
                     trackedObjs[id] = FallType.init;
                 result = true;
             }
@@ -300,7 +304,7 @@ struct SysGravity
             return result;
         }
 
-        mergeNewTargets();
+        mergeNewTargets(true);
         do
         {
             foreach (id; trackedObjs.byKeyValue
@@ -317,7 +321,7 @@ struct SysGravity
 
                 runOnce(w, t, trackedObjs.get(id, FallType.init));
             }
-        } while (mergeNewTargets());
+        } while (mergeNewTargets(false));
     }
 
     /**
@@ -958,6 +962,59 @@ unittest
     grav.sinkObjects(w);
     assert(jumper.id in grav.trackedObjs &&
            grav.trackedObjs[jumper.id] == FallType.rest);
+}
+
+// Walk on enemy bug.
+unittest
+{
+    import gamemap, terrain;
+
+    // Test map:
+    //    0123
+    //  0 ####
+    //  1 #  #
+    //  2 #_ #
+    //  3 #@ #
+    //  4 #=A#
+    //  5 ####
+    MapNode root = new MapNode;
+    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
+    auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,3,3,3));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = int.max;
+
+    SysGravity grav;
+
+    // Ladders
+    createLadder(&w.store, Pos(3,1,1,1));
+    createLadder(&w.store, Pos(4,1,1,1));
+
+    auto walker = w.store.createObj(Name("топчущий"), Pos(3,1,1,1), Weight(10),
+        CanMove(CanMove.Type.walk | CanMove.Type.climb | CanMove.Type.jump));
+    auto victim = w.store.createObj(Name("жертва"), Pos(4,2,1,1), Weight(10),
+        Mortal(Stats(3,3)), BlocksMovement());
+
+    // Initial state sanity test
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(walker.id) == Pos(3,1,1,1));
+
+    // Should be at rest
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(walker.id) == Pos(3,1,1,1));
+
+    // Walk onto victim
+    w.store.remove!Pos(walker);
+    w.store.add!Pos(walker, Pos(3,2,1,1));
+
+    grav.run(w);
+    grav.sinkObjects(w);
+    assert(*w.store.get!Pos(walker.id) == Pos(4,1,1,1));
+    assert(w.store.get!Mortal(victim.id).curStats.hp == 2);
 }
 
 // vim:set ai sw=4 ts=4 et:
