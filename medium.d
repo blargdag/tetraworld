@@ -68,7 +68,7 @@ bool canBreatheIn(World w, ThingId mortalId, Pos pos)
 auto findBreathingEquip(World w, ThingId mortalId, Mortal* m)
 {
     auto inven = w.store.get!Inventory(mortalId);
-    return inven.contents
+    return (inven ? inven.contents : [])
         .filter!(item => item.inEffect)
         .map!(item => tuple(item.id, w.store.get!Armor(item.id)))
         .filter!(t => t[1] !is null && (t[1].bonuses.canBreatheIn |

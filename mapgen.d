@@ -2438,14 +2438,18 @@ World genTestLevel()(out int[4] startPos)
 
     addLadders(w, w.map.tree, w.map.bounds);
 
-    createMonsterA(&w.store, Pos(8,1,1,1));
-    createMonsterA(&w.store, Pos(2,3,2,2));
-    createMonsterC(&w.store, Pos(2,2,2,2));
+    auto monA = createMonsterA(&w.store, Pos(8,2,2,2));
+    w.store.get!Mortal(monA.id).curStats.hp = 3;
+
+    //createMonsterC(&w.store, Pos(2,2,2,2));
     createVeg(&w.store, Pos(2,1,2,2));
     createVeg(&w.store, Pos(2,1,3,2));
     createVeg(&w.store, Pos(4,1,3,1));
+    createSharpRock(&w.store, Pos(8,1,1,1));
+    createRock(&w.store, Pos(8,1,1,1));
+    createRock(&w.store, Pos(8,1,1,1));
 
-    startPos = [5,2,2,2];
+    startPos = [8,1,1,1];
     return w;
 }
 
