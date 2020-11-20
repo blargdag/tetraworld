@@ -1280,8 +1280,8 @@ StoryNode[] storyNodes = [
     ], (ref int[4] startPos) {
         MapGenArgs args;
         args.nBackEdges = ValRange(200, 300);
-        args.nPitTraps = ValRange(200, 300);
-        args.nRockTraps = ValRange(200, 300);
+        args.nPitTraps = ValRange(150, 250);
+        args.nRockTraps = ValRange(150, 250);
         args.goldPct = 0.7;
         args.waterLevel = ValRange(10, 15);
         args.nMonstersA = ValRange(25, 40);
