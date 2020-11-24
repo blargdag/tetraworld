@@ -7,6 +7,9 @@
    - Need conditions for reevaluating goals every so often. Too much
      persistence makes the AI dumber!
    + Or maybe medium awareness should be done outside of the goal system...
+- [newAI] Current seekAir hack causes water-fearing creatures to be unable to
+  chase player when in 1-tile deep water, even though they can breathe just
+  fine.
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
