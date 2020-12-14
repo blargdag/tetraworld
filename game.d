@@ -490,7 +490,7 @@ class Game
         stats.maxair = stats.air = 8;
 
         player = w.store.createObj(
-            Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
+            Tiled(TileId.player, 2, Tiled.Hint.dynamic), Name("you"),
             Agent(Agent.Type.player), Inventory([], true), Weight(1000),
             BlocksMovement(), Mortal(stats, Faction.loner),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |

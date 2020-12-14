@@ -110,7 +110,8 @@ enum TileId : ushort
  * items on a single position. Currently:
  *  <0 = background / floor tiles
  *  0 = items and other objects lying on the ground
- *  ≥1 = agents that can move around.
+ *  1 = quest items and other highly-visible items
+ *  ≥2 = agents that can move around.
  */
 @Component
 struct Tiled
