@@ -23,6 +23,7 @@ module game;
 import std.algorithm;
 import std.array;
 import std.conv : to;
+import std.format : format, formattedWrite;
 import std.random : uniform;
 import std.range.primitives;
 import std.stdio;
@@ -35,6 +36,7 @@ import components;
 import dir;
 import fov;
 import gravity;
+import hiscore;
 import loadsave;
 import mapgen;
 import medium;
@@ -98,7 +100,6 @@ interface GameUi
     final void message(Args...)(string fmt, Args args)
         if (Args.length >= 1)
     {
-        import std.format : format;
         message(format(fmt, args));
     }
 
@@ -127,15 +128,7 @@ interface GameUi
     /**
      * Signal end of game with an exit message.
      */
-    void quitWithMsg(string msg);
-
-    /// ditto
-    final void quitWithMsg(Args...)(string fmt, Args args)
-        if (Args.length >= 1)
-    {
-        import std.format : format;
-        quitWithMsg(format(fmt, args));
-    }
+    void quitWithMsg(string msg, HiScore hs);
 
     /**
      * Display some info for the user and wait for keypress.
@@ -169,7 +162,6 @@ struct InventoryItem
 
     void toString(W)(W sink)
     {
-        import std.format : formattedWrite;
         if (count == 1)
             put(sink, "a ");
         else
@@ -539,15 +531,50 @@ class Game
             else
             {
                 quit = true;
-                ui.quitWithMsg("Congratulations, you have finished the "~
-                               "game!");
+                ui.quitWithMsg("Congratulations, you have finished the game!",
+                    registerHiScore(Outcome.win, "Won the game"));
             }
         }
     }
 
+    HiScore registerHiScore(Outcome outcome, string desc)
+    {
+        import std.datetime.systime : Clock, SysTime;
+        import std.process : environment;
+
+        HiScore hs;
+        hs.timestamp = TimeStamp(Clock.currTime);
+        hs.name = environment.get("USER", "anonymous");
+        hs.turns = sysAgent.curTick / 10;
+        hs.outcome = outcome;
+        hs.desc = desc;
+
+        addHiScore(hs);
+        return hs;
+    }
+
+    private HiScore genDeathScore(Event ev)
+        in (ev.type == EventType.dmgKill && ev.objId == player.id)
+    {
+        auto subjName = w.store.get!Name(ev.subjId).name;
+        string desc;
+
+        // TBD: add more funny messages depending on contextual information.
+        import terrain : water;
+        if (ev.subjId == water.id)
+        {
+            desc = format("Drowned in water.");
+        }
+        else
+        {
+            desc = format("Killed by %s", subjName);
+        }
+
+        return registerHiScore(Outcome.dead, desc);
+    }
+
     private string fmtVisibleEvent(Event ev)
     {
-        import std.format : format;
         if (ev.cat == EventCat.move)
         {
             auto isPlayer = (ev.subjId == player.id);
@@ -796,7 +823,6 @@ class Game
 
     private string fmtAudibleEvent(Event ev)
     {
-        import std.format : format;
         if (ev.cat == EventCat.move)
         {
             switch (ev.type)
@@ -944,7 +970,7 @@ class Game
             if (ev.type == EventType.dmgKill && ev.objId == player.id)
             {
                 quit = true;
-                ui.quitWithMsg("YOU HAVE DIED.");
+                ui.quitWithMsg("YOU HAVE DIED.", genDeathScore(ev));
             }
         });
     }
@@ -967,7 +993,6 @@ class Game
 
     auto objectsOnFloor()
     {
-        import std.format : format;
         return w.store.getAllBy!Pos(Pos(playerPos))
                 .filter!(id => id != player.id)
                 .map!(id => w.store.getObj(id))

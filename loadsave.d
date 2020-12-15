@@ -51,6 +51,14 @@ struct NoSave {}
 struct BitFlags {}
 
 /**
+ * UDA to mark structs that should be saved by conversion to a string via
+ * std.conv.to!string, and loaded by passing a string to the constructor.
+ *
+ * BUGS: Currently this only works for structs.
+ */
+struct TreatAsString {}
+
+/**
  * UDA to specify a filter on which entries of an aggregate should be saved,
  * and which should be skipped.
  *
@@ -126,6 +134,10 @@ struct SaveFile(R)
                 }
                 this.pop();
             }
+        }
+        else static if (is(T == struct) && hasUDA!(T, TreatAsString))
+        {
+            sink.formattedWrite("%s%s %s\n", indent, key, value.to!string);
         }
         else static if (is(T == struct))
         {
@@ -413,6 +425,12 @@ struct LoadFile(R)
                 throw new LoadException("Expecting array block, got %s",
                                         curVal);
             }
+        }
+        else static if (is(T == struct) && hasUDA!(T, TreatAsString))
+        {
+            auto result = T(curVal.to!string);
+            parseNext();
+            return result;
         }
         else static if (is(T == struct))
         {
@@ -939,6 +957,39 @@ unittest
     auto data2 = lf.parse!S("data");
 
     assert(data == data2);
+}
+
+// Test @TreatAsString
+unittest
+{
+    static struct S { int x; }
+
+    @TreatAsString static struct T
+    {
+        int x;
+        this(string s) { x = s.to!int - 100; }
+        void toString(R)(R sink) { put(sink, (x + 100).to!string); }
+    }
+
+    static struct U
+    {
+        S s;
+        T t;
+    }
+
+    import std.array : appender;
+    auto app = appender!string;
+    auto sf = saveFile(app);
+
+    U u;
+    sf.put("data", u);
+
+    import std.algorithm : splitter;
+    auto saved = app.data;
+    auto lf = loadFile(saved.splitter("\n"));
+    auto u2 = lf.parse!U("data");
+
+    assert(u == u2);
 }
 
 // vim: set ts=4 sw=4 et ai:
