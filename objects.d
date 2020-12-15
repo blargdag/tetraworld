@@ -38,8 +38,9 @@ Thing* createRockTrap(Store* store, Vec!(int,4) ceilingPos, ulong triggerId)
 
 Thing* createPortal(Store* store, Vec!(int,4) pos, string dest="")
 {
-    return store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
-                           Usable(UseEffect.portal, "activate"), Weight(1));
+    return store.createObj(Pos(pos), Tiled(TileId.portal, 1),
+                           Name("exit portal"), Weight(1),
+                           Usable(UseEffect.portal, "activate"));
 }
 
 Thing* createCrabShell(Comp...)(Store* store, Comp comps)

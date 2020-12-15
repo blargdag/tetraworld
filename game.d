@@ -1132,8 +1132,10 @@ StoryNode[] storyNodes = [
         "and return."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.goldPct = 1.8;
-        return genBspLevel(region(vec(8,8,8,8)), args, startPos);
+        args.tree.minNodeDim = 3;
+        args.goldPct = 3.0;
+        args.rockPct = 1.0;
+        return genBspLevel(region(vec(7,7,7,7)), args, startPos);
     }),
 
     StoryNode([
@@ -1154,7 +1156,7 @@ StoryNode[] storyNodes = [
         MapGenArgs args;
         args.nBackEdges = ValRange(3, 5);
         args.goldPct = 1.8;
-        return genBspLevel(region(vec(9,9,9,9)), args, startPos);
+        return genBspLevel(region(vec(8,8,8,8)), args, startPos);
     }),
 
     StoryNode([
@@ -1179,7 +1181,7 @@ StoryNode[] storyNodes = [
         args.nRockTraps = ValRange(1, 4);
         args.goldPct = 1.0;
         args.nMonstersA = ValRange(2, 5);
-        return genBspLevel(region(vec(10,10,10,10)), args, startPos);
+        return genBspLevel(region(vec(9,9,9,9)), args, startPos);
     }),
 
     StoryNode([
@@ -1202,11 +1204,11 @@ StoryNode[] storyNodes = [
         args.nPitTraps = ValRange(12, 18);
         args.nRockTraps = ValRange(6, 12);
         args.goldPct = 1.0;
-        args.waterLevel = ValRange(6, 9);
+        args.waterLevel = ValRange(5, 8);
         args.nMonstersA = ValRange(4, 6);
         args.nMonstersC = ValRange(0, 3);
         args.nScubas = ValRange(1, 2); // FIXME: for testing only
-        return genBspLevel(region(vec(11,11,11,11)), args, startPos);
+        return genBspLevel(region(vec(10,10,10,10)), args, startPos);
     }),
 
     StoryNode([
@@ -1226,7 +1228,7 @@ StoryNode[] storyNodes = [
         "Be careful!",
     ], (ref int[4] startPos) {
         BipartiteGenArgs args;
-        args.region = region(vec(9,12,12,12));
+        args.region = region(vec(11,11,11,11));
         args.axis = ValRange(1, 4);
         args.pivot = ValRange(5, 7);
 
@@ -1241,9 +1243,9 @@ StoryNode[] storyNodes = [
         args.subargs[1].tree.minNodeDim = 4;
         args.subargs[1].nBackEdges = ValRange(1, 3);
         args.subargs[1].nPitTraps = ValRange(5, 10);
-        args.subargs[1].nRockTraps = ValRange(12, 16);
-        args.subargs[1].goldPct = 3.5;
-        args.subargs[1].nMonstersA = ValRange(3, 5);
+        args.subargs[1].nRockTraps = ValRange(15, 20);
+        args.subargs[1].goldPct = 4.0;
+        args.subargs[1].nMonstersA = ValRange(4, 6);
         args.subargs[1].sharpRockPct = 15.0;
 
         int[4] doorPos;
@@ -1280,10 +1282,10 @@ StoryNode[] storyNodes = [
     ], (ref int[4] startPos) {
         MapGenArgs args;
         args.nBackEdges = ValRange(200, 300);
-        args.nPitTraps = ValRange(150, 250);
+        args.nPitTraps = ValRange(175, 250);
         args.nRockTraps = ValRange(150, 250);
-        args.goldPct = 0.7;
-        args.waterLevel = ValRange(10, 15);
+        args.goldPct = 0.8;
+        args.waterLevel = ValRange(12, 15);
         args.nMonstersA = ValRange(25, 40);
         args.nMonstersC = ValRange(12, 20);
         args.nScubas = ValRange(1, 2);
