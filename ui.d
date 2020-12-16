@@ -565,8 +565,7 @@ class TextUi : GameUi
                             if (yes)
                             {
                                 quit = true;
-                                quitScore = g.registerHiScore(Outcome.giveup,
-                                    "Escaped alive from 4D space.");
+                                quitScore = g.registerHiScore(Outcome.giveup);
                             }
                         });
                         break;

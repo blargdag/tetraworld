@@ -89,8 +89,9 @@ struct HiScore
     TimeStamp timestamp;
     int rank; // TBD
     string name;
-    ulong turns;
     Outcome outcome;
+    int levels;
+    long turns;
     string desc;
 
     void toString(W)(W sink)
@@ -99,13 +100,13 @@ struct HiScore
         string status;
         final switch (outcome)
         {
-            case Outcome.dead:      status = "Dead";    break;
+            case Outcome.dead:      status = "Died";    break;
             case Outcome.giveup:    status = "Gave up"; break;
             case Outcome.win:       status = "WON";     break;
         }
 
-        sink.formattedWrite("%s | %s in %d turns | %s",
-                            name, status, turns, desc);
+        sink.formattedWrite("%s | %s after %d turns in %d levels | %s",
+                            name, status, turns, levels, desc);
     }
 }
 

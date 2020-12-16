@@ -218,6 +218,8 @@ class Game
     private int storyNode;
     private bool quit;
 
+    private int nTurns;
+
     /**
      * Returns: The player's current position.
      */
@@ -342,6 +344,7 @@ class Game
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
         sf.put("player", player.id);
         sf.put("story", storyNode);
+        sf.put("turns", nTurns);
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
@@ -356,6 +359,7 @@ class Game
 
         auto game = new Game;
         game.storyNode = lf.parse!int("story");
+        game.nTurns = lf.parse!int("turns");
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
@@ -537,7 +541,7 @@ class Game
         }
     }
 
-    HiScore registerHiScore(Outcome outcome, string desc)
+    HiScore registerHiScore(Outcome outcome, string desc = "")
     {
         import std.datetime.systime : Clock, SysTime;
         import std.process : environment;
@@ -545,9 +549,18 @@ class Game
         HiScore hs;
         hs.timestamp = TimeStamp(Clock.currTime);
         hs.name = environment.get("USER", "anonymous");
-        hs.turns = sysAgent.curTick / 10;
+        hs.levels = storyNode;
+        hs.turns = nTurns;
         hs.outcome = outcome;
-        hs.desc = desc;
+        if (hs.outcome == Outcome.giveup)
+        {
+            hs.desc = (storyNode == 0) ?  "Chickened out the first day on "~
+                                          "the job." :
+                      (storyNode < 6) ? "Walked out on the job." :
+                      "Escaped in terror from 4D space.";
+        }
+        else
+            hs.desc = desc;
 
         addHiScore(hs);
         return hs;
@@ -561,13 +574,23 @@ class Game
 
         // TBD: add more funny messages depending on contextual information.
         import terrain : water;
+        int waterDepth = (playerPos[0] - w.map.waterLevel + 1)*5;
         if (ev.subjId == water.id)
         {
-            desc = format("Drowned in water.");
+            if (waterDepth > 0)
+                desc = format("Drowned under %d feet of water.", waterDepth);
+            else
+                desc = format("Impressively drowned while above water.");
         }
         else
         {
-            desc = format("Killed by %s.", subjName);
+            if (ev.dmgType & DmgType.fallOn)
+                desc = format("Killed by a falling %s.", subjName);
+            else if (waterDepth > 0)
+                desc = format("Killed by %s while %d feet under water.",
+                              subjName, waterDepth);
+            else
+                desc = format("Killed by %s.", subjName);
         }
 
         return registerHiScore(Outcome.dead, desc);
@@ -1055,6 +1078,10 @@ class Game
             if (act is null)
                 ui.message(errmsg); // FIXME: should be ui.echo
         }
+
+        if (act !is null)
+            nTurns++;
+
         return act;
     }
 
