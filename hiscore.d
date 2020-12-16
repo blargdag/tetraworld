@@ -32,7 +32,19 @@ import loadsave;
 
 enum hiscoreFile = ".tetra.hiscores";
 enum hiscoreLockFile = ".tetra.hiscores.lock";
-enum Outcome { dead, giveup, win }
+
+enum Outcome { giveup, dead, win }
+
+string outcome2status(Outcome outcome)
+{
+    final switch (outcome)
+    {
+        case Outcome.dead:      return "Died";
+        case Outcome.giveup:    return "Gave up";
+        case Outcome.win:       return "WON";
+    }
+    assert(0);
+}
 
 /**
  * Wrapper around sys.datetime.SysTime to integrate it nicely into our
@@ -52,6 +64,8 @@ struct TimeStamp
     {
         impl = time;
     }
+
+    DateTime toDateTime() { return cast(DateTime) impl; }
 
     void toString(R)(R sink)
         if (isOutputRange!(R, char))
@@ -87,27 +101,33 @@ struct TimeStamp
 struct HiScore
 {
     TimeStamp timestamp;
-    int rank; // TBD
     string name;
     Outcome outcome;
     int levels;
     long turns;
     string desc;
 
-    void toString(W)(W sink)
+    void toString(W)(W sink) const
         if (isOutputRange!(W, char))
     {
-        string status;
-        final switch (outcome)
-        {
-            case Outcome.dead:      status = "Died";    break;
-            case Outcome.giveup:    status = "Gave up"; break;
-            case Outcome.win:       status = "WON";     break;
-        }
-
+        string status = outcome2status(outcome);
         sink.formattedWrite("%s | %s after %d turns in %d levels | %s",
                             name, status, turns, levels, desc);
     }
+}
+
+/**
+ * Orders the given HiScores by rank.
+ */
+int orderByRank(const HiScore a, const HiScore b)
+{
+    return (a.outcome > b.outcome) ? -1 :
+           (a.outcome < b.outcome) ? 1 :
+           (a.levels > b.levels) ? -1 :
+           (a.levels < b.levels) ? 1 :
+           (a.turns < b.turns) ? -1 :
+           (a.turns > b.turns) ? 1 :
+           a.timestamp.impl.opCmp(b.timestamp.impl);
 }
 
 /**
@@ -123,7 +143,10 @@ HiScore[] loadHiScores()
         return [];
 
     auto lf = loadFile(File(hiscoreFile, "rb").byLine);
-    return lf.parse!(HiScore[])("hiscores");
+    auto scores = lf.parse!(HiScore[])("hiscores");
+    sort!((a,b) => orderByRank(a, b) < 0)(scores);
+
+    return scores;
 }
 
 /**
@@ -141,6 +164,65 @@ void addHiScore(HiScore score)
     scores ~= score;
     auto sf = File(hiscoreFile, "wb").lockingTextWriter.saveFile;
     sf.put("hiscores", scores);
+}
+
+/**
+ * Format given hiscores into the given sink.
+ */
+void printHiScores(W)(W sink, HiScore[] scores)
+    if (isOutputRange!(W, char))
+{
+    auto rankWidth = format("%d", scores.length + 1).length;
+    auto nameWidth = scores.map!(hs => hs.name.length)
+                           .maxElement(0)
+                           .max(4);
+
+    foreach (i, hs; scores)
+    {
+        string status = outcome2status(hs.outcome);
+        auto dt = hs.timestamp.toDateTime;
+        sink.formattedWrite("#%-*d   %-*s   %04d-%02d-%02d %02d:%02d:%02d\n",
+                            rankWidth, i+1, nameWidth, hs.name,
+                            dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                            dt.second);
+        sink.formattedWrite("\t%s after %d turns in %d levels.\n",
+                            status, hs.turns, hs.levels);
+        sink.formattedWrite("\t%s\n", hs.desc);
+        sink.formattedWrite("\n");
+    }
+}
+
+unittest
+{
+    auto data = [
+        HiScore(TimeStamp("2020-10-16T14:21:21.0391709"), "JSWalker",
+                Outcome.dead, 4, 501,
+                "Eaten by a ravenous glomiferous worm."),
+        HiScore(TimeStamp("2020-11-11T09:51:05.7083912"), "tetra",
+                Outcome.dead, 9, 6501,
+                "Dissolved in acid."),
+        HiScore(TimeStamp("2020-12-05T19:29:47.8518203"), "newb",
+                Outcome.dead, 3, 342,
+                "Disintegrated from direct exposure to 4D space."),
+    ];
+    auto app = appender!string;
+
+    printHiScores(app, data);
+
+    assert(app.data ==
+        "#1   JSWalker   2020-10-16 14:21:21\n"~
+        "\tDied after 501 turns in 4 levels.\n"~
+        "\tEaten by a ravenous glomiferous worm.\n"~
+        "\n"~
+        "#2   tetra      2020-11-11 09:51:05\n"~
+        "\tDied after 6501 turns in 9 levels.\n"~
+        "\tDissolved in acid.\n"~
+        "\n"~
+        "#3   newb       2020-12-05 19:29:47\n"~
+        "\tDied after 342 turns in 3 levels.\n"~
+        "\tDisintegrated from direct exposure to 4D space.\n"~
+        "\n"
+    );
 }
 
 // vim:set ai sw=4 ts=4 et:
