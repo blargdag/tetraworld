@@ -31,6 +31,7 @@ import std.stdio;
 import loadsave;
 
 enum hiscoreFile = ".tetra.hiscores";
+enum hiscoreLockFile = ".tetra.hiscores.lock";
 enum Outcome { dead, giveup, win }
 
 /**
@@ -113,6 +114,10 @@ struct HiScore
  */
 HiScore[] loadHiScores()
 {
+    auto lockf = File(hiscoreLockFile, "w+");
+    lockf.lock();
+    scope(exit) lockf.unlock();
+
     if (!hiscoreFile.exists)
         return [];
 
@@ -127,9 +132,13 @@ HiScore[] loadHiScores()
  */
 void addHiScore(HiScore score)
 {
+    auto lockf = File(hiscoreLockFile, "w+");
+    lockf.lock();
+    scope(exit) lockf.unlock();
+
     auto scores = loadHiScores();
     scores ~= score;
-    auto sf = File(hiscoreFile, "ab").lockingTextWriter.saveFile;
+    auto sf = File(hiscoreFile, "wb").lockingTextWriter.saveFile;
     sf.put("hiscores", scores);
 }
 

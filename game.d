@@ -567,7 +567,7 @@ class Game
         }
         else
         {
-            desc = format("Killed by %s", subjName);
+            desc = format("Killed by %s.", subjName);
         }
 
         return registerHiScore(Outcome.dead, desc);
