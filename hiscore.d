@@ -166,7 +166,7 @@ private HiScore[] assignRanks(HiScore[] scores)
 {
     foreach (i, ref hs; scores)
     {
-        hs.rank = i.to!int;
+        hs.rank = 1 + i.to!int;
     }
     return scores;
 }

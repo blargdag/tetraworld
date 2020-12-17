@@ -536,7 +536,7 @@ class Game
             {
                 quit = true;
                 ui.quitWithMsg("Congratulations, you have finished the game!",
-                    registerHiScore(Outcome.win, "Won the game"));
+                    registerHiScore(Outcome.win, "Won the game!"));
             }
         }
     }

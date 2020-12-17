@@ -98,7 +98,7 @@ int main(string[] args)
         {
             import core.thread : Thread;
             import core.time : dur;
-            Thread.sleep(dur!"seconds"(2));
+            Thread.sleep(dur!"seconds"(3));
         }
         return 0;
     }
