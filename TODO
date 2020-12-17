@@ -1,15 +1,5 @@
 - OK, so the segfault is gone. But the UI is still not pausing for the last
   messages before exiting.
-- [newAI] BP: AI sticks to goal too persistently; once a hunt goal is decided
-  on, it doesn't reevaluate goals until target is dead or escaped, so seekAir
-  goal remains inactive during the hunt even if hunter is in non-breathable
-  medium.
-   - Need conditions for reevaluating goals every so often. Too much
-     persistence makes the AI dumber!
-   + Or maybe medium awareness should be done outside of the goal system...
-- [newAI] Current seekAir hack causes water-fearing creatures to be unable to
-  chase player when in 1-tile deep water, even though they can breathe just
-  fine.
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
@@ -390,3 +380,17 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
      quitting?
    + Yes, it's a bona fide segfault, triggered when there are enough trailing
      messages after player death that requires more than one prompt.
++ [newAI] BP: AI sticks to goal too persistently; once a hunt goal is decided
+  on, it doesn't reevaluate goals until target is dead or escaped, so seekAir
+  goal remains inactive during the hunt even if hunter is in non-breathable
+  medium.
+   + Need conditions for reevaluating goals every so often. Too much
+     persistence makes the AI dumber!
+   + Or maybe medium awareness should be done outside of the goal system...
+   * Rewrote AI to be a per-turn decision maker. I think full-out GOAP is too
+     complex for the current state of AI. Maybe later once we have useful
+     low-level primitives.
++ [newAI] Current seekAir hack causes water-fearing creatures to be unable to
+  chase player when in 1-tile deep water, even though they can breathe just
+  fine.
+   * It was actually a bug in the SeekAirGoal.isActive.
