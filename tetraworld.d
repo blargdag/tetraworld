@@ -24,6 +24,7 @@ import std.getopt;
 import std.stdio;
 
 import game;
+import hiscore;
 import ui;
 
 /**
@@ -31,25 +32,37 @@ import ui;
  */
 int main(string[] args)
 {
+    enum Action { play, playTest, showHiScores }
+    Action act = Action.play;
     TextUiConfig uiConfig;
     bool testLevel;
 
     auto optInfo = getopt(args,
+        std.getopt.config.caseSensitive,
         "smoothscroll|S",
             "Set smooth scroll total time in msec (0 to disable).",
             &uiConfig.smoothscrollMsec,
+        "hiscore|H",
+            "Display high score.",
+            { act = Action.showHiScores; },
         "record|R",
             "Record session in specified playterm transcript.",
             &uiConfig.tscriptFile,
         "test|T",
             "(Debug version only) Play test level instead of main game.",
-            &testLevel,
+            { act = Action.playTest; },
     );
 
     if (optInfo.helpWanted)
     {
         defaultGetoptPrinter("Tetraworld V3.0", optInfo.options);
         return 1;
+    }
+
+    if (act == Action.showHiScores)
+    {
+        printHiScores((const(char)[] s) { stdout.write(s); }, loadHiScores());
+        return 0;
     }
 
     Game game;
@@ -59,7 +72,7 @@ int main(string[] args)
         game = Game.loadGame();
     else
     {
-        if (testLevel)
+        if (act == Action.playTest)
         {
             debug
             {
@@ -85,7 +98,7 @@ int main(string[] args)
         {
             import core.thread : Thread;
             import core.time : dur;
-            Thread.sleep(dur!"seconds"(2));
+            Thread.sleep(dur!"seconds"(3));
         }
         return 0;
     }

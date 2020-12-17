@@ -23,6 +23,7 @@ module game;
 import std.algorithm;
 import std.array;
 import std.conv : to;
+import std.format : format, formattedWrite;
 import std.random : uniform;
 import std.range.primitives;
 import std.stdio;
@@ -35,6 +36,7 @@ import components;
 import dir;
 import fov;
 import gravity;
+import hiscore;
 import loadsave;
 import mapgen;
 import medium;
@@ -98,7 +100,6 @@ interface GameUi
     final void message(Args...)(string fmt, Args args)
         if (Args.length >= 1)
     {
-        import std.format : format;
         message(format(fmt, args));
     }
 
@@ -127,15 +128,7 @@ interface GameUi
     /**
      * Signal end of game with an exit message.
      */
-    void quitWithMsg(string msg);
-
-    /// ditto
-    final void quitWithMsg(Args...)(string fmt, Args args)
-        if (Args.length >= 1)
-    {
-        import std.format : format;
-        quitWithMsg(format(fmt, args));
-    }
+    void quitWithMsg(string msg, HiScore hs);
 
     /**
      * Display some info for the user and wait for keypress.
@@ -169,7 +162,6 @@ struct InventoryItem
 
     void toString(W)(W sink)
     {
-        import std.format : formattedWrite;
         if (count == 1)
             put(sink, "a ");
         else
@@ -225,6 +217,8 @@ class Game
     private Vec!(int,4) lastPlPos, lastObservePos;
     private int storyNode;
     private bool quit;
+
+    private int nTurns;
 
     /**
      * Returns: The player's current position.
@@ -350,6 +344,7 @@ class Game
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
         sf.put("player", player.id);
         sf.put("story", storyNode);
+        sf.put("turns", nTurns);
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
@@ -364,6 +359,7 @@ class Game
 
         auto game = new Game;
         game.storyNode = lf.parse!int("story");
+        game.nTurns = lf.parse!int("turns");
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
@@ -539,15 +535,67 @@ class Game
             else
             {
                 quit = true;
-                ui.quitWithMsg("Congratulations, you have finished the "~
-                               "game!");
+                ui.quitWithMsg("Congratulations, you have finished the game!",
+                    registerHiScore(Outcome.win, "Won the game!"));
             }
         }
     }
 
+    HiScore registerHiScore(Outcome outcome, string desc = "")
+    {
+        import std.datetime.systime : Clock, SysTime;
+        import std.process : environment;
+
+        HiScore hs;
+        hs.timestamp = TimeStamp(Clock.currTime);
+        hs.name = environment.get("USER", "anonymous");
+        hs.levels = storyNode;
+        hs.turns = nTurns;
+        hs.outcome = outcome;
+        if (hs.outcome == Outcome.giveup)
+        {
+            hs.desc = (storyNode == 0) ? "Chickened out during job training." :
+                      (storyNode < 6) ? "Walked out on the job." :
+                      "Escaped in terror from 4D space.";
+        }
+        else
+            hs.desc = desc;
+
+        return addHiScore(hs);
+    }
+
+    private HiScore genDeathScore(Event ev)
+        in (ev.type == EventType.dmgKill && ev.objId == player.id)
+    {
+        auto subjName = w.store.get!Name(ev.subjId).name;
+        string desc;
+
+        // TBD: add more funny messages depending on contextual information.
+        import terrain : water;
+        int waterDepth = (playerPos[0] - w.map.waterLevel + 1)*5;
+        if (ev.subjId == water.id)
+        {
+            if (waterDepth > 0)
+                desc = format("Drowned under %d feet of water.", waterDepth);
+            else
+                desc = format("Impressively drowned while above water.");
+        }
+        else
+        {
+            if (ev.dmgType & DmgType.fallOn)
+                desc = format("Killed by a falling %s.", subjName);
+            else if (waterDepth > 0)
+                desc = format("Killed by %s while %d feet under water.",
+                              subjName, waterDepth);
+            else
+                desc = format("Killed by %s.", subjName);
+        }
+
+        return registerHiScore(Outcome.dead, desc);
+    }
+
     private string fmtVisibleEvent(Event ev)
     {
-        import std.format : format;
         if (ev.cat == EventCat.move)
         {
             auto isPlayer = (ev.subjId == player.id);
@@ -796,7 +844,6 @@ class Game
 
     private string fmtAudibleEvent(Event ev)
     {
-        import std.format : format;
         if (ev.cat == EventCat.move)
         {
             switch (ev.type)
@@ -944,7 +991,7 @@ class Game
             if (ev.type == EventType.dmgKill && ev.objId == player.id)
             {
                 quit = true;
-                ui.quitWithMsg("YOU HAVE DIED.");
+                ui.quitWithMsg("YOU HAVE DIED.", genDeathScore(ev));
             }
         });
     }
@@ -967,7 +1014,6 @@ class Game
 
     auto objectsOnFloor()
     {
-        import std.format : format;
         return w.store.getAllBy!Pos(Pos(playerPos))
                 .filter!(id => id != player.id)
                 .map!(id => w.store.getObj(id))
@@ -1030,6 +1076,10 @@ class Game
             if (act is null)
                 ui.message(errmsg); // FIXME: should be ui.echo
         }
+
+        if (act !is null)
+            nTurns++;
+
         return act;
     }
 

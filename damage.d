@@ -27,8 +27,8 @@ import store_traits;
 import world;
 import vector;
 
-int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
-                     DmgType dmgType, int baseDmg)
+private int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
+                             ref DmgType dmgType, int baseDmg)
 {
     import std.algorithm : max;
 
@@ -53,6 +53,7 @@ int calcEffectiveDmg(World w, ThingId inflictor, ThingId victim,
                                     *w.store.get!Pos(victim), victim,
                                     invalidId /*FIXME: weaponId*/,
                                     armorId));
+                dmgType &= ~wb.protection;
             }
         }
     }
@@ -90,7 +91,7 @@ void injure(World w, ThingId inflictor, ThingId victim, DmgType dmgType,
     {
         auto pos = w.store.get!Pos(victim);
         w.events.emit(Event(EventType.dmgKill, *pos, inflictor, victim,
-                            invalidId /*FIXME: weaponId */));
+                            invalidId /*FIXME: weaponId */, dmgType));
 
         // TBD: drop corpses here
 

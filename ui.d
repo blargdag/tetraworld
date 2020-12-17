@@ -35,6 +35,7 @@ import display;
 import fov;
 import game;
 import gamemap;
+import hiscore;
 import store_traits;
 import vector;
 import world;
@@ -443,8 +444,7 @@ class TextUi : GameUi
     private bool refreshNeedsPause;
 
     private bool quit;
-    // FIXME: this is a hack. Replace with something better!
-    private string quitMsg;
+    private HiScore quitScore;
 
     private auto createDisp() { return bufferedDisplay(term); }
     private auto createMsgBox(Region!(int,2) msgRect)
@@ -558,7 +558,6 @@ class TextUi : GameUi
                     case 'q':
                         g.saveGame();
                         quit = true;
-                        quitMsg = "Be seeing you!";
                         break;
                     case 'Q':
                         promptYesNo("Really quit and permanently delete this "~
@@ -566,7 +565,7 @@ class TextUi : GameUi
                             if (yes)
                             {
                                 quit = true;
-                                quitMsg = "Bye!";
+                                quitScore = g.registerHiScore(Outcome.giveup);
                             }
                         });
                         break;
@@ -840,7 +839,7 @@ class TextUi : GameUi
         refresh();
     }
 
-    void quitWithMsg(string msg)
+    void quitWithMsg(string msg, HiScore hs)
     {
         message(msg);
         msgBox.flush({
@@ -849,7 +848,7 @@ class TextUi : GameUi
         });
 
         quit = true;
-        quitMsg = "Game over.";
+        quitScore = hs;
     }
 
     void infoScreen(const(string)[] paragraphs, string endPrompt)
@@ -1409,7 +1408,10 @@ class TextUi : GameUi
 
         term.clear();
 
-        return quitMsg;
+        if (quitScore == HiScore.init)
+            return "Be seeing you!";
+        else
+            return quitScore.to!string;
     }
 }
 
