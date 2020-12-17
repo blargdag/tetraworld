@@ -150,20 +150,7 @@ bool findViableMove(World w, ThingId agentId, Pos curPos, int numTries,
     return false;
 }
 
-/**
- * Low-level actions constituting steps toward reaching a goal.
- */
-struct AiAction
-{
-    enum Type { none, attack, eat }
-
-    Type type;
-    int range;
-    ThingId target;
-    Pos targetPos;
-}
-
-static struct Target
+private struct Target
 {
     ThingId id;
     Pos pos;
@@ -277,18 +264,36 @@ unittest
 }
 
 /**
+ * Low-level actions constituting steps toward reaching a goal.
+ */
+struct Plan
+{
+    enum Act { none, attack, eat }
+
+    Agent.Goal.Type type;
+    Act act;
+    int range;
+    ThingId target;
+    Pos targetPos;
+}
+
+/**
  * Goal definition.
  */
 class GoalDef
 {
+    immutable Agent.Goal.Type type;
+    this(Agent.Goal.Type _type) { type = _type; }
+
     abstract bool isActive(World w, ThingId agentId);
     abstract bool findTarget(World w, ThingId agentId, Pos agentPos,
                              int maxRange, out Target target);
-    abstract AiAction[] makePlan(World w, Target target);
+    abstract Plan makePlan(World w, Target target);
 }
 
 class EatGoal : GoalDef
 {
+    this() { super(Agent.Goal.Type.eat); }
     override bool isActive(World w, ThingId agentId)
     {
         auto m = w.store.get!Mortal(agentId);
@@ -313,14 +318,16 @@ class EatGoal : GoalDef
         return true;
     }
 
-    override AiAction[] makePlan(World w, Target target)
+    override Plan makePlan(World w, Target target)
     {
-        return [ AiAction(AiAction.Type.eat, 0, target.id, target.pos) ];
+        return Plan(Agent.Goal.Type.eat, Plan.Act.eat, 0, target.id,
+                        target.pos);
     }
 }
 
 class HuntGoal : GoalDef
 {
+    this() { super(Agent.Goal.Type.hunt); }
     override bool isActive(World w, ThingId agentId)
     {
         return hasEquippedWeapon(w, agentId) != invalidId;
@@ -349,25 +356,25 @@ class HuntGoal : GoalDef
         return true;
     }
 
-    override AiAction[] makePlan(World w, Target target)
+    override Plan makePlan(World w, Target target)
     {
         auto weaponRange = 1; // FIXME
-        return [
-            AiAction(AiAction.Type.attack, weaponRange, target.id, target.pos),
-        ];
+        return Plan(Agent.Goal.Type.hunt, Plan.Act.attack, weaponRange,
+                        target.id, target.pos);
     }
 }
 
 class SeekAirGoal : GoalDef
 {
+    this() { super(Agent.Goal.Type.seekAir); }
     override bool isActive(World w, ThingId agentId)
     {
         auto pos = w.store.get!Pos(agentId);
         auto m = w.store.get!Mortal(agentId);
+        ThingId dummy;
 
         // Active when agent is in a non-breathable medium.
-        return pos !is null && m !is null &&
-            (m.curStats.canBreatheIn & w.getMediumAt(*pos)) == 0;
+        return pos !is null && m !is null && !canBreatheIn(w, m, *pos, dummy);
     }
 
     override bool findTarget(World w, ThingId agentId, Pos agentPos,
@@ -392,9 +399,10 @@ class SeekAirGoal : GoalDef
         return result;
     }
 
-    override AiAction[] makePlan(World w, Target target)
+    override Plan makePlan(World w, Target target)
     {
-        return [ AiAction(AiAction.Type.none, 0, target.id, target.pos) ];
+        return Plan(Agent.Goal.Type.seekAir, Plan.Act.none, 0,
+                        target.id, target.pos);
     }
 }
 
@@ -412,7 +420,41 @@ static this()
  */
 struct SysAi
 {
-    AiAction[][ThingId] plans;
+    private static struct Goal
+    {
+        GoalDef def;
+        Target target;
+        int cost;
+    }
+
+    private Goal findBestGoal(World w, ThingId agentId, Pos agentPos)
+    {
+        auto ag = w.store.get!Agent(agentId);
+        Goal bestGoal;
+
+        bestGoal.cost = int.max;
+        foreach (g; ag.goals)
+        {
+            auto gdef = goalDefs[g.type];
+            if (gdef is null) continue; // TBD: temporary stop-gap
+            if (!gdef.isActive(w, agentId))
+                continue;
+
+            Target tgt;
+            if (!gdef.findTarget(w, agentId, agentPos, g.mapRange, tgt))
+                continue;
+
+            auto cost = g.cost * tgt.dist;
+            if (cost < bestGoal.cost)
+            {
+                bestGoal.cost = cost;
+                bestGoal.target = tgt;
+                bestGoal.def = gdef;
+            }
+        }
+
+        return bestGoal;
+    }
 
     /**
      * AI decision-making routine.
@@ -424,25 +466,19 @@ struct SysAi
         if (agentPos is null)
             return (World w) => pass(w, subj);
 
-        // Retrieve current plan. Make a new one if there isn't one.
-        auto plan = plans.get(agentId, []);
-        if (plan.empty)
-            plan = planNewGoal(w, agentId, agentPos);
-        scope(exit) plans[agentId] = plan;
-
-        // Execute current plan.
-        if (!plan.empty)
+        // Retrieve current plan. Make a new one if there isn't one, or if
+        // another goal has become more important.
+        auto bestGoal = findBestGoal(w, agentId, *agentPos);
+        if (bestGoal.def !is null)
         {
+            auto plan = bestGoal.def.makePlan(w, bestGoal.target);
+
             Action nextAct;
             if (executePlan(w, subj, *agentPos, plan, nextAct))
                 return nextAct;
-
-            // Plan failed, abort and make a new plan next turn.
-            plan = [];
         }
 
-        // Plan failed, or no plan. Make a random move, and make a new plan
-        // next turn.
+        // Plan failed, or no plan. Make a random move.
         int[4] dir;
         if (findViableMove(w, agentId, *agentPos, 6,
                            () => dir2vec(randomDir), dir))
@@ -452,84 +488,42 @@ struct SysAi
         return (World w) => pass(w, subj);
     }
 
-    private AiAction[] planNewGoal(World w, ThingId agentId, Pos* agentPos)
-        in (agentPos !is null)
-    {
-        auto ag = w.store.get!Agent(agentId);
-        assert(ag !is null);
-
-        int minCost = int.max;
-        Target bestTgt;
-        GoalDef bestGoal;
-        foreach (g; ag.goals)
-        {
-            auto gdef = goalDefs[g.type];
-            if (gdef is null) continue; // TBD: temporary stop-gap
-            if (!gdef.isActive(w, agentId))
-                continue;
-
-            Target tgt;
-            if (!gdef.findTarget(w, agentId, *agentPos, g.mapRange, tgt))
-                continue;
-
-            auto cost = g.cost * tgt.dist;
-            if (cost < minCost)
-            {
-                minCost = cost;
-                bestTgt = tgt;
-                bestGoal = gdef;
-            }
-        }
-
-        if (bestTgt.id == invalidId)
-            return [];  // couldn't find a suitable goal
-
-        return bestGoal.makePlan(w, bestTgt);
-    }
-
     private bool executePlan(World w, Thing* subj, Pos agentPos,
-                             ref AiAction[] plan, out Action nextAct)
+                             Plan plan, out Action nextAct)
     {
-        if (plan.empty)
-            return false;
-
-        auto aiAct = plan.front;
-
         // Track target. If it's within sight, update its tracked position.
         // Otherwise move towards its last-known location.
-        auto p = w.store.get!Pos(aiAct.target);
+        auto p = w.store.get!Pos(plan.target);
         bool inSight;
         if (p !is null && canSee(w, agentPos, *p))
         {
-            aiAct.targetPos = *p;
+            plan.targetPos = *p;
             inSight = true;
         }
 
-        auto dist = rectNorm(agentPos - aiAct.targetPos);
-        if (dist <= aiAct.range && inSight)
+        auto dist = rectNorm(agentPos - plan.targetPos);
+        if (dist <= plan.range && inSight)
         {
             // Within range of target; run action.
-            plan.popFront();
-
-            final switch (aiAct.type)
+            final switch (plan.act)
             {
-                case AiAction.Type.none:
+                case Plan.Act.none:
                     // The whole point of the goal was to get to the target
                     // position (or within some range of it); since that's
                     // accomplished, it's time to move on to the next goal.
                     return false;
 
-                case AiAction.Type.attack:
+                case Plan.Act.attack:
                     auto weaponId = hasEquippedWeapon(w, subj.id);
                     if (weaponId == invalidId)
                         return false;   // oops :-D
 
-                    nextAct = (World w) => attack(w, subj, aiAct.target,
+                    nextAct = (World w) => attack(w, subj, plan.target,
                                                   weaponId);
                     return true;
 
-                case AiAction.Type.eat:
-                    nextAct = (World w) => eat(w, subj, aiAct.target);
+                case Plan.Act.eat:
+                    nextAct = (World w) => eat(w, subj, plan.target);
                     return true;
             }
         }
@@ -540,7 +534,7 @@ struct SysAi
             // TBD: should do a pathfinding step here.
 
             int[4] dir;
-            auto diff = aiAct.targetPos - agentPos;
+            auto diff = plan.targetPos - agentPos;
             if (findViableMove(w, subj.id, agentPos, 6, () => chooseDir(diff),
                                dir))
             {

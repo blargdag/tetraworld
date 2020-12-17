@@ -61,6 +61,25 @@ bool canBreatheIn(World w, ThingId mortalId, Pos pos)
     return canBreatheIn(w, m, pos, dummy);
 }
 
+unittest
+{
+    import gamemap, objects;
+
+    auto root = new MapNode;
+    root.interior = region(vec(1,1,1,1), vec(10,4,4,4));
+
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = region(vec(1,1,1,1), vec(10,4,4,4));
+    w.map.waterLevel = 8;
+
+    auto monA = createMonsterA(&w.store, Pos(8,2,2,2));
+
+    assert( canBreatheIn(w, monA.id, Pos(7,2,2,2)));
+    assert( canBreatheIn(w, monA.id, Pos(8,2,2,2)));
+    assert(!canBreatheIn(w, monA.id, Pos(9,2,2,2)));
+}
+
 /**
  * Returns: Input range of Armor component of currently-active breathing
  * equipment.
