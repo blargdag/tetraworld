@@ -554,16 +554,14 @@ class Game
         hs.outcome = outcome;
         if (hs.outcome == Outcome.giveup)
         {
-            hs.desc = (storyNode == 0) ?  "Chickened out on the first day of "~
-                                          "the job." :
+            hs.desc = (storyNode == 0) ? "Chickened out during job training." :
                       (storyNode < 6) ? "Walked out on the job." :
                       "Escaped in terror from 4D space.";
         }
         else
             hs.desc = desc;
 
-        addHiScore(hs);
-        return hs;
+        return addHiScore(hs);
     }
 
     private HiScore genDeathScore(Event ev)

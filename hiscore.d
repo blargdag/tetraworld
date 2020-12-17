@@ -22,6 +22,7 @@ module hiscore;
 
 import std.algorithm;
 import std.array;
+import std.conv : to;
 import std.datetime;
 import std.file : exists;
 import std.format;
@@ -65,7 +66,7 @@ struct TimeStamp
         impl = time;
     }
 
-    DateTime toDateTime() { return cast(DateTime) impl; }
+    inout(DateTime) toDateTime() inout { return cast(DateTime) impl; }
 
     void toString(R)(R sink)
         if (isOutputRange!(R, char))
@@ -100,6 +101,7 @@ struct TimeStamp
  */
 struct HiScore
 {
+    @NoSave int rank;
     TimeStamp timestamp;
     string name;
     Outcome outcome;
@@ -107,19 +109,32 @@ struct HiScore
     long turns;
     string desc;
 
-    void toString(W)(W sink) const
+    void toStringImpl(W)(W sink, size_t rankWidth, size_t nameWidth) const
         if (isOutputRange!(W, char))
     {
         string status = outcome2status(outcome);
-        sink.formattedWrite("%s | %s after %d turns in %d levels | %s",
-                            name, status, turns, levels, desc);
+        auto dt = timestamp.toDateTime;
+        sink.formattedWrite("#%-*d   %-*s   %04d-%02d-%02d %02d:%02d:%02d\n",
+                            rankWidth, rank, nameWidth, name,
+                            dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                            dt.second);
+        sink.formattedWrite("\t%s after %d turns in %d levels.\n",
+                            status, turns, levels);
+        sink.formattedWrite("\t%s\n", desc);
+        sink.formattedWrite("\n");
+    }
+
+    void toString(W)(W sink) const
+        if (isOutputRange!(W, char))
+    {
+        toStringImpl(sink, 0, 0);
     }
 }
 
 /**
  * Orders the given HiScores by rank.
  */
-int orderByRank(const HiScore a, const HiScore b)
+int cmpByRank(const HiScore a, const HiScore b)
 {
     return (a.outcome > b.outcome) ? -1 :
            (a.outcome < b.outcome) ? 1 :
@@ -128,6 +143,32 @@ int orderByRank(const HiScore a, const HiScore b)
            (a.turns < b.turns) ? -1 :
            (a.turns > b.turns) ? 1 :
            a.timestamp.impl.opCmp(b.timestamp.impl);
+}
+
+/// ditto
+bool orderByRank(const HiScore a, const HiScore b)
+{
+    return cmpByRank(a, b) < 0;
+}
+
+private HiScore[] loadHiScoresImpl()
+{
+    if (!hiscoreFile.exists)
+        return [];
+
+    auto lf = loadFile(File(hiscoreFile, "rb").byLine);
+    auto scores = lf.parse!(HiScore[])("hiscores");
+    sort!orderByRank(scores);
+    return scores;
+}
+
+private HiScore[] assignRanks(HiScore[] scores)
+{
+    foreach (i, ref hs; scores)
+    {
+        hs.rank = i.to!int;
+    }
+    return scores;
 }
 
 /**
@@ -139,31 +180,28 @@ HiScore[] loadHiScores()
     lockf.lock();
     scope(exit) lockf.unlock();
 
-    if (!hiscoreFile.exists)
-        return [];
-
-    auto lf = loadFile(File(hiscoreFile, "rb").byLine);
-    auto scores = lf.parse!(HiScore[])("hiscores");
-    sort!((a,b) => orderByRank(a, b) < 0)(scores);
-
-    return scores;
+    return loadHiScoresImpl().assignRanks;
 }
 
 /**
  * Appends the given score to the high score file.
- *
- * BUGS: currently, does not protect against concurrent accesses.
  */
-void addHiScore(HiScore score)
+HiScore addHiScore(HiScore score)
 {
     auto lockf = File(hiscoreLockFile, "w+");
     lockf.lock();
     scope(exit) lockf.unlock();
 
-    auto scores = loadHiScores();
+    auto scores = loadHiScoresImpl();
+    auto rank = 1 + scores.assumeSorted!orderByRank.lowerBound(score).length;
+    score.rank = rank.to!int;
     scores ~= score;
+    sort!orderByRank(scores);
+
     auto sf = File(hiscoreFile, "wb").lockingTextWriter.saveFile;
     sf.put("hiscores", scores);
+
+    return score;
 }
 
 /**
@@ -179,29 +217,20 @@ void printHiScores(W)(W sink, HiScore[] scores)
 
     foreach (i, hs; scores)
     {
-        string status = outcome2status(hs.outcome);
-        auto dt = hs.timestamp.toDateTime;
-        sink.formattedWrite("#%-*d   %-*s   %04d-%02d-%02d %02d:%02d:%02d\n",
-                            rankWidth, i+1, nameWidth, hs.name,
-                            dt.year, dt.month, dt.day, dt.hour, dt.minute,
-                            dt.second);
-        sink.formattedWrite("\t%s after %d turns in %d levels.\n",
-                            status, hs.turns, hs.levels);
-        sink.formattedWrite("\t%s\n", hs.desc);
-        sink.formattedWrite("\n");
+        hs.toStringImpl(sink, rankWidth, nameWidth);
     }
 }
 
 unittest
 {
     auto data = [
-        HiScore(TimeStamp("2020-10-16T14:21:21.0391709"), "JSWalker",
+        HiScore(1, TimeStamp("2020-10-16T14:21:21.0391709"), "JSWalker",
                 Outcome.dead, 4, 501,
                 "Eaten by a ravenous glomiferous worm."),
-        HiScore(TimeStamp("2020-11-11T09:51:05.7083912"), "tetra",
+        HiScore(2, TimeStamp("2020-11-11T09:51:05.7083912"), "tetra",
                 Outcome.dead, 9, 6501,
                 "Dissolved in acid."),
-        HiScore(TimeStamp("2020-12-05T19:29:47.8518203"), "newb",
+        HiScore(3, TimeStamp("2020-12-05T19:29:47.8518203"), "newb",
                 Outcome.dead, 3, 342,
                 "Disintegrated from direct exposure to 4D space."),
     ];
