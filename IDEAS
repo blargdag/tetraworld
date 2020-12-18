@@ -75,5 +75,28 @@ How to solve the removed-support problem in the gravity system?
   gets destroyed as part of a destroyed entity), the Pos associated with the
   entity gets appended to some list.
 
+//
+
+AI redesign
+
+- Currently, we have a goal-planning system but it's too persistent.  We don't
+  have a system of low-level primitives in place yet.
+- Potential replacement:
+   - Perhaps goals should be reevaluated per turn. At every turn the creature
+     evaluates its current state, computes the score of each of its goals, and
+     chooses an action based on that.
+   - Changes in goals would be controlled by the relative weights surpassing
+     each other.
+- For some goals that require environmental scanning, should probably implement
+  some sort of caching scheme.
+   - Perhaps there should be a universal list of targets, kept in the World
+     object, and indexed in a structure that lends itself well to proximity
+     searches. Potentially use the map BSP tree for that.
+      - Maybe even use a global shared goal cost cache individually summed up
+        by each AI agent.
+   - Keep in mind that caching is SECONDARY.  Don't get stuck thinking about
+     caching until the basic system works first, *then* profile the code and
+     evaluate whether caching is necessary.
+
 
 // vim:set sw=3 ts=3 et ai:

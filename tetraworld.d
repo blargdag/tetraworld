@@ -21,6 +21,7 @@
 module tetraworld;
 
 import std.getopt;
+import std.range;
 import std.stdio;
 
 import game;
@@ -61,7 +62,8 @@ int main(string[] args)
 
     if (act == Action.showHiScores)
     {
-        printHiScores((const(char)[] s) { stdout.write(s); }, loadHiScores());
+        printHiScores((const(char)[] s) { stdout.write(s); },
+                      loadHiScores().take(5));
         return 0;
     }
 
