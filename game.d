@@ -1183,7 +1183,7 @@ StoryNode[] storyNodes = [
     ], (ref int[4] startPos) {
         MapGenArgs args;
         args.tree.minNodeDim = 3;
-        args.goldPct = 3.0;
+        args.goldPct = 5.0;
         args.rockPct = 1.0;
         return genBspLevel(region(vec(7,7,7,7)), args, startPos);
     }),
@@ -1193,24 +1193,6 @@ StoryNode[] storyNodes = [
 
         "Now that you have learned the basics of 4D treasure-hunting, it is "~
         "time for your first non-trivial assignment.",
-
-	    "Your task is to collect gold ore located in the ore mines. The area "~
-        "you will be responsible for is highly branching, and may require "~
-        "extra effort on your part to find all the ore that has been "~
-        "detected there.  Furthermore, the caves may loop, so careful "~
-        "thoroughness on your part will be required to ensure the successful "~
-        "completion of your assignment.",
-
-        "Good luck!"
-    ], (ref int[4] startPos) {
-        MapGenArgs args;
-        args.nBackEdges = ValRange(3, 5);
-        args.goldPct = 1.8;
-        return genBspLevel(region(vec(8,8,8,8)), args, startPos);
-    }),
-
-    StoryNode([
-        "Outstanding!",
 
         "The next area is similar to the previous one, and is also located "~
         "in the ore mines. It is slightly larger and more complex, and, "~
@@ -1229,7 +1211,7 @@ StoryNode[] storyNodes = [
         args.nBackEdges = ValRange(3, 5);
         args.nPitTraps = ValRange(8, 12);
         args.nRockTraps = ValRange(1, 4);
-        args.goldPct = 1.0;
+        args.goldPct = 2.0;
         args.nMonstersA = ValRange(2, 5);
         return genBspLevel(region(vec(9,9,9,9)), args, startPos);
     }),
@@ -1254,12 +1236,12 @@ StoryNode[] storyNodes = [
         args.nPitTraps = ValRange(12, 18);
         args.nRockTraps = ValRange(6, 12);
         args.goldPct = 1.0;
-        args.waterLevel = ValRange(5, 8);
+        args.waterLevel = ValRange(6, 9);
         args.nMonstersA = ValRange(4, 6);
         args.nMonstersB = ValRange(0, 3);
         args.nMonstersC = ValRange(0, 3);
-        args.nScubas = ValRange(1, 2); // FIXME: for testing only
-        return genBspLevel(region(vec(10,10,10,10)), args, startPos);
+        args.nScubas = ValRange(1, 2);
+        return genBspLevel(region(vec(11,11,11,11)), args, startPos);
     }),
 
     StoryNode([
@@ -1279,7 +1261,7 @@ StoryNode[] storyNodes = [
         "Be careful!",
     ], (ref int[4] startPos) {
         BipartiteGenArgs args;
-        args.region = region(vec(11,11,11,11));
+        args.region = region(vec(13,13,13,13));
         args.axis = ValRange(1, 4);
         args.pivot = ValRange(5, 7);
 
@@ -1295,8 +1277,8 @@ StoryNode[] storyNodes = [
         args.subargs[1].nBackEdges = ValRange(1, 3);
         args.subargs[1].nPitTraps = ValRange(5, 10);
         args.subargs[1].nRockTraps = ValRange(15, 20);
-        args.subargs[1].goldPct = 4.0;
-        args.subargs[1].nMonstersA = ValRange(4, 6);
+        args.subargs[1].goldPct = 4.5;
+        args.subargs[1].nMonstersA = ValRange(6, 9);
         args.subargs[1].sharpRockPct = 15.0;
 
         int[4] doorPos;
