@@ -172,11 +172,12 @@ struct Event
     ThingId subjId;
     ThingId objId;
     ThingId obliqueId;
+    DmgType dmgType;
     string msg;
 
     this(EventType _type, Pos _where, Pos _whereTo, ThingId _subjId,
          ThingId _objId = invalidId, ThingId _obliqueId = invalidId,
-         string _msg = "")
+         DmgType _dmgType = DmgType.init, string _msg = "")
     {
         type = _type;
         where = _where;
@@ -184,6 +185,7 @@ struct Event
         subjId = _subjId;
         objId = _objId;
         obliqueId = _obliqueId;
+        dmgType = _dmgType;
         msg = _msg;
     }
 
@@ -191,12 +193,20 @@ struct Event
          ThingId _objId = invalidId, ThingId _obliqueId = invalidId,
          string msg = "")
     {
-        this(_type, _where, _where, _subjId, _objId, _obliqueId, msg);
+        this(_type, _where, _where, _subjId, _objId, _obliqueId, DmgType.init,
+             msg);
+    }
+
+    this(EventType _type, Pos _where, ThingId _subjId, ThingId _objId,
+         ThingId _obliqueId, DmgType _dmgType)
+    {
+        this(_type, _where, _where, _subjId, _objId, _obliqueId, _dmgType);
     }
 
     this(EventType _type, Pos _where, ThingId _subjId, string msg)
     {
-        this(_type, _where, _where, _subjId, invalidId, invalidId, msg);
+        this(_type, _where, _where, _subjId, invalidId, invalidId,
+             DmgType.init, msg);
     }
 }
 

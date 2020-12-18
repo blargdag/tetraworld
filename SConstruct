@@ -40,6 +40,7 @@ sources = Split("""
 	dir.d
 	display.d
 	fov.d
+    hiscore.d
 	lang.d
 	loadsave.d
 	mapgen.d

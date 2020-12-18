@@ -59,12 +59,12 @@ space + 1D time.  No, there is no time travel here, sorry.)</p>
 <h3>Developmental builds</h3>
 
 <ul>
+<li>2020-11-13a: [<a href="tetraworld-2020-11-13a">Linux 64-bit</a>]
+	[<a href="tetraworld-2020-11-13a.exe">Windows 64-bit</a>]</li>
 <li>2020-10-24a: [<a href="tetraworld-2020-10-24a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-10-24a.exe">Windows 64-bit</a>]</li>
 <li>2020-10-16a: [<a href="tetraworld-2020-10-16a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-10-16a.exe">Windows 64-bit</a>]</li>
-<li>2020-10-10a: [<a href="tetraworld-2020-10-10a">Linux 64-bit</a>]
-	[<a href="tetraworld-2020-10-10a.exe">Windows 64-bit</a>]</li>
 </ul>
 
 <p><strong>Disclaimer:</strong> these builds are <em>pre-alpha</em>, meaning
@@ -76,17 +76,42 @@ saved games is not guaranteed.  Play at your own risk. :-P</p>
 <h2>News</h2>
 
 <ul>
-<li><b>2020-10-24:</b>
+<li><b>2020-11-13:</b>
   <ul>
-  <li>Fixed tutorial level to suppress locked door message once player has
-    found and activated the switch to open the door.</li>
+  <li>Fixed a regression and a crash bug.</li>
   </ul></li>
-<li><b>2020-10-16:</b>
+<li><b>2020-11-12:</b>
   <ul>
-  <li>Expanded tutorial level to explain climb-ledge action, switches and
-    doors, and falling.</li>
-  <li>Finished gravity bugfix for creatures that get stuck in midair. There
-    should be no more such cases.</li>
+  <li>Streamlined UI and keyboard controls:
+    <ul>
+    <li>Equip/unequip/drop actions now unified into inventory view.</li>
+    <li>Remapped inventory key to Tab.</li>
+    <li>Simplified equip/unequip to single apply button in inventory view.</li>
+    </ul></li>
+  <li>Implemented drowning mechanic.
+    <ul>
+    <li>You now have 8 units of air which is decremented each turn you spend
+      underwater. Once your air runs out, you begin suffering drowning damage.
+      Air is replenished upon returning to the surface of the water.</li>
+    <li>Added scuba gear item. Equipping this item provides an extra 30 units
+      of air for deep-diving. Air in the tank is replenished upon returning to
+      the surface of the water.</li>
+    </ul></li>
+  <li>Improved AI.
+    <ul>
+    <li>Conical creatures will avoid water if they can; shelled creatures are
+      amphibious and can survive in both air and water. Not 100% there yet; the
+      conical creature AI will panic if already in water and fail to find a way
+      out, so they will drown easily.</li>
+    <li>Creatures of different factions will now fight each other.</li>
+    </ul></li>
+  <li>Fixed bug where gravity takes effect for an extra turn between every
+    consecutive save/load.</li>
+  <li>Improved UI to show HP/air in
+    <span style="color:yellow">yellow</span>/<span style="color:red">red</span>
+    when they run below 50%/25%, respectively.</li>
+  <li>Reduced number of log messages for falling and other common, low-priority
+    events.</li>
   </ul></li>
 <li>[<a href="news">Older news</a>]</li>
 </ul>
@@ -279,6 +304,20 @@ dense variety of which blocks line-of-sight. Have fun!</p>
 version of the game, they are always hostile, and therefore should be avoided!
 You will know them when you see them: they move and chase after you!</p>
 
+<p>In the latest version, you can drown in water.  Your lungs can hold 8 units
+of air, which allows you to survive underwater for 8 turns before you start
+drowning.  Air is replenished upon returning to the surface of the water.  This
+means you can only dive down for 4 turns before you have to begin returning to
+the surface.</p>
+
+<p>Currently, in the two levels that sport water, there is also basic diving
+gear that can be found somewhere on dry land.  Once you find this item, you can
+equip it for a tank with an extra 30 units of air, allowing you to deep-dive
+for up to 19 turns before you need to start returning to the surface. The tank
+is also replenished upon returning to the surface.  Be warned that this is
+still a very limited number of turns; you need to plan your dives very
+carefully so that you don't run out of air!</p>
+
 
 <h2>Controls</h2>
 
@@ -336,17 +375,13 @@ but currently not yet implemented.</p>
 	the viewport with <kbd>H</kbd>, <kbd>I</kbd>, <kbd>J</kbd>, <kbd>K</kbd>,
 	<kbd>L</kbd>, <kbd>M</kbd>, <kbd>N</kbd>, <kbd>O</kbd>.</dd>
 
-<dt><kbd>d</kbd></dt>
-<dd>Drop something from your inventory.</dd>
-
-<dt><kbd>e</kbd> <kbd>r</kbd></dt>
-<dd>Equip/unequip (wear/remove) an item in your inventory.</dd>
+<dt>(tab)</dt>
+<dd>Open the inventory screen, if you're carrying something.  Equipping,
+	unequipping, and dropping items, are done from within the inventory
+	screen.</dd>
 
 <dt><kbd>p</kbd></dt>
 <dd>Pass a turn. Can be useful in tactical movement around enemies.</dd>
-
-<dt><kbd>z</kbd></dt>
-<dd>Open the inventory screen, if you're carrying something.</dd>
 
 <dt><kbd>,</kbd></dt>
 <dd>Pick up an item from the current tile.</dd>
@@ -399,6 +434,9 @@ they are easy to miss.  If you find yourself seemingly stuck in an area with no
 way out, try looking for these ledges along the walls: if present, they are
 located in the row immediately above the middle one in the display.</p>
 
+
+<h2>Menagerie</h2>
+
 <p>The current version of the game has two types of enemies that you may run
 into:</p>
 
@@ -410,14 +448,15 @@ and chase you. Also very tough; head-to-head combat is not advisable, as your
 4D environment suit will hardly survive combat with one, and
 <em>definitely</em> not with two or more, of these creatures. However, their
 movement is predictable and they stop following you once out of sight. They
-also cannot swim, and will sink to the bottom of pools. Luring them into pools
-or previously-discovered traps is a good way of dealing with them.</dd>
+also cannot swim, and will drown in water. Luring them into pools or
+previously-discovered traps is a good way of dealing with them.</dd>
 
 <dt><tt style="color:#ff0000">C</tt></dt>
 <dd>Shelled creatures: slow-moving, and cannot climb. Generally easy to avoid.
-Their hard shell protects them from falling objects, though if you wield
-something sharp you may be able to cut off their shell and use it for yourself!
-Be extremely careful of their claws, though; they cause double damage!</dd>
+Amphibious.  Their hard shell protects them from falling objects, though if you
+wield something sharp you may be able to cut off their shell and use it for
+yourself!  Be extremely careful of their claws, though; they cause double
+damage!</dd>
 
 </dl>
 

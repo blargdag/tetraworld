@@ -38,8 +38,9 @@ Thing* createRockTrap(Store* store, Vec!(int,4) ceilingPos, ulong triggerId)
 
 Thing* createPortal(Store* store, Vec!(int,4) pos, string dest="")
 {
-    return store.createObj(Pos(pos), Tiled(TileId.portal), Name("exit portal"),
-                           Usable(UseEffect.portal, "activate"), Weight(1));
+    return store.createObj(Pos(pos), Tiled(TileId.portal, 1),
+                           Name("exit portal"), Weight(1),
+                           Usable(UseEffect.portal, "activate"));
 }
 
 Thing* createCrabShell(Comp...)(Store* store, Comp comps)
@@ -92,7 +93,7 @@ Thing* createVeg(Store* store, Vec!(int,4) pos)
 
 Thing* createGold(Store* store, Vec!(int,4) pos)
 {
-    return store.createObj(Pos(pos), Tiled(TileId.gold), Name("gold"),
+    return store.createObj(Pos(pos), Tiled(TileId.gold, 1), Name("gold"),
                            Pickable(), QuestItem(1), Stackable(1), Weight(1));
 }
 
@@ -107,7 +108,7 @@ Thing* createMonsterA(Store* store, Vec!(int,4) pos)
     auto tentacles = store.createObj(Name("tentacles"),
                                      Weapon(DmgType.blunt, 1));
     return store.createObj(Pos(pos), Name("conical creature"), Weight(1000),
-        Tiled(TileId.creatureA, 1, Tiled.Hint.dynamic), BlocksMovement(),
+        Tiled(TileId.creatureA, 2, Tiled.Hint.dynamic), BlocksMovement(),
         Mortal(stats, Faction.crawlers),
         CanMove(CanMove.Type.walk | CanMove.Type.climb),
         Agent(Agent.Type.ai, 10, [
@@ -160,7 +161,7 @@ Thing* createMonsterC(Store* store, Vec!(int,4) pos)
     return store.createObj(Pos(pos), Name("shelled creature"),
         Weight(1200), BlocksMovement(), CanMove(CanMove.Type.walk),
         Mortal(stats, Faction.loner),
-        Tiled(TileId.creatureC, 1, Tiled.Hint.dynamic),
+        Tiled(TileId.creatureC, 2, Tiled.Hint.dynamic),
         Agent(Agent.Type.ai, 20, [
             Agent.Goal(Agent.Goal.Type.hunt, 8, 2),
             Agent.Goal(Agent.Goal.Type.eat, 12, 1),

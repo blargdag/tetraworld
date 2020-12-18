@@ -23,6 +23,7 @@ module game;
 import std.algorithm;
 import std.array;
 import std.conv : to;
+import std.format : format, formattedWrite;
 import std.random : uniform;
 import std.range.primitives;
 import std.stdio;
@@ -35,6 +36,7 @@ import components;
 import dir;
 import fov;
 import gravity;
+import hiscore;
 import loadsave;
 import mapgen;
 import medium;
@@ -98,7 +100,6 @@ interface GameUi
     final void message(Args...)(string fmt, Args args)
         if (Args.length >= 1)
     {
-        import std.format : format;
         message(format(fmt, args));
     }
 
@@ -127,15 +128,7 @@ interface GameUi
     /**
      * Signal end of game with an exit message.
      */
-    void quitWithMsg(string msg);
-
-    /// ditto
-    final void quitWithMsg(Args...)(string fmt, Args args)
-        if (Args.length >= 1)
-    {
-        import std.format : format;
-        quitWithMsg(format(fmt, args));
-    }
+    void quitWithMsg(string msg, HiScore hs);
 
     /**
      * Display some info for the user and wait for keypress.
@@ -169,7 +162,6 @@ struct InventoryItem
 
     void toString(W)(W sink)
     {
-        import std.format : formattedWrite;
         if (count == 1)
             put(sink, "a ");
         else
@@ -225,6 +217,8 @@ class Game
     private Vec!(int,4) lastPlPos, lastObservePos;
     private int storyNode;
     private bool quit;
+
+    private int nTurns;
 
     /**
      * Returns: The player's current position.
@@ -350,6 +344,7 @@ class Game
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
         sf.put("player", player.id);
         sf.put("story", storyNode);
+        sf.put("turns", nTurns);
         sf.put("world", w);
         sf.put("agent", sysAgent);
         sf.put("gravity", sysGravity);
@@ -364,6 +359,7 @@ class Game
 
         auto game = new Game;
         game.storyNode = lf.parse!int("story");
+        game.nTurns = lf.parse!int("turns");
         game.w = lf.parse!World("world");
         game.sysAgent = lf.parse!SysAgent("agent");
         game.sysGravity = lf.parse!SysGravity("gravity");
@@ -490,7 +486,7 @@ class Game
         stats.maxair = stats.air = 8;
 
         player = w.store.createObj(
-            Tiled(TileId.player, 1, Tiled.Hint.dynamic), Name("you"),
+            Tiled(TileId.player, 2, Tiled.Hint.dynamic), Name("you"),
             Agent(Agent.Type.player), Inventory([], true), Weight(1000),
             BlocksMovement(), Mortal(stats, Faction.loner),
             CanMove(CanMove.Type.walk | CanMove.Type.climb |
@@ -539,15 +535,67 @@ class Game
             else
             {
                 quit = true;
-                ui.quitWithMsg("Congratulations, you have finished the "~
-                               "game!");
+                ui.quitWithMsg("Congratulations, you have finished the game!",
+                    registerHiScore(Outcome.win, "Won the game!"));
             }
         }
     }
 
+    HiScore registerHiScore(Outcome outcome, string desc = "")
+    {
+        import std.datetime.systime : Clock, SysTime;
+        import std.process : environment;
+
+        HiScore hs;
+        hs.timestamp = TimeStamp(Clock.currTime);
+        hs.name = environment.get("USER", "anonymous");
+        hs.levels = storyNode;
+        hs.turns = nTurns;
+        hs.outcome = outcome;
+        if (hs.outcome == Outcome.giveup)
+        {
+            hs.desc = (storyNode == 0) ? "Chickened out during job training." :
+                      (storyNode < 6) ? "Walked out on the job." :
+                      "Escaped in terror from 4D space.";
+        }
+        else
+            hs.desc = desc;
+
+        return addHiScore(hs);
+    }
+
+    private HiScore genDeathScore(Event ev)
+        in (ev.type == EventType.dmgKill && ev.objId == player.id)
+    {
+        auto subjName = w.store.get!Name(ev.subjId).name;
+        string desc;
+
+        // TBD: add more funny messages depending on contextual information.
+        import terrain : water;
+        int waterDepth = (playerPos[0] - w.map.waterLevel + 1)*5;
+        if (ev.subjId == water.id)
+        {
+            if (waterDepth > 0)
+                desc = format("Drowned under %d feet of water.", waterDepth);
+            else
+                desc = format("Impressively drowned while above water.");
+        }
+        else
+        {
+            if (ev.dmgType & DmgType.fallOn)
+                desc = format("Killed by a falling %s.", subjName);
+            else if (waterDepth > 0)
+                desc = format("Killed by %s while %d feet under water.",
+                              subjName, waterDepth);
+            else
+                desc = format("Killed by %s.", subjName);
+        }
+
+        return registerHiScore(Outcome.dead, desc);
+    }
+
     private string fmtVisibleEvent(Event ev)
     {
-        import std.format : format;
         if (ev.cat == EventCat.move)
         {
             auto isPlayer = (ev.subjId == player.id);
@@ -796,7 +844,6 @@ class Game
 
     private string fmtAudibleEvent(Event ev)
     {
-        import std.format : format;
         if (ev.cat == EventCat.move)
         {
             switch (ev.type)
@@ -944,7 +991,7 @@ class Game
             if (ev.type == EventType.dmgKill && ev.objId == player.id)
             {
                 quit = true;
-                ui.quitWithMsg("YOU HAVE DIED.");
+                ui.quitWithMsg("YOU HAVE DIED.", genDeathScore(ev));
             }
         });
     }
@@ -967,7 +1014,6 @@ class Game
 
     auto objectsOnFloor()
     {
-        import std.format : format;
         return w.store.getAllBy!Pos(Pos(playerPos))
                 .filter!(id => id != player.id)
                 .map!(id => w.store.getObj(id))
@@ -1030,6 +1076,10 @@ class Game
             if (act is null)
                 ui.message(errmsg); // FIXME: should be ui.echo
         }
+
+        if (act !is null)
+            nTurns++;
+
         return act;
     }
 
@@ -1132,8 +1182,10 @@ StoryNode[] storyNodes = [
         "and return."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.goldPct = 1.8;
-        return genBspLevel(region(vec(8,8,8,8)), args, startPos);
+        args.tree.minNodeDim = 3;
+        args.goldPct = 3.0;
+        args.rockPct = 1.0;
+        return genBspLevel(region(vec(7,7,7,7)), args, startPos);
     }),
 
     StoryNode([
@@ -1154,7 +1206,7 @@ StoryNode[] storyNodes = [
         MapGenArgs args;
         args.nBackEdges = ValRange(3, 5);
         args.goldPct = 1.8;
-        return genBspLevel(region(vec(9,9,9,9)), args, startPos);
+        return genBspLevel(region(vec(8,8,8,8)), args, startPos);
     }),
 
     StoryNode([
@@ -1179,7 +1231,7 @@ StoryNode[] storyNodes = [
         args.nRockTraps = ValRange(1, 4);
         args.goldPct = 1.0;
         args.nMonstersA = ValRange(2, 5);
-        return genBspLevel(region(vec(10,10,10,10)), args, startPos);
+        return genBspLevel(region(vec(9,9,9,9)), args, startPos);
     }),
 
     StoryNode([
@@ -1202,11 +1254,11 @@ StoryNode[] storyNodes = [
         args.nPitTraps = ValRange(12, 18);
         args.nRockTraps = ValRange(6, 12);
         args.goldPct = 1.0;
-        args.waterLevel = ValRange(6, 10);
+        args.waterLevel = ValRange(5, 8);
         args.nMonstersA = ValRange(4, 6);
         args.nMonstersC = ValRange(0, 3);
         args.nScubas = ValRange(1, 2); // FIXME: for testing only
-        return genBspLevel(region(vec(11,11,11,11)), args, startPos);
+        return genBspLevel(region(vec(10,10,10,10)), args, startPos);
     }),
 
     StoryNode([
@@ -1226,7 +1278,7 @@ StoryNode[] storyNodes = [
         "Be careful!",
     ], (ref int[4] startPos) {
         BipartiteGenArgs args;
-        args.region = region(vec(9,12,12,12));
+        args.region = region(vec(11,11,11,11));
         args.axis = ValRange(1, 4);
         args.pivot = ValRange(5, 7);
 
@@ -1241,9 +1293,9 @@ StoryNode[] storyNodes = [
         args.subargs[1].tree.minNodeDim = 4;
         args.subargs[1].nBackEdges = ValRange(1, 3);
         args.subargs[1].nPitTraps = ValRange(5, 10);
-        args.subargs[1].nRockTraps = ValRange(12, 16);
-        args.subargs[1].goldPct = 3.5;
-        args.subargs[1].nMonstersA = ValRange(3, 5);
+        args.subargs[1].nRockTraps = ValRange(15, 20);
+        args.subargs[1].goldPct = 4.0;
+        args.subargs[1].nMonstersA = ValRange(4, 6);
         args.subargs[1].sharpRockPct = 15.0;
 
         int[4] doorPos;
@@ -1280,10 +1332,10 @@ StoryNode[] storyNodes = [
     ], (ref int[4] startPos) {
         MapGenArgs args;
         args.nBackEdges = ValRange(200, 300);
-        args.nPitTraps = ValRange(200, 300);
-        args.nRockTraps = ValRange(200, 300);
-        args.goldPct = 0.7;
-        args.waterLevel = ValRange(10, 15);
+        args.nPitTraps = ValRange(175, 250);
+        args.nRockTraps = ValRange(150, 250);
+        args.goldPct = 0.8;
+        args.waterLevel = ValRange(12, 15);
         args.nMonstersA = ValRange(25, 40);
         args.nMonstersB = ValRange(6, 10);
         args.nMonstersC = ValRange(12, 20);
