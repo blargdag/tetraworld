@@ -88,6 +88,7 @@ enum TileId : ushort
 
     player,
     creatureA,
+    creatureB,
     creatureC,
 
     gold,

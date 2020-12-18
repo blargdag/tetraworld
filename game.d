@@ -1256,6 +1256,7 @@ StoryNode[] storyNodes = [
         args.goldPct = 1.0;
         args.waterLevel = ValRange(5, 8);
         args.nMonstersA = ValRange(4, 6);
+        args.nMonstersB = ValRange(0, 3);
         args.nMonstersC = ValRange(0, 3);
         args.nScubas = ValRange(1, 2); // FIXME: for testing only
         return genBspLevel(region(vec(10,10,10,10)), args, startPos);
@@ -1337,6 +1338,7 @@ StoryNode[] storyNodes = [
         args.goldPct = 0.8;
         args.waterLevel = ValRange(12, 15);
         args.nMonstersA = ValRange(25, 40);
+        args.nMonstersB = ValRange(8, 12);
         args.nMonstersC = ValRange(12, 20);
         args.nScubas = ValRange(1, 2);
         return genBspLevel(region(vec(20,20,20,20)), args, startPos);
