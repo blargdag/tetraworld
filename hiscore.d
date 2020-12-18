@@ -36,17 +36,6 @@ enum hiscoreLockFile = ".tetra.hiscores.lock";
 
 enum Outcome { giveup, dead, win }
 
-string outcome2status(Outcome outcome)
-{
-    final switch (outcome)
-    {
-        case Outcome.dead:      return "Died";
-        case Outcome.giveup:    return "Gave up";
-        case Outcome.win:       return "WON";
-    }
-    assert(0);
-}
-
 /**
  * Wrapper around sys.datetime.SysTime to integrate it nicely into our
  * load/save system.
@@ -108,18 +97,37 @@ struct HiScore
     int levels;
     long turns;
     string desc;
+    string lastLocation;
 
     void toStringImpl(W)(W sink, size_t rankWidth, size_t nameWidth) const
         if (isOutputRange!(W, char))
     {
-        string status = outcome2status(outcome);
         auto dt = timestamp.toDateTime;
         sink.formattedWrite("#%-*d   %-*s   %04d-%02d-%02d %02d:%02d:%02d\n",
                             rankWidth, rank, nameWidth, name,
                             dt.year, dt.month, dt.day, dt.hour, dt.minute,
                             dt.second);
-        sink.formattedWrite("\t%s after %d turns in %d levels.\n",
-                            status, turns, levels);
+
+        auto loc = (lastLocation.length > 0) ? lastLocation :
+                    format("level %d", levels);
+        final switch (outcome)
+        {
+            case Outcome.dead:
+                sink.formattedWrite("\tDied in %s after %d turns.\n",
+                                    loc, turns);
+                break;
+
+            case Outcome.giveup:
+                sink.formattedWrite("\tGave up in %s after %d turns.\n",
+                                    loc, turns);
+                break;
+
+            case Outcome.win:
+                sink.formattedWrite("\tEmerged victorious from %s after %d "~
+                                    "turns.\n", loc, turns);
+                break;
+        }
+
         sink.formattedWrite("\t%s\n", desc);
         sink.formattedWrite("\n");
     }
@@ -226,10 +234,12 @@ unittest
     auto data = [
         HiScore(1, TimeStamp("2020-10-16T14:21:21.0391709"), "JSWalker",
                 Outcome.dead, 4, 501,
-                "Eaten by a ravenous glomiferous worm."),
+                "Eaten by a ravenous glomiferous worm.",
+                "Swamp Mines"),
         HiScore(2, TimeStamp("2020-11-11T09:51:05.7083912"), "tetra",
                 Outcome.dead, 9, 6501,
-                "Dissolved in acid."),
+                "Dissolved in acid.",
+                "Abandoned Factory"),
         HiScore(3, TimeStamp("2020-12-05T19:29:47.8518203"), "newb",
                 Outcome.dead, 3, 342,
                 "Disintegrated from direct exposure to 4D space."),
@@ -240,15 +250,15 @@ unittest
 
     assert(app.data ==
         "#1   JSWalker   2020-10-16 14:21:21\n"~
-        "\tDied after 501 turns in 4 levels.\n"~
+        "\tDied in Swamp Mines after 501 turns.\n"~
         "\tEaten by a ravenous glomiferous worm.\n"~
         "\n"~
         "#2   tetra      2020-11-11 09:51:05\n"~
-        "\tDied after 6501 turns in 9 levels.\n"~
+        "\tDied in Abandoned Factory after 6501 turns.\n"~
         "\tDissolved in acid.\n"~
         "\n"~
         "#3   newb       2020-12-05 19:29:47\n"~
-        "\tDied after 342 turns in 3 levels.\n"~
+        "\tDied in level 3 after 342 turns.\n"~
         "\tDisintegrated from direct exposure to 4D space.\n"~
         "\n"
     );

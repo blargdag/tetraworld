@@ -527,9 +527,9 @@ class Game
 
             ui.message("You collected %d out of %d gold.", ngold, maxgold);
 
-            storyNode++;
-            if (storyNode < storyNodes.length)
+            if (storyNode+1 < storyNodes.length)
             {
+                storyNode++;
                 startStory();
             }
             else
@@ -552,6 +552,8 @@ class Game
         hs.levels = storyNode;
         hs.turns = nTurns;
         hs.outcome = outcome;
+        hs.lastLocation = storyNodes[storyNode].location;
+
         if (hs.outcome == Outcome.giveup)
         {
             hs.desc = (storyNode == 0) ? "Chickened out during job training." :
@@ -1140,12 +1142,13 @@ class Game
 
 struct StoryNode
 {
+    string location;
     string[] infoScreen;
     World function(ref int[4] startPos) genMap;
 }
 
 StoryNode[] storyNodes = [
-    StoryNode([
+    StoryNode("Tetraworld Corp training lab", [
         "Welcome to Tetraworld Corp.!",
 
         "You have been hired as a 4D Treasure Hunter by our Field Operations "~
@@ -1165,7 +1168,7 @@ StoryNode[] storyNodes = [
         return genTutorialLevel(startPos);
     }),
 
-    StoryNode([
+    StoryNode("small cave system", [
         "Excellent job!",
 
         "Now that you have learned how to move around in 4D space, you will "~
@@ -1188,7 +1191,7 @@ StoryNode[] storyNodes = [
         return genBspLevel(region(vec(7,7,7,7)), args, startPos);
     }),
 
-    StoryNode([
+    StoryNode("main mining area", [
         "Excellent!",
 
         "Now that you have learned the basics of 4D treasure-hunting, it is "~
@@ -1216,14 +1219,14 @@ StoryNode[] storyNodes = [
         return genBspLevel(region(vec(9,9,9,9)), args, startPos);
     }),
 
-    StoryNode([
+    StoryNode("deep mining area", [
         "We are very pleased with your continuing performance.",
 
         "The next area is a large one, and quite complex and hazardous. "~
-        "You will probably have to take notes to keep track of your "~
-        "location.  Furthermore, according to our records, it is likely to "~
-        "be partially submerged. Therefore, great care must be taken when "~
-        "traversing this hostile terrain.",
+        "You may have to take notes to keep track of your location.  "~
+        "Furthermore, according to our records, it is likely to be partially "~
+        "submerged. Therefore, great care must be taken when traversing this "~
+        "hostile terrain.",
 
         "But we are confident that this will present no problem to your "~
         "current skills. Collect all the gold ores and bring them to the "~
@@ -1244,7 +1247,7 @@ StoryNode[] storyNodes = [
         return genBspLevel(region(vec(11,11,11,11)), args, startPos);
     }),
 
-    StoryNode([
+    StoryNode("remote storage complex", [
         "Exceptional!",
 
         "We have a special mission for you.  One of our remote storage "~
@@ -1289,7 +1292,7 @@ StoryNode[] storyNodes = [
         return w;
     }),
 
-    StoryNode([
+    StoryNode("vast cave system", [
         "Something is wrong.",
 
         "As you step out of the portal, expecting to be back in Tetraworld "~
