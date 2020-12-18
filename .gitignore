@@ -2,6 +2,7 @@
 .scons*
 .*-teststamp
 /*.exe
+*.hiscore*
 *.o
 *.obj
 *.pdb
