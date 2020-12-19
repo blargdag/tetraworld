@@ -41,6 +41,43 @@ tt {
 <p>[<a href="index">Back to main page</a>]</p>
 
 <ul>
+<li><b>2020-11-13:</b>
+  <ul>
+  <li>Fixed a regression and a crash bug.</li>
+  </ul></li>
+<li><b>2020-11-12:</b>
+  <ul>
+  <li>Streamlined UI and keyboard controls:
+    <ul>
+    <li>Equip/unequip/drop actions now unified into inventory view.</li>
+    <li>Remapped inventory key to Tab.</li>
+    <li>Simplified equip/unequip to single apply button in inventory view.</li>
+    </ul></li>
+  <li>Implemented drowning mechanic.
+    <ul>
+    <li>You now have 8 units of air which is decremented each turn you spend
+      underwater. Once your air runs out, you begin suffering drowning damage.
+      Air is replenished upon returning to the surface of the water.</li>
+    <li>Added scuba gear item. Equipping this item provides an extra 30 units
+      of air for deep-diving. Air in the tank is replenished upon returning to
+      the surface of the water.</li>
+    </ul></li>
+  <li>Improved AI.
+    <ul>
+    <li>Conical creatures will avoid water if they can; shelled creatures are
+      amphibious and can survive in both air and water. Not 100% there yet; the
+      conical creature AI will panic if already in water and fail to find a way
+      out, so they will drown easily.</li>
+    <li>Creatures of different factions will now fight each other.</li>
+    </ul></li>
+  <li>Fixed bug where gravity takes effect for an extra turn between every
+    consecutive save/load.</li>
+  <li>Improved UI to show HP/air in
+    <span style="color:yellow">yellow</span>/<span style="color:red">red</span>
+    when they run below 50%/25%, respectively.</li>
+  <li>Reduced number of log messages for falling and other common, low-priority
+    events.</li>
+  </ul></li>
 <li><b>2020-10-24:</b>
   <ul>
   <li>Fixed tutorial level to suppress locked door message once player has
