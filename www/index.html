@@ -32,6 +32,10 @@ tt {
 	padding: .2em .3ex .2em .3ex;
 	font-weight: bold;
 }
+dd {
+	margin-top: .2ex;
+	margin-bottom: .7ex;
+}
 </style>
 </head><body><main>
 
@@ -59,59 +63,36 @@ space + 1D time.  No, there is no time travel here, sorry.)</p>
 <h3>Developmental builds</h3>
 
 <ul>
+<li>2020-12-18a: [<a href="tetraworld-2020-12-18a">Linux 64-bit</a>]
+	[<a href="tetraworld-2020-12-18a.exe">Windows 64-bit</a>]</li>
 <li>2020-11-13a: [<a href="tetraworld-2020-11-13a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-11-13a.exe">Windows 64-bit</a>]</li>
 <li>2020-10-24a: [<a href="tetraworld-2020-10-24a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-10-24a.exe">Windows 64-bit</a>]</li>
-<li>2020-10-16a: [<a href="tetraworld-2020-10-16a">Linux 64-bit</a>]
-	[<a href="tetraworld-2020-10-16a.exe">Windows 64-bit</a>]</li>
 </ul>
 
 <p><strong>Disclaimer:</strong> these builds are <em>pre-alpha</em>, meaning
 it's just a technology preview, and may be unstable or have
 partially-implemented or unimplemented mechanics.  Compatibility with existing
-saved games is not guaranteed.  Play at your own risk. :-P</p>
+saved games is not guaranteed.  Play at your own risk. &#x1f609;</p>
 
 
 <h2>News</h2>
 
 <ul>
-<li><b>2020-11-13:</b>
+<li><b>2020-12-18:</b>
   <ul>
-  <li>Fixed a regression and a crash bug.</li>
-  </ul></li>
-<li><b>2020-11-12:</b>
-  <ul>
-  <li>Streamlined UI and keyboard controls:
-    <ul>
-    <li>Equip/unequip/drop actions now unified into inventory view.</li>
-    <li>Remapped inventory key to Tab.</li>
-    <li>Simplified equip/unequip to single apply button in inventory view.</li>
-    </ul></li>
-  <li>Implemented drowning mechanic.
-    <ul>
-    <li>You now have 8 units of air which is decremented each turn you spend
-      underwater. Once your air runs out, you begin suffering drowning damage.
-      Air is replenished upon returning to the surface of the water.</li>
-    <li>Added scuba gear item. Equipping this item provides an extra 30 units
-      of air for deep-diving. Air in the tank is replenished upon returning to
-      the surface of the water.</li>
-    </ul></li>
-  <li>Improved AI.
-    <ul>
-    <li>Conical creatures will avoid water if they can; shelled creatures are
-      amphibious and can survive in both air and water. Not 100% there yet; the
-      conical creature AI will panic if already in water and fail to find a way
-      out, so they will drown easily.</li>
-    <li>Creatures of different factions will now fight each other.</li>
-    </ul></li>
-  <li>Fixed bug where gravity takes effect for an extra turn between every
-    consecutive save/load.</li>
-  <li>Improved UI to show HP/air in
-    <span style="color:yellow">yellow</span>/<span style="color:red">red</span>
-    when they run below 50%/25%, respectively.</li>
-  <li>Reduced number of log messages for falling and other common, low-priority
-    events.</li>
+  <li>Added a high-score board that logs the outcomes of your games. Each time
+    you die, quit, or win the game, an entry will be logged, and it will also
+    show you your rank in the high-score board.</li>
+  <li>Introduced a new water-dwelling creature. Very dangerous!</li>
+  <li>Reorganized the current levels and tweak map generation parameters.
+    Eliminate boring redundant levels, make existing levels more
+    dangerous.</li>
+  <li>Fixed stacking order of gold ore so that it's always visible among piles
+    of less important items. Should eliminate the tedium of hunting for that
+    last piece of gold hiding under a rock!</li>
+  <li>New pre-alpha build!</li>
   </ul></li>
 <li>[<a href="news">Older news</a>]</li>
 </ul>
@@ -123,6 +104,9 @@ saved games is not guaranteed.  Play at your own risk. :-P</p>
 for a list of command-line options.</p>
 
 <dl>
+<dt><kbd>-H</kbd>, <kbd>--hiscore</kbd></dt>
+<dd>Displays the top 5 highest scores in the highscore board.</dd>
+
 <dt><kbd>-S</kbd>, <kbd>--smoothscroll</kbd></dt>
 <dd>Controls the timing delay when scrolling up/down or ana/kata, in msec. The
 	default is 80msec. If you find this too laggy, try a lower value, like
@@ -212,7 +196,8 @@ finish the level.</dd>
 <dd>A trap of some kind. Currently the game has two types of traps: hidden
 trapdoors, and falling rock traps.</dd>
 
-<dt><tt style="color:#ff0000">A</tt> <tt style="color:#ff0000">C</tt></dt>
+<dt><tt style="color:#ff0000">A</tt> <tt style="color:#ff0000">B</tt>
+    <tt style="color:#ff0000">C</tt></dt>
 <dd>Various native 4D creatures. In the current version of the game, they are
 all hostile.</dd>
 
@@ -418,14 +403,12 @@ hazards.  It's possible, albeit very hard, to win it through very careful play.
 Do you have what it takes to complete the gauntlet?</p>
 
 <p>The challenge in each level is navigating the 4D geometry of the level and
-locating the gold, while avoiding the hazards. Sometimes, gold may be hidden
-under rocks or vegetation; be sure to examine everything carefully!
-Fortunately, barring a bug in the map generator, the current version of the
-game always generates maps that are <em>fully connected</em>: you will always
-be able to reach all parts of the map from any part, even if you stumble into
-hidden pits and fall through.  So you can rest assured that you will never get
-stuck without a way out, even if you do get totally lost in 4D space.
-&#x263A;</p>
+locating the gold, while avoiding the hazards.  Fortunately, barring a bug in
+the map generator, the current version of the game always generates maps that
+are <em>fully connected</em>: you will always be able to reach all parts of the
+map from any part, even if you stumble into hidden pits and fall through.  So
+you can rest assured that you will never get stuck without a way out, even if
+you do get totally lost in 4D space.  &#x263A;</p>
 
 <p>Especially tricky are room exits located one tile above the floor, which can
 be accessed with the climb-ledge action (walk into the wall directly under them
@@ -450,6 +433,11 @@ and chase you. Also very tough; head-to-head combat is not advisable, as your
 movement is predictable and they stop following you once out of sight. They
 also cannot swim, and will drown in water. Luring them into pools or
 previously-discovered traps is a good way of dealing with them.</dd>
+
+<dt><tt style="color:#ff0000">B</tt></dt>
+<dd>Spiky water creatures: fast-moving and vicious. Limited to water only.
+Avoid close contact at all costs since they bite and pierce with their spikes
+and will quickly destroy your 4D environmental suit!</dd>
 
 <dt><tt style="color:#ff0000">C</tt></dt>
 <dd>Shelled creatures: slow-moving, and cannot climb. Generally easy to avoid.
