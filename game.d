@@ -1318,13 +1318,13 @@ StoryNode[] storyNodes = [
     ], (ref int[4] startPos) {
         MapGenArgs args;
         args.nBackEdges = ValRange(200, 300);
-        args.nPitTraps = ValRange(175, 250);
-        args.nRockTraps = ValRange(150, 250);
+        args.nPitTraps = ValRange(180, 250);
+        args.nRockTraps = ValRange(150, 180);
         args.goldPct = 0.8;
         args.waterLevel = ValRange(12, 15);
-        args.nMonstersA = ValRange(25, 40);
-        args.nMonstersB = ValRange(8, 12);
-        args.nMonstersC = ValRange(12, 20);
+        args.nMonstersA = ValRange(30, 50);
+        args.nMonstersB = ValRange(10, 15);
+        args.nMonstersC = ValRange(15, 20);
         args.nScubas = ValRange(1, 2);
         return genBspLevel(region(vec(20,20,20,20)), args, startPos);
     }),
