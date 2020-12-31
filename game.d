@@ -1266,7 +1266,7 @@ StoryNode[] storyNodes = [
         BipartiteGenArgs args;
         args.region = region(vec(13,13,13,13));
         args.axis = ValRange(1, 4);
-        args.pivot = ValRange(5, 7);
+        args.pivot = ValRange(4, 6);
 
         args.subargs[0].nBackEdges = ValRange(3, 5);
         args.subargs[0].nPitTraps = ValRange(0, 4);
