@@ -842,11 +842,6 @@ class TextUi : GameUi
     void quitWithMsg(string msg, HiScore hs)
     {
         message(msg);
-        msgBox.flush({
-            refresh();
-            input.getch();
-        });
-
         quit = true;
         quitScore = hs;
     }
@@ -1405,6 +1400,11 @@ class TextUi : GameUi
             msgBox.sync();
             dispatch.handleEvent(input.nextEvent());
         }
+
+        msgBox.flush({
+            refresh();
+            input.getch();
+        });
 
         term.clear();
 
