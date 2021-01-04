@@ -632,6 +632,7 @@ class TextUi : GameUi
      *  min = The minimum allowed value.
      *  max = The maximum allowed value.
      *  dg = Callback to invoke with the inputted number.
+     *  defaultVal = Default value to fill buffer with.
      */
     void promptNumber(string promptStr, int minVal, int maxVal,
                       void delegate(int) dg, string defaultVal = "")
@@ -648,6 +649,7 @@ class TextUi : GameUi
         string err;
         dchar[12] input;
         int curPos;
+        bool killOnInput = (defaultVal.length > 0);
 
         defaultVal.copy(input[]);
         curPos = defaultVal.length.to!int;
@@ -685,6 +687,11 @@ class TextUi : GameUi
                 switch (ch)
                 {
                     case '0': .. case '9':
+                        if (killOnInput)
+                        {
+                            curPos = 0;
+                            killOnInput = false;
+                        }
                         if (curPos + 1 < input.length)
                             input[curPos++] = ch;
                         break;
