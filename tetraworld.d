@@ -20,6 +20,7 @@
  */
 module tetraworld;
 
+import std.conv : to;
 import std.getopt;
 import std.range;
 import std.stdio;
@@ -62,8 +63,9 @@ int main(string[] args)
 
     if (act == Action.showHiScores)
     {
+        int n = (args.length >= 2) ? args[1].to!int : 5;
         printHiScores((const(char)[] s) { stdout.write(s); },
-                      loadHiScores().take(5));
+                      loadHiScores().take(n));
         return 0;
     }
 
