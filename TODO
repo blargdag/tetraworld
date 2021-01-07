@@ -1,10 +1,28 @@
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
+- [mapgen] Object placement code should avoid tiles that are blocking (e.g.,
+  pillars, stairs).
+- [mapgen] Need to fix random location bias: need to select BSP branches based
+  on recursively-computed floor areas; using volume as a stand-in produces
+  highly biased distributions (like rooms that are jammed full of traps and
+  objects).
+- [mapgen] Occasionally generate spiral staircases? :-D
+   - Did you realize, this can be done for *horizontal* exits? Because in 4D,
+     you can install jutting steps from a flat wall and still have them spiral
+     around horizontally. 4D just got a new notch of cool! (Just when we
+     thought we'd run out of cool things about 4D!)
 - [mapgen] Different styled rooms.
    - Need to support polymorphism in load/save. :-/
-   - Maybe occasionally block off leaf nodes?
-   - Maybe some rooms can turn into corridors.
+      - Y'know what, just hack it in MapNode with .save methods. Let's not get
+        bogged down by premature generalization. Let that come *after* we have
+        something actually working!
+   - Ideas:
+      - Occasionally block off leaf nodes.
+      - Some rooms can turn into corridors.
+      - Run a convex hull algo on the doors of a room to produce polytopic
+        rooms. :-P  Will have to suppress sink-doors for this, though.
+      - Bitmapped leaf nodes for occasional complex per-tile layouts?
 - Improve creature AI.
    - Pathfinding.
 - Water-related issues:
@@ -35,7 +53,13 @@
   generating seedable levels.
 - Pit trap generation is very inefficient; it hardly ever reaches the requested
   number!
-- [mapgen] Occasionally generate spiral staircases? :-D
+- Fix performance of map scrolling. In high-resolution terminals the
+  performance degradation is quite visible.
+   - Probably should pre-render tiles into a 4D buffer and window over it
+     instead of calling .opIndex on the world map in every frame!
+   - Also, rendering of the map itself is quite slow (even with smoothscroll
+     turned off). Probably need to do BSP node caching to maximize on
+     coherence?
 - Implement uncrossable pits and ropes for crossing them?
    - Alternatively, opposite ladderless ledges that require a rope to traverse.
 - Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
