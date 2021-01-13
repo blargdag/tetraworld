@@ -667,6 +667,7 @@ ThingId style2Terrain(FloorStyle style)
  *  allowMidAir = Whether to return locations that are in mid-air (not lying on
  *      the floor of a room).
  */
+deprecated
 Vec!(int,4) randomLocation(MapNode tree, Region!(int,4) initialBounds,
                            bool allowMidAir = false)
 {

@@ -41,6 +41,7 @@ import std.algorithm;
 import std.math : abs;
 import std.random : uniform;
 import std.range;
+import std.typecons : Tuple, tuple;
 
 import bsp;
 import components;
@@ -1236,12 +1237,149 @@ unittest
     }
 }
 
+enum Dryness { any, dry, wet }
+enum Occupancy { any, empty, occupied }
+enum Support { any, below }
+enum Distrib { tree, floor, volume }
+
+/**
+ * Location filter for randomPos().
+ */
+struct RandomPosFilt
+{
+    Dryness dryness;
+    Occupancy occupancy;
+    Support support;
+    Distrib distrib;
+
+    /**
+     * Extra custom filters.
+     */
+    bool delegate(MapNode, int[4]) extraFilt;
+
+    /**
+     * Number of tries to find a position that fulfills the filter
+     * requirements, in case the given map does not contain any location that
+     * satisfies all requirements.
+     */
+    int maxTries = 10;
+}
+
+/**
+ * Returns: A uniformly randomly selected location from the map satisfying the
+ * given filter, or a null node if no such location could be found within the
+ * specified number of attempts.
+ */
+Tuple!(MapNode,int[4]) randomPos(World w, MapNode tree, Region!(int,4) bounds,
+                                 RandomPosFilt filt)
+{
+    int metric(MapNode node)
+    {
+        final switch (filt.distrib)
+        {
+            case Distrib.tree:  return 1;
+            case Distrib.floor:
+                return iota(1, 4).map!(i => node.interior.max[i] -
+                                            node.interior.min[i])
+                                 .sum;
+            case Distrib.volume:
+                return iota(0, 4).map!(i => node.interior.max[i] -
+                                            node.interior.min[i])
+                                 .sum;
+        }
+    }
+
+    Tuple!(MapNode,int) pickNode(MapNode node)
+    {
+        if (node.isLeaf)
+            return tuple(node, metric(node));
+
+        auto left = pickNode(node.left);
+        auto right = pickNode(node.right);
+
+        auto choice = (uniform(0, left[1] + right[1]) < left[1]) ?
+                      left[0] : right[0];
+        return tuple(choice, left[1] + right[1]);
+    }
+
+    int[4] pickLoc(MapNode node)
+    {
+        int[4] result;
+        foreach (i; 0 .. 4)
+        {
+            if (i == 0 && filt.distrib == Distrib.floor)
+                result[i] = node.interior.max[i] - 1;
+            else
+                result[i] = uniform(node.interior.min[i],
+                                    node.interior.max[i]);
+        }
+        return result;
+    }
+
+    foreach (nTries; 0 .. filt.maxTries)
+    {
+        auto node = pickNode(tree)[0];
+        auto loc = pickLoc(node);
+
+        final switch (filt.dryness)
+        {
+            case Dryness.any:
+                break;
+
+            case Dryness.dry:
+                if (loc[0] >= w.map.waterLevel)
+                    continue;
+                break;
+
+            case Dryness.wet:
+                if (loc[0] < w.map.waterLevel)
+                    continue;
+                break;
+        }
+
+        final switch (filt.occupancy)
+        {
+            case Occupancy.any:
+                break;
+
+            case Occupancy.empty:
+                if (w.store.getAllBy!Pos(Pos(loc)).length > 0)
+                    continue;
+                break;
+            case Occupancy.occupied:
+                if (w.store.getAllBy!Pos(Pos(loc)).length == 0)
+                    continue;
+                break;
+        }
+
+        final switch (filt.support)
+        {
+            case Support.any:
+                break;
+
+            case Support.below:
+                auto floorPos = vec(loc) + vec(1,0,0,0);
+                if (!w.locationHas!BlocksMovement(floorPos))
+                    break;
+                break;
+        }
+
+        if (filt.extraFilt !is null && !filt.extraFilt(node, loc))
+            continue;
+
+        return tuple(node, loc);
+    }
+
+    return typeof(return).init;
+}
+
 /**
  * Returns: A random room in the given BSP tree that's completely above the
  * water level, null if all rooms are submerged (or partially so).
  *
  * Prerequisites: Room .interior's must have been set.
  */
+deprecated
 MapNode randomDryRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
     out(node; node is null || node.isLeaf())
 {
@@ -1289,6 +1427,7 @@ unittest
  * Returns: A random floor location in the given BSP tree that's above the
  * water level.
  */
+deprecated
 Vec!(int,4) randomDryPos(MapNode tree, Region!(int,4) bounds, int waterLevel)
 {
     auto dryRoom = randomDryRoom(tree, bounds, waterLevel);
@@ -1316,6 +1455,7 @@ unittest
  * Returns: A random room that's at least partially submerged, if not
  * completely; null if there are no rooms with water.
  */
+deprecated
 MapNode randomWetRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
     out(node; node is null || node.isLeaf())
 {
@@ -1450,28 +1590,21 @@ unittest
  */
 void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
 {
-    OUTER: while (count > 0)
-    {
-        // Find unoccupied location.
-        auto room = randomDryRoom(tree, bounds, w.map.waterLevel);
-        if (room is null)
-            return; // everything is underwater; don't bother.
-
-        auto pos = room.randomLocation(room.interior);
-        auto floorPos = pos + vec(1,0,0,0);
-        auto nTries = room.floorArea;
-        while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
-               !w.locationHas!BlocksMovement(floorPos) ||
-               room.doors.canFind!(d => iota(1, 4)
+    auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.any,
+                              Distrib.floor);
+    filt.extraFilt = (MapNode room, int[4] pos) {
+        return !room.doors.canFind!(d => iota(1, 4)
                                         .map!(i => abs(d.pos[i] - pos[i]))
-                                        .sum <= 1))
-        {
-            pos = room.randomLocation(room.interior);
-            floorPos = pos + vec(1,0,0,0);
+                                        .sum <= 1);
+    };
 
-            if (--nTries <= 0)
-                continue OUTER; // insure against infinite loop
-        }
+    OUTER: for (; count > 0; count--)
+    {
+        auto roomPos = randomPos(w, tree, bounds, filt);
+        auto room = roomPos[0];
+        auto pos = vec(roomPos[1]);
+
+        if (room is null) continue;
 
         auto ceilingPos = pos;
         ceilingPos[0] = room.interior.min[0];
@@ -1480,7 +1613,6 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
         createRockTrapTrig(&w.store, pos, w.triggerId);
         createRockTrap(&w.store, ceilingPos, w.triggerId);
         w.triggerId++;
-        count--;
     }
 }
 
@@ -1490,6 +1622,25 @@ unittest
     // need to repeat it a few times.
     foreach (_; 0 .. 5)
     {
+        // Room plan:
+        //          0       1       2       3
+        //          0123    0123    0123    0123
+        // 0   0    ####    ####    ####    ####
+        //     1    ####    ####    #-##    ####
+        //     2    ####    ####    ####    ####
+        //     3    ####    ####    ####    ####
+        //
+        //          0123    0123    0123    0123
+        // 1   0    ####    #-##    ####    ####
+        //     1    ####    #  #    #= #    ####
+        //     2    ####    # !#    #  #    ####
+        //     3    ####    ####    ####    ####
+        //
+        //          0123    0123    0123    0123
+        // 2   0    ####    ####    ####    ####
+        //     1    ####    #..-    #=.#    ####
+        //     2    ####    -.^#    #..#    #-##
+        //     3    ####    ####    ####    ####
         auto root = new MapNode;
         root.interior = region(vec(1,1,1,1), vec(3,3,3,3));
         root.doors = [
