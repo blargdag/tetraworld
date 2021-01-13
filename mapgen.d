@@ -1270,8 +1270,9 @@ struct RandomPosFilt
  * given filter, or a null node if no such location could be found within the
  * specified number of attempts.
  */
-Tuple!(MapNode,int[4]) randomPos(World w, MapNode tree, Region!(int,4) bounds,
-                                 RandomPosFilt filt)
+Tuple!(MapNode, Vec!(int,4)) randomPos(World w, MapNode tree,
+                                       Region!(int,4) bounds,
+                                       RandomPosFilt filt)
 {
     int metric(MapNode node)
     {
@@ -1302,7 +1303,7 @@ Tuple!(MapNode,int[4]) randomPos(World w, MapNode tree, Region!(int,4) bounds,
         return tuple(choice, left[1] + right[1]);
     }
 
-    int[4] pickLoc(MapNode node)
+    Vec!(int,4) pickLoc(MapNode node)
     {
         int[4] result;
         foreach (i; 0 .. 4)
@@ -1313,7 +1314,7 @@ Tuple!(MapNode,int[4]) randomPos(World w, MapNode tree, Region!(int,4) bounds,
                 result[i] = uniform(node.interior.min[i],
                                     node.interior.max[i]);
         }
-        return result;
+        return vec(result);
     }
 
     foreach (nTries; 0 .. filt.maxTries)
@@ -1358,9 +1359,9 @@ Tuple!(MapNode,int[4]) randomPos(World w, MapNode tree, Region!(int,4) bounds,
                 break;
 
             case Support.below:
-                auto floorPos = vec(loc) + vec(1,0,0,0);
+                auto floorPos = loc + vec(1,0,0,0);
                 if (!w.locationHas!BlocksMovement(floorPos))
-                    break;
+                    continue;
                 break;
         }
 
@@ -1404,6 +1405,7 @@ MapNode randomDryRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
     return dryRoom;
 }
 
+version(none)
 unittest
 {
     auto bounds = region(vec(0,0,0,0), vec(10,5,5,5));
@@ -1434,6 +1436,7 @@ Vec!(int,4) randomDryPos(MapNode tree, Region!(int,4) bounds, int waterLevel)
     return dryRoom.randomLocation(dryRoom.interior);
 }
 
+version(none)
 unittest
 {
     auto bounds = region(vec(0,0,0,0), vec(10,5,5,5));
@@ -1602,7 +1605,7 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
     {
         auto roomPos = randomPos(w, tree, bounds, filt);
         auto room = roomPos[0];
-        auto pos = vec(roomPos[1]);
+        auto pos = roomPos[1];
 
         if (room is null) continue;
 
@@ -1808,11 +1811,13 @@ unittest
 void genPortal(World w, MapNode tree, Region!(int,4) bounds)
 {
     // Pick a tile that isn't empty or has no floor support.
-    auto pos = randomDryPos(tree, bounds, w.map.waterLevel);
-    while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
-           !w.locationHas!BlocksMovement(pos + vec(1,0,0,0)))
-        pos = randomDryPos(tree, bounds, w.map.waterLevel);
+    auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
+                              Distrib.floor, null, 100);
+    auto roomPos = randomPos(w, tree, bounds, filt);
+    if (roomPos[0] is null)
+        throw new Exception("Unable to place exit portal"); // FIXME
 
+    auto pos = roomPos[1];
     createPortal(&w.store, pos);
 }
 
