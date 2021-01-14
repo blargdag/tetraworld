@@ -971,6 +971,81 @@ unittest
 }
 
 /**
+ * Returns: The coordinates of the "porch" of a particular door in the given
+ * room, i.e., the tile next to the door that lies inside the interior of the
+ * room.
+ *
+ * Prerequisites: The door must be part of the room, otherwise the result will
+ * be nonsensical.
+ */
+Vec!(int,4) doorPorch(MapNode room, Door d)
+{
+    auto result = vec(d.pos);
+    result[d.axis] = result[d.axis].clamp(room.interior.min[d.axis],
+                                          room.interior.max[d.axis]+1);
+    return result;
+}
+
+/**
+ * Create spiral stairs with the given top and winding parameters.
+ */
+void createSpiralStairs(World w, Vec!(int,4) top, Vec!(int,4) dx,
+                        Vec!(int,4) dy, int bottom, bool thickenBelow)
+{
+    auto r = only(dx, dy, -dx, -dy).cycle;
+    Vec!(int,4) v = top;
+    while (++v[0] < bottom)
+    {
+        createSpiralStep(&w.store, Pos(v),
+                         (v[0]+1 < bottom) ? thickenBelow : false);
+        v += r.front;
+        r.popFront;
+    }
+}
+
+bool tryAddSpiralStairs(World w, MapNode room, Door d)
+{
+    // For now, build spiral stairs only for horizontal exits.
+    if (d.axis == 0)
+        return false;
+
+    // Determine spiral 2-plane.
+    int[2] axes;
+    iota(1, 4).filter!(i => i != d.axis)
+              .copy(axes[]);
+
+    // Bounding box for stairwell.
+    Region!(int,2) spiralBbox(Door d)
+    {
+        return region(vec(d.pos[axes[0]] - 1, d.pos[axes[1]] - 1),
+                      vec(d.pos[axes[0]] + 1, d.pos[axes[1]] + 1));
+    }
+    auto bbox = spiralBbox(d);
+
+    // Check for overlap with other doors' bounding boxes.
+    auto porch = doorPorch(room, d);
+    foreach (dd; room.doors)
+    {
+        if (d == dd) continue;
+        auto porch2 = doorPorch(room, dd);
+        if (porch2[d.axis] != porch[d.axis])
+            continue;
+
+        if (spiralBbox(dd).intersects(bbox))
+            return false;
+    }
+
+    auto dx = vec(0,0,0,0);
+    auto dy = vec(0,0,0,0);
+    dx[axes[0]] = (uniform(0, 2) == 0) ? -1 : 1;
+    dy[axes[1]] = (uniform(0, 2) == 0) ? -1 : 1;
+
+    createSpiralStairs(w, porch, dx, dy, room.interior.max[0], true);
+
+    return true;
+}
+
+/**
  * Generate ladders for reaching doors that are too high to reach from floor.
  *
  * Prerequisites: Room interiors must already have been set.
@@ -1568,7 +1643,7 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
     filt.extraFilt = (MapNode room, int[4] pos) {
         return !room.doors.canFind!(d => iota(1, 4)
                                         .map!(i => abs(d.pos[i] - pos[i]))
-                                        .sum <= 1);
+                                                    .sum <= 1);
     };
 
     OUTER: for (; count > 0; count--)
@@ -2583,42 +2658,38 @@ void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
 World genTestLevel()(out int[4] startPos)
 {
     auto root = new MapNode;
-    root.axis = 0;
-    root.pivot = 3;
+    root.axis = 1;
+    root.pivot = 5;
 
     root.left = new MapNode;
-    root.left.interior = region(vec(1,1,1,1), vec(4,4,4,4));
+    root.left.interior = region(vec(1,1,1,1), vec(3,4,4,4));
     root.left.doors = [
-        Door(0, [3,1,1,1]),
-        Door(0, [3,3,3,3]),
+        Door(1, [1,4,2,2]),
     ];
 
     root.right = new MapNode;
-    root.right.interior = region(vec(4,1,1,1), vec(9,4,4,4));
+    root.right.interior = region(vec(1,5,1,1), vec(8,8,4,4));
     root.right.doors = [
-        Door(0, [3,1,1,1]),
-        Door(0, [3,3,3,3]),
+        Door(1, [1,4,2,2]),
     ];
 
     auto w = new World;
     w.map.tree = root;
-    w.map.bounds = region(vec(1,1,1,1), vec(9,4,4,4));
-    w.map.waterLevel = 8;
+    w.map.bounds = region(vec(1,1,1,1), vec(9,9,5,5));
+    w.map.waterLevel = int.max;
 
-    addLadders(w, w.map.tree, w.map.bounds);
+//    createSpiralStep(&w.store, Pos(2,5,2,2));
+//    createSpiralStep(&w.store, Pos(3,5,3,2));
+//    createSpiralStep(&w.store, Pos(4,5,3,3));
+//    createSpiralStep(&w.store, Pos(5,5,2,3));
+//    createSpiralStep(&w.store, Pos(6,5,2,2));
+//    createSpiralStep(&w.store, Pos(7,5,3,2), false);
 
-    auto monA = createMonsterA(&w.store, Pos(8,2,2,2));
-    w.store.get!Mortal(monA.id).curStats.hp = 3;
+    createSpiralStairs(w, vec(1,5,2,2), vec(0,0,0,1), vec(0,0,1,0), 8, true);
 
-    //createMonsterC(&w.store, Pos(2,2,2,2));
-    createVeg(&w.store, Pos(2,1,2,2));
-    createVeg(&w.store, Pos(2,1,3,2));
-    createVeg(&w.store, Pos(4,1,3,1));
-    createSharpRock(&w.store, Pos(8,1,1,1));
-    createRock(&w.store, Pos(8,1,1,1));
-    createRock(&w.store, Pos(8,1,1,1));
+    //addLadders(w, w.map.tree, w.map.bounds);
 
-    startPos = [8,1,1,1];
+    startPos = [7,6,2,2];
     return w;
 }
 
