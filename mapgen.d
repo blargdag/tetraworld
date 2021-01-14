@@ -1262,7 +1262,7 @@ struct RandomPosFilt
      * requirements, in case the given map does not contain any location that
      * satisfies all requirements.
      */
-    int maxTries = 10;
+    int maxTries = int.max;
 }
 
 /**
@@ -1270,9 +1270,9 @@ struct RandomPosFilt
  * given filter, or a null node if no such location could be found within the
  * specified number of attempts.
  */
-Tuple!(MapNode, Vec!(int,4)) randomPos(World w, MapNode tree,
-                                       Region!(int,4) bounds,
-                                       RandomPosFilt filt)
+Tuple!(MapNode, Vec!(int,4)) randomRoomPos(World w, MapNode tree,
+                                           Region!(int,4) bounds,
+                                           RandomPosFilt filt)
 {
     int metric(MapNode node)
     {
@@ -1308,7 +1308,8 @@ Tuple!(MapNode, Vec!(int,4)) randomPos(World w, MapNode tree,
         int[4] result;
         foreach (i; 0 .. 4)
         {
-            if (i == 0 && filt.distrib == Distrib.floor)
+            if (i == 0 && (filt.support == Support.below ||
+                           filt.distrib == Distrib.floor))
                 result[i] = node.interior.max[i] - 1;
             else
                 result[i] = uniform(node.interior.min[i],
@@ -1372,6 +1373,20 @@ Tuple!(MapNode, Vec!(int,4)) randomPos(World w, MapNode tree,
     }
 
     return typeof(return).init;
+}
+
+/// ditto
+Vec!(int,4) randomPos(World w, MapNode tree, Region!(int,4) bounds,
+                      RandomPosFilt filt)
+{
+    auto roomPos = randomRoomPos(w, tree, bounds, filt);
+    if (roomPos[0] is null)
+    {
+        import std.format : format;
+        throw new Exception("Unable to find random pos satisfying: %s"
+                            .format(filt));
+    }
+    return roomPos[1];
 }
 
 /**
@@ -1603,7 +1618,7 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
 
     OUTER: for (; count > 0; count--)
     {
-        auto roomPos = randomPos(w, tree, bounds, filt);
+        auto roomPos = randomRoomPos(w, tree, bounds, filt);
         auto room = roomPos[0];
         auto pos = roomPos[1];
 
@@ -1811,13 +1826,9 @@ unittest
 void genPortal(World w, MapNode tree, Region!(int,4) bounds)
 {
     // Pick a tile that isn't empty or has no floor support.
-    auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
-                              Distrib.floor, null, 100);
-    auto roomPos = randomPos(w, tree, bounds, filt);
-    if (roomPos[0] is null)
-        throw new Exception("Unable to place exit portal"); // FIXME
-
-    auto pos = roomPos[1];
+    auto pos = randomPos(w, tree, bounds,
+                         RandomPosFilt(Dryness.dry, Occupancy.empty,
+                                       Support.below, Distrib.floor));
     createPortal(&w.store, pos);
 }
 
@@ -1985,13 +1996,17 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     // Items
     foreach (i; 0 .. args.nCrabShells.pick())
     {
-        auto pos = randomLocation(tree, bounds);
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.any, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         createCrabShell(&w.store, Pos(pos));
     }
 
     foreach (i; 0 .. args.nScubas.pick())
     {
-        auto pos = randomDryPos(tree, bounds, w.map.waterLevel);
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.dry, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         createScuba(&w.store, Pos(pos));
     }
 
@@ -1999,11 +2014,13 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     auto mapFloorArea = floorArea(tree);
     foreach (i; 0 .. mapFloorArea * args.rockPct / 100)
     {
-        auto pos = randomLocation(tree, bounds);
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.any, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         if (uniform(0, 100) < args.sharpRockPct)
-            createSharpRock(&w.store, pos);
+            createSharpRock(&w.store, Pos(pos));
         else
-            createRock(&w.store, pos);
+            createRock(&w.store, Pos(pos));
     }
 
     // Generate random vegetation for creatures to seek out once in a while.
@@ -2013,10 +2030,13 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     {
         // TBD: bias the distribution to be closer to water line, fade away
         // farther away from water line.
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.any, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         if (uniform(0, 100) < vegDensePct)
-            createDenseVeg(&w.store, randomLocation(tree, bounds));
+            createDenseVeg(&w.store, Pos(pos));
         else
-            createVeg(&w.store, randomLocation(tree, bounds));
+            createVeg(&w.store, Pos(pos));
     }
 
     // Note: this should be done after all other items / deco, so that it
@@ -2024,41 +2044,38 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     auto ngold = cast(int)(mapFloorArea * args.goldPct / 100);
     foreach (i; 0 .. ngold)
     {
-        createGold(&w.store, randomLocation(tree, bounds));
+        auto filt = RandomPosFilt(Dryness.any, Occupancy.empty, Support.below,
+                                  Distrib.floor);
+        createGold(&w.store, Pos(randomPos(w, tree, bounds, filt)));
     }
 
     foreach (i; 0 .. args.nMonstersA.pick())
     {
-        auto pos = randomLocation(tree, bounds);
-
-        // Avoid placing monsters in player's starting room.
-        while (startRoom && startRoom.interior.contains(pos))
-            pos = randomDryPos(tree, bounds, w.map.waterLevel);
-
-        createMonsterA(&w.store, pos);
+        auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
+                                  Distrib.floor);
+        filt.extraFilt = (MapNode room, int[4] pos) => room !is startRoom;
+        auto pos = randomPos(w, tree, bounds, filt);
+        createMonsterA(&w.store, Pos(pos));
     }
 
     foreach (i; 0 .. args.nMonstersB.pick())
     {
-        auto room = randomWetRoom(tree, bounds, w.map.waterLevel);
-        if (room is null) break;
+        auto filt = RandomPosFilt(Dryness.wet, Occupancy.empty, Support.any,
+                                  Distrib.volume);
+        filt.extraFilt = (MapNode room, int[4] pos) => room !is startRoom;
+        auto pos = randomPos(w, tree, bounds, filt);
 
-        // Avoid placing monsters in player's starting room.
-        while (room is startRoom)
-            room = randomWetRoom(tree, bounds, w.map.waterLevel);
-
-        createMonsterB(&w.store, room.randomLocation(room.interior));
+        createMonsterB(&w.store, Pos(pos));
     }
 
     foreach (i; 0 .. args.nMonstersC.pick())
     {
-        auto pos = randomLocation(tree, bounds);
+        auto filt = RandomPosFilt(Dryness.any, Occupancy.empty, Support.below,
+                                  Distrib.floor);
+        filt.extraFilt = (MapNode room, int[4] pos) => room !is startRoom;
+        auto pos = randomPos(w, tree, bounds, filt);
 
-        // Avoid placing monsters in player's starting room.
-        while (startRoom && startRoom.interior.contains(pos))
-            pos = randomLocation(tree, bounds);
-
-        createMonsterC(&w.store, pos);
+        createMonsterC(&w.store, Pos(pos));
     }
 }
 
