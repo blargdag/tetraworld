@@ -1013,6 +1013,7 @@ void createSpiralStairs(World w, Vec!(int,4) top, Vec!(int,4) dx,
     Vec!(int,4) v = top;
     while (++v[0] < bottom)
     {
+        assert(!w.locationHas!BlocksMovement(v));
         createSpiralStep(&w.store, Pos(v),
                          (v[0]+1 < bottom) ? thickenBelow : false);
         v += r.front;
@@ -1052,12 +1053,19 @@ bool tryAddSpiralStairs(World w, MapNode room, Door d)
             return false;
     }
 
-    auto dx = vec(0,0,0,0);
-    auto dy = vec(0,0,0,0);
-    dx[axes[0]] = (uniform(0, 2) == 0) ? -1 : 1;
-    dy[axes[1]] = (uniform(0, 2) == 0) ? -1 : 1;
+    // Construct basis vectors for winding the stairs.
+    Vec!(int,4)[2] basis;
+    foreach (i; 0 .. 2)
+    {
+        auto axis = axes[i];
+        basis[i][axis] = only(-1, 1)
+            .filter!(x => porch[axis] + x >= room.interior.min[axis] &&
+                          porch[axis] + x < room.interior.max[axis])
+            .pickOne;
+    }
 
-    createSpiralStairs(w, porch, dx, dy, room.interior.max[0], true);
+    createSpiralStairs(w, porch, basis[0], basis[1], room.interior.max[0],
+                       true);
 
     return true;
 }
