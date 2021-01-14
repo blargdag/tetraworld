@@ -2095,9 +2095,11 @@ World genBspLevel(Region!(int,4) bounds, MapGenArgs args, out int[4] startPos)
     genGeometry(w, w.map.tree, bounds, args);
 
     // Place starting position and exit.
-    MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
-                                      w.map.waterLevel);
-    startPos = startRoom.randomLocation(startRoom.interior);
+    auto roomPos = randomRoomPos(w, w.map.tree, w.map.bounds,
+                                 RandomPosFilt(Dryness.dry, Occupancy.empty,
+                                               Support.below, Distrib.floor));
+    auto startRoom = roomPos[0];
+    startPos = roomPos[1];
     genPortal(w, w.map.tree, w.map.bounds);
 
     // Add objects and deco.
@@ -2553,21 +2555,24 @@ World genBipartiteLevel(BipartiteGenArgs args,
     }
 
     // Generate startPos in selected half of level.
-    MapNode startRoom;
+    auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
+                              Distrib.floor);
+    Tuple!(MapNode, Vec!(int,4)) roomPos;
     switch (args.startPart)
     {
         case 0:
-            startRoom = randomDryRoom(tree1, boundsLeft, w.map.waterLevel);
+            roomPos = randomRoomPos(w, tree1, boundsLeft, filt);
             break;
 
         case 1:
-            startRoom = randomDryRoom(tree2, boundsRight, w.map.waterLevel);
+            roomPos = randomRoomPos(w, tree2, boundsRight, filt);
             break;
 
         default:
             assert(0, "Invalid start index for bipartite level gen");
     }
-    startPos = startRoom.randomLocation(startRoom.interior);
+    auto startRoom = roomPos[0];
+    startPos = roomPos[1];
 
     // Place objects and deco
     genObjects(w, tree1, boundsLeft, args.subargs[0], startRoom);
@@ -2606,7 +2611,9 @@ void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
     Pos leverPos, floorPos;
     do
     {
-        leverPos = Pos(randomLocation(leverTree, leverBounds));
+        leverPos = Pos(randomPos(w, leverTree, leverBounds,
+                       RandomPosFilt(Dryness.any, Occupancy.empty,
+                                     Support.below, Distrib.floor)));
         floorPos = leverPos + vec(1,0,0,0);
     } while (!w.store.getAllBy!Pos(leverPos).empty ||
              !w.locationHas!BlocksMovement(floorPos));
