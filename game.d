@@ -1320,6 +1320,7 @@ StoryNode[] storyNodes = [
         args.nBackEdges = ValRange(200, 300);
         args.nPitTraps = ValRange(180, 250);
         args.nRockTraps = ValRange(150, 180);
+        args.spiralStairsPct = 25;
         args.goldPct = 0.8;
         args.waterLevel = ValRange(12, 15);
         args.nMonstersA = ValRange(30, 50);

@@ -39,6 +39,18 @@ Thing* createLadder(Store* store, Pos pos)
                        SupportCond.climbing));
 }
 
+Thing* createSpiralStep(Store *store, Pos pos, bool thickenBelow=true)
+{
+    if (thickenBelow)
+        store.createObj(Pos(pos + Pos(1,0,0,0)), Tiled(TileId.wall, -1),
+            BlocksMovement(Climbable.yes));
+    return store.createObj(Pos(pos), Tiled(TileId.wall, -1),
+        TiledAbove(TileId.ladderTop, -1), Name("spiral stairs"),
+        BlocksMovement(Climbable.yes),
+        SupportsWeight(SupportType.above | SupportType.within,
+                       SupportCond.permanent));
+}
+
 void registerTerrains(Store* store)
 {
     store.registerTerrain(emptySpace, Tiled(TileId.space, -2), Medium.air,
