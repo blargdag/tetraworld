@@ -1075,8 +1075,7 @@ bool tryAddSpiralStairs(World w, MapNode room, Door d)
  *
  * Prerequisites: Room interiors must already have been set.
  */
-void addLadders(World w, MapNode tree, Region!(int,4) bounds,
-                int spiralPct = 5)
+void addLadders(World w, MapNode tree, Region!(int,4) bounds, int spiralPct)
 {
     foreachRoom(tree, bounds, (Region!(int,4) bounds, MapNode node) {
         foreach (d; node.doors)
