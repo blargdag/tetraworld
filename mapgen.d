@@ -1389,38 +1389,6 @@ Vec!(int,4) randomPos(World w, MapNode tree, Region!(int,4) bounds,
     return roomPos[1];
 }
 
-/**
- * Returns: A random room in the given BSP tree that's completely above the
- * water level, null if all rooms are submerged (or partially so).
- *
- * Prerequisites: Room .interior's must have been set.
- */
-deprecated
-MapNode randomDryRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
-    out(node; node is null || node.isLeaf())
-{
-    auto dryRegion = bounds;
-    dryRegion.max[0] = waterLevel;
-
-    MapNode dryRoom;
-    int n = 0;
-    foreachFiltRoom(tree, bounds, dryRegion,
-        (MapNode node, Region!(int,4) r) {
-            if (node.interior.max[0] > waterLevel)
-                return 0; // reject partially-submerged rooms
-
-            if (n == 0 || uniform(0, n) == 0)
-            {
-                dryRoom = node;
-            }
-            n++;
-            return 0;
-        }
-    );
-    return dryRoom;
-}
-
-version(none)
 unittest
 {
     auto bounds = region(vec(0,0,0,0), vec(10,5,5,5));
@@ -1434,24 +1402,26 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    assert(randomDryRoom(root, bounds, 8) is root.left);
-    assert(randomDryRoom(root, bounds, 5) is root.left);
-    assert(randomDryRoom(root, bounds, 4) is root.left);
-    assert(randomDryRoom(root, bounds, 3) is null);
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+
+    auto filt = RandomPosFilt(Dryness.dry, Occupancy.any, Support.any,
+                              Distrib.floor, null, 10);
+
+    w.map.waterLevel = 8;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is root.left);
+
+    w.map.waterLevel = 5;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is root.left);
+
+    w.map.waterLevel = 4;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is root.left);
+
+    w.map.waterLevel = 3;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is null);
 }
 
-/**
- * Returns: A random floor location in the given BSP tree that's above the
- * water level.
- */
-deprecated
-Vec!(int,4) randomDryPos(MapNode tree, Region!(int,4) bounds, int waterLevel)
-{
-    auto dryRoom = randomDryRoom(tree, bounds, waterLevel);
-    return dryRoom.randomLocation(dryRoom.interior);
-}
-
-version(none)
 unittest
 {
     auto bounds = region(vec(0,0,0,0), vec(10,5,5,5));
@@ -1465,30 +1435,15 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    auto pos = randomDryPos(root, bounds, 7);
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = 7;
+
+    auto pos = randomPos(w, root, bounds,
+                         RandomPosFilt(Dryness.dry, Occupancy.any, Support.any,
+                                       Distrib.floor, null, 10));
     assert(root.left.interior.contains(pos));
-}
-
-/**
- * Returns: A random room that's at least partially submerged, if not
- * completely; null if there are no rooms with water.
- */
-deprecated
-MapNode randomWetRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
-    out(node; node is null || node.isLeaf())
-{
-    auto wetRegion = bounds;
-    wetRegion.min[0] = waterLevel;
-
-    MapNode wetRoom;
-    int n = 0;
-    foreachFiltRoom(tree, bounds, wetRegion, (MapNode node, Region!(int,4) r) {
-        if (n == 0 || uniform(0, n) == 0)
-            wetRoom = node;
-        n++;
-        return 0;
-    });
-    return wetRoom;
 }
 
 /**
