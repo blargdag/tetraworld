@@ -982,8 +982,25 @@ Vec!(int,4) doorPorch(MapNode room, Door d)
 {
     auto result = vec(d.pos);
     result[d.axis] = result[d.axis].clamp(room.interior.min[d.axis],
-                                          room.interior.max[d.axis]+1);
+                                          room.interior.max[d.axis]-1);
     return result;
+}
+
+unittest
+{
+    auto room = new MapNode;
+    room.interior = region(vec(1,1,1,1), vec(4,4,4,4));
+    room.doors = [
+        Door(0, [0,2,2,2]),
+        Door(0, [4,1,1,1]),
+        Door(1, [3,0,3,3]),
+        Door(1, [3,4,3,3]),
+    ];
+
+    assert(doorPorch(room, room.doors[0]) == vec(1,2,2,2));
+    assert(doorPorch(room, room.doors[1]) == vec(3,1,1,1));
+    assert(doorPorch(room, room.doors[2]) == vec(3,1,3,3));
+    assert(doorPorch(room, room.doors[3]) == vec(3,3,3,3));
 }
 
 /**
@@ -1050,7 +1067,8 @@ bool tryAddSpiralStairs(World w, MapNode room, Door d)
  *
  * Prerequisites: Room interiors must already have been set.
  */
-void addLadders(World w, MapNode tree, Region!(int,4) bounds)
+void addLadders(World w, MapNode tree, Region!(int,4) bounds,
+                int spiralPct = 5)
 {
     foreachRoom(tree, bounds, (Region!(int,4) bounds, MapNode node) {
         foreach (d; node.doors)
@@ -1068,6 +1086,12 @@ void addLadders(World w, MapNode tree, Region!(int,4) bounds)
             else if (d.axis != 0 && d.pos[0] < node.interior.max[0] - 2)
             {
                 // Horizontal exits
+                if (uniform(0, 100) < spiralPct &&
+                    tryAddSpiralStairs(w, node, d))
+                {
+                    continue;
+                }
+
                 auto pos = d.pos;
                 pos[d.axis] = (d.pos[d.axis] == node.interior.max[d.axis]) ?
                               d.pos[d.axis] - 1 : d.pos[d.axis] + 1;
@@ -1107,7 +1131,7 @@ unittest
 
     w.map.waterLevel = int.max;
 
-    addLadders(w, w.map.tree, w.map.bounds);
+    addLadders(w, w.map.tree, w.map.bounds, 0);
 
     bool hasLadder(Pos pos)
     {
@@ -1163,7 +1187,7 @@ unittest
 
     w.map.waterLevel = int.max;
 
-    addLadders(w, w.map.tree, w.map.bounds);
+    addLadders(w, w.map.tree, w.map.bounds, 0);
 
     bool hasLadder(Pos pos)
     {
@@ -1940,6 +1964,7 @@ struct MapGenArgs
     ValRange nBackEdges;
     ValRange nPitTraps;
     ValRange nRockTraps;
+    int spiralStairsPct = 5;
 
     float goldPct;
     float rockPct = 2.0, sharpRockPct = 5.0;
@@ -2020,7 +2045,7 @@ void genGeometry(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args)
 void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
                 MapNode startRoom = null)
 {
-    addLadders(w, tree, bounds);
+    addLadders(w, tree, bounds, args.spiralStairsPct);
     genRockTraps(w, tree, bounds, args.nRockTraps.pick);
 
     // Items
@@ -2678,14 +2703,8 @@ World genTestLevel()(out int[4] startPos)
     w.map.bounds = region(vec(1,1,1,1), vec(9,9,5,5));
     w.map.waterLevel = int.max;
 
-//    createSpiralStep(&w.store, Pos(2,5,2,2));
-//    createSpiralStep(&w.store, Pos(3,5,3,2));
-//    createSpiralStep(&w.store, Pos(4,5,3,3));
-//    createSpiralStep(&w.store, Pos(5,5,2,3));
-//    createSpiralStep(&w.store, Pos(6,5,2,2));
-//    createSpiralStep(&w.store, Pos(7,5,3,2), false);
-
-    createSpiralStairs(w, vec(1,5,2,2), vec(0,0,0,1), vec(0,0,1,0), 8, true);
+    if (!tryAddSpiralStairs(w, root.right, root.right.doors[0]))
+        assert(0, "Failed to add spiral stairs");
 
     //addLadders(w, w.map.tree, w.map.bounds);
 
