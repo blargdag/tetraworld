@@ -41,6 +41,7 @@ import std.algorithm;
 import std.math : abs;
 import std.random : uniform;
 import std.range;
+import std.typecons : Tuple, tuple;
 
 import bsp;
 import components;
@@ -1236,34 +1237,156 @@ unittest
     }
 }
 
+enum Dryness { any, dry, wet }
+enum Occupancy { any, empty, occupied }
+enum Support { any, below }
+enum Distrib { tree, floor, volume }
+
 /**
- * Returns: A random room in the given BSP tree that's completely above the
- * water level, null if all rooms are submerged (or partially so).
- *
- * Prerequisites: Room .interior's must have been set.
+ * Location filter for randomPos().
  */
-MapNode randomDryRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
-    out(node; node is null || node.isLeaf())
+struct RandomPosFilt
 {
-    auto dryRegion = bounds;
-    dryRegion.max[0] = waterLevel;
+    Dryness dryness;
+    Occupancy occupancy;
+    Support support;
+    Distrib distrib;
 
-    MapNode dryRoom;
-    int n = 0;
-    foreachFiltRoom(tree, bounds, dryRegion,
-        (MapNode node, Region!(int,4) r) {
-            if (node.interior.max[0] > waterLevel)
-                return 0; // reject partially-submerged rooms
+    /**
+     * Extra custom filters.
+     */
+    bool delegate(MapNode, int[4]) extraFilt;
 
-            if (n == 0 || uniform(0, n) == 0)
-            {
-                dryRoom = node;
-            }
-            n++;
-            return 0;
+    /**
+     * Number of tries to find a position that fulfills the filter
+     * requirements, in case the given map does not contain any location that
+     * satisfies all requirements.
+     */
+    int maxTries = int.max;
+}
+
+/**
+ * Returns: A uniformly randomly selected location from the map satisfying the
+ * given filter, or a null node if no such location could be found within the
+ * specified number of attempts.
+ */
+Tuple!(MapNode, Vec!(int,4)) randomRoomPos(World w, MapNode tree,
+                                           Region!(int,4) bounds,
+                                           RandomPosFilt filt)
+{
+    int metric(MapNode node)
+    {
+        final switch (filt.distrib)
+        {
+            case Distrib.tree:  return 1;
+            case Distrib.floor:
+                return iota(1, 4).map!(i => node.interior.max[i] -
+                                            node.interior.min[i])
+                                 .sum;
+            case Distrib.volume:
+                return iota(0, 4).map!(i => node.interior.max[i] -
+                                            node.interior.min[i])
+                                 .sum;
         }
-    );
-    return dryRoom;
+    }
+
+    Tuple!(MapNode,int) pickNode(MapNode node)
+    {
+        if (node.isLeaf)
+            return tuple(node, metric(node));
+
+        auto left = pickNode(node.left);
+        auto right = pickNode(node.right);
+
+        auto choice = (uniform(0, left[1] + right[1]) < left[1]) ?
+                      left[0] : right[0];
+        return tuple(choice, left[1] + right[1]);
+    }
+
+    Vec!(int,4) pickLoc(MapNode node)
+    {
+        int[4] result;
+        foreach (i; 0 .. 4)
+        {
+            if (i == 0 && (filt.support == Support.below ||
+                           filt.distrib == Distrib.floor))
+                result[i] = node.interior.max[i] - 1;
+            else
+                result[i] = uniform(node.interior.min[i],
+                                    node.interior.max[i]);
+        }
+        return vec(result);
+    }
+
+    foreach (nTries; 0 .. filt.maxTries)
+    {
+        auto node = pickNode(tree)[0];
+        auto loc = pickLoc(node);
+
+        final switch (filt.dryness)
+        {
+            case Dryness.any:
+                break;
+
+            case Dryness.dry:
+                if (loc[0] >= w.map.waterLevel)
+                    continue;
+                break;
+
+            case Dryness.wet:
+                if (loc[0] < w.map.waterLevel)
+                    continue;
+                break;
+        }
+
+        final switch (filt.occupancy)
+        {
+            case Occupancy.any:
+                break;
+
+            case Occupancy.empty:
+                if (w.store.getAllBy!Pos(Pos(loc)).length > 0)
+                    continue;
+                break;
+            case Occupancy.occupied:
+                if (w.store.getAllBy!Pos(Pos(loc)).length == 0)
+                    continue;
+                break;
+        }
+
+        final switch (filt.support)
+        {
+            case Support.any:
+                break;
+
+            case Support.below:
+                auto floorPos = loc + vec(1,0,0,0);
+                if (!w.locationHas!BlocksMovement(floorPos))
+                    continue;
+                break;
+        }
+
+        if (filt.extraFilt !is null && !filt.extraFilt(node, loc))
+            continue;
+
+        return tuple(node, loc);
+    }
+
+    return typeof(return).init;
+}
+
+/// ditto
+Vec!(int,4) randomPos(World w, MapNode tree, Region!(int,4) bounds,
+                      RandomPosFilt filt)
+{
+    auto roomPos = randomRoomPos(w, tree, bounds, filt);
+    if (roomPos[0] is null)
+    {
+        import std.format : format;
+        throw new Exception("Unable to find random pos satisfying: %s"
+                            .format(filt));
+    }
+    return roomPos[1];
 }
 
 unittest
@@ -1279,20 +1402,24 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    assert(randomDryRoom(root, bounds, 8) is root.left);
-    assert(randomDryRoom(root, bounds, 5) is root.left);
-    assert(randomDryRoom(root, bounds, 4) is root.left);
-    assert(randomDryRoom(root, bounds, 3) is null);
-}
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
 
-/**
- * Returns: A random floor location in the given BSP tree that's above the
- * water level.
- */
-Vec!(int,4) randomDryPos(MapNode tree, Region!(int,4) bounds, int waterLevel)
-{
-    auto dryRoom = randomDryRoom(tree, bounds, waterLevel);
-    return dryRoom.randomLocation(dryRoom.interior);
+    auto filt = RandomPosFilt(Dryness.dry, Occupancy.any, Support.any,
+                              Distrib.floor, null, 10);
+
+    w.map.waterLevel = 8;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is root.left);
+
+    w.map.waterLevel = 5;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is root.left);
+
+    w.map.waterLevel = 4;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is root.left);
+
+    w.map.waterLevel = 3;
+    assert(randomRoomPos(w, root, bounds, filt)[0] is null);
 }
 
 unittest
@@ -1308,29 +1435,15 @@ unittest
     root.right = new MapNode;
     root.right.interior = region(vec(5,0,0,0), vec(9,4,4,4));
 
-    auto pos = randomDryPos(root, bounds, 7);
+    auto w = new World;
+    w.map.tree = root;
+    w.map.bounds = bounds;
+    w.map.waterLevel = 7;
+
+    auto pos = randomPos(w, root, bounds,
+                         RandomPosFilt(Dryness.dry, Occupancy.any, Support.any,
+                                       Distrib.floor, null, 10));
     assert(root.left.interior.contains(pos));
-}
-
-/**
- * Returns: A random room that's at least partially submerged, if not
- * completely; null if there are no rooms with water.
- */
-MapNode randomWetRoom(MapNode tree, Region!(int,4) bounds, int waterLevel)
-    out(node; node is null || node.isLeaf())
-{
-    auto wetRegion = bounds;
-    wetRegion.min[0] = waterLevel;
-
-    MapNode wetRoom;
-    int n = 0;
-    foreachFiltRoom(tree, bounds, wetRegion, (MapNode node, Region!(int,4) r) {
-        if (n == 0 || uniform(0, n) == 0)
-            wetRoom = node;
-        n++;
-        return 0;
-    });
-    return wetRoom;
 }
 
 /**
@@ -1450,28 +1563,21 @@ unittest
  */
 void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
 {
-    OUTER: while (count > 0)
-    {
-        // Find unoccupied location.
-        auto room = randomDryRoom(tree, bounds, w.map.waterLevel);
-        if (room is null)
-            return; // everything is underwater; don't bother.
-
-        auto pos = room.randomLocation(room.interior);
-        auto floorPos = pos + vec(1,0,0,0);
-        auto nTries = room.floorArea;
-        while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
-               !w.locationHas!BlocksMovement(floorPos) ||
-               room.doors.canFind!(d => iota(1, 4)
+    auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.any,
+                              Distrib.floor);
+    filt.extraFilt = (MapNode room, int[4] pos) {
+        return !room.doors.canFind!(d => iota(1, 4)
                                         .map!(i => abs(d.pos[i] - pos[i]))
-                                        .sum <= 1))
-        {
-            pos = room.randomLocation(room.interior);
-            floorPos = pos + vec(1,0,0,0);
+                                        .sum <= 1);
+    };
 
-            if (--nTries <= 0)
-                continue OUTER; // insure against infinite loop
-        }
+    OUTER: for (; count > 0; count--)
+    {
+        auto roomPos = randomRoomPos(w, tree, bounds, filt);
+        auto room = roomPos[0];
+        auto pos = roomPos[1];
+
+        if (room is null) continue;
 
         auto ceilingPos = pos;
         ceilingPos[0] = room.interior.min[0];
@@ -1480,7 +1586,6 @@ void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
         createRockTrapTrig(&w.store, pos, w.triggerId);
         createRockTrap(&w.store, ceilingPos, w.triggerId);
         w.triggerId++;
-        count--;
     }
 }
 
@@ -1490,6 +1595,25 @@ unittest
     // need to repeat it a few times.
     foreach (_; 0 .. 5)
     {
+        // Room plan:
+        //          0       1       2       3
+        //          0123    0123    0123    0123
+        // 0   0    ####    ####    ####    ####
+        //     1    ####    ####    #-##    ####
+        //     2    ####    ####    ####    ####
+        //     3    ####    ####    ####    ####
+        //
+        //          0123    0123    0123    0123
+        // 1   0    ####    #-##    ####    ####
+        //     1    ####    #  #    #= #    ####
+        //     2    ####    # !#    #  #    ####
+        //     3    ####    ####    ####    ####
+        //
+        //          0123    0123    0123    0123
+        // 2   0    ####    ####    ####    ####
+        //     1    ####    #..-    #=.#    ####
+        //     2    ####    -.^#    #..#    #-##
+        //     3    ####    ####    ####    ####
         auto root = new MapNode;
         root.interior = region(vec(1,1,1,1), vec(3,3,3,3));
         root.doors = [
@@ -1657,11 +1781,9 @@ unittest
 void genPortal(World w, MapNode tree, Region!(int,4) bounds)
 {
     // Pick a tile that isn't empty or has no floor support.
-    auto pos = randomDryPos(tree, bounds, w.map.waterLevel);
-    while (!w.store.getAllBy!Pos(Pos(pos)).empty ||
-           !w.locationHas!BlocksMovement(pos + vec(1,0,0,0)))
-        pos = randomDryPos(tree, bounds, w.map.waterLevel);
-
+    auto pos = randomPos(w, tree, bounds,
+                         RandomPosFilt(Dryness.dry, Occupancy.empty,
+                                       Support.below, Distrib.floor));
     createPortal(&w.store, pos);
 }
 
@@ -1829,13 +1951,17 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     // Items
     foreach (i; 0 .. args.nCrabShells.pick())
     {
-        auto pos = randomLocation(tree, bounds);
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.any, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         createCrabShell(&w.store, Pos(pos));
     }
 
     foreach (i; 0 .. args.nScubas.pick())
     {
-        auto pos = randomDryPos(tree, bounds, w.map.waterLevel);
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.dry, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         createScuba(&w.store, Pos(pos));
     }
 
@@ -1843,11 +1969,13 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     auto mapFloorArea = floorArea(tree);
     foreach (i; 0 .. mapFloorArea * args.rockPct / 100)
     {
-        auto pos = randomLocation(tree, bounds);
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.any, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         if (uniform(0, 100) < args.sharpRockPct)
-            createSharpRock(&w.store, pos);
+            createSharpRock(&w.store, Pos(pos));
         else
-            createRock(&w.store, pos);
+            createRock(&w.store, Pos(pos));
     }
 
     // Generate random vegetation for creatures to seek out once in a while.
@@ -1857,10 +1985,13 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     {
         // TBD: bias the distribution to be closer to water line, fade away
         // farther away from water line.
+        auto pos = randomPos(w, tree, bounds,
+                             RandomPosFilt(Dryness.any, Occupancy.empty,
+                                           Support.below, Distrib.floor));
         if (uniform(0, 100) < vegDensePct)
-            createDenseVeg(&w.store, randomLocation(tree, bounds));
+            createDenseVeg(&w.store, Pos(pos));
         else
-            createVeg(&w.store, randomLocation(tree, bounds));
+            createVeg(&w.store, Pos(pos));
     }
 
     // Note: this should be done after all other items / deco, so that it
@@ -1868,41 +1999,38 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
     auto ngold = cast(int)(mapFloorArea * args.goldPct / 100);
     foreach (i; 0 .. ngold)
     {
-        createGold(&w.store, randomLocation(tree, bounds));
+        auto filt = RandomPosFilt(Dryness.any, Occupancy.empty, Support.below,
+                                  Distrib.floor);
+        createGold(&w.store, Pos(randomPos(w, tree, bounds, filt)));
     }
 
     foreach (i; 0 .. args.nMonstersA.pick())
     {
-        auto pos = randomLocation(tree, bounds);
-
-        // Avoid placing monsters in player's starting room.
-        while (startRoom && startRoom.interior.contains(pos))
-            pos = randomDryPos(tree, bounds, w.map.waterLevel);
-
-        createMonsterA(&w.store, pos);
+        auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
+                                  Distrib.floor);
+        filt.extraFilt = (MapNode room, int[4] pos) => room !is startRoom;
+        auto pos = randomPos(w, tree, bounds, filt);
+        createMonsterA(&w.store, Pos(pos));
     }
 
     foreach (i; 0 .. args.nMonstersB.pick())
     {
-        auto room = randomWetRoom(tree, bounds, w.map.waterLevel);
-        if (room is null) break;
+        auto filt = RandomPosFilt(Dryness.wet, Occupancy.empty, Support.any,
+                                  Distrib.volume);
+        filt.extraFilt = (MapNode room, int[4] pos) => room !is startRoom;
+        auto pos = randomPos(w, tree, bounds, filt);
 
-        // Avoid placing monsters in player's starting room.
-        while (room is startRoom)
-            room = randomWetRoom(tree, bounds, w.map.waterLevel);
-
-        createMonsterB(&w.store, room.randomLocation(room.interior));
+        createMonsterB(&w.store, Pos(pos));
     }
 
     foreach (i; 0 .. args.nMonstersC.pick())
     {
-        auto pos = randomLocation(tree, bounds);
+        auto filt = RandomPosFilt(Dryness.any, Occupancy.empty, Support.below,
+                                  Distrib.floor);
+        filt.extraFilt = (MapNode room, int[4] pos) => room !is startRoom;
+        auto pos = randomPos(w, tree, bounds, filt);
 
-        // Avoid placing monsters in player's starting room.
-        while (startRoom && startRoom.interior.contains(pos))
-            pos = randomLocation(tree, bounds);
-
-        createMonsterC(&w.store, pos);
+        createMonsterC(&w.store, Pos(pos));
     }
 }
 
@@ -1922,9 +2050,11 @@ World genBspLevel(Region!(int,4) bounds, MapGenArgs args, out int[4] startPos)
     genGeometry(w, w.map.tree, bounds, args);
 
     // Place starting position and exit.
-    MapNode startRoom = randomDryRoom(w.map.tree, w.map.bounds,
-                                      w.map.waterLevel);
-    startPos = startRoom.randomLocation(startRoom.interior);
+    auto roomPos = randomRoomPos(w, w.map.tree, w.map.bounds,
+                                 RandomPosFilt(Dryness.dry, Occupancy.empty,
+                                               Support.below, Distrib.floor));
+    auto startRoom = roomPos[0];
+    startPos = roomPos[1];
     genPortal(w, w.map.tree, w.map.bounds);
 
     // Add objects and deco.
@@ -2380,21 +2510,24 @@ World genBipartiteLevel(BipartiteGenArgs args,
     }
 
     // Generate startPos in selected half of level.
-    MapNode startRoom;
+    auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
+                              Distrib.floor);
+    Tuple!(MapNode, Vec!(int,4)) roomPos;
     switch (args.startPart)
     {
         case 0:
-            startRoom = randomDryRoom(tree1, boundsLeft, w.map.waterLevel);
+            roomPos = randomRoomPos(w, tree1, boundsLeft, filt);
             break;
 
         case 1:
-            startRoom = randomDryRoom(tree2, boundsRight, w.map.waterLevel);
+            roomPos = randomRoomPos(w, tree2, boundsRight, filt);
             break;
 
         default:
             assert(0, "Invalid start index for bipartite level gen");
     }
-    startPos = startRoom.randomLocation(startRoom.interior);
+    auto startRoom = roomPos[0];
+    startPos = roomPos[1];
 
     // Place objects and deco
     genObjects(w, tree1, boundsLeft, args.subargs[0], startRoom);
@@ -2433,7 +2566,9 @@ void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
     Pos leverPos, floorPos;
     do
     {
-        leverPos = Pos(randomLocation(leverTree, leverBounds));
+        leverPos = Pos(randomPos(w, leverTree, leverBounds,
+                       RandomPosFilt(Dryness.any, Occupancy.empty,
+                                     Support.below, Distrib.floor)));
         floorPos = leverPos + vec(1,0,0,0);
     } while (!w.store.getAllBy!Pos(leverPos).empty ||
              !w.locationHas!BlocksMovement(floorPos));
