@@ -9,17 +9,6 @@
 - Implement throwing rocks at monsters. :-D
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
-- [mapgen] Object placement code should avoid tiles that are blocking (e.g.,
-  pillars, stairs).
-- [mapgen] Need to fix random location bias: need to select BSP branches based
-  on recursively-computed floor areas; using volume as a stand-in produces
-  highly biased distributions (like rooms that are jammed full of traps and
-  objects).
-- [mapgen] Occasionally generate spiral staircases? :-D
-   - Did you realize, this can be done for *horizontal* exits? Because in 4D,
-     you can install jutting steps from a flat wall and still have them spiral
-     around horizontally. 4D just got a new notch of cool! (Just when we
-     thought we'd run out of cool things about 4D!)
 - [mapgen] Different styled rooms.
    - Need to support polymorphism in load/save. :-/
       - Y'know what, just hack it in MapNode with .save methods. Let's not get
@@ -426,3 +415,14 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
    * It was actually a bug in the SeekAirGoal.isActive.
 + OK, so the segfault is gone. But the UI is still not pausing for the last
   messages before exiting.
++ [mapgen] Occasionally generate spiral staircases? :-D
+   + Did you realize, this can be done for *horizontal* exits? Because in 4D,
+     you can install jutting steps from a flat wall and still have them spiral
+     around horizontally. 4D just got a new notch of cool! (Just when we
+     thought we'd run out of cool things about 4D!)
++ [mapgen] Need to fix random location bias: need to select BSP branches based
+  on recursively-computed floor areas; using volume as a stand-in produces
+  highly biased distributions (like rooms that are jammed full of traps and
+  objects).
++ [mapgen] Object placement code should avoid tiles that are blocking (e.g.,
+  pillars, stairs).
