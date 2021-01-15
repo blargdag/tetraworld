@@ -107,11 +107,16 @@ private void saveClassFields(T,S)(T value, S savefile)
 /**
  * Write handle to a savegame file.
  */
-struct SaveFile(R)
-    if (isOutputRange!(R, dchar))
+struct SaveFile
 {
-    private R sink;
+    private OutputRange!(const(char)[]) sink;
     private int indentLvl = 0;
+
+    this(R)(R _sink)
+        if (isOutputRange!(R, dchar))
+    {
+        sink = outputRangeObject!(const(char)[])(_sink);
+    }
 
     private auto indent()
     {
@@ -266,7 +271,7 @@ struct SaveFile(R)
 auto saveFile(R)(R sink)
     if (isOutputRange!(R, dchar))
 {
-    auto sf = SaveFile!R(sink);
+    auto sf = SaveFile(sink);
     sf.put("version", curVer);
     return sf;
 }
@@ -1035,20 +1040,20 @@ class Saveable(Derived, Base = Object) : Base
 {
     static if (is(Base == Object))
     {
-        void save(SaveFile!(OutputRange!dchar) savefile)
+        void save(SaveFile savefile)
         {
             saveImpl(savefile);
         }
     }
     else
     {
-        override save(SaveFile!(OutputRange!dchar) savefile)
+        override void save(SaveFile savefile)
         {
             saveImpl(savefile);
         }
     }
 
-    private void saveImpl(SaveFile!(OutputRange!dchar) savefile)
+    private void saveImpl(SaveFile savefile)
     {
         savefile.put("@type", Derived.stringof);
         saveClassFields(cast(Derived) this, savefile);
@@ -1056,8 +1061,7 @@ class Saveable(Derived, Base = Object) : Base
 
     static this()
     {
-        alias LF = LoadFile!(InputRange!(const(char)[]));
-        loaders[Derived.stringof] = (LF loadfile, const(char)[] key) {
+        loaders[Derived.stringof] = (LoadFile loadfile, const(char)[] key) {
             auto obj = new Derived;
             loadClassFields(obj, loadfile, key);
             return obj;
@@ -1067,6 +1071,48 @@ class Saveable(Derived, Base = Object) : Base
 
 unittest
 {
+    static class Base : Saveable!Base
+    {
+        int x;
+    }
+
+    static class Derived1 : Saveable!(Derived1, Base)
+    {
+        int y;
+        this() { x = 1; }
+    }
+
+    static class Derived2 : Saveable!(Derived2, Base)
+    {
+        string z;
+        this() { x = 2; }
+    }
+
+    struct Data
+    {
+        Base obj1;
+        Base obj2;
+    }
+
+    auto d1 = new Derived1;
+    d1.y = 123;
+
+    auto d2 = new Derived2;
+    d2.z = "abc";
+
+    Data data;
+    data.obj1 = d1;
+    data.obj2 = d2;
+
+    import std.array : appender;
+    import std.algorithm : splitter;
+
+    auto app = appender!string;
+    auto sf = saveFile(app);
+
+    sf.put("data", data);
+
+    import std;writeln(app.data);
 }
 
 // vim: set ts=4 sw=4 et ai:
