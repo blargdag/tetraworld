@@ -304,7 +304,7 @@ enum isLoadFile(T) = is(typeof(T.init.empty) : bool) &&
 /**
  * Dynamically-populated polymorphic class object loaders.
  */
-private alias ClassLoader = Object function(LoadFile, const(char)[] key);
+private alias ClassLoader = Object function(ref LoadFile, const(char)[] key);
 private ClassLoader[string] loaders;
 
 private void loadClassFields(T,L)(T result, ref L loadfile, const(char)[] key)
@@ -1040,20 +1040,20 @@ class Saveable(Derived, Base = Object) : Base
 {
     static if (is(Base == Object))
     {
-        void save(SaveFile savefile)
+        void save(ref SaveFile savefile)
         {
             saveImpl(savefile);
         }
     }
     else
     {
-        override void save(SaveFile savefile)
+        override void save(ref SaveFile savefile)
         {
             saveImpl(savefile);
         }
     }
 
-    private void saveImpl(SaveFile savefile)
+    private void saveImpl(ref SaveFile savefile)
     {
         savefile.put("@type", Derived.stringof);
         saveClassFields(cast(Derived) this, savefile);
@@ -1061,7 +1061,8 @@ class Saveable(Derived, Base = Object) : Base
 
     static this()
     {
-        loaders[Derived.stringof] = (LoadFile loadfile, const(char)[] key) {
+        loaders[Derived.stringof] = (ref LoadFile loadfile, const(char)[] key)
+        {
             auto obj = new Derived;
             loadClassFields(obj, loadfile, key);
             return obj;
@@ -1112,7 +1113,15 @@ unittest
 
     sf.put("data", data);
 
-    import std;writeln(app.data);
+    auto saved = app.data;
+    auto lf = loadFile(saved.splitter("\n"));
+    auto data2 = lf.parse!Data("data");
+
+    auto f1 = cast(Derived1) data2.obj1;
+    assert(f1 !is null && f1.y == 123);
+
+    auto f2 = cast(Derived2) data2.obj2;
+    assert(f2 !is null && f2.z == "abc");
 }
 
 // vim: set ts=4 sw=4 et ai:
