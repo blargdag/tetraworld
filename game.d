@@ -1151,17 +1151,28 @@ StoryNode[] storyNodes = [
     StoryNode("Tetraworld Corp training lab", [
         "Welcome to Tetraworld Corp.!",
 
-        "You have been hired as a 4D Treasure Hunter by our Field Operations "~
-        "Department to explore 4D space and retrieve any treasure you find.",
+        "Congratulations, you have been hired as an independent 4D Treasure "~
+        "Hunter by our Field Operations Department to explore 4D space.",
 
-        "As an initial orientation, you have been teleported to a training "~
-        "area consisting of a single tunnel in 4D space. Your task is to "~
-        "familiarize yourself with your 4D view, and to learn 4D movement by "~
-        "following this tunnel to the far end where you will find an exit "~
-        "portal.",
+        "Your job is to retrieve any artifacts or objects that may be of "~
+        "value and bring them to our workshop for appraisal and testing.  "~
+        "Objects that are found to be valuable will have their appraised "~
+        "value credited to your account.",
 
-        "The exit portal will return you to Tetraworld Corp., where you will "~
-        "receive your first assignment.",
+        "As part of your contract, we have provided you one of our signature "~
+        "4D environmental suits for your protection from the hazards of "~
+        "direct exposure to 4D space.  Please note that you are solely "~
+        "responsible for its ongoing maintenance; we are not liable for any "~
+        "injury or death caused by improper use, lack of maintenance, "~
+        "malfunction, or accidental circumstances.  Repairs and upgrades, as "~
+        "well as any additional tools you may need, may be purchased at our "~
+        "repair shop with your earned credits.",
+
+        "As an initial orientation, we have also prepared a recommended "~
+        "introductory course for you to familiarize yourself with your 4D "~
+        "view and learn 4D movement.  If you wish, however, you may choose "~
+        "to skip straight to the concourse where the access portals to the "~
+        "4D exploration zones are located.",
 
         "Good luck!",
     ], (ref int[4] startPos) {
