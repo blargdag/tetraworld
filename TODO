@@ -10,10 +10,13 @@
    - Implement UI targeting mode.
 - Need better control over branchiness of second level.
 - [mapgen] Different styled rooms.
-   - Need to support polymorphism in load/save. :-/
-      - Y'know what, just hack it in MapNode with .save methods. Let's not get
+   + Need to support polymorphism in load/save. :-/
+      X Y'know what, just hack it in MapNode with .save methods. Let's not get
         bogged down by premature generalization. Let that come *after* we have
         something actually working!
+      * We figured out a way to automate away the boilerplate using double
+        CRTC. :-)  Finally!! It's time to have fun with genuinely different
+        room types!
    - Ideas:
       - Occasionally block off leaf nodes.
       - Some rooms can turn into corridors.
