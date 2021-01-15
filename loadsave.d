@@ -23,6 +23,7 @@ module loadsave;
 import std.conv : to;
 import std.format : format, formattedWrite;
 import std.range.primitives;
+import std.range.interfaces;
 import std.stdio;
 import std.typecons : Tuple;
 
@@ -76,6 +77,31 @@ struct TreatAsString {}
 struct SaveFilter(alias _filter)
 {
     alias filter = _filter;
+}
+
+private void saveClassFields(T,S)(T value, S savefile)
+    if (is(T == class) && isSaveFile!S)
+{
+    import std.meta : AliasSeq;
+    import std.traits : BaseClassesTuple, FieldNameTuple, hasUDA;
+
+    static foreach (B; AliasSeq!(BaseClassesTuple!T, T))
+    {
+        foreach (field; FieldNameTuple!B)
+        {
+            static if (!hasUDA!(__traits(getMember, value, field), NoSave))
+            {
+                alias F = typeof(__traits(getMember, value, field));
+                static if (is(F == class))
+                    bool cond = __traits(getMember, value, field) !is null;
+                else
+                    bool cond = __traits(getMember, value, field) != F.init;
+
+                if (cond)
+                    savefile.put(field, __traits(getMember, value, field));
+            }
+        }
+    }
 }
 
 /**
@@ -183,31 +209,7 @@ struct SaveFile(R)
             }
             else
             {
-                import std.meta : AliasSeq;
-                import std.traits : BaseClassesTuple, FieldNameTuple;
-
-                static foreach (B; AliasSeq!(BaseClassesTuple!T, T))
-                {
-                    foreach (field; FieldNameTuple!B)
-                    {
-                        static if (!hasUDA!(__traits(getMember, value, field),
-                                            NoSave))
-                        {
-                            alias F = typeof(__traits(getMember, value,
-                                                      field));
-                            static if (is(F == class))
-                                bool cond = __traits(getMember, value, field)
-                                            !is null;
-                            else
-                                bool cond = __traits(getMember, value, field)
-                                            != F.init;
-
-                            if (cond)
-                                this.put(field, __traits(getMember, value,
-                                                         field));
-                        }
-                    }
-                }
+                saveClassFields(value, this);
             }
 
             this.pop();
@@ -295,19 +297,65 @@ enum isLoadFile(T) = is(typeof(T.init.empty) : bool) &&
                      is(typeof(T.init.parse!string("")) : string);
 
 /**
+ * Dynamically-populated polymorphic class object loaders.
+ */
+private alias ClassLoader = Object function(LoadFile, const(char)[] key);
+private ClassLoader[string] loaders;
+
+private void loadClassFields(T,L)(T result, ref L loadfile, const(char)[] key)
+    if (is(T == class) && isLoadFile!L)
+{
+    while (!loadfile.checkAndLeaveBlock())
+    {
+        import std.meta : AliasSeq;
+        import std.traits : BaseClassesTuple, FieldNameTuple, hasUDA;
+
+        if (loadfile.empty)
+            throw new LoadException("Expecting end of block "~ "(%s), got EOF",
+                                    key);
+        SW: switch (loadfile.curKey)
+        {
+            static foreach (B; AliasSeq!(BaseClassesTuple!T, T))
+            {
+                static foreach (field; FieldNameTuple!B)
+                {
+                    static if (!hasUDA!(__traits(getMember, result, field),
+                                        NoSave))
+                    {
+                        case field:
+                            alias U = typeof(__traits(getMember, result,
+                                                      field));
+                            __traits(getMember, result, field) =
+                                loadfile.parse!U(field);
+                            break SW;
+                    }
+                }
+            }
+
+            default:
+                // TBD: warn of unknown fields (probably removed from an older
+                // version)?
+                loadfile.parseNext();
+                break SW;
+        }
+    }
+}
+
+/**
  * Read handle to a savegame file.
  */
-struct LoadFile(R)
-    if (isInputRange!R && is(ElementType!R : const(char)[]))
+struct LoadFile
 {
-    private R src;
+    private InputRange!(const(char)[]) src;
     private const(char)[] curKey, curVal;
 
     bool empty = true;
 
-    this(R _src)
+    this(R)(R _src)
+        if (isInputRange!R && is(ElementType!R : const(char)[]))
     {
-        src = _src;
+        import std.algorithm : map;
+        src = inputRangeObject(_src.map!(l => cast(const(char)[]) l));
         parseCur();
     }
 
@@ -490,6 +538,16 @@ struct LoadFile(R)
                 throw new LoadException("Expecting block '%s', got '%s %s'",
                                         key, curKey, curVal);
 
+            if (curKey == "@type")
+            {
+                auto loader = curVal in loaders;
+                if (loader is null)
+                    throw new LoadException("Unknown polymorphic type '%s'",
+                                            curVal);
+                parseNext();
+                return cast(T)((*loader)(this, key));
+            }
+
             auto result = new T;
 
             static if (hasMember!(T, "load"))
@@ -502,42 +560,7 @@ struct LoadFile(R)
             }
             else
             {
-                while (!checkAndLeaveBlock())
-                {
-                    import std.meta : AliasSeq;
-                    import std.traits : BaseClassesTuple, FieldNameTuple;
-
-                    if (empty)
-                        throw new LoadException("Expecting end of block "~
-                                                "(%s), got EOF", key);
-                    SW: switch (curKey)
-                    {
-                        static foreach (B; AliasSeq!(BaseClassesTuple!T, T))
-                        {
-                            static foreach (field; FieldNameTuple!B)
-                            {
-                                static if (!hasUDA!(__traits(getMember, result,
-                                                             field),
-                                                    NoSave))
-                                {
-                                    case field:
-                                        alias U = typeof(__traits(getMember,
-                                                                  result,
-                                                                  field));
-                                        __traits(getMember, result, field) =
-                                            parse!U(field);
-                                        break SW;
-                                }
-                            }
-                        }
-
-                        default:
-                            // TBD: warn of unknown fields (probably removed
-                            // from an older version)?
-                            parseNext();
-                            break SW;
-                    }
-                }
+                loadClassFields(result, this, key);
             }
 
             return result;
@@ -602,7 +625,7 @@ struct LoadFile(R)
 auto loadFile(R)(R src)
     if (isInputRange!R && is(ElementType!R : const(char)[]))
 {
-    auto lf = LoadFile!R(src);
+    auto lf = LoadFile(src);
     static assert(isLoadFile!(typeof(lf)));
 
     auto ver = lf.parse!int("version");
@@ -618,7 +641,7 @@ auto loadFile(R)(R src)
 
 unittest
 {
-    auto lf = LoadFile!(string[])([
+    auto lf = LoadFile([
         "key1 val",
         "key2 ",
         "key3"
@@ -990,6 +1013,60 @@ unittest
     auto u2 = lf.parse!U("data");
 
     assert(u == u2);
+}
+
+/**
+ * Polymorphic derived class wrapper for automatic class save/load support.
+ *
+ * Derive your classes from this class using CRTC to get automatic polymorphic
+ * load/save support. The top of your hierarchy should derive from
+ * Saveable!Object; which will inject the top-level save/load methods. Derived
+ * classes will get override methods instead.
+ *
+ * Since template functions cannot be overloaded, we standardize on SaveFile
+ * instantiated with Phobos' OutputRange interface to provide a fixed runtime
+ * API for overloading.
+ *
+ * Params:
+ *  Derived = The derived class.
+ *  Base = The base class to derive from.
+ */
+class Saveable(Derived, Base = Object) : Base
+{
+    static if (is(Base == Object))
+    {
+        void save(SaveFile!(OutputRange!dchar) savefile)
+        {
+            saveImpl(savefile);
+        }
+    }
+    else
+    {
+        override save(SaveFile!(OutputRange!dchar) savefile)
+        {
+            saveImpl(savefile);
+        }
+    }
+
+    private void saveImpl(SaveFile!(OutputRange!dchar) savefile)
+    {
+        savefile.put("@type", Derived.stringof);
+        saveClassFields(cast(Derived) this, savefile);
+    }
+
+    static this()
+    {
+        alias LF = LoadFile!(InputRange!(const(char)[]));
+        loaders[Derived.stringof] = (LF loadfile, const(char)[] key) {
+            auto obj = new Derived;
+            loadClassFields(obj, loadfile, key);
+            return obj;
+        };
+    }
+}
+
+unittest
+{
 }
 
 // vim: set ts=4 sw=4 et ai:
