@@ -9,7 +9,7 @@
  * example).  Rooms are assumed to occupy one leaf node (MapNode) each.
  *
  * Doors must be duplicated in *both* rooms that they connect. This doesn't
- * matter during map redition (leftmost doors do not get rendered), but it
+ * matter during map rendition (leftmost doors do not get rendered), but it
  * *does* matter during map generation because, e.g., leftmost doors are
  * required to generate ladder objects, otherwise there would be no ladders
  * connecting to leftmost doors.
