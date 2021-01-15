@@ -1035,6 +1035,11 @@ unittest
  * Params:
  *  Derived = The derived class.
  *  Base = The base class to derive from.
+ *
+ * Limitations: Only classes with no constructors or default constructors are
+ * supported.  Furthermore, only public data fields are supported; objects with
+ * private fields or members that require special construction (e.g., custom
+ * getters/setters) may not work correctly.
  */
 class Saveable(Derived, Base = Object) : Base
 {
