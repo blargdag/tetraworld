@@ -1093,7 +1093,12 @@ void addLadders(World w, MapNode tree, Region!(int,4) bounds, int spiralPct)
             else if (d.axis != 0 && d.pos[0] < node.interior.max[0] - 2)
             {
                 // Horizontal exits
-                if (uniform(0, 100) < spiralPct &&
+
+                // Adjusted down from 100% based on statistical likelihood
+                // tryAddSpiralStairs will fail, as measured by level gen
+                // stress tests.
+                enum adjPct = 81;
+                if (uniform(0, adjPct) < spiralPct &&
                     tryAddSpiralStairs(w, node, d))
                 {
                     continue;
