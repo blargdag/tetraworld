@@ -368,13 +368,15 @@ struct LoadFile
         in (!src.empty)
     {
         src.popFront();
-        empty = src.empty;
-        if (!empty)
-            parseCur();
+        parseCur();
     }
 
     private void parseCur()
     {
+        empty = src.empty;
+        if (empty)
+            return;
+
         import std.algorithm : startsWith;
         import std.string : indexOf;
 
@@ -391,6 +393,14 @@ struct LoadFile
             curVal = [];
         else
             curVal = line[keyEnd+1 .. $];
+    }
+
+    // Corner case
+    unittest
+    {
+        string[] data = [];
+        auto lf = LoadFile(data); // should not crash
+        assert(lf.empty);
     }
 
     /**

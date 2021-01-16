@@ -63,12 +63,12 @@ space + 1D time.  No, there is no time travel here, sorry.)</p>
 <h3>Developmental builds</h3>
 
 <ul>
+<li>2021-01-16a: [<a href="tetraworld-2021-01-16a">Linux 64-bit</a>]
+	[<a href="tetraworld-2021-01-16a.exe">Windows 64-bit</a>]</li>
 <li>2020-12-18a: [<a href="tetraworld-2020-12-18a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-12-18a.exe">Windows 64-bit</a>]</li>
 <li>2020-11-13a: [<a href="tetraworld-2020-11-13a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-11-13a.exe">Windows 64-bit</a>]</li>
-<li>2020-10-24a: [<a href="tetraworld-2020-10-24a">Linux 64-bit</a>]
-	[<a href="tetraworld-2020-10-24a.exe">Windows 64-bit</a>]</li>
 </ul>
 
 <p><strong>Disclaimer:</strong> these builds are <em>pre-alpha</em>, meaning
@@ -80,6 +80,13 @@ saved games is not guaranteed.  Play at your own risk. &#x1f609;</p>
 <h2>News</h2>
 
 <ul>
+<li><b>2021-01-16:</b>
+  <ul>
+  <li>Reorganize/merge some levels to reduce the number of uninteresting
+    levels. More drastic changes to come in the near future.</li>
+  <li>Added spiral staircases.</li>
+  <li>Some UI improvements.</li>
+  </ul></li>
 <li><b>2020-12-18:</b>
   <ul>
   <li>Added a high-score board that logs the outcomes of your games. Each time
@@ -105,7 +112,8 @@ for a list of command-line options.</p>
 
 <dl>
 <dt><kbd>-H</kbd>, <kbd>--hiscore</kbd></dt>
-<dd>Displays the top 5 highest scores in the highscore board.</dd>
+<dd>Displays the top 5 highest scores in the highscore board. An optional
+	number may be supplied to override the number of scores displayed.</dd>
 
 <dt><kbd>-S</kbd>, <kbd>--smoothscroll</kbd></dt>
 <dd>Controls the timing delay when scrolling up/down or ana/kata, in msec. The
@@ -171,7 +179,7 @@ subject to gravity while in water.</dd>
 <dd>(Part of) ladders that you can climb.</dd>
 
 <dt><tt>_</tt></tt></dt>
-<dd>Top of a ladder.</dd>
+<dd>Top of a ladder or a staircase step.</dd>
 
 <dt><tt style="color:#ff00ff">\</tt> <tt style="color:#ff00ff">|</tt></dt>
 <dd>A lever in its off/on state, respectively.</dd>
@@ -279,15 +287,21 @@ try to reach it, as it might lead somewhere interesting.</p>
 rectangular<sup>*</sup> rooms connected by doors, ladders, the occasional pits
 (watch out for holes in the floor!), and hidden trapdoors. There may be rooms
 partially or completely submerged in 4D water. There is also vegetation, the
-dense variety of which blocks line-of-sight. Have fun!</p>
+dense variety of which blocks line-of-sight.</p>
 
 <p>(<sup>*</sup> Technically, <em>hypercuboidal</em>.)</p>
 
 <p>In later versions, you may encounter other types of maps as well.</p>
 
+<p>You may also occasionally encounter spiral staircases: a series of ledges
+that lead to or from an elevated doorway. Take note especially of staircases
+that wind in the ana/kata direction, which may appear disconnected. Actually
+they are not disconnected; they just happen to wind in a less-familiar
+direction!  Banisters are currently not provided. &#x1f601;</p>
+
 <p>There are also native 4D creatures that you're likely to run into. In this
-version of the game, they are always hostile, and therefore should be avoided!
-You will know them when you see them: they move and chase after you!</p>
+version of the game, they are always hostile, and should be avoided!  You will
+know them when you see them: they move and chase after you!</p>
 
 <p>In the latest version, you can drown in water.  Your lungs can hold 8 units
 of air, which allows you to survive underwater for 8 turns before you start
