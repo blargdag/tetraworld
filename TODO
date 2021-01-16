@@ -1,3 +1,6 @@
+- [Bug] Should handle corrupted/incompatible save file more gracefully. Prompt
+  user for action?
+- Implement automatic savefile upgrades.
 - New plot: instead of pre-determined missions, what about Tetraworld Corp hire
   you as an independent contractor? And instead of merely mining for "gold",
   your job is to explore hostile 4D space to retrieve interesting artifacts.
