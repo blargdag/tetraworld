@@ -42,9 +42,14 @@
    - Implementation plan:
       - Hub level.
          - Requires: ability to save player state between levels.
-            - Requires: Export of entity + components, or at least the ability
+            + Requires: Export of entity + components, or at least the ability
               to import entities from one Store into another.
          - Probably requires persistent levels?
+            - As a first stab, maybe only the hub level will be persistent?
+              Lets us get something going before investing too much effort into
+              making multi-level saves.
+               * It may not even need to be persistent, if correctly designed.
+                 :-D
          - Requires: hooking up target string field of portal component to
            something actually useful.
       - Unified/theme-based level gen. Probably revamp of current mapgen code.
