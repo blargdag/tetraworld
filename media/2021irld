@@ -1,0 +1,88 @@
+[2020 in RoguelikeDev] Tetraworld
+
+A roguelike set in 4D space, where the map occupies not 2, not 3, but 4
+dimensions of space. Features 4D gravity, which adds a whole new dimension(!)
+of interest in map generation, movement mechanics, and exploration.  The core
+mechanic is exploration and tactical maneuvers.
+
+
+**2020 Retrospective**
+
+In last year's event I said that the plan was get back to working on
+*Elephant!* again.  Well, that didn't happen...  I learned the hard way that
+writing a roguelike is not only much more complex than it first appears, it
+also consumes far more time than one might imagine.  Running *two* projects
+simultaneously just isn't workable, given my other priorities. So, sadly, this
+means that *Elephant!* did not see any progress at all.
+
+As for Tetraworld's planned goals last year, the only one that was met was the
+addition of 4D water -- and even that was only in rudimentary form (currently
+literally just a single integer water level in the map, no rivers, water
+currents, waterfalls). The other two goals: 4D ecosystems and a 4D city are
+nowhere within grasp yet.
+
+Furthermore, I got burned out in the middle of the year, so there was no
+progress for about 4 months.
+
+Nevertheless, what little water mechanics are there have already led to an
+unexpectedly fun new mechanic: diving.  Drowning mechanics, limited lung
+capacity, and diving gear with limited air supply, led to a series of
+interesting gameplay mechanics: carefully-planned dives to maximize distance,
+scouting out target areas, searching for closer access routes, etc..  This
+turned out to be much more fun than anticipated. And it's just a natural
+consequence of several apparently simple game systems.
+
+Complementing this was the addition of a deadly water creature that makes a
+characteristic double-splash sound (itself the consequence of its jump ability
+plus the way the gravity system works).  The player quickly learns the
+significance of this sound and to fear it, esp. when deep-diving. Then he
+learns to fear the *absence* of this sound, which often signifies that the
+creature has moved deep underwater, and therefore could be nearby!  Resulting
+in a deliciously roguelike experience of sweaty hands in *both* cases.  :-D
+
+A bunch of other foundational things were implemented: a tutorial level and an
+in-game help screen to make it easier for new players to learn the controls, a
+goal-driven AI that's starting to take shape, an inventory UI and pickable /
+droppable / equippable items, and a bunch of other new features and
+improvements.  A high-score board with humorous blurbs for each game outcome.
+
+All in all, a year of significant progress, even if it's less than one might
+have desired.
+
+
+**2021 Outlook**
+
+This year began with a bang:
+
+* Spiral staircases were added, in a way that's peculiar to 4D: in 3D, spiral
+  staircases spiral around a central column and occupies (at least) a space of
+  two widths of its steps horizontally. In 4D, however, it's possible to
+  construct a spiral staircase that's only the width of a single step, and the
+  steps can attach directly to the wall without a central column -- a *flat*
+  wall! -- and yet spiral upwards circularly. Very mind-bending, and lots of
+  fun.  This is the first of a series of 4D-specific geometric features that
+  I'm looking forward to add this year!
+
+* Extended the current serialization system to handle runtime-polymorphic
+  objects.  This was a significant limitation last year that greatly limited
+  what could be done with the map gen; this year, with this restriction lifted,
+  I'm looking forward to significantly enhancing the map gen module and adding
+  much more interesting level geometries and features.
+
+* The gutting of last year's canned linear story progression in favor of a
+  freer-form hub level structure where the player has more choice where to go
+  and what to tackle in what order. This marks a significant from last year's
+  gameplay style, and is closer to my original vision of the game. Looking
+  forward to taking this further!
+
+* For better or worse, I decided to open-source the code on Github.  No idea
+  whether anybody will ever take any interest in it, but it's out there now.
+  Let the patches flow! (I'm probably fooling myself, but one can dream. 😂)
+
+Overall, lots to look forward to.
+
+
+**Links**
+
+* [Tetraworld website](http://eusebeia.dyndns.org/tetraworld/)
+* [Tetraworld source code](https://github.com/blargdag/tetraworld)
