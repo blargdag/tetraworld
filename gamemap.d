@@ -665,7 +665,7 @@ struct RandomPosFilt
 /**
  * A map node.
  */
-class MapNode : Saveable!(MapNode, BspNode!(MapNode), true)
+class MapNode : Saveable!(MapNode, BspNode!(MapNode))
 {
     RoomNode isRoom() { return null; }
 
