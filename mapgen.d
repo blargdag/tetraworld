@@ -640,85 +640,82 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
 {
     import std.random : uniform;
     import rndutil : pickOne;
-    while (count > 0 && maxRetries > 0)
+
+    static struct RightRoom
     {
-        static struct RightRoom
-        {
-            RoomNode node;
-            R region;
-            int[4] basePos;
-        }
+        RoomNode node;
+        R region;
+        int[4] basePos;
+    }
 
-        auto success = root.randomNode!(RandomNodeDist.volume)(region,
-            (MapNode n, R bounds)
-        {
-            auto node = n.isRoom; // FIXME
+    bool tryAddEdge(RoomNode node, R bounds)
+    {
+        // Randomly select a wall of the room.
+        auto axis = pickAxis(node, bounds);
+        if (axis == invalidAxis)
+            return false;
+        R wallFilt = rightWallFilt(node, bounds, axis);
 
-            // Randomly select a wall of the room.
-            auto axis = pickAxis(node, bounds);
-            if (axis == invalidAxis)
-                return false;
-            R wallFilt = rightWallFilt(node, bounds, axis);
+        // Find an adjacent room that can be joined to this one via a door.
+        RightRoom[] targets;
+        root.foreachFiltRoom(region, wallFilt, (MapNode n2, R r2) {
+            import std.algorithm : canFind, filter, fold;
+            import std.range : iota;
 
-//import std;writefln("left=%s (wallFilt=%s)", node.interior, wallFilt);
-            // Find an adjacent room that can be joined to this one via a door.
-            RightRoom[] targets;
-            root.foreachFiltRoom(region, wallFilt, (MapNode n2, R r2) {
-                import std.algorithm : canFind, filter, fold;
-                import std.range : iota;
+            auto node2 = n2.isRoom;
+            if (node2 is null) return 0; // FIXME
 
-                auto node2 = n2.isRoom;
-                if (node2 is null) return 0; // FIXME
+            auto wallFilt2 = leftWallFilt(node2, r2, axis);
+            auto ir = wallFilt.intersect(wallFilt2);
 
-                auto wallFilt2 = leftWallFilt(node2, r2, axis);
-                auto ir = wallFilt.intersect(wallFilt2);
-
-//import std;writefln("left=%s (wallFilt=%s) right=%s (wallFilt2=%s) ir=%s", node.interior, wallFilt, node2.interior, wallFilt2, ir);
-                // Check that there isn't already a door between these two
-                // rooms.
-                if (!allowMultiple && hasDoorAtBoundary(ir, axis, node.doors))
-                    return 0;
-
-                int[4] basePos;
-                if (!randomEdgePos(ir, axis, basePos))
-                {
-                    // Overlap is too small to place a door, skip.
-                    return 0;
-                }
-
-                // Avoid coincident doors
-                if (node.doors.canFind!(d => d.pos == basePos))
-                    return 0;
-
-//import std;writefln("basePos=%s", basePos);
-                targets ~= RightRoom(node2, r2, basePos);
+            // Check that there isn't already a door between these two rooms.
+            if (!allowMultiple && hasDoorAtBoundary(ir, axis, node.doors))
                 return 0;
-            });
 
-            if (targets.empty)
-                return false; // couldn't match anything for this room
+            int[4] basePos;
+            if (!randomEdgePos(ir, axis, basePos))
+            {
+                // Overlap is too small to place a door, skip.
+                return 0;
+            }
 
-            auto rightRoom = targets.pickOne;
+            // Avoid coincident doors
+            if (node.doors.canFind!(d => d.pos == basePos))
+                return 0;
 
-            auto d = Door(axis);
-            d.pos = rightRoom.basePos;
-            if (!doorFilter([node, rightRoom.node], d))
-                return false;
-
-            import std.format : format;
-            assert(isValidDoor(node.interior, d) &&
-                   isValidDoor(rightRoom.node.interior, d),
-                   format("left.interior=%s right.interior=%s d=%s",
-                          node.interior, rightRoom.node.interior, d));
-
-//import std;writefln("door=%s", d);
-            node.doors ~= d;
-            rightRoom.node.doors ~= d;
-
-            return true;
+            targets ~= RightRoom(node2, r2, basePos);
+            return 0;
         });
 
-        if (success)
+        if (targets.empty)
+            return false; // couldn't match anything for this room
+
+        auto rightRoom = targets.pickOne;
+
+        auto d = Door(axis);
+        d.pos = rightRoom.basePos;
+        if (!doorFilter([node, rightRoom.node], d))
+            return false;
+
+        import std.format : format;
+        assert(isValidDoor(node.interior, d) &&
+               isValidDoor(rightRoom.node.interior, d),
+               format("left.interior=%s right.interior=%s d=%s",
+                      node.interior, rightRoom.node.interior, d));
+
+        node.doors ~= d;
+        rightRoom.node.doors ~= d;
+
+        return true;
+    }
+
+    while (count > 0 && maxRetries > 0)
+    {
+        auto nb = randomRoom(root, region, Distrib.volume);
+        auto node = nb[0].isRoom; // FIXME
+        auto bounds = nb[1];
+
+        if (tryAddEdge(node, bounds))
             count--;
         else
             maxRetries--;
