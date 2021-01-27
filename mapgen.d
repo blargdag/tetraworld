@@ -1349,34 +1349,57 @@ unittest
     }
 }
 
+private int roomMetric()(MapNode node, Distrib distrib)
+{
+    final switch (distrib)
+    {
+        case Distrib.tree:      return 1;
+        case Distrib.floor:     return node.floorArea;
+        case Distrib.volume:    return node.volume;
+    }
+}
+
 /**
  * Returns: A randomly selected leaf node in the given BSP tree according to
  * the specified distribution.
  */
 MapNode randomRoom(MapNode tree, Distrib distrib)
 {
-    int metric(MapNode node)
-    {
-        final switch (distrib)
-        {
-            case Distrib.tree:      return 1;
-            case Distrib.floor:     return node.floorArea;
-            case Distrib.volume:    return node.volume;
-        }
-    }
-
     MapNode pickNode(MapNode node)
     {
         if (node.isLeaf)
             return node;
 
-        auto m1 = metric(node.left);
-        auto m2 = metric(node.right);
+        auto m1 = roomMetric(node.left, distrib);
+        auto m2 = roomMetric(node.right, distrib);
         auto choice = (uniform(0, m1 + m2) < m1) ? node.left : node.right;
         return pickNode(choice);
     }
 
     return pickNode(tree);
+}
+
+/// ditto
+Tuple!(MapNode,Region!(int,4)) randomRoom(MapNode tree, Region!(int,4) bounds,
+                                          Distrib distrib)
+{
+    Tuple!(MapNode,Region!(int,4)) pickNode(MapNode node,
+                                            Region!(int,4) bounds)
+    {
+        if (node.isLeaf)
+            return tuple(node, bounds);
+
+        auto m1 = roomMetric(node.left, distrib);
+        auto m2 = roomMetric(node.right, distrib);
+        if (uniform(0, m1 + m2) < m1)
+            return pickNode(node.left, leftRegion(bounds, node.axis,
+                                                  node.pivot));
+        else
+            return pickNode(node.right, rightRegion(bounds, node.axis,
+                                                    node.pivot));
+    }
+
+    return pickNode(tree, bounds);
 }
 
 /**
