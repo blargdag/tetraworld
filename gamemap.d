@@ -21,6 +21,7 @@
 module gamemap;
 
 import std.algorithm;
+import std.random;
 import std.range;
 
 import bsp;
@@ -669,6 +670,9 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
 {
     RoomNode isRoom() { return null; }
 
+    /**
+     * Returns: The total floor area of this part of the map.
+     */
     int floorArea() pure
     {
         assert(!isLeaf);
@@ -678,15 +682,23 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
     }
     private int _floorArea = int.min;
 
+    /**
+     * Returns: The total volume of this part of the map.
+     */
     int volume() pure
     {
         assert(!isLeaf);
         if (_volume == int.min)
-            _volume = left.volume() + right.volume();
+            _volume = left.volume + right.volume;
         return _volume;
     }
     private int _volume = int.min;
 
+    /**
+     * Look up a location on the map.
+     *
+     * Returns: The ThingId of the top object in the given location.
+     */
     ThingId opIndex(int[4] pos...)
     {
         assert(!isLeaf);
@@ -694,6 +706,21 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
             return left.opIndex(pos);
         else
             return right.opIndex(pos);
+    }
+
+    /**
+     * Params:
+     *  onFloor = Whether the location should be on the floor or can be
+     *      any non-wall tile within the volume of the node.
+     *
+     * Returns: A random non-wall location in this leaf node.
+     *
+     * Prerequisites: Must be a leaf node.
+     */
+    Vec!(int,4) randomLoc(bool onFloor)
+        in (isLeaf)
+    {
+        assert(0);
     }
 }
 
@@ -750,6 +777,19 @@ class RoomNode : Saveable!(RoomNode, MapNode)
         }
 
         return style2Terrain(style);
+    }
+
+    override Vec!(int,4) randomLoc(bool onFloor)
+    {
+        int[4] result;
+        foreach (i; 0 .. 4)
+        {
+            if (i == 0 && onFloor)
+                result[i] = interior.max[i] - 1;
+            else
+                result[i] = uniform(interior.min[i], interior.max[i]);
+        }
+        return vec(result);
     }
 }
 

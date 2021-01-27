@@ -1381,26 +1381,11 @@ Tuple!(MapNode, Vec!(int,4)) randomRoomPos(World w, MapNode tree,
         return pickNode(choice);
     }
 
-    Vec!(int,4) pickLoc(RoomNode node)
-    {
-        int[4] result;
-        foreach (i; 0 .. 4)
-        {
-            if (i == 0 && (filt.support == Support.below ||
-                           filt.distrib == Distrib.floor))
-                result[i] = node.interior.max[i] - 1;
-            else
-                result[i] = uniform(node.interior.min[i],
-                                    node.interior.max[i]);
-        }
-        return vec(result);
-    }
-
     foreach (nTries; 0 .. filt.maxTries)
     {
-        auto n = pickNode(tree);
-        auto node = n.isRoom; // FIXME
-        auto loc = pickLoc(node);
+        auto node = pickNode(tree);
+        auto loc = node.randomLoc((filt.support == Support.below ||
+                                   filt.distrib == Distrib.floor));
 
         final switch (filt.dryness)
         {
