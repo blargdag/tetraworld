@@ -1,9 +1,9 @@
 - [OO map] Refactor existing code to use OO methods in MapNode for various map
   operations, so that we can start introducing new subclasses.
-   - Needed methods:
+   + Needed methods:
       + opIndex
       + floorArea
-      - randomPos
+      + randomPos
    + Move .interior into box-room specific subclass.
    - Move the current door-handling code into RoomNode too. :-D
    - Possible strategy:
