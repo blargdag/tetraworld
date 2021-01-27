@@ -1349,34 +1349,6 @@ unittest
     }
 }
 
-enum Dryness { any, dry, wet }
-enum Occupancy { any, empty, occupied }
-enum Support { any, below }
-enum Distrib { tree, floor, volume }
-
-/**
- * Location filter for randomPos().
- */
-struct RandomPosFilt
-{
-    Dryness dryness;
-    Occupancy occupancy;
-    Support support;
-    Distrib distrib;
-
-    /**
-     * Extra custom filters.
-     */
-    bool delegate(MapNode, int[4]) extraFilt;
-
-    /**
-     * Number of tries to find a position that fulfills the filter
-     * requirements, in case the given map does not contain any location that
-     * satisfies all requirements.
-     */
-    int maxTries = int.max;
-}
-
 /**
  * Returns: A uniformly randomly selected location from the map satisfying the
  * given filter, or a null node if no such location could be found within the
@@ -1398,17 +1370,15 @@ Tuple!(MapNode, Vec!(int,4)) randomRoomPos(World w, MapNode tree,
         }
     }
 
-    Tuple!(MapNode,int) pickNode(MapNode node)
+    MapNode pickNode(MapNode node)
     {
         if (node.isLeaf)
-            return tuple(node, metric(node));
+            return node;
 
-        auto left = pickNode(node.left);
-        auto right = pickNode(node.right);
-
-        auto choice = (uniform(0, left[1] + right[1]) < left[1]) ?
-                      left[0] : right[0];
-        return tuple(choice, left[1] + right[1]);
+        auto m1 = metric(node.left);
+        auto m2 = metric(node.right);
+        auto choice = (uniform(0, m1 + m2) < m1) ? node.left : node.right;
+        return pickNode(choice);
     }
 
     Vec!(int,4) pickLoc(RoomNode node)
@@ -1428,7 +1398,7 @@ Tuple!(MapNode, Vec!(int,4)) randomRoomPos(World w, MapNode tree,
 
     foreach (nTries; 0 .. filt.maxTries)
     {
-        auto n = pickNode(tree)[0];
+        auto n = pickNode(tree);
         auto node = n.isRoom; // FIXME
         auto loc = pickLoc(node);
 
