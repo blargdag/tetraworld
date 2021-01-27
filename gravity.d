@@ -393,7 +393,7 @@ unittest
     //  1 #  #
     //  2 #  #
     //  3 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(3,3,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(4,4,3,3));
 
@@ -501,7 +501,7 @@ unittest
     //  3 #  #
     //  4 #  #
     //  5 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,4,3,3));
 
@@ -569,7 +569,7 @@ unittest
     //  3 #= #
     //  4 #= #
     //  5 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
 
@@ -656,7 +656,7 @@ unittest
     //  3 #  #
     //  4 #T #  T = trigger
     //  5 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
 
     auto w = new World;
@@ -700,7 +700,7 @@ unittest
     //  3 #~~#
     //  4 #T~#  T = trigger
     //  5 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
 
     auto w = new World;
@@ -756,7 +756,7 @@ unittest
     //  3 #  #
     //  4 #  #
     //  5 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,4,3,3));
 
@@ -893,7 +893,7 @@ unittest
     //  3 #=~#
     //  4 #=~#
     //  5 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,2,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,3,3,3));
 
@@ -977,7 +977,7 @@ unittest
     //  3 #@ #
     //  4 #=A#
     //  5 ####
-    MapNode root = new MapNode;
+    auto root = new RoomNode;
     root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,3,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,3,3,3));
 

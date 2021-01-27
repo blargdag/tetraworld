@@ -78,8 +78,8 @@ unittest
     //  3 #~#~#
     //  4 #~~~#
     //  5 #####
-    MapNode root = new MapNode;
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,4,2,2));
+    MapNode root = new RoomNode;
+    root.isRoom.interior = Region!(int,4)(vec(1,1,1,1), vec(5,4,2,2));
     auto bounds = Region!(int,4)(vec(0,0,0,0), vec(6,5,3,3));
 
     auto w = new World;

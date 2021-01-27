@@ -93,6 +93,8 @@ enum invalidPivot = int.min;
  * parameters.
  *
  * Params:
+ *  Node = The node type to use for internal nodes.
+ *  Leaf = The node type to use for leaf nodes.
  *  canSplitRegion = A delegate that returns true if the given region can be
  *      further split, false otherwise.  Note that returning true does not
  *      guarantee that the region will actually be split; if no suitable
@@ -105,30 +107,31 @@ enum invalidPivot = int.min;
  *      indicates that no suitable pivot value can be found, and that the node
  *      should not be split after all.
  */
-Node genBsp(Node,R)(R region,
-                    bool delegate(R r) canSplitRegion,
-                    int delegate(R r) findSplitAxis,
-                    int delegate(R r, int axis) findPivot)
+Node genBsp(Node, Leaf=Node, R)
+           (R region,
+            bool delegate(R r) canSplitRegion,
+            int delegate(R r) findSplitAxis,
+            int delegate(R r, int axis) findPivot)
     if (is(Node : BspNode!D, D) && is(R == Region!(int,n), size_t n))
 {
-    auto node = new Node();
     if (!canSplitRegion(region))
-        return node;
+        return new Leaf;
 
     auto axis = findSplitAxis(region);
     if (axis == invalidAxis)
-        return node;
+        return new Leaf;
 
     auto pivot = findPivot(region, axis);
     if (pivot == invalidPivot)
-        return node;
+        return new Leaf;
 
+    auto node = new Node();
     node.axis = axis;
     node.pivot = pivot;
-    node.left = genBsp!Node(leftRegion(region, axis, pivot), canSplitRegion,
-                            findSplitAxis, findPivot);
-    node.right = genBsp!Node(rightRegion(region, axis, pivot), canSplitRegion,
-                             findSplitAxis, findPivot);
+    node.left = genBsp!(Node, Leaf)(leftRegion(region, axis, pivot),
+                                    canSplitRegion, findSplitAxis, findPivot);
+    node.right = genBsp!(Node, Leaf)(rightRegion(region, axis, pivot),
+                                     canSplitRegion, findSplitAxis, findPivot);
     return node;
 }
 

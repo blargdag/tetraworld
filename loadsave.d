@@ -1051,9 +1051,9 @@ unittest
  * private fields or members that require special construction (e.g., custom
  * getters/setters) may not work correctly.
  */
-class Saveable(Derived, Base = Object) : Base
+class Saveable(Derived, Base = Object, bool isBase = false) : Base
 {
-    static if (is(Base == Object))
+    static if (is(Base == Object) || isBase)
     {
         void save(ref SaveFile savefile)
         {

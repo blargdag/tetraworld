@@ -50,43 +50,23 @@ struct GameMap
 
     ThingId opIndex(int[4] pos...)
     {
-        import std.math : abs;
+        auto result = tree.opIndex(pos);
 
-        // FIXME: should be a more efficient way to do this
-        auto result = blockBare.id;
-        foreachFiltRoom(tree, bounds, (R r) => r.contains(vec(pos)),
-            (MapNode node, R r) {
-                if (node.interior.contains(vec(pos)))
-                {
-                    if (pos[0] >= waterLevel)
-                        result = water.id;
-                    else
-                        result = emptySpace.id;
-                    return 1;
-                }
-
-                foreach (d; node.doors)
-                {
-                    if (pos[] == d.pos)
-                    {
-                        result = (pos[0] >= waterLevel) ? water.id
-                                                        : doorway.id;
-                        return 1;
-                    }
-                }
-
-                result = style2Terrain(node.style);
-                return 1;
-            }
-        );
+        // FIXME: this is a hack to implement global water level. Should
+        // probably be replaced.
+        if ((result == emptySpace.id || result == doorway.id) &&
+            pos[0] >= waterLevel)
+        {
+            return water.id;
+        }
         return result;
     }
 
     unittest
     {
         GameMap map;
-        map.tree = new MapNode();
-        map.tree.interior = region(vec(1,1,1,1), vec(2,2,2,2));
+        map.tree = new RoomNode();
+        map.tree.isRoom.interior = region(vec(1,1,1,1), vec(2,2,2,2));
         map.bounds = region(vec(0,0,0,0), vec(3,3,3,3));
         map.waterLevel = int.max;
 
