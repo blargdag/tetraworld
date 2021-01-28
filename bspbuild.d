@@ -326,6 +326,14 @@ unittest
 void genCode()(Node node)
     in (node !is null)
 {
+    static string type(Node node)
+    {
+        if (node.left !is null && node.right !is null)
+            return "MapNode";
+        else
+            return "RoomNode"; // FIXME
+    }
+
     static void impl(Node node, string prefix)
     {
         if (node.left !is null && node.right !is null)
@@ -333,18 +341,18 @@ void genCode()(Node node)
             writefln("%s.axis = %d;", prefix, node.axis);
             writefln("%s.pivot = %d;", prefix, node.pivot);
 
-            writefln("%s.left = new MapNode;", prefix);
+            writefln("%s.left = new %s;", prefix, type(node.left));
             impl(node.left, prefix ~ ".left");
 
-            writefln("%s.right = new MapNode;", prefix);
+            writefln("%s.right = new %s;", prefix, type(node.right));
             impl(node.right, prefix ~ ".right");
         }
         else
-            writefln("%s.interior = region(vec(%(%s,%)), vec(%(%s,%)));",
+            writefln("%s.isRoom.interior = region(vec(%(%s,%)), vec(%(%s,%)));",
                      prefix, node.interior.min[], node.interior.max[]);
     }
 
-    writeln("    auto tree = new MapNode;");
+    writefln("    auto tree = new %s;", type(node));
     impl(node, "    tree");
 }
 

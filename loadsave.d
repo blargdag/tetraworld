@@ -1053,7 +1053,7 @@ unittest
  */
 class Saveable(Derived, Base = Object) : Base
 {
-    static if (is(Base == Object))
+    static if (!is(Base : Saveable!(Base, C), C))
     {
         void save(ref SaveFile savefile)
         {
@@ -1137,6 +1137,15 @@ unittest
 
     auto f2 = cast(Derived2) data2.obj2;
     assert(f2 !is null && f2.z == "abc");
+}
+
+unittest
+{
+    // Test injection of .save into highest saveable ancestor that isn't a
+    // direct subclass of Object.
+    static class NotSaved { }
+    static class SavedBase : Saveable!(SavedBase, NotSaved) { }
+    static class Derived : Saveable!(Derived, SavedBase) { }
 }
 
 // vim: set ts=4 sw=4 et ai:

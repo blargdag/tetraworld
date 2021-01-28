@@ -1,5 +1,32 @@
 - [gravity] Stacked items that trigger fallOn should split the stack in
   multiple directions.
+- [OO map] Refactor existing code to use OO methods in MapNode for various map
+  operations, so that we can start introducing new subclasses.
+   + Needed methods:
+      + opIndex
+      + floorArea
+      + randomPos
+   + Move .interior into box-room specific subclass.
+   - Move the current door-handling code into RoomNode too. :-D
+   - Possible strategy:
+      + Rename current MapNode into subclass (RoomNode?) derived from subclass
+        with above methods.
+      - Incrementally move existing free functions into RoomNode-specific
+        methods.
+      - Introduce new subclasses.
+- [OO map 2] Replace current Doors hack with a new generic node (possibly
+  subclassed under MapNode) that stores explicit connections with ngbrs.
+   - The first phase of mapgen should create an abstract connectivity graph
+     with these explicit back edges.
+   - Then using a .rewrite method, recursively replace these with concrete
+     derived class nodes.
+- [Tutorial] Should hide additional planes until player is ready to tackle it.
+   - This can be implemented without touching UI code by using a special
+     TutorialNode subclass of MapNode, that returns proxy objects for floor
+     entities that are shared across sectors of the map, defaulting to
+     invisible tiles, such that changing that one entity changes all cells that
+     reference it.
+   - The map will then have triggers that toggle the change of these entities.
 - [Bug] Should handle corrupted/incompatible save file more gracefully. Prompt
   user for action?
 - Implement automatic savefile upgrades.

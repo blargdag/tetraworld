@@ -125,7 +125,7 @@ unittest
     import gamemap;
     import vector;
 
-    auto root = new MapNode;
+    auto root = new RoomNode;
     root.interior = region(vec(1,1,1,1), vec(3,3,3,3));
 
     auto w = new World;

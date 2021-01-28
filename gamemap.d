@@ -20,7 +20,9 @@
  */
 module gamemap;
 
-import std.range.primitives;
+import std.algorithm;
+import std.random;
+import std.range;
 
 import bsp;
 import components : TileId;
@@ -633,14 +635,162 @@ enum FloorStyle
     muddy,
 }
 
+enum Dryness { any, dry, wet }
+enum Occupancy { any, empty, occupied }
+enum Support { any, below }
+enum Distrib { tree, floor, volume }
+
+/**
+ * Location filter for randomPos().
+ */
+struct RandomPosFilt
+{
+    Dryness dryness;
+    Occupancy occupancy;
+    Support support;
+    Distrib distrib;
+
+    /**
+     * Extra custom filters.
+     */
+    bool delegate(MapNode, int[4]) extraFilt;
+
+    /**
+     * Number of tries to find a position that fulfills the filter
+     * requirements, in case the given map does not contain any location that
+     * satisfies all requirements.
+     */
+    int maxTries = int.max;
+}
+
 /**
  * A map node.
  */
-class MapNode : BspNode!(MapNode)
+class MapNode : Saveable!(MapNode, BspNode!(MapNode))
+{
+    RoomNode isRoom() { return null; }
+
+    /**
+     * Returns: The total floor area of this part of the map.
+     */
+    int floorArea() pure
+    {
+        assert(!isLeaf);
+        if (_floorArea == int.min)
+            _floorArea = left.floorArea() + right.floorArea();
+        return _floorArea;
+    }
+    private int _floorArea = int.min;
+
+    /**
+     * Returns: The total volume of this part of the map.
+     */
+    int volume() pure
+    {
+        assert(!isLeaf);
+        if (_volume == int.min)
+            _volume = left.volume + right.volume;
+        return _volume;
+    }
+    private int _volume = int.min;
+
+    /**
+     * Look up a location on the map.
+     *
+     * Returns: The ThingId of the top object in the given location.
+     */
+    ThingId opIndex(int[4] pos...)
+    {
+        assert(!isLeaf);
+        if (pos[axis] < pivot)
+            return left.opIndex(pos);
+        else
+            return right.opIndex(pos);
+    }
+
+    /**
+     * Params:
+     *  onFloor = Whether the location should be on the floor or can be
+     *      any non-wall tile within the volume of the node.
+     *
+     * Returns: A random non-wall location in this leaf node.
+     *
+     * Prerequisites: Must be a leaf node.
+     */
+    Vec!(int,4) randomLoc(bool onFloor)
+        in (isLeaf)
+    {
+        assert(0);
+    }
+}
+
+/**
+ * A room node.
+ */
+class RoomNode : Saveable!(RoomNode, MapNode)
 {
     Door[] doors;
     Region!(int,4) interior;
     FloorStyle style;
+
+    override RoomNode isRoom() { return this; }
+
+    override int floorArea() pure
+    {
+        return iota(1, 4)
+            .map!(i => interior.max[i] - interior.min[i])
+            .fold!((a, b) => a*b)(1);
+    }
+
+    unittest
+    {
+        auto tree = new RoomNode;
+        tree.interior = region(vec(1,1,1,1), vec(3,3,3,3));
+        assert(tree.floorArea == 8);
+
+        tree.interior = region(vec(1,1,1,1), vec(20,3,3,3));
+        assert(tree.floorArea == 8);
+
+        tree.interior = region(vec(1,1,1,1), vec(20,4,3,3));
+        assert(tree.floorArea == 12);
+    }
+
+    override int volume() pure
+    {
+        return iota(0, 4).map!(i => interior.max[i] - interior.min[i])
+                         .sum;
+    }
+
+    override ThingId opIndex(int[4] pos...)
+    {
+        import std.math : abs;
+        import terrain : emptySpace, doorway;
+
+        // FIXME: should be a more efficient way to do this
+        if (interior.contains(vec(pos)))
+            return emptySpace.id;
+
+        foreach (d; doors)
+        {
+            if (pos[] == d.pos)
+                return doorway.id;
+        }
+
+        return style2Terrain(style);
+    }
+
+    override Vec!(int,4) randomLoc(bool onFloor)
+    {
+        int[4] result;
+        foreach (i; 0 .. 4)
+        {
+            if (i == 0 && onFloor)
+                result[i] = interior.max[i] - 1;
+            else
+                result[i] = uniform(interior.min[i], interior.max[i]);
+        }
+        return vec(result);
+    }
 }
 
 /**

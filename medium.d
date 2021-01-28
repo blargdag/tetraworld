@@ -65,8 +65,8 @@ unittest
 {
     import gamemap, objects;
 
-    auto root = new MapNode;
-    root.interior = region(vec(1,1,1,1), vec(10,4,4,4));
+    auto root = new RoomNode;
+    root.isRoom.interior = region(vec(1,1,1,1), vec(10,4,4,4));
 
     auto w = new World;
     w.map.tree = root;

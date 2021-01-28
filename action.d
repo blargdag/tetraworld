@@ -457,13 +457,13 @@ unittest
     root.axis = 1;
     root.pivot = 4;
 
-    root.left = new MapNode;
-    root.left.interior = region(vec(1,1,0,0), vec(4,3,1,1));
-    root.left.doors = [ Door(1, [3,2,0,0]) ];
+    root.left = new RoomNode;
+    root.left.isRoom.interior = region(vec(1,1,0,0), vec(4,3,1,1));
+    root.left.isRoom.doors = [ Door(1, [3,2,0,0]) ];
 
-    root.right = new MapNode;
-    root.right.interior = region(vec(1,4,0,0), vec(6,7,1,1));
-    root.right.doors = [ Door(1, [3,2,0,0]) ];
+    root.right = new RoomNode;
+    root.right.isRoom.interior = region(vec(1,4,0,0), vec(6,7,1,1));
+    root.right.isRoom.doors = [ Door(1, [3,2,0,0]) ];
 
     auto w = new World;
     w.map.tree = root;
