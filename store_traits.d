@@ -75,4 +75,10 @@ struct Indexed { }
  */
 struct TrackNew { }
 
+/**
+ * UDA to mark ThingId fields referencing objects that should be recursively
+ * copied by exportObj.
+ */
+struct DupOnExport { }
+
 // vim: set ts=4 sw=4 et ai:

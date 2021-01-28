@@ -174,7 +174,7 @@ struct Inventory
 {
     static struct Item
     {
-        ThingId id;
+        @DupOnExport ThingId id;
         enum Type { carrying, equipped, intrinsic }
         Type type;
 

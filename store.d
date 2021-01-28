@@ -414,6 +414,75 @@ struct Store
             loadTable!(i, T)(loadfile);
         }
     }
+
+    /**
+     * Export a single entity and its dependencies into a second Store.
+     */
+    Thing* exportObj()(ThingId id, Store *destStore)
+    {
+        ThingId[ThingId] dependents;
+
+        // Fix up ThingId references by replacing with IDs in the new store,
+        // copying the referent object if necessary.
+        void copyRefs(T)(T src, ref T target)
+        {
+            import std.traits : FieldNameTuple, hasUDA;
+            static if (is(T == struct))
+            {
+                static foreach (field; FieldNameTuple!T)
+                {
+                    static if (hasUDA!(__traits(getMember, src, field),
+                                       DupOnExport))
+                    {
+                        ThingId subId = __traits(getMember, src, field);
+                        auto p = subId in dependents;
+                        if (p is null)
+                        {
+                            auto subobj = exportObj(subId, destStore);
+                            __traits(getMember, target, field) = subobj.id;
+                            dependents[subId] = subobj.id;
+                        }
+                        else
+                            __traits(getMember, target, field) = *p;
+                    }
+                    else
+                    {
+                        copyRefs(__traits(getMember, src, field),
+                                 __traits(getMember, target, field));
+                    }
+                }
+            }
+            else static if (is(T == U[], U))
+            {
+                foreach (i; 0 .. src.length)
+                {
+                    copyRefs(src[i], target[i]);
+                }
+            }
+            // FIXME: currently we just ignore other field types.
+        }
+
+        auto obj = getObj(id);
+        if (obj is null) return null;
+
+        // Create target object
+        auto destObj = destStore.createObj();
+
+        // Copy components
+        foreach (i, T; AllComponents)
+        {
+            auto p = get!T(obj.id);
+            if (p !is null)
+            {
+                destStore.add!T(destObj, *p);
+
+                // Recursively copy ThingId referents
+                copyRefs(*p, *destStore.get!T(destObj.id));
+            }
+        }
+
+        return destObj;
+    }
 }
 
 unittest
@@ -487,6 +556,36 @@ unittest
     auto t = s.createObj!Pos(Pos(1, 2, 3, 4));
     auto pos = *s.get!Pos(t.id);
     assert(pos == Pos(1, 2, 3, 4));
+}
+
+// Test export of entities between stores.
+unittest
+{
+    Store s1, s2;
+    auto obj = s1.createObj(Name("some guy"), Agent(Agent.Type.player),
+        Tiled(TileId.player, 2, Tiled.Hint.dynamic),
+        Inventory([
+            Inventory.Item(s1.createObj(Name("pocket lint")).id),
+            Inventory.Item(s1.createObj(Name("pebbles"), Stackable(3)).id)
+        ]),
+        Mortal(Stats(5, 5, Medium.air))
+    );
+
+    s2.createObj(Name("red herring")); // just to bump the current ID
+
+    auto dobj = s1.exportObj(obj.id, &s2);
+    assert(*s2.get!Name(dobj.id) == Name("some guy"));
+    assert(*s2.get!Agent(dobj.id) == Agent(Agent.Type.player));
+    assert(*s2.get!Tiled(dobj.id) == Tiled(TileId.player, 2, Tiled.Hint.dynamic));
+    assert(*s2.get!Mortal(dobj.id) == Mortal(Stats(5, 5, Medium.air)));
+
+    auto inv = s2.get!Inventory(dobj.id);
+    assert(inv !is null && inv.contents.length == 2);
+    auto lint = s2.getObj(inv.contents[0].id);
+    assert(*s2.get!Name(lint.id) == Name("pocket lint"));
+    auto pebbles = s2.getObj(inv.contents[1].id);
+    assert(*s2.get!Name(pebbles.id) == Name("pebbles"));
+    assert(*s2.get!Stackable(pebbles.id) == Stackable(3));
 }
 
 // vim: set ts=4 sw=4 et ai:
