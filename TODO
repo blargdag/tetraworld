@@ -1,3 +1,5 @@
+- [gravity] Stacked items that trigger fallOn should split the stack in
+  multiple directions.
 - [Bug] Should handle corrupted/incompatible save file more gracefully. Prompt
   user for action?
 - Implement automatic savefile upgrades.
