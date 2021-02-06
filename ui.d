@@ -336,6 +336,7 @@ Movement keys:
    <space>         = center viewport back on player.
 
 Commands:
+   d        Drop an item.
    p        Pass a turn.
    ;        Look at objects on the floor where you are.
    ,        Pick up an object from the current location.
@@ -488,7 +489,7 @@ class TextUi : GameUi
      * displayed and the callback is not invoked.
      */
     void selectTarget(string promptStr, InventoryItem[] targets,
-                      void delegate(ThingId targetId) cb,
+                      void delegate(InventoryItem item) cb,
                       string emptyPrompt)
     {
         if (targets.empty)
@@ -498,12 +499,12 @@ class TextUi : GameUi
         }
         if (targets.length == 1)
         {
-            cb(targets.front.id);
+            cb(targets.front);
             return;
         }
 
         inventoryUi(targets, promptStr, [
-            InventoryButton(keyEnter, "pick", true, (item) { cb(item.id); }),
+            InventoryButton(keyEnter, "pick", true, (item) { cb(item); }),
             InventoryButton('q', "abort", true, null),
         ]);
     }
@@ -555,6 +556,18 @@ class TextUi : GameUi
                             }
                         );
                         break;
+                    case 'd':
+                        selectTarget("What do you want to drop?",
+                            g.getInventory(),
+                            (item) => promptDropCount(item, (toDrop) {
+                                result = PlayerAction(PlayerAction.Type.drop,
+                                                      toDrop.id, toDrop.count);
+                                dispatch.pop();
+                                gameFiber.call();
+                            }),
+                            "You're not carrying anything!"
+                        );
+                        break;
                     case 'q':
                         g.saveGame();
                         quit = true;
@@ -578,9 +591,9 @@ class TextUi : GameUi
                     case keyEnter: {
                         selectTarget("What do you want to apply?",
                             g.getApplyTargets(),
-                            (targetId) {
+                            (item) {
                                 result = PlayerAction(
-                                    PlayerAction.Type.applyFloor, targetId);
+                                    PlayerAction.Type.applyFloor, item.id);
                                 dispatch.pop();
                                 gameFiber.call();
                             },
@@ -591,9 +604,9 @@ class TextUi : GameUi
                     case ',': {
                         selectTarget("What do you want to pick up?",
                             g.getPickupTargets(),
-                            (targetId) {
+                            (item) {
                                 result = PlayerAction(PlayerAction.Type.pickup,
-                                                      targetId);
+                                                      item.id);
                                 dispatch.pop();
                                 gameFiber.call();
                             },
@@ -1250,6 +1263,29 @@ class TextUi : GameUi
         return true;
     }
 
+    private void promptDropCount(InventoryItem item,
+                                 void delegate(InventoryItem) onDrop)
+    {
+        if (item.count == 1)
+        {
+            onDrop(item);
+            return;
+        }
+
+        auto promptStr = format(
+            "How many %s do you want to drop?", item.name);
+        promptNumber(promptStr, 0, item.count, (count) {
+            if (count > 0)
+            {
+                auto toDrop = item;
+                toDrop.count = count;
+                onDrop(toDrop);
+            }
+            else
+                message("You decide against dropping anything.");
+        }, item.count.to!string);
+    }
+
     private void showInventory(void delegate(InventoryItem) onApply,
                                void delegate(InventoryItem) onDrop)
     {
@@ -1261,27 +1297,7 @@ class TextUi : GameUi
                     onApply(item);
                 }),
                 InventoryButton('d',  "drop", true, (item) {
-                    if (item.count == 1)
-                    {
-                        onDrop(item);
-                    }
-                    else
-                    {
-                        auto promptStr = format(
-                            "How many %s do you want to drop?", item.name);
-                        promptNumber(promptStr, 0, item.count,
-                            (count) {
-                                if (count > 0)
-                                {
-                                    auto toDrop = item;
-                                    toDrop.count = count;
-                                    onDrop(toDrop);
-                                }
-                                else
-                                    message("You decide against dropping "~
-                                            "anything.");
-                            }, item.count.to!string);
-                    }
+                    promptDropCount(item, onDrop);
                 }),
                 InventoryButton('\t', "done", true, null),
             ]))

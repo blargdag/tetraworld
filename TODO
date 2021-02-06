@@ -480,3 +480,5 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
   objects).
 + [mapgen] Object placement code should avoid tiles that are blocking (e.g.,
   pillars, stairs).
++ Add dedicated drop action again. Even though it's redundant, it actually
+  helps streamline gameplay a lot.
