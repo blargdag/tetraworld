@@ -53,6 +53,7 @@ import world;
  * in nethack.
  */
 enum saveFileName = ".tetra.save";
+enum saveFileVer = 1000;
 
 /**
  * Logical player input action.
@@ -342,7 +343,7 @@ class Game
     void saveGame()
     {
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
-        sf.put("version", 1000);
+        sf.put("version", saveFileVer);
         sf.put("player", player.id);
         sf.put("story", storyNode);
         sf.put("turns", nTurns);
@@ -357,7 +358,9 @@ class Game
     {
         auto lf = File(saveFileName, "r").byLine.loadFile;
         auto ver = lf.parse!int("version");
-        // TBD: run upgrade code based on version number
+        if (ver != saveFileVer)
+            // TBD: run upgrade code based on version number
+            throw new Exception("Save file version is incompatible");
 
         ThingId playerId = lf.parse!ThingId("player");
 
