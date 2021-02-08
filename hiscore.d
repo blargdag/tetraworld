@@ -34,6 +34,8 @@ import loadsave;
 enum hiscoreFile = ".tetra.hiscores";
 enum hiscoreLockFile = ".tetra.hiscores.lock";
 
+enum hiscoreFileVer = 1000;
+
 enum Outcome { giveup, dead, win }
 
 /**
@@ -165,6 +167,13 @@ private HiScore[] loadHiScoresImpl()
         return [];
 
     auto lf = loadFile(File(hiscoreFile, "rb").byLine);
+    auto ver = lf.parse!int("version");
+    // FIXME: check version and run upgrade code here
+    if (ver != hiscoreFileVer)
+        throw new Exception("Incompatible high score file version");
+        // FIXME: incompatible version should just reset to blank at worst, not
+        // error out!
+
     auto scores = lf.parse!(HiScore[])("hiscores");
     sort!orderByRank(scores);
     return scores;
@@ -207,6 +216,7 @@ HiScore addHiScore(HiScore score)
     sort!orderByRank(scores);
 
     auto sf = File(hiscoreFile, "wb").lockingTextWriter.saveFile;
+    sf.put("version", hiscoreFileVer);
     sf.put("hiscores", scores);
 
     return score;

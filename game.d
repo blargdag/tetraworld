@@ -342,6 +342,7 @@ class Game
     void saveGame()
     {
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
+        sf.put("version", 1000);
         sf.put("player", player.id);
         sf.put("story", storyNode);
         sf.put("turns", nTurns);
@@ -355,6 +356,9 @@ class Game
     static Game loadGame()
     {
         auto lf = File(saveFileName, "r").byLine.loadFile;
+        auto ver = lf.parse!int("version");
+        // TBD: run upgrade code based on version number
+
         ThingId playerId = lf.parse!ThingId("player");
 
         auto game = new Game;

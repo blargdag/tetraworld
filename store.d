@@ -488,7 +488,6 @@ struct Store
 unittest
 {
     auto lf = loadFile([
-        "version 1000",
         "pos {",
         " 100 {",
         "  coors [ 1 0 0 1 ]",
