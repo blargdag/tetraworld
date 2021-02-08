@@ -97,6 +97,15 @@ void renderCell(T, Cell)(T display, Cell cell)
 }
 
 /**
+ * Map render style.
+ */
+enum MapStyle
+{
+    isometric,  /// faux-isometric.
+    straight,   /// NxN grid of NxN subgrids.
+}
+
+/**
  * Renders a 4D map to the given grid-based display.
  *
  * Params:
@@ -104,7 +113,7 @@ void renderCell(T, Cell)(T display, Cell cell)
  *  map = An object which returns a printable character or a Tile16, given a
  *      set of 4D coordinates.
  */
-void renderMap(T, Map)(T display, Map map)
+void renderMap(T, Map)(T display, Map map, MapStyle style)
     if (isDisplay!T && is4DArray!Map &&
         (is(CellType!Map == dchar) || is(CellType!Map == Tile16)))
 {
@@ -121,7 +130,17 @@ void renderMap(T, Map)(T display, Map map)
             auto colx = x*(ylen + zlen + interColSpace);
             foreach (y; 0 .. ylen)
             {
-                auto outx = colx + (ylen - y - 1);
+                auto outx = colx;
+                final switch (style)
+                {
+                    case MapStyle.isometric:
+                        outx += (ylen - y - 1);
+                        break;
+
+                    case MapStyle.straight:
+                        outx += ylen / 2;
+                        break;
+                }
                 auto outy = rowy + y;
                 foreach (z; 0 .. zlen)
                 {
@@ -181,7 +200,9 @@ unittest
     }
     auto disp = TestDisplay();
 
-    disp.renderMap(map); // This will assert if output exceeds stated bounds.
+    // This will assert if output exceeds stated bounds.
+    disp.renderMap(map, MapStyle.isometric);
+
     assert(writtenArea.max == rsize);
 }
 

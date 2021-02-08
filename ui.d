@@ -47,6 +47,7 @@ struct TextUiConfig
 {
     int smoothscrollMsec = 80;
     string tscriptFile;
+    MapStyle mapStyle;
 }
 
 /**
@@ -818,7 +819,7 @@ class TextUi : GameUi
 
             // Initial frame
             int last_i = 0;
-            scrollDisp.renderMap(scrollview);
+            scrollDisp.renderMap(scrollview, cfg.mapStyle);
             disp.flush();
             term.flush();
 
@@ -836,7 +837,7 @@ class TextUi : GameUi
 
                     scrollDisp.scrollTo(scrnOffset[1] + i*dx,
                                         scrnOffset[0] + i*dy);
-                    scrollDisp.renderMap(scrollview);
+                    scrollDisp.renderMap(scrollview, cfg.mapStyle);
                     disp.flush();
                     term.flush();
                     last_i = i;
@@ -1315,7 +1316,7 @@ class TextUi : GameUi
     private void refreshMap()
     {
         auto curview = getCurView();
-        mapview.renderMap(curview);
+        mapview.renderMap(curview, cfg.mapStyle);
 
         disp.hideCursor();
         if (viewport.contains(g.playerPos))
