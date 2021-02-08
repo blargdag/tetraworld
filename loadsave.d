@@ -28,13 +28,6 @@ import std.stdio;
 import std.typecons : Tuple;
 
 /**
- * The current savegame major/minor version.
- */
-enum curVerMaj = 1;
-enum curVerMin = 0;
-enum curVer = curVerMaj*1000 | curVerMin;
-
-/**
  * Check whether the given type conforms to the SaveFile interface.
  */
 enum isSaveFile(T) = is(typeof(T.init.push(""))) &&
@@ -272,7 +265,6 @@ auto saveFile(R)(R sink)
     if (isOutputRange!(R, dchar))
 {
     auto sf = SaveFile(sink);
-    sf.put("version", curVer);
     return sf;
 }
 
@@ -642,15 +634,6 @@ auto loadFile(R)(R src)
 {
     auto lf = LoadFile(src);
     static assert(isLoadFile!(typeof(lf)));
-
-    auto ver = lf.parse!int("version");
-    auto vermaj = ver / 1000;
-    auto vermin = ver % 1000;
-
-    if (vermaj != curVerMaj)
-        throw new LoadException("Save file version (%d) is incompatible with "~
-                                "current version (%d)", ver, curVer);
-
     return lf;
 }
 
@@ -676,34 +659,7 @@ unittest
 
 unittest
 {
-    import std.exception : assertThrown, assertNotThrown;
-
-    assertThrown!LoadException(loadFile([
-        "key1 val",
-        "key2 ",
-        "key3"
-    ]));
-
-    assertThrown!LoadException(loadFile([
-        "version 0001",
-        "key2 ",
-        "key3"
-    ]));
-
-    assertThrown!LoadException(loadFile([
-        "version 2003",
-        "key2 ",
-        "key3"
-    ]));
-
-    assertNotThrown!LoadException(loadFile([
-        "version 1591",
-        "key2 ",
-        "key3"
-    ]));
-
     auto lf = loadFile([
-        "version 1591",
         "key1 val",
         "key2 123"
     ]);
@@ -716,7 +672,6 @@ unittest
 unittest
 {
     auto lf = loadFile([
-        "version 1591",
         "block {",
         "abc 123",
         "}"
@@ -746,7 +701,6 @@ unittest
     }
 
     auto lf = loadFile([
-        "version 1591",
         "data {",
         " x 123",
         " y 321",
@@ -767,7 +721,6 @@ unittest
 unittest
 {
     auto lf = loadFile([
-        "version 1000",
         "table {",
         " 123 abc",
         " 321 def",
@@ -783,7 +736,6 @@ unittest
 unittest
 {
     auto lf = loadFile([
-        "version 1000",
         "table {",
         " 0 abc",
         " 1 def",
@@ -805,7 +757,6 @@ unittest
 unittest
 {
     auto lf = loadFile([
-        "version 1000",
         "invalid {",
         " 0 abc",
         " 1 ghi",
@@ -820,7 +771,6 @@ unittest
 unittest
 {
     auto lf = loadFile([
-        "version 1000",
         "shortform [ 1 2 3 ]",
         "shortform [ a b c ]",
     ]);
@@ -883,7 +833,6 @@ unittest
 unittest
 {
     auto lf = loadFile([
-        "version 1000",
         "empty [  ]",
     ]);
     assert(lf.parse!(int[])("empty") == []);
@@ -909,7 +858,6 @@ unittest
     sf.put("data", aa);
 
     assert(app.data ==
-        "version 1000\n"~
         "data {\n"~
         " 10 {\n"~
         "  str abc\n"~
@@ -948,7 +896,6 @@ unittest
     sf.put("obj", d);
 
     assert(app.data == 
-        "version 1000\n"~
         "obj {\n"~
         " x 1\n"~
         " y 2\n"~
