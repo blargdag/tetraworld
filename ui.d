@@ -764,7 +764,7 @@ class TextUi : GameUi
         foreach (pos; where.filter!(pos => viewport.contains(pos)))
         {
             auto viewPos = pos - viewport.pos;
-            auto scrnPos = curview.renderingCoors(viewPos);
+            auto scrnPos = curview.renderingCoors(viewPos, cfg.mapStyle);
             mapview.moveTo(scrnPos[0], scrnPos[1]);
             mapview.renderCell(curview[viewPos]);
             visChange = true;
@@ -1322,7 +1322,8 @@ class TextUi : GameUi
         if (viewport.contains(g.playerPos))
         {
             auto cursorPos = renderingCoors(curview,
-                                            g.playerPos - viewport.pos);
+                                            g.playerPos - viewport.pos,
+                                            cfg.mapStyle);
             if (region(vec(mapview.width, mapview.height)).contains(cursorPos))
             {
                 mapview.moveTo(cursorPos[0], cursorPos[1]);

@@ -215,7 +215,7 @@ unittest
  *  2D coordinates where renderMap would draw a tile at the given 4D
  *  coordinates.
  */
-Vec!(int,2) renderingCoors(Map)(Map map, Vec!(int,4) coors)
+Vec!(int,2) renderingCoors(Map)(Map map, Vec!(int,4) coors, MapStyle style)
     if (is4DArray!Map)
 {
     //auto wlen = map.opDollar!0;
@@ -223,8 +223,14 @@ Vec!(int,2) renderingCoors(Map)(Map map, Vec!(int,4) coors)
     auto ylen = map.opDollar!2;
     auto zlen = map.opDollar!3;
 
-    return vec(coors[1]*(ylen + zlen + interColSpace) +
-               (ylen - coors[2] - 1) + coors[3],
+    int offset;
+    final switch (style)
+    {
+        case MapStyle.isometric:    offset = ylen - coors[2] - 1;   break;
+        case MapStyle.straight:     offset = ylen/2;                break;
+    }
+
+    return vec(coors[1]*(ylen + zlen + interColSpace) + offset + coors[3],
                coors[0]*(ylen + interRowSpace) + coors[2]);
 }
 
@@ -237,13 +243,31 @@ unittest
     }
     Map m;
 
-    assert(m.renderingCoors(vec(0,0,0,0)) == vec(2,0));
-    assert(m.renderingCoors(vec(1,1,1,1)) == vec(8,5));
-    assert(m.renderingCoors(vec(2,2,2,2)) == vec(14,10));
-    assert(m.renderingCoors(vec(1,0,0,0)) == vec(2,4));
-    assert(m.renderingCoors(vec(0,1,0,0)) == vec(8,0));
-    assert(m.renderingCoors(vec(0,0,1,0)) == vec(1,1));
-    assert(m.renderingCoors(vec(0,0,0,1)) == vec(3,0));
+    assert(m.renderingCoors(vec(0,0,0,0), MapStyle.isometric) == vec(2,0));
+    assert(m.renderingCoors(vec(1,1,1,1), MapStyle.isometric) == vec(8,5));
+    assert(m.renderingCoors(vec(2,2,2,2), MapStyle.isometric) == vec(14,10));
+    assert(m.renderingCoors(vec(1,0,0,0), MapStyle.isometric) == vec(2,4));
+    assert(m.renderingCoors(vec(0,1,0,0), MapStyle.isometric) == vec(8,0));
+    assert(m.renderingCoors(vec(0,0,1,0), MapStyle.isometric) == vec(1,1));
+    assert(m.renderingCoors(vec(0,0,0,1), MapStyle.isometric) == vec(3,0));
+}
+
+unittest
+{
+    struct Map
+    {
+        enum opDollar(int n) = 3;
+        dchar opIndex(int w, int x, int y, int z) { return '.'; }
+    }
+    Map m;
+
+    assert(m.renderingCoors(vec(0,0,0,0), MapStyle.straight) == vec(1,0));
+    assert(m.renderingCoors(vec(1,1,1,1), MapStyle.straight) == vec(8,5));
+    assert(m.renderingCoors(vec(2,2,2,2), MapStyle.straight) == vec(15,10));
+    assert(m.renderingCoors(vec(1,0,0,0), MapStyle.straight) == vec(1,4));
+    assert(m.renderingCoors(vec(0,1,0,0), MapStyle.straight) == vec(7,0));
+    assert(m.renderingCoors(vec(0,0,1,0), MapStyle.straight) == vec(1,1));
+    assert(m.renderingCoors(vec(0,0,0,1), MapStyle.straight) == vec(2,0));
 }
 
 /**
