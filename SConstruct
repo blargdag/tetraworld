@@ -59,6 +59,7 @@ sources = Split("""
 	tile.d
 	ui.d
 	vector.d
+	widgets.d
 	world.d
 
 	arsd/terminal.d
