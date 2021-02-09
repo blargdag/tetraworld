@@ -33,6 +33,7 @@ import action;
 import agent;
 import ai;
 import components;
+import config;
 import dir;
 import fov;
 import gravity;
@@ -48,11 +49,20 @@ import world;
 
 /**
  * Default savegame filename.
- *
- * TBD: this really should be replaced with a playground directory system like
- * in nethack.
  */
-enum saveFileName = ".tetra.save";
+string saveFileName()
+{
+    import std.path : buildPath;
+    import std.process : environment;
+
+    return buildPath(gameDataDir, environment["USER"] ~ ".save");
+}
+
+/**
+ * Current savegame version.
+ *
+ * This should be bumped every time the format changes.
+ */
 enum saveFileVer = 1000;
 
 /**

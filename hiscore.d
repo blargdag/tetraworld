@@ -26,13 +26,22 @@ import std.conv : to;
 import std.datetime;
 import std.file : exists;
 import std.format;
+import std.path;
 import std.range;
 import std.stdio;
 
+import config;
 import loadsave;
 
-enum hiscoreFile = ".tetra.hiscores";
-enum hiscoreLockFile = ".tetra.hiscores.lock";
+string hiscoreFile()
+{
+    return buildPath(gameDataDir, "hiscores");
+}
+
+string hiscoreLockFile()
+{
+    return buildPath(gameDataDir, ".hiscores.lock");
+}
 
 enum hiscoreFileVer = 1000;
 
