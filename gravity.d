@@ -385,7 +385,7 @@ unittest
             iota(4).map!(j =>
                 iota(4).map!(i =>
                     tiles[w.store.get!Tiled(w.map[j,i,1,1]).tileId]
-                    .representation)));
+                    .straight)));
     }
 
     // Test map:

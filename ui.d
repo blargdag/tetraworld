@@ -47,6 +47,7 @@ struct TextUiConfig
 {
     int smoothscrollMsec = 80;
     string tscriptFile;
+    MapStyle mapStyle;
 }
 
 /**
@@ -763,9 +764,9 @@ class TextUi : GameUi
         foreach (pos; where.filter!(pos => viewport.contains(pos)))
         {
             auto viewPos = pos - viewport.pos;
-            auto scrnPos = curview.renderingCoors(viewPos);
+            auto scrnPos = curview.renderingCoors(viewPos, cfg.mapStyle);
             mapview.moveTo(scrnPos[0], scrnPos[1]);
-            mapview.renderCell(curview[viewPos]);
+            mapview.renderCell(curview[viewPos], cfg.mapStyle);
             visChange = true;
         }
 
@@ -818,7 +819,7 @@ class TextUi : GameUi
 
             // Initial frame
             int last_i = 0;
-            scrollDisp.renderMap(scrollview);
+            scrollDisp.renderMap(scrollview, cfg.mapStyle);
             disp.flush();
             term.flush();
 
@@ -836,7 +837,7 @@ class TextUi : GameUi
 
                     scrollDisp.scrollTo(scrnOffset[1] + i*dx,
                                         scrnOffset[0] + i*dy);
-                    scrollDisp.renderMap(scrollview);
+                    scrollDisp.renderMap(scrollview, cfg.mapStyle);
                     disp.flush();
                     term.flush();
                     last_i = i;
@@ -1120,7 +1121,7 @@ class TextUi : GameUi
     {
         import tile : tiles;
 
-        scrn.renderCell(tiles[item.tileId]);
+        scrn.renderCell(tiles[item.tileId], cfg.mapStyle);
         scrn.color(fg, bg);
         scrn.writef(" %s", item);
         if (item.equipped)
@@ -1315,13 +1316,14 @@ class TextUi : GameUi
     private void refreshMap()
     {
         auto curview = getCurView();
-        mapview.renderMap(curview);
+        mapview.renderMap(curview, cfg.mapStyle);
 
         disp.hideCursor();
         if (viewport.contains(g.playerPos))
         {
             auto cursorPos = renderingCoors(curview,
-                                            g.playerPos - viewport.pos);
+                                            g.playerPos - viewport.pos,
+                                            cfg.mapStyle);
             if (region(vec(mapview.width, mapview.height)).contains(cursorPos))
             {
                 mapview.moveTo(cursorPos[0], cursorPos[1]);

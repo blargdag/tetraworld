@@ -27,15 +27,29 @@ import display;
 
 struct Tile16
 {
-    dchar representation;
+    dchar isometric, straight;
     ushort fg = Color.DEFAULT, bg = Color.DEFAULT;
+
+    this(dchar _iso, dchar _straight, Color _fg = Color.DEFAULT,
+         Color _bg = Color.DEFAULT)
+    {
+        isometric = _iso;
+        straight = _straight;
+        fg = _fg;
+        bg = _bg;
+    }
+
+    this(dchar _iso, Color _fg = Color.DEFAULT, Color _bg = Color.DEFAULT)
+    {
+        this(_iso, _iso, _fg, _bg);
+    }
 }
 
 Tile16[TileId.max+1] tiles = [
-    TileId.blocked:         Tile16('#'),
+    TileId.blocked:         Tile16('#', '\u2591'),
     TileId.unknown:         Tile16('?'),
     TileId.space:           Tile16(' '),
-    TileId.wall:            Tile16('/'),
+    TileId.wall:            Tile16('/', '#'),
     TileId.floorBare:       Tile16('.'),
     TileId.floorGrassy:     Tile16(':'),
     TileId.floorMuddy:      Tile16(';'),
