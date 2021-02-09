@@ -766,7 +766,7 @@ class TextUi : GameUi
             auto viewPos = pos - viewport.pos;
             auto scrnPos = curview.renderingCoors(viewPos, cfg.mapStyle);
             mapview.moveTo(scrnPos[0], scrnPos[1]);
-            mapview.renderCell(curview[viewPos]);
+            mapview.renderCell(curview[viewPos], cfg.mapStyle);
             visChange = true;
         }
 
@@ -1121,7 +1121,7 @@ class TextUi : GameUi
     {
         import tile : tiles;
 
-        scrn.renderCell(tiles[item.tileId]);
+        scrn.renderCell(tiles[item.tileId], cfg.mapStyle);
         scrn.color(fg, bg);
         scrn.writef(" %s", item);
         if (item.equipped)

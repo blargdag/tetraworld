@@ -79,14 +79,24 @@ enum interRowSpace = 1;
 /**
  * Render a single cell to the current location of the given display.
  */
-void renderCell(T, Cell)(T display, Cell cell)
+void renderCell(T, Cell)(T display, Cell cell, MapStyle style)
     if (isDisplay!T)
 {
     static if (is(Cell == Tile16))
     {
         static if (hasColor!T)
             display.color(cell.fg, cell.bg);
-        display.writef("%s", cell.representation);
+
+        final switch (style)
+        {
+            case MapStyle.isometric:
+                display.writef("%s", cell.isometric);
+                break;
+
+            case MapStyle.straight:
+                display.writef("%s", cell.straight);
+                break;
+        }
     }
     else static if (is(Cell == dchar))
     {
@@ -145,7 +155,7 @@ void renderMap(T, Map)(T display, Map map, MapStyle style)
                 foreach (z; 0 .. zlen)
                 {
                     display.moveTo(outx++, outy);
-                    display.renderCell(map[w,x,y,z]);
+                    display.renderCell(map[w,x,y,z], style);
                 }
             }
         }
