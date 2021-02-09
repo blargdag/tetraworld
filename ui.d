@@ -358,124 +358,6 @@ class TextUi : GameUi
         return result;
     }
 
-    /**
-     * Prompt the user to enter a number within the given range.
-     *
-     * Params:
-     *  promptStr = The prompt string.
-     *  min = The minimum allowed value.
-     *  max = The maximum allowed value.
-     *  dg = Callback to invoke with the inputted number.
-     *  defaultVal = Default value to fill buffer with.
-     */
-    void promptNumber(string promptStr, int minVal, int maxVal,
-                      void delegate(int) dg, string defaultVal = "")
-        in (defaultVal.length <= 12)
-    {
-        auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
-        auto width = min(fullPrompt.displayLength() + 2, disp.width);
-        auto height = 5;
-        auto scrnX = (disp.width - width)/2;
-        auto scrnY = (disp.height - height)/2;
-        auto scrn = subdisplay(&disp, region(
-            vec(scrnX, scrnY), vec(scrnX + width, scrnY + height)));
-
-        string err;
-        dchar[12] input;
-        int curPos;
-        bool killOnInput = (defaultVal.length > 0);
-
-        defaultVal.copy(input[]);
-        curPos = defaultVal.length.to!int;
-
-        auto promptMode = Mode(
-            () {
-                scrn.hideCursor();
-                scrn.color(Color.black, Color.white);
-
-                // Can't use .clear 'cos it doesn't use color we set.
-                scrn.moveTo(0, 0);
-                scrn.clearToEos();
-
-                scrn.moveTo(1, 1);
-                scrn.writef("%s", fullPrompt);
-
-                scrn.moveTo(2, 3);
-                scrn.writef("%s", input[0 .. curPos]);
-                scrn.clearToEol();
-
-                if (err.length > 0)
-                {
-                    scrn.moveTo(2, 4);
-                    scrn.color(Color.red, Color.white);
-                    scrn.writef("%s", err);
-                    scrn.clearToEol();
-                    scrn.color(Color.black, Color.white);
-                }
-
-                scrn.moveTo(2 + curPos, 3);
-                scrn.showCursor();
-            },
-            (dchar ch) {
-                import std.conv : to, ConvException;
-                switch (ch)
-                {
-                    case '0': .. case '9':
-                        if (killOnInput)
-                        {
-                            curPos = 0;
-                            killOnInput = false;
-                        }
-                        if (curPos + 1 < input.length)
-                            input[curPos++] = ch;
-                        break;
-
-                    case '*':
-                        auto maxStr = format("%s", maxVal);
-                        maxStr.copy(input[]);
-                        curPos = maxStr.length.to!int;
-                        break;
-
-                    case '\b':
-                        if (curPos > 0)
-                            curPos--;
-                        break;
-
-                    case '\n':
-                        try
-                        {
-                            auto result = input[0 .. curPos].to!int;
-                            if (result < minVal || result > maxVal)
-                            {
-                                err = "Please enter a number between %d and %d"
-                                      .format(minVal, maxVal);
-                                curPos = 0;
-                            }
-                            else
-                            {
-                                dispatch.pop();
-                                disp.color(Color.DEFAULT, Color.DEFAULT);
-                                disp.clear();
-
-                                dg(result);
-                                break;
-                            }
-                        }
-                        catch (ConvException e)
-                        {
-                            err = "That doesn't look like a number!";
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-        );
-
-        dispatch.push(promptMode);
-    }
-
     void updateMap(Pos[] where...)
     {
         // Only update the on-screen tiles that have changed.
@@ -995,7 +877,7 @@ class TextUi : GameUi
 
         auto promptStr = format(
             "How many %s do you want to drop?", item.name);
-        promptNumber(promptStr, 0, item.count, (count) {
+        promptNumber(disp, dispatch, promptStr, 0, item.count, (count) {
             if (count > 0)
             {
                 auto toDrop = item;
