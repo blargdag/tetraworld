@@ -432,7 +432,7 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
 /**
  * Pager for long text.
  */
-void pager(S)(ref InputDispatcher dispatch, S scrn, const(char[])[] lines,
+void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
               string endPrompt, void delegate() exitHook)
 {
     const(char[])[] nextLines;
@@ -484,6 +484,51 @@ void pager(S)(ref InputDispatcher dispatch, S scrn, const(char[])[] lines,
     );
 
     dispatch.push(infoMode);
+}
+
+/**
+ * Pushes a Mode to the mode stack that prompts the player for a yes/no
+ * response, and invokes the given callback with the answer.
+ */
+void promptYesNo(Disp)(Disp disp, ref InputDispatcher dispatch,
+                       string promptStr, void delegate(bool answer) cb)
+{
+    string str = promptStr ~ " [yn] ";
+    auto mode = Mode(
+        {
+            // FIXME: probably should be in a subdisplay?
+            disp.moveTo(0, 0);
+            disp.writef("%s", str);
+            auto x = disp.cursorX;
+            auto y = disp.cursorY;
+            disp.clearToEol();
+            disp.moveTo(x, y);
+        }, (dchar key) {
+            switch (key)
+            {
+                case 'y':
+                    dispatch.pop();
+                    disp.moveTo(0,0);
+                    disp.writef(str);
+                    disp.writef("yes");
+                    disp.clearToEol();
+                    cb(true);
+                    break;
+                case 'n':
+                    dispatch.pop();
+                    disp.moveTo(0,0);
+                    disp.writef(str);
+                    disp.writef("no");
+                    disp.clearToEol();
+                    cb(false);
+                    break;
+
+                default:
+            }
+        }
+    );
+
+    dispatch.push(mode);
 }
 
 // vim:set ai sw=4 ts=4 et:

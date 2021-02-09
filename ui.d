@@ -294,8 +294,9 @@ class TextUi : GameUi
                         quit = true;
                         break;
                     case 'Q':
-                        promptYesNo("Really quit and permanently delete this "~
-                                    "character?", (yes) {
+                        promptYesNo(disp, dispatch, "Really quit and "~
+                                    "permanently delete this character?",
+                                    (yes) {
                             if (yes)
                             {
                                 quit = true;
@@ -496,69 +497,10 @@ class TextUi : GameUi
                                .joiner([""])
                                .array;
 
-        pager(dispatch, scrn, lines, endPrompt, {
+        pager(scrn, dispatch, lines, endPrompt, {
             gameFiber.call();
         });
         Fiber.yield();
-    }
-
-    /**
-     * Like message(), but does not store the message into the log and does not
-     * accumulate messages with a --MORE-- prompt.
-     */
-    void echo(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0,0);
-        disp.writef(str);
-        disp.clearToEol();
-    }
-
-    /**
-     * Prompts the user for a response.  Keeps the cursor positioned
-     * immediately after the prompt.
-     */
-    void prompt(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0, 0);
-        disp.writef("%s", str);
-        auto x = disp.cursorX;
-        auto y = disp.cursorY;
-        disp.clearToEol();
-        disp.moveTo(x, y);
-    }
-
-    /**
-     * Pushes a Mode to the mode stack that prompts the player for a yes/no
-     * response, and invokes the given callback with the answer.
-     */
-    private void promptYesNo(string promptStr, void delegate(bool answer) cb)
-    {
-        string str = promptStr ~ " [yn] ";
-        auto mode = Mode(
-            {
-                prompt(str);
-            }, (dchar key) {
-                switch (key)
-                {
-                    case 'y':
-                        dispatch.pop();
-                        echo(str ~ "yes");
-                        cb(true);
-                        break;
-                    case 'n':
-                        dispatch.pop();
-                        echo(str ~ "no");
-                        cb(false);
-                        break;
-
-                    default:
-                }
-            }
-        );
-
-        dispatch.push(mode);
     }
 
     private auto highlightAxialTiles(Vec!(int,4) pos, TileId tileId)
@@ -591,7 +533,7 @@ class TextUi : GameUi
     private void showHelp()
     {
         auto scrn = pagerScreen();
-        pager(dispatch, scrn, helpText[], "Press any key to return to game",
+        pager(scrn, dispatch, helpText[], "Press any key to return to game",
               {});
     }
 
