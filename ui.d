@@ -1139,16 +1139,10 @@ class TextUi : GameUi
 
     /**
      * Params:
+     *  inven = List of items to display.
      *  promptStr = Heading to display on inventory screen.
-     *  selectAction = Optional action to execute when user selects an item.
-     *      Should return true if inventory UI interaction should stop
-     *      immediately, false if it should continue.
-     *  onExit = Hook to run upon leaving the inventory UI. Primarily needed
-     *      for Fiber context switches if the interaction started from the Game
-     *      fiber.
-     *  onApply = Hook to run for apply action on an item. Return true to exit
-     *      inventory mode, or false to continue.
-     *  onDrop = Hook to run for drop action on an item.
+     *  buttons = The list of buttons to be placed on the screen.
+     *  canSelect = Whether or not individual items can be selected with j/k.
      *
      * Returns: true if inventory UI mode is pushed on stack, otherwise false
      * (e.g., if inventory is empty).
