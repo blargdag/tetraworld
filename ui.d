@@ -469,6 +469,17 @@ class TextUi : GameUi
         quitScore = hs;
     }
 
+    /**
+     * Create a subdisplay to be used as the canvas for pager().
+     */
+    auto pagerScreen()
+    {
+        auto width = min(80, disp.width - 6);
+        auto padding = (disp.width - width) / 2;
+        return subdisplay(&disp, region(vec(padding, 1),
+                          vec(disp.width - padding, disp.height - 1)));
+    }
+
     void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
         // Make sure player has read all current messages first.
@@ -485,7 +496,7 @@ class TextUi : GameUi
                                .joiner([""])
                                .array;
 
-        pager(scrn, lines, endPrompt, {
+        pager(dispatch, scrn, lines, endPrompt, {
             gameFiber.call();
         });
         Fiber.yield();
@@ -516,77 +527,6 @@ class TextUi : GameUi
         auto y = disp.cursorY;
         disp.clearToEol();
         disp.moveTo(x, y);
-    }
-
-    /**
-     * Create a subdisplay to be used as the canvas for pager().
-     */
-    private auto pagerScreen()
-    {
-        auto width = min(80, disp.width - 6);
-        auto padding = (disp.width - width) / 2;
-        return subdisplay(&disp, region(vec(padding, 1),
-                          vec(disp.width - padding, disp.height - 1)));
-    }
-
-    /**
-     * Pager for long text.
-     *
-     * This function should only be called from the UI fiber; use .infoScreen
-     * if calling from the Game fiber.
-     */
-    private void pager(S)(S scrn, const(char[])[] lines, string endPrompt,
-                          void delegate() exitHook)
-    {
-        const(char[])[] nextLines;
-
-        void displayPage()
-        {
-            scrn.hideCursor();
-            scrn.color(Color.black, Color.white);
-
-            // Can't use .clear 'cos it doesn't use color we set.
-            scrn.moveTo(0, 0);
-            scrn.clearToEos();
-
-            auto linesToPrint = min(scrn.height - 2, lines.length);
-            auto offsetY = (scrn.height - linesToPrint - 1)/2;
-            foreach (i; 0 .. linesToPrint)
-            {
-                // Vertically-center texts for better visual aesthetics.
-                scrn.moveTo(1, i + offsetY);
-                scrn.writef("%s", lines[i]);
-            }
-            nextLines = lines[linesToPrint .. $];
-
-            scrn.moveTo(1, linesToPrint + offsetY + 1);
-            scrn.color(Color.white, Color.blue);
-            scrn.writef("%s", nextLines.length > 0 ? "[More]" : endPrompt);
-            scrn.color(Color.black, Color.white);
-            scrn.showCursor();
-        }
-
-        auto infoMode = Mode(
-            () {
-                displayPage();
-            },
-            (dchar ch) {
-                if (nextLines.length > 0)
-                {
-                    lines = nextLines;
-                    displayPage();
-                }
-                else
-                {
-                    dispatch.pop();
-                    disp.color(Color.DEFAULT, Color.DEFAULT);
-                    disp.clear();
-                    exitHook();
-                }
-            },
-        );
-
-        dispatch.push(infoMode);
     }
 
     /**
@@ -651,7 +591,8 @@ class TextUi : GameUi
     private void showHelp()
     {
         auto scrn = pagerScreen();
-        pager(scrn, helpText[], "Press any key to return to game", {});
+        pager(dispatch, scrn, helpText[], "Press any key to return to game",
+              {});
     }
 
     private void lookAtFloor()

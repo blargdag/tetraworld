@@ -429,4 +429,61 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
     dispatch.push(promptMode);
 }
 
+/**
+ * Pager for long text.
+ */
+void pager(S)(ref InputDispatcher dispatch, S scrn, const(char[])[] lines,
+              string endPrompt, void delegate() exitHook)
+{
+    const(char[])[] nextLines;
+
+    void displayPage()
+    {
+        scrn.hideCursor();
+        scrn.color(Color.black, Color.white);
+
+        // Can't use .clear 'cos it doesn't use color we set.
+        scrn.moveTo(0, 0);
+        scrn.clearToEos();
+
+        auto linesToPrint = min(scrn.height - 2, lines.length);
+        auto offsetY = (scrn.height - linesToPrint - 1)/2;
+        foreach (i; 0 .. linesToPrint)
+        {
+            // Vertically-center texts for better visual aesthetics.
+            scrn.moveTo(1, i + offsetY);
+            scrn.writef("%s", lines[i]);
+        }
+        nextLines = lines[linesToPrint .. $];
+
+        scrn.moveTo(1, linesToPrint + offsetY + 1);
+        scrn.color(Color.white, Color.blue);
+        scrn.writef("%s", nextLines.length > 0 ? "[More]" : endPrompt);
+        scrn.color(Color.black, Color.white);
+        scrn.showCursor();
+    }
+
+    auto infoMode = Mode(
+        () {
+            displayPage();
+        },
+        (dchar ch) {
+            if (nextLines.length > 0)
+            {
+                lines = nextLines;
+                displayPage();
+            }
+            else
+            {
+                scrn.color(Color.DEFAULT, Color.DEFAULT);
+                scrn.clear();
+                dispatch.pop();
+                exitHook();
+            }
+        },
+    );
+
+    dispatch.push(infoMode);
+}
+
 // vim:set ai sw=4 ts=4 et:
