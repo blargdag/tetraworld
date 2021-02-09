@@ -164,7 +164,6 @@ class TextUi : GameUi
     private InputDispatcher dispatch;
 
     private bool refreshNeedsPause;
-
     private bool quit;
     private HiScore quitScore;
 
@@ -225,8 +224,8 @@ class TextUi : GameUi
         }
 
         inventoryUi(targets, promptStr, [
-            InventoryButton(keyEnter, "pick", true, (item) { cb(item); }),
-            InventoryButton('q', "abort", true, null),
+            SelectButton(keyEnter, "pick", true, (i) { cb(targets[i]); }),
+            SelectButton('q', "abort", true, null),
         ]);
     }
 
@@ -614,132 +613,28 @@ class TextUi : GameUi
         scrn.clearToEol();
     }
 
-    private static struct InventoryButton
-    {
-        dchar key;
-        string label;
-        bool exitOnClick;
-        void delegate(InventoryItem) onClick;
-    }
-
-    /**
-     * Params:
-     *  inven = List of items to display.
-     *  promptStr = Heading to display on inventory screen.
-     *  buttons = The list of buttons to be placed on the screen.
-     *  canSelect = Whether or not individual items can be selected with j/k.
-     *
-     * Returns: true if inventory UI mode is pushed on stack, otherwise false
-     * (e.g., if inventory is empty).
-     */
     private bool inventoryUi(InventoryItem[] inven, string promptStr,
-                             InventoryButton[] buttons, bool canSelect = true)
+                             SelectButton[] buttons, bool canSelect = true)
     {
-        string makeHintString()
-        {
-            string[] hints;
-            if (canSelect)
-                hints ~= "j/k:select";
-
-            foreach (button; buttons)
-            {
-                hints ~= format("%s:%s", button.key.toPrintable, button.label);
-            }
-            return hints.join(", ");
-        }
-
         if (inven.length == 0)
             return false;
 
-        auto hintString = makeHintString();
-        auto hintStringLen = hintString.displayLength;
-        auto width = (max(2 + promptStr.displayLength, 2 + hintStringLen,
-                          6 + inven.map!(item => item.name.displayLength +
-                                                 (item.equipped ? 11 : 0))
-                               .maxElement)).to!int;
-        auto height = min(disp.height, 4 + inven.length.to!int
-                                         + ((hintStringLen > 0) ? 2 : 0));
-        auto scrnX = (disp.width - width)/2;
-        auto scrnY = (disp.height - height)/2;
-        auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
-                                             vec(scrnX + width,
-                                                 scrnY + height)));
-        int curIdx = canSelect ? 0 : -1;
-        int yStart = 3;
-
-        InventoryButton[dchar] keymap;
-        foreach (button; buttons)
+        auto self = this;
+        struct Item
         {
-            keymap[button.key] = button;
+            private InventoryItem item;
+            size_t displayLength()
+            {
+                return 4 + item.name.displayLength + (item.equipped ? 11: 0);
+            }
+            void render(S)(S scrn, Color fg, Color bg)
+            {
+                self.renderItem(scrn, item, fg, bg);
+            }
         }
 
-        auto invenMode = Mode(
-            () {
-                scrn.hideCursor();
-                scrn.color(Color.black, Color.white);
-
-                // Can't use .clear 'cos it doesn't use color we set.
-                scrn.moveTo(0, 0);
-                scrn.clearToEos();
-
-                scrn.moveTo(1, 1);
-                scrn.writef("%s", promptStr);
-                if (canSelect)
-                {
-                    scrn.moveTo(1, height-2);
-                    scrn.color(Color.blue, Color.white);
-                    scrn.writef(hintString);
-                    scrn.color(Color.black, Color.white);
-                }
-
-                foreach (i; 0 .. inven.length)
-                {
-                    scrn.moveTo(1, (yStart + i).to!int);
-
-                    auto fg = Color.black;
-                    auto bg = Color.white;
-                    if (i == curIdx)
-                    {
-                        fg = Color.white;
-                        bg = Color.blue;
-                    }
-
-                    renderItem(scrn, inven[i], fg, bg);
-                }
-            },
-            (dchar ch) {
-                switch (ch)
-                {
-                    case 'i', 'k':
-                        if (canSelect && curIdx > 0)
-                            curIdx--;
-                        break;
-
-                    case 'j', 'm':
-                        if (canSelect && curIdx + 1 < inven.length)
-                            curIdx++;
-                        break;
-
-                    default:
-                        auto button = ch in keymap;
-                        if (button is null)
-                            break;
-
-                        if (button.exitOnClick)
-                        {
-                            dispatch.pop();
-                            disp.color(Color.DEFAULT, Color.DEFAULT);
-                            disp.clear();
-                        }
-
-                        if (button.onClick)
-                            button.onClick(inven[curIdx]);
-                        break;
-                }
-            }
-        );
-
-        dispatch.push(invenMode);
+        selectScreen(disp, dispatch, inven.map!(item => Item(item)), promptStr,
+                     buttons, canSelect);
         return true;
     }
 
@@ -771,15 +666,16 @@ class TextUi : GameUi
     {
         void delegate() onExit = null;
 
-        if (!inventoryUi(g.getInventory, "You are carrying:",
+        auto inven = g.getInventory;
+        if (!inventoryUi(inven, "You are carrying:",
             [
-                InventoryButton(keyEnter, "use/equip/unequip", true, (item) {
-                    onApply(item);
+                SelectButton(keyEnter, "use/equip/unequip", true, (i) {
+                    onApply(inven[i]);
                 }),
-                InventoryButton('d',  "drop", true, (item) {
-                    promptDropCount(item, onDrop);
+                SelectButton('d',  "drop", true, (i) {
+                    promptDropCount(inven[i], onDrop);
                 }),
-                InventoryButton('\t', "done", true, null),
+                SelectButton('\t', "done", true, null),
             ]))
         {
             message("You are not carrying anything right now.");

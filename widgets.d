@@ -21,8 +21,10 @@
 module widgets;
 
 import std.algorithm;
+import std.array;
 import std.conv;
 import std.format;
+import std.range.primitives;
 
 import arsd.terminal;
 
@@ -529,6 +531,137 @@ void promptYesNo(Disp)(Disp disp, ref InputDispatcher dispatch,
     );
 
     dispatch.push(mode);
+}
+
+/**
+ * A button on a select screen.
+ */
+struct SelectButton
+{
+    dchar key;
+    string label;
+    bool exitOnClick;
+    void delegate(size_t idx) onClick;
+}
+
+/**
+ * UI to select an item from a list and perform some action on it.
+ *
+ * Params:
+ *  inven = List of items to display.
+ *  promptStr = Heading to display on inventory screen.
+ *  buttons = The list of buttons to be placed on the screen.
+ *  canSelect = Whether or not individual items can be selected with j/k.
+ *
+ * Returns: true if inventory UI mode is pushed on stack, otherwise false
+ * (e.g., if inventory is empty).
+ */
+void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
+                       R inven, string promptStr, SelectButton[] buttons,
+                       bool canSelect)
+    if (isRandomAccessRange!R && hasLength!R)
+{
+    string makeHintString()
+    {
+        string[] hints;
+        if (canSelect)
+            hints ~= "j/k:select";
+
+        foreach (button; buttons)
+        {
+            hints ~= format("%s:%s", button.key.toPrintable, button.label);
+        }
+        return hints.join(", ");
+    }
+
+    auto hintString = makeHintString();
+    auto hintStringLen = hintString.displayLength;
+    auto width = (max(2 + promptStr.displayLength, 2 + hintStringLen,
+                      2 + inven.map!(item => item.displayLength)
+                               .maxElement)).to!int;
+    auto height = min(disp.height, 4 + inven.length.to!int
+                                     + ((hintStringLen > 0) ? 2 : 0));
+    auto scrnX = (disp.width - width)/2;
+    auto scrnY = (disp.height - height)/2;
+    auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                         vec(scrnX + width,
+                                             scrnY + height)));
+    int curIdx = canSelect ? 0 : -1;
+    int yStart = 3;
+
+    SelectButton[dchar] keymap;
+    foreach (button; buttons)
+    {
+        keymap[button.key] = button;
+    }
+
+    auto invenMode = Mode(
+        () {
+            scrn.hideCursor();
+            scrn.color(Color.black, Color.white);
+
+            // Can't use .clear 'cos it doesn't use color we set.
+            scrn.moveTo(0, 0);
+            scrn.clearToEos();
+
+            scrn.moveTo(1, 1);
+            scrn.writef("%s", promptStr);
+            if (canSelect)
+            {
+                scrn.moveTo(1, height-2);
+                scrn.color(Color.blue, Color.white);
+                scrn.writef(hintString);
+                scrn.color(Color.black, Color.white);
+            }
+
+            foreach (i; 0 .. inven.length)
+            {
+                scrn.moveTo(1, (yStart + i).to!int);
+
+                auto fg = Color.black;
+                auto bg = Color.white;
+                if (i == curIdx)
+                {
+                    fg = Color.white;
+                    bg = Color.blue;
+                }
+
+                inven[i].render(scrn, fg, bg);
+            }
+        },
+        (dchar ch) {
+            switch (ch)
+            {
+                case 'i', 'k':
+                    if (canSelect && curIdx > 0)
+                        curIdx--;
+                    break;
+
+                case 'j', 'm':
+                    if (canSelect && curIdx + 1 < inven.length)
+                        curIdx++;
+                    break;
+
+                default:
+                    auto button = ch in keymap;
+                    if (button is null)
+                        break;
+
+                    if (button.exitOnClick)
+                    {
+                        dispatch.pop();
+                        disp.color(Color.DEFAULT, Color.DEFAULT);
+                        disp.clear();
+                    }
+
+                    if (button.onClick)
+                        button.onClick(curIdx);
+                    break;
+            }
+        }
+    );
+
+    dispatch.push(invenMode);
 }
 
 // vim:set ai sw=4 ts=4 et:
