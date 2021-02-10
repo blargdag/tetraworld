@@ -589,7 +589,6 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
     auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
                                          vec(scrnX + width, scrnY + height)));
     int curIdx = startIdx;
-    int yStart = 3;
 
     SelectButton[dchar] keymap;
     foreach (button; buttons)
@@ -606,6 +605,7 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
             // Can't use .clear 'cos it doesn't use color we set.
             scrn.moveTo(0, 0);
             scrn.clearToEos();
+            scrn.drawBorder(BorderStyle.thin);
 
             scrn.moveTo(1, 1);
             scrn.writef("%s", promptStr);
@@ -617,9 +617,11 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
                 scrn.color(Color.black, Color.white);
             }
 
+            auto inner = scrn.subdisplay(region(vec(1,3),
+                                                vec(width-1, height-1)));
             foreach (i; 0 .. inven.length)
             {
-                scrn.moveTo(1, (yStart + i).to!int);
+                inner.moveTo(0, i.to!int);
 
                 auto fg = Color.black;
                 auto bg = Color.white;
@@ -631,12 +633,12 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
 
                 static if (__traits(hasMember, inven[i], "render"))
                 {
-                    inven[i].render(scrn, fg, bg);
+                    inven[i].render(inner, fg, bg);
                 }
                 else
                 {
-                    scrn.color(fg, bg);
-                    scrn.writef("%s", inven[i].to!string);
+                    inner.color(fg, bg);
+                    inner.writef("%s", inven[i].to!string);
                 }
             }
         },
