@@ -538,7 +538,7 @@ void promptYesNo(Disp)(Disp disp, ref InputDispatcher dispatch,
  */
 struct SelectButton
 {
-    dchar key;
+    dchar[] keys;
     string label;
     bool exitOnClick;
     void delegate(size_t idx) onClick;
@@ -570,7 +570,9 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
 
         foreach (button; buttons)
         {
-            hints ~= format("%s:%s", button.key.toPrintable, button.label);
+            hints ~= format("%-(%s,%):%s",
+                            button.keys.map!(ch => ch.toPrintable),
+                            button.label);
         }
         return hints.join(", ");
     }
@@ -580,20 +582,20 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
     auto width = (max(2 + promptStr.displayLength, 2 + hintStringLen,
                       2 + inven.map!(item => item.displayLength)
                                .maxElement)).to!int;
-    auto height = min(disp.height, 4 + inven.length.to!int
-                                     + ((hintStringLen > 0) ? 2 : 0));
+    auto height = min(disp.height, 4 + inven.length.to!int +
+                                   ((hintStringLen > 0) ? 2 : 0));
     auto scrnX = (disp.width - width)/2;
     auto scrnY = (disp.height - height)/2;
     auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
-                                         vec(scrnX + width,
-                                             scrnY + height)));
+                                         vec(scrnX + width, scrnY + height)));
     int curIdx = startIdx;
     int yStart = 3;
 
     SelectButton[dchar] keymap;
     foreach (button; buttons)
     {
-        keymap[button.key] = button;
+        foreach (ch; button.keys)
+            keymap[ch] = button;
     }
 
     auto invenMode = Mode(

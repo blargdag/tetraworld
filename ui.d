@@ -228,8 +228,8 @@ class TextUi : GameUi
         }
 
         inventoryUi(targets, promptStr, [
-            SelectButton(keyEnter, "pick", true, (i) { cb(targets[i]); }),
-            SelectButton('q', "abort", true, null),
+            SelectButton([keyEnter], "pick", true, (i) { cb(targets[i]); }),
+            SelectButton(['q'], "abort", true, null),
         ]);
     }
 
@@ -281,20 +281,20 @@ class TextUi : GameUi
 
                     selectScreen(disp, dispatch, labels,
                         "Select map layout style:", [
-                            SelectButton(keyEnter, "select", true, (i) {
+                            SelectButton([keyEnter], "select", true, (i) {
                                 cfg.mapStyle = vals[i];
                             }),
-                            SelectButton('q', "cancel", true, null),
+                            SelectButton(['q'], "cancel", true, null),
                         ], vals.countUntil(cfg.mapStyle).to!int);
                 }
             ),
         ];
 
         SelectButton[] buttons = [
-            SelectButton(keyEnter, "change", false, (i) {
+            SelectButton([keyEnter], "change", false, (i) {
                 opts[i].edit();
             }),
-            SelectButton('q', "return to game", true, null),
+            SelectButton(['q', '\x0F'], "return to game", true, null),
         ];
 
         descWidth = opts.map!(opt => opt.desc.displayLength)
@@ -747,13 +747,13 @@ class TextUi : GameUi
         auto inven = g.getInventory;
         if (!inventoryUi(inven, "You are carrying:",
             [
-                SelectButton(keyEnter, "use/equip/unequip", true, (i) {
+                SelectButton([keyEnter], "use/equip/unequip", true, (i) {
                     onApply(inven[i]);
                 }),
-                SelectButton('d',  "drop", true, (i) {
+                SelectButton(['d'],  "drop", true, (i) {
                     promptDropCount(inven[i], onDrop);
                 }),
-                SelectButton('\t', "done", true, null),
+                SelectButton(['\t', 'q'], "done", true, null),
             ]))
         {
             message("You are not carrying anything right now.");
