@@ -61,7 +61,7 @@ TextUiConfig loadDefaults()
 {
     import std.file : exists, isFile;
     import std.path : buildPath;
-    import std.stdio : File;
+    import std.stdio : File, stderr;
 
     import config : gameDataDir;
     import loadsave : loadFile;
@@ -71,9 +71,17 @@ TextUiConfig loadDefaults()
     auto optfile = buildPath(gameDataDir, "options");
     if (exists(optfile) && isFile(optfile))
     {
-        opts = File(optfile, "r").byLine
-                                 .loadFile
-                                 .parse!TextUiConfig("options");
+        try
+        {
+            opts = File(optfile, "r").byLine
+                                     .loadFile
+                                     .parse!TextUiConfig("options");
+        }
+        catch (Exception e)
+        {
+            stderr.writeln("Warning: options file corrupted; using defaults");
+            opts = TextUiConfig.init;
+        }
     }
     return opts;
 }
