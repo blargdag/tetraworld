@@ -178,7 +178,61 @@ unittest
 auto subdisplay(T)(T display, Region!(int,2) rect)
     if (isDisplay!T)
 {
-    return SubDisplay!T(display, rect);
+    static if (is(T == SubDisplay!U, U))
+        return SubDisplay!U(display.parent,
+                            region(display.rect.min + rect.min,
+                                   display.rect.min + rect.max));
+    else
+        return SubDisplay!T(display, rect);
+}
+
+unittest
+{
+    static struct TestDisp
+    {
+        enum width = 10;
+        enum height = 10;
+
+        static char[width*height] impl;
+        int x,y;
+
+        void moveTo(int _x, int _y)
+        {
+            x = _x;
+            y = _y;
+        }
+        void writef(Args...)(string fmt, Args args)
+        {
+            import std.format : formattedWrite;
+            impl[x + width*y .. $].formattedWrite(fmt, args);
+        }
+        unittest
+        {
+            TestDisp disp;
+            disp.writef("%s", "");
+        }
+    }
+    static assert(isDisplay!TestDisp);
+
+    TestDisp disp;
+
+    auto sub1 = disp.subdisplay(region(vec(1,1), vec(9,9)));
+    sub1.moveTo(1,1);
+    sub1.writef("a");
+    assert(disp.impl[22] == 'a');
+    static assert(is(typeof(sub1) == SubDisplay!TestDisp));
+
+    auto sub2 = disp.subdisplay(region(vec(2,2), vec(9,9)));
+    sub2.moveTo(0,0);
+    sub2.writef("b");
+    assert(disp.impl[22] == 'b');
+
+    auto sub3 = sub1.subdisplay(region(vec(1,1), vec(4,4)));
+    sub3.moveTo(0,0);
+    sub3.writef("c");
+    assert(disp.impl[22] == 'c');
+    static assert(is(typeof(sub3) == SubDisplay!TestDisp));
+    assert(sub3.rect == region(vec(2,2), vec(5,5)));
 }
 
 /**
