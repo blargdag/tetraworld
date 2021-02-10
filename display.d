@@ -2141,4 +2141,87 @@ unittest
     auto obj = displayObject(term);
 }
 
+/**
+ * Border style.
+ */
+enum BorderStyle
+{
+    thin,
+    thick,
+    ascii,
+}
+
+/**
+ * Draws a border of the given style around the given display.
+ */
+void drawBorder(Disp)(ref Disp disp, BorderStyle style)
+    if (isDisplay!Disp)
+    in (disp.width > 1 && disp.height > 1)
+{
+    static immutable dchar[6][BorderStyle.max + 1] borders = [
+        BorderStyle.thin:  "─│┌┐└┘"d,
+        BorderStyle.thick: "═║╔╗╚╝"d,
+        BorderStyle.ascii: "-|,.`'"d,
+    ];
+
+    import std.range : repeat;
+    const(dchar)[] b = borders[style];
+
+    disp.moveTo(0,0);
+    disp.writef("%s%-(%s%)%s", b[2], b[0].repeat(disp.width - 2), b[3]);
+
+    foreach (y; 1 .. disp.height-1)
+    {
+        disp.moveTo(0, y);
+        disp.writef("%s", b[1]);
+        disp.moveTo(disp.width-1, y);
+        disp.writef("%s", b[1]);
+    }
+
+    disp.moveTo(0, disp.height-1);
+    disp.writef("%s%-(%s%)%s", b[4], b[0].repeat(disp.width - 2), b[5]);
+}
+
+unittest
+{
+    struct TestDisp
+    {
+        enum width = 5;
+        enum height = 5;
+        char[width*height] impl;
+        int curX, curY;
+
+        void moveTo(int x, int y)
+            in (x >= 0 && x < width)
+            in (y >= 0 && y < height)
+        {
+            curX = x;
+            curY = y;
+        }
+
+        void writef(Args...)(string fmt, Args args)
+        {
+            import std.format : format;
+            foreach (ch; format(fmt, args))
+            {
+                impl[curX + width*curY] = ch;
+                curX++;
+            }
+        }
+    }
+
+    TestDisp disp;
+    disp.impl[] = ':';
+
+    disp.drawBorder(BorderStyle.ascii);
+
+    assert(disp.impl[] ==
+        ",---."~
+        "|:::|"~
+        "|:::|"~
+        "|:::|"~
+        "`---'"
+    );
+}
+
 // vim:set ai sw=4 ts=4 et:
