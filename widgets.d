@@ -612,13 +612,11 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
 
             scrn.moveTo(1, 1);
             scrn.writef("%s", promptStr);
-            if (curIdx >= 0)
-            {
-                scrn.moveTo(1, height-2);
-                scrn.color(Color.blue, Color.white);
-                scrn.writef(hintString);
-                scrn.color(Color.black, Color.white);
-            }
+
+            scrn.moveTo(1, height-2);
+            scrn.color(Color.blue, Color.white);
+            scrn.writef(hintString);
+            scrn.color(Color.black, Color.white);
 
             auto inner = scrn.subdisplay(region(vec(1,3),
                                                 vec(width-1, height-1)));

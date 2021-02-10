@@ -686,54 +686,26 @@ class TextUi : GameUi
             return;
         }
 
-        static immutable heading = "You see here:";
-        auto width = max(heading.displayLength + 2,
-                         objs.map!(item => item.name.displayLength + 6)
-                             .maxElement).to!int;
-        auto height = 6 + objs.length.to!int;
-        auto scrnX = (disp.width - width)/2;
-        auto scrnY = (disp.height - height)/2;
-        auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
-                                             vec(scrnX + width,
-                                                 scrnY + height)));
-        auto lookMode = Mode(
-            () {
-                scrn.hideCursor();
-                scrn.color(Color.black, Color.white);
+        auto self = this;
 
-                scrn.moveTo(0, 0);
-                scrn.clearToEos();
-
-                scrn.moveTo(1, 1);
-                scrn.writef("You see here:");
-
-                foreach (i; 0 .. objs.length)
-                {
-                    scrn.moveTo(1, (3 + i).to!int);
-                    renderItem(scrn, objs[i], Color.black, Color.white);
-                }
-
-                scrn.moveTo(1, height-2);
-                scrn.color(Color.white, Color.blue);
-                scrn.writef("[OK]");
-                scrn.showCursor();
-            },
-            (dchar ch) {
-                switch (ch)
-                {
-                    case 'q', ' ':
-                        dispatch.pop();
-                        disp.color(Color.DEFAULT, Color.DEFAULT);
-                        disp.clear();
-                        break;
-
-                    default:
-                        break;
-                }
+        struct Item
+        {
+            private InventoryItem item;
+            size_t displayLength()
+            {
+                return 4 + item.name.displayLength;
             }
-        );
+            void render(S)(S scrn, Color fg, Color bg)
+            {
+                self.renderItem(scrn, item, fg, bg);
+            }
+        }
 
-        dispatch.push(lookMode);
+        selectScreen(disp, dispatch, objs.map!(obj => Item(obj)),
+            "You see here:", [
+                SelectButton(['q', ' ', keyEnter], "return to game", true,
+                             null),
+            ], -1);
     }
 
     private void renderItem(S)(S scrn, InventoryItem item, Color fg, Color bg)
