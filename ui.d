@@ -208,9 +208,9 @@ class TextUi : GameUi
      * prompting.  If there are no given targets, the emptyPrompt message is
      * displayed and the callback is not invoked.
      */
-    void selectTarget(string promptStr, InventoryItem[] targets,
-                      void delegate(InventoryItem item) cb,
-                      string emptyPrompt)
+    private void selectTarget(string promptStr, InventoryItem[] targets,
+                              void delegate(InventoryItem item) cb,
+                              string emptyPrompt)
     {
         if (targets.empty)
         {
@@ -227,6 +227,50 @@ class TextUi : GameUi
             SelectButton(keyEnter, "pick", true, (i) { cb(targets[i]); }),
             SelectButton('q', "abort", true, null),
         ]);
+    }
+
+    private void configOpts()
+    {
+        int descWidth;
+        struct Option
+        {
+            string desc;
+            size_t valMaxLen;
+            string delegate() value;
+            void delegate() edit;
+
+            size_t displayLength()
+            {
+                return desc.displayLength + 1 + valMaxLen;
+            }
+            void render(S)(S scrn, Color fg, Color bg)
+            {
+                scrn.color(fg, bg);
+                scrn.writef("%*s %s", descWidth, desc, value());
+                scrn.clearToEol();
+            }
+        }
+        Option[] opts = [
+            Option("Smooth scroll time in msec (0=disabled):", 10,
+                () => cfg.smoothscrollMsec.to!string,
+                () {
+                    promptNumber(disp, dispatch, "Enter smooth scroll time "~
+                                                 "in msec (0 to disable)",
+                                 0, int.max, (val) {
+                                    cfg.smoothscrollMsec = val;
+                                 }, cfg.smoothscrollMsec.to!string);
+                }
+            ),
+        ];
+        SelectButton[] buttons = [
+            SelectButton(keyEnter, "change", false, (i) {
+                opts[i].edit();
+            }),
+            SelectButton('q', "return to game", true, null),
+        ];
+
+        selectScreen(disp, dispatch, opts, "Configure game options",
+                     buttons, true);
     }
 
     PlayerAction getPlayerAction()
@@ -308,6 +352,9 @@ class TextUi : GameUi
                         break;
                     case '\x0c':        // ^L
                         disp.repaint(); // force repaint of entire screen
+                        break;
+                    case '\x0f':        // ^O
+                        configOpts();
                         break;
                     case keyEnter: {
                         selectTarget("What do you want to apply?",
