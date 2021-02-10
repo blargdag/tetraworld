@@ -626,7 +626,15 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
                     bg = Color.blue;
                 }
 
-                inven[i].render(scrn, fg, bg);
+                static if (__traits(hasMember, inven[i], "render"))
+                {
+                    inven[i].render(scrn, fg, bg);
+                }
+                else
+                {
+                    scrn.color(fg, bg);
+                    scrn.writef("%s", inven[i].to!string);
+                }
             }
         },
         (dchar ch) {

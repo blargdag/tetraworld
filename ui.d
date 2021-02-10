@@ -26,6 +26,7 @@ import std.array;
 import std.conv : to;
 import std.format : format;
 import std.range;
+import std.traits;
 
 import arsd.terminal;
 
@@ -132,8 +133,11 @@ Meta-commands:
    q        Save current progress and quit.
    Q        Delete current progress and quit.
    ^L       Repaint the screen.
+   ^O       Configure game options.
 ENDTEXT"
     .split('\n');
+
+private enum ident(alias Memb) = __traits(identifier, Memb);
 
 /**
  * Text-based UI implementation.
@@ -232,6 +236,7 @@ class TextUi : GameUi
     private void configOpts()
     {
         int descWidth;
+
         struct Option
         {
             string desc;
@@ -245,23 +250,46 @@ class TextUi : GameUi
             }
             void render(S)(S scrn, Color fg, Color bg)
             {
+                scrn.color(Color.black, Color.white);
+                scrn.writef("%-*s ", descWidth, desc);
                 scrn.color(fg, bg);
-                scrn.writef("%*s %s", descWidth, desc, value());
+                scrn.writef("%s", value());
                 scrn.clearToEol();
             }
         }
+
         Option[] opts = [
             Option("Smooth scroll time in msec (0=disabled):", 10,
                 () => cfg.smoothscrollMsec.to!string,
                 () {
                     promptNumber(disp, dispatch, "Enter smooth scroll time "~
-                                                 "in msec (0 to disable)",
-                                 0, int.max, (val) {
+                                                 "in msec, 0 to disable",
+                                 0, 1000, (val) {
                                     cfg.smoothscrollMsec = val;
                                  }, cfg.smoothscrollMsec.to!string);
                 }
             ),
+            Option("Map layout style:", 9,
+                () => cfg.mapStyle.to!string,
+                () {
+                    static immutable string[] labels = [
+                        staticMap!(ident, EnumMembers!MapStyle)
+                    ];
+                    static immutable MapStyle[] vals = [
+                        EnumMembers!MapStyle
+                    ];
+
+                    selectScreen(disp, dispatch, labels,
+                        "Select map layout style:", [
+                            SelectButton(keyEnter, "select", true, (i) {
+                                cfg.mapStyle = vals[i];
+                            }),
+                            SelectButton('q', "cancel", true, null),
+                        ], true);
+                }
+            ),
         ];
+
         SelectButton[] buttons = [
             SelectButton(keyEnter, "change", false, (i) {
                 opts[i].edit();
@@ -269,7 +297,10 @@ class TextUi : GameUi
             SelectButton('q', "return to game", true, null),
         ];
 
-        selectScreen(disp, dispatch, opts, "Configure game options",
+        descWidth = opts.map!(opt => opt.desc.displayLength)
+                        .maxElement.to!int;
+
+        selectScreen(disp, dispatch, opts, "Configure game options:",
                      buttons, true);
     }
 
