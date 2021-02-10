@@ -329,7 +329,7 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
 {
     auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
     auto width = min(fullPrompt.displayLength() + 2, disp.width);
-    auto height = 5;
+    enum height = 6;
     auto scrnX = (disp.width - width)/2;
     auto scrnY = (disp.height - height)/2;
     auto scrn = subdisplay(&disp, region(
@@ -351,25 +351,28 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
             // Can't use .clear 'cos it doesn't use color we set.
             scrn.moveTo(0, 0);
             scrn.clearToEos();
+            scrn.drawBorder(BorderStyle.thin);
 
-            scrn.moveTo(1, 1);
-            scrn.writef("%s", fullPrompt);
+            auto inner = scrn.subdisplay(region(vec(1,1),
+                                                vec(width-1, height-1)));
+            inner.moveTo(0, 0);
+            inner.writef("%s", fullPrompt);
 
-            scrn.moveTo(2, 3);
-            scrn.writef("%s", input[0 .. curPos]);
-            scrn.clearToEol();
+            inner.moveTo(1, 2);
+            inner.writef("%s", input[0 .. curPos]);
+            inner.clearToEol();
 
             if (err.length > 0)
             {
-                scrn.moveTo(2, 4);
-                scrn.color(Color.red, Color.white);
-                scrn.writef("%s", err);
-                scrn.clearToEol();
-                scrn.color(Color.black, Color.white);
+                inner.moveTo(1, 3);
+                inner.color(Color.red, Color.white);
+                inner.writef("%s", err);
+                inner.clearToEol();
+                inner.color(Color.black, Color.white);
             }
 
-            scrn.moveTo(2 + curPos, 3);
-            scrn.showCursor();
+            inner.moveTo(1 + curPos, 2);
+            inner.showCursor();
         },
         (dchar ch) {
             import std.conv : to, ConvException;
