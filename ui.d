@@ -285,7 +285,7 @@ class TextUi : GameUi
                                 cfg.mapStyle = vals[i];
                             }),
                             SelectButton('q', "cancel", true, null),
-                        ], true);
+                        ], vals.countUntil(cfg.mapStyle).to!int);
                 }
             ),
         ];
@@ -301,7 +301,7 @@ class TextUi : GameUi
                         .maxElement.to!int;
 
         selectScreen(disp, dispatch, opts, "Configure game options:",
-                     buttons, true);
+                     buttons, 0);
     }
 
     PlayerAction getPlayerAction()
@@ -712,7 +712,7 @@ class TextUi : GameUi
         }
 
         selectScreen(disp, dispatch, inven.map!(item => Item(item)), promptStr,
-                     buttons, canSelect);
+                     buttons, canSelect ? 0 : -1);
         return true;
     }
 

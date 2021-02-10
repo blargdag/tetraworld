@@ -551,20 +551,21 @@ struct SelectButton
  *  inven = List of items to display.
  *  promptStr = Heading to display on inventory screen.
  *  buttons = The list of buttons to be placed on the screen.
- *  canSelect = Whether or not individual items can be selected with j/k.
+ *  startIdx = Which item to select by default, or -1 if items cannot be
+ *      selected with j/k.
  *
  * Returns: true if inventory UI mode is pushed on stack, otherwise false
  * (e.g., if inventory is empty).
  */
 void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
                        R inven, string promptStr, SelectButton[] buttons,
-                       bool canSelect)
+                       int startIdx = 0)
     if (isRandomAccessRange!R && hasLength!R)
 {
     string makeHintString()
     {
         string[] hints;
-        if (canSelect)
+        if (startIdx >= 0)
             hints ~= "j/k:select";
 
         foreach (button; buttons)
@@ -586,7 +587,7 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
     auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
                                          vec(scrnX + width,
                                              scrnY + height)));
-    int curIdx = canSelect ? 0 : -1;
+    int curIdx = startIdx;
     int yStart = 3;
 
     SelectButton[dchar] keymap;
@@ -606,7 +607,7 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
 
             scrn.moveTo(1, 1);
             scrn.writef("%s", promptStr);
-            if (canSelect)
+            if (curIdx >= 0)
             {
                 scrn.moveTo(1, height-2);
                 scrn.color(Color.blue, Color.white);
@@ -641,12 +642,12 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
             switch (ch)
             {
                 case 'i', 'k':
-                    if (canSelect && curIdx > 0)
+                    if (curIdx > 0)
                         curIdx--;
                     break;
 
                 case 'j', 'm':
-                    if (canSelect && curIdx + 1 < inven.length)
+                    if (curIdx >= 0 && curIdx + 1 < inven.length)
                         curIdx++;
                     break;
 
