@@ -34,37 +34,6 @@ import loadsave;
 import ui;
 
 /**
- * Load user-configured default options.
- *
- * Returns: User defaults, or factory defaults if user defaults not found.
- */
-TextUiConfig loadDefaults()
-{
-    TextUiConfig opts;
-
-    auto optfile = buildPath(gameDataDir, "options");
-    if (exists(optfile) && isFile(optfile))
-    {
-        opts = File(optfile, "r").byLine
-                                 .loadFile
-                                 .parse!TextUiConfig("options");
-    }
-    return opts;
-}
-
-void saveDefaults(TextUiConfig opts)
-{
-    // Transcript file should not be persistant setting.
-    opts.tscriptFile = "";
-
-    buildPath(gameDataDir, "options")
-        .File("w")
-        .lockingTextWriter
-        .saveFile
-        .put("options", opts);
-}
-
-/**
  * Main program.
  */
 int main(string[] args)

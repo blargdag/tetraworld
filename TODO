@@ -113,8 +113,6 @@
      coherence?
 - Implement uncrossable pits and ropes for crossing them?
    - Alternatively, opposite ladderless ledges that require a rope to traverse.
-- Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
-  and connect directly to the bottom layer display.
 - Subdisplay .writef method should perform clipping(?).
 X Implement .dim and .pos for Rectangle.
 + Unify Rectangle with Vec?
@@ -482,3 +480,5 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
   pillars, stairs).
 + Add dedicated drop action again. Even though it's redundant, it actually
   helps streamline gameplay a lot.
++ Subdisplay of subdisplay should bypass the intermediate layer of SubDisplay
+  and connect directly to the bottom layer display.

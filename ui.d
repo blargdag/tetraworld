@@ -26,6 +26,7 @@ import std.array;
 import std.conv : to;
 import std.format : format;
 import std.range;
+import std.traits;
 
 import arsd.terminal;
 
@@ -38,6 +39,7 @@ import gamemap;
 import hiscore;
 import store_traits;
 import vector;
+import widgets;
 import world;
 
 /**
@@ -48,6 +50,61 @@ struct TextUiConfig
     int smoothscrollMsec = 80;
     string tscriptFile;
     MapStyle mapStyle;
+}
+
+/**
+ * Load user-configured default options.
+ *
+ * Returns: User defaults, or factory defaults if user defaults not found.
+ */
+TextUiConfig loadDefaults()
+{
+    import std.file : exists, isFile;
+    import std.path : buildPath;
+    import std.stdio : File, stderr;
+
+    import config : gameDataDir;
+    import loadsave : loadFile;
+
+    TextUiConfig opts;
+
+    auto optfile = buildPath(gameDataDir, "options");
+    if (exists(optfile) && isFile(optfile))
+    {
+        try
+        {
+            opts = File(optfile, "r").byLine
+                                     .loadFile
+                                     .parse!TextUiConfig("options");
+        }
+        catch (Exception e)
+        {
+            stderr.writeln("Warning: options file corrupted; using defaults");
+            opts = TextUiConfig.init;
+        }
+    }
+    return opts;
+}
+
+/**
+ * Save user-configured default options.
+ */
+void saveDefaults(TextUiConfig opts)
+{
+    import std.path : buildPath;
+    import std.stdio : File;
+
+    import config : gameDataDir;
+    import loadsave : saveFile;
+
+    // Transcript file should not be persistent setting.
+    opts.tscriptFile = "";
+
+    buildPath(gameDataDir, "options")
+        .File("w")
+        .lockingTextWriter
+        .saveFile
+        .put("options", opts);
 }
 
 /**
@@ -101,224 +158,6 @@ struct ViewPort(Map)
     }
 }
 
-/**
- * A UI interaction mode. Basically, a set of event handlers and render hooks.
- */
-struct Mode
-{
-    void delegate() render;
-    void delegate(dchar) onCharEvent;
-}
-
-/**
- * Input dispatcher.
- */
-struct InputDispatcher
-{
-    private Mode[] modestack;
-
-    private void setup()()
-    {
-        if (modestack.length == 0)
-            modestack.length = 1;
-    }
-
-    /**
-     * Returns: The current mode (at the top of the stack).
-     */
-    Mode top()
-    {
-        setup();
-        return modestack[$-1];
-    }
-
-    /**
-     * Push a new mode onto the mode stack.
-     */
-    void push(Mode mode)
-    {
-        modestack.assumeSafeAppend();
-        modestack ~= mode;
-
-        if (mode.render !is null)
-            mode.render();
-    }
-
-    /**
-     * Pop the current mode off the stack and revert to the previous mode.
-     */
-    void pop()
-    {
-        modestack.length--;
-        if (top.render !is null)
-            top.render();
-    }
-
-    void handleEvent(InputEvent event)
-    {
-        switch (event.type)
-        {
-            case InputEvent.Type.KeyboardEvent:
-                auto ev = event.get!(InputEvent.Type.KeyboardEvent);
-                assert(top.onCharEvent !is null);
-                top.onCharEvent(ev.which);
-                break;
-
-            default:
-                // TBD
-                return;
-        }
-
-        if (top.render !is null)
-            top.render();
-    }
-}
-
-/**
- * Message buffer that accumulates in-game messages between turns, and prompts
- * player for keypress if messages overflow message window size before player's
- * next turn.
- */
-struct MessageBox(Disp)
-    if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
-{
-    private enum morePrompt = "--MORE--";
-
-    private Disp impl;
-    private size_t moreLen;
-    private int curX = 0;
-
-    this(Disp disp)
-    {
-        impl = disp;
-        moreLen = morePrompt.displayLength;
-    }
-
-    private void showPrompt(void delegate() waitForKeypress)
-    {
-        // FIXME: this assumes impl.height==1.
-        impl.moveTo(curX, 0);
-        impl.color(Color.white, Color.blue);
-        impl.writef("%s", morePrompt);
-        waitForKeypress();
-
-        impl.moveTo(0, 0);
-        impl.clearToEol();
-        curX = 0;
-    }
-
-    /**
-     * Post a message to this MessageBox. If it fits in the current space,
-     * print it immediately. Otherwise, display a prompt for the user to
-     * acknowledge reading the previous messages first, then clear the line and
-     * display this one.
-     */
-    void message(string str, void delegate() waitForKeypress)
-    {
-        auto len = str.displayLength;
-        if (curX + len + moreLen >= impl.width)
-        {
-            showPrompt(waitForKeypress);
-            assert(curX == 0);
-        }
-
-        // FIXME: this assumes impl.height==1.
-        // FIXME: support the case where len > impl.width.
-        impl.moveTo(curX, 0);
-        impl.color(Color.DEFAULT, Color.DEFAULT);
-        impl.writef("%s", str);
-        impl.clearToEol();
-
-        curX += len + 1;
-    }
-
-    /**
-     * Inform this MessageBox that the player has read all messages, and the
-     * next one should start from the beginning again.
-     */
-    void sync()
-    {
-        curX = 0;
-    }
-
-    /**
-     * Prompt if the message box is not empty, otherwise do nothing.
-     *
-     * Basically, this is intended for when the game is about to quit, or the
-     * message box is about to get covered up by a different mode, and we want
-     * to ensure the player has read the current messages first.
-     */
-    void flush(void delegate() waitForKeypress)
-    {
-        if (curX > 0)
-            showPrompt(waitForKeypress);
-    }
-}
-
-/// ditto
-auto messageBox(Disp)(Disp disp)
-    if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
-{
-    return MessageBox!Disp(disp);
-}
-
-unittest
-{
-    struct TestDisp
-    {
-        enum width = 20;
-        enum height = 1;
-        char[width*height] impl;
-        int curX, curY;
-
-        void moveTo(int x, int y)
-            in (x >= 0 && x < width)
-            in (y >= 0 && y < height)
-        {
-            curX = x;
-            curY = y;
-        }
-
-        void writef(Args...)(string fmt, Args args)
-        {
-            foreach (ch; format(fmt, args))
-            {
-                impl[curX + width*curY] = ch;
-                curX++;
-            }
-        }
-        void color(ushort, ushort) {}
-        @property int cursorX() { return curX; }
-        @property int cursorY() { return curY; }
-    }
-
-    TestDisp disp;
-
-    foreach (ref ch; disp.impl) { ch = ' '; }
-    auto box = messageBox(&disp);
-
-    box.message("Blehk.", { assert(false, "should not wait for keypress"); });
-    assert(disp.impl == "Blehk.              ");
-
-    box.message("Eh?", { assert(false, "should not wait for keypress"); });
-    assert(disp.impl == "Blehk. Eh?          ");
-
-    box.sync();
-
-    box.message("Blah.", { assert(false, "should not wait for keypress"); });
-    assert(disp.impl == "Blah.               ");
-
-    box.message("Bleh.", { assert(false, "should not wait for keypress"); });
-    assert(disp.impl == "Blah. Bleh.         ");
-
-    bool keypress;
-    box.message("Kaboom.", {
-        assert(disp.impl == "Blah. Bleh. --MORE--");
-        keypress = true;
-    });
-    assert(keypress && disp.impl == "Kaboom.             ");
-}
-
 private static immutable helpText = q"ENDTEXT
 Movement keys:
 
@@ -349,71 +188,11 @@ Meta-commands:
    q        Save current progress and quit.
    Q        Delete current progress and quit.
    ^L       Repaint the screen.
+   ^O       Configure game options.
 ENDTEXT"
     .split('\n');
 
-version(Posix)
-    enum keyEnter = '\n';
-else version(Windows)
-    enum keyEnter = '\r';
-else static assert(0);
-
-/**
- * Convert the given dchar to a printable string.
- *
- * Returns: An object whose toString method returns a printable string
- * representation of the given dchar. If the dchar is already printable, this
- * will be a string containing the dchar itself. If it matches one of a list of
- * named control characters, it will be that name. Otherwise, it will be "^X"
- * for ASCII control characters or "(\Uxxxx)" for general Unicode characters.
- */
-auto toPrintable(dchar ch)
-{
-    static struct PrintableChar
-    {
-        dchar ch;
-        void toString(W)(W sink)
-        {
-            import std.format : formattedWrite;
-            import std.uni : isGraphical;
-
-            if (ch == ' ')
-                sink.formattedWrite("<space>");
-            else if (ch.isGraphical)
-                sink.formattedWrite("%s", ch);
-            else switch (ch)
-            {
-                case keyEnter:  sink.formattedWrite("<enter>");   break;
-                case '\t':      sink.formattedWrite("<tab>");     break;
-                default:
-                    if (ch < 0x20)
-                        sink.formattedWrite("^%s", cast(dchar)(ch + 0x40));
-                    else
-                        sink.formattedWrite("(\\u%04X)", ch);
-            }
-        }
-
-        unittest
-        {
-            import std.array : appender;
-            auto pc = PrintableChar('a');
-            auto app = appender!string;
-            pc.toString(app);
-        }
-    }
-    return PrintableChar(ch);
-}
-
-unittest
-{
-    assert(format("%s", 'a'.toPrintable) == "a");
-    assert(format("%s", '\x01'.toPrintable) == "^A");
-    assert(format("%s", '\uFFFF'.toPrintable) == "(\\uFFFF)");
-
-    assert(format("%s", keyEnter.toPrintable) == "<enter>");
-    assert(format("%s", '\t'.toPrintable) == "<tab>");
-    assert(format("%s", ' '.toPrintable) == "<space>");
-}
+private enum ident(alias Memb) = __traits(identifier, Memb);
 
 /**
  * Text-based UI implementation.
@@ -444,7 +223,6 @@ class TextUi : GameUi
     private InputDispatcher dispatch;
 
     private bool refreshNeedsPause;
-
     private bool quit;
     private HiScore quitScore;
 
@@ -489,9 +267,9 @@ class TextUi : GameUi
      * prompting.  If there are no given targets, the emptyPrompt message is
      * displayed and the callback is not invoked.
      */
-    void selectTarget(string promptStr, InventoryItem[] targets,
-                      void delegate(InventoryItem item) cb,
-                      string emptyPrompt)
+    private void selectTarget(string promptStr, InventoryItem[] targets,
+                              void delegate(InventoryItem item) cb,
+                              string emptyPrompt)
     {
         if (targets.empty)
         {
@@ -505,9 +283,82 @@ class TextUi : GameUi
         }
 
         inventoryUi(targets, promptStr, [
-            InventoryButton(keyEnter, "pick", true, (item) { cb(item); }),
-            InventoryButton('q', "abort", true, null),
+            SelectButton([keyEnter], "pick", true, (i) { cb(targets[i]); }),
+            SelectButton(['q'], "abort", true, null),
         ]);
+    }
+
+    private void configOpts()
+    {
+        int descWidth;
+
+        struct Option
+        {
+            string desc;
+            size_t valMaxLen;
+            string delegate() value;
+            void delegate() edit;
+
+            size_t displayLength()
+            {
+                return desc.displayLength + 1 + valMaxLen;
+            }
+            void render(S)(S scrn, Color fg, Color bg)
+            {
+                scrn.color(Color.black, Color.white);
+                scrn.writef("%-*s ", descWidth, desc);
+                scrn.color(fg, bg);
+                scrn.writef("%s", value());
+                scrn.clearToEol();
+            }
+        }
+
+        Option[] opts = [
+            Option("Smooth scroll time in msec (0=disabled):", 10,
+                () => cfg.smoothscrollMsec.to!string,
+                () {
+                    promptNumber(disp, dispatch, "Enter smooth scroll time "~
+                                                 "in msec, 0 to disable",
+                                 0, 1000, (val) {
+                                    cfg.smoothscrollMsec = val;
+                                 }, cfg.smoothscrollMsec.to!string);
+                }
+            ),
+            Option("Map layout style:", 9,
+                () => cfg.mapStyle.to!string,
+                () {
+                    static immutable string[] labels = [
+                        staticMap!(ident, EnumMembers!MapStyle)
+                    ];
+                    static immutable MapStyle[] vals = [
+                        EnumMembers!MapStyle
+                    ];
+
+                    selectScreen(disp, dispatch, labels,
+                        "Select map layout style:", [
+                            SelectButton([keyEnter], "select", true, (i) {
+                                cfg.mapStyle = vals[i];
+                            }),
+                            SelectButton(['q'], "cancel", true, null),
+                        ], vals.countUntil(cfg.mapStyle).to!int);
+                }
+            ),
+        ];
+
+        SelectButton[] buttons = [
+            SelectButton([keyEnter], "change", false, (i) {
+                opts[i].edit();
+            }),
+            SelectButton(['q', '\x0F'], "return to game", true, (i) {
+                saveDefaults(cfg);
+            }),
+        ];
+
+        descWidth = opts.map!(opt => opt.desc.displayLength)
+                        .maxElement.to!int;
+
+        selectScreen(disp, dispatch, opts, "Configure game options:",
+                     buttons, 0);
     }
 
     PlayerAction getPlayerAction()
@@ -574,8 +425,9 @@ class TextUi : GameUi
                         quit = true;
                         break;
                     case 'Q':
-                        promptYesNo("Really quit and permanently delete this "~
-                                    "character?", (yes) {
+                        promptYesNo(disp, dispatch, "Really quit and "~
+                                    "permanently delete this character?",
+                                    (yes) {
                             if (yes)
                             {
                                 quit = true;
@@ -588,6 +440,9 @@ class TextUi : GameUi
                         break;
                     case '\x0c':        // ^L
                         disp.repaint(); // force repaint of entire screen
+                        break;
+                    case '\x0f':        // ^O
+                        configOpts();
                         break;
                     case keyEnter: {
                         selectTarget("What do you want to apply?",
@@ -636,124 +491,6 @@ class TextUi : GameUi
 
         assert(result.type != PlayerAction.Type.none);
         return result;
-    }
-
-    /**
-     * Prompt the user to enter a number within the given range.
-     *
-     * Params:
-     *  promptStr = The prompt string.
-     *  min = The minimum allowed value.
-     *  max = The maximum allowed value.
-     *  dg = Callback to invoke with the inputted number.
-     *  defaultVal = Default value to fill buffer with.
-     */
-    void promptNumber(string promptStr, int minVal, int maxVal,
-                      void delegate(int) dg, string defaultVal = "")
-        in (defaultVal.length <= 12)
-    {
-        auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
-        auto width = min(fullPrompt.displayLength() + 2, disp.width);
-        auto height = 5;
-        auto scrnX = (disp.width - width)/2;
-        auto scrnY = (disp.height - height)/2;
-        auto scrn = subdisplay(&disp, region(
-            vec(scrnX, scrnY), vec(scrnX + width, scrnY + height)));
-
-        string err;
-        dchar[12] input;
-        int curPos;
-        bool killOnInput = (defaultVal.length > 0);
-
-        defaultVal.copy(input[]);
-        curPos = defaultVal.length.to!int;
-
-        auto promptMode = Mode(
-            () {
-                scrn.hideCursor();
-                scrn.color(Color.black, Color.white);
-
-                // Can't use .clear 'cos it doesn't use color we set.
-                scrn.moveTo(0, 0);
-                scrn.clearToEos();
-
-                scrn.moveTo(1, 1);
-                scrn.writef("%s", fullPrompt);
-
-                scrn.moveTo(2, 3);
-                scrn.writef("%s", input[0 .. curPos]);
-                scrn.clearToEol();
-
-                if (err.length > 0)
-                {
-                    scrn.moveTo(2, 4);
-                    scrn.color(Color.red, Color.white);
-                    scrn.writef("%s", err);
-                    scrn.clearToEol();
-                    scrn.color(Color.black, Color.white);
-                }
-
-                scrn.moveTo(2 + curPos, 3);
-                scrn.showCursor();
-            },
-            (dchar ch) {
-                import std.conv : to, ConvException;
-                switch (ch)
-                {
-                    case '0': .. case '9':
-                        if (killOnInput)
-                        {
-                            curPos = 0;
-                            killOnInput = false;
-                        }
-                        if (curPos + 1 < input.length)
-                            input[curPos++] = ch;
-                        break;
-
-                    case '*':
-                        auto maxStr = format("%s", maxVal);
-                        maxStr.copy(input[]);
-                        curPos = maxStr.length.to!int;
-                        break;
-
-                    case '\b':
-                        if (curPos > 0)
-                            curPos--;
-                        break;
-
-                    case '\n':
-                        try
-                        {
-                            auto result = input[0 .. curPos].to!int;
-                            if (result < minVal || result > maxVal)
-                            {
-                                err = "Please enter a number between %d and %d"
-                                      .format(minVal, maxVal);
-                                curPos = 0;
-                            }
-                            else
-                            {
-                                dispatch.pop();
-                                disp.color(Color.DEFAULT, Color.DEFAULT);
-                                disp.clear();
-
-                                dg(result);
-                                break;
-                            }
-                        }
-                        catch (ConvException e)
-                        {
-                            err = "That doesn't look like a number!";
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
-            }
-        );
-
-        dispatch.push(promptMode);
     }
 
     void updateMap(Pos[] where...)
@@ -867,6 +604,17 @@ class TextUi : GameUi
         quitScore = hs;
     }
 
+    /**
+     * Create a subdisplay to be used as the canvas for pager().
+     */
+    auto pagerScreen()
+    {
+        auto width = min(80, disp.width - 6);
+        auto padding = (disp.width - width) / 2;
+        return subdisplay(&disp, region(vec(padding, 1),
+                          vec(disp.width - padding, disp.height - 1)));
+    }
+
     void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
         // Make sure player has read all current messages first.
@@ -883,140 +631,10 @@ class TextUi : GameUi
                                .joiner([""])
                                .array;
 
-        pager(scrn, lines, endPrompt, {
+        pager(scrn, dispatch, lines, endPrompt, {
             gameFiber.call();
         });
         Fiber.yield();
-    }
-
-    /**
-     * Like message(), but does not store the message into the log and does not
-     * accumulate messages with a --MORE-- prompt.
-     */
-    void echo(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0,0);
-        disp.writef(str);
-        disp.clearToEol();
-    }
-
-    /**
-     * Prompts the user for a response.  Keeps the cursor positioned
-     * immediately after the prompt.
-     */
-    void prompt(string str)
-    {
-        // FIXME: probably should be in a subdisplay?
-        disp.moveTo(0, 0);
-        disp.writef("%s", str);
-        auto x = disp.cursorX;
-        auto y = disp.cursorY;
-        disp.clearToEol();
-        disp.moveTo(x, y);
-    }
-
-    /**
-     * Create a subdisplay to be used as the canvas for pager().
-     */
-    private auto pagerScreen()
-    {
-        auto width = min(80, disp.width - 6);
-        auto padding = (disp.width - width) / 2;
-        return subdisplay(&disp, region(vec(padding, 1),
-                          vec(disp.width - padding, disp.height - 1)));
-    }
-
-    /**
-     * Pager for long text.
-     *
-     * This function should only be called from the UI fiber; use .infoScreen
-     * if calling from the Game fiber.
-     */
-    private void pager(S)(S scrn, const(char[])[] lines, string endPrompt,
-                          void delegate() exitHook)
-    {
-        const(char[])[] nextLines;
-
-        void displayPage()
-        {
-            scrn.hideCursor();
-            scrn.color(Color.black, Color.white);
-
-            // Can't use .clear 'cos it doesn't use color we set.
-            scrn.moveTo(0, 0);
-            scrn.clearToEos();
-
-            auto linesToPrint = min(scrn.height - 2, lines.length);
-            auto offsetY = (scrn.height - linesToPrint - 1)/2;
-            foreach (i; 0 .. linesToPrint)
-            {
-                // Vertically-center texts for better visual aesthetics.
-                scrn.moveTo(1, i + offsetY);
-                scrn.writef("%s", lines[i]);
-            }
-            nextLines = lines[linesToPrint .. $];
-
-            scrn.moveTo(1, linesToPrint + offsetY + 1);
-            scrn.color(Color.white, Color.blue);
-            scrn.writef("%s", nextLines.length > 0 ? "[More]" : endPrompt);
-            scrn.color(Color.black, Color.white);
-            scrn.showCursor();
-        }
-
-        auto infoMode = Mode(
-            () {
-                displayPage();
-            },
-            (dchar ch) {
-                if (nextLines.length > 0)
-                {
-                    lines = nextLines;
-                    displayPage();
-                }
-                else
-                {
-                    dispatch.pop();
-                    disp.color(Color.DEFAULT, Color.DEFAULT);
-                    disp.clear();
-                    exitHook();
-                }
-            },
-        );
-
-        dispatch.push(infoMode);
-    }
-
-    /**
-     * Pushes a Mode to the mode stack that prompts the player for a yes/no
-     * response, and invokes the given callback with the answer.
-     */
-    private void promptYesNo(string promptStr, void delegate(bool answer) cb)
-    {
-        string str = promptStr ~ " [yn] ";
-        auto mode = Mode(
-            {
-                prompt(str);
-            }, (dchar key) {
-                switch (key)
-                {
-                    case 'y':
-                        dispatch.pop();
-                        echo(str ~ "yes");
-                        cb(true);
-                        break;
-                    case 'n':
-                        dispatch.pop();
-                        echo(str ~ "no");
-                        cb(false);
-                        break;
-
-                    default:
-                }
-            }
-        );
-
-        dispatch.push(mode);
     }
 
     private auto highlightAxialTiles(Vec!(int,4) pos, TileId tileId)
@@ -1049,7 +667,8 @@ class TextUi : GameUi
     private void showHelp()
     {
         auto scrn = pagerScreen();
-        pager(scrn, helpText[], "Press any key to return to game", {});
+        pager(scrn, dispatch, helpText[], "Press any key to return to game",
+              {});
     }
 
     private void lookAtFloor()
@@ -1067,54 +686,26 @@ class TextUi : GameUi
             return;
         }
 
-        static immutable heading = "You see here:";
-        auto width = max(heading.displayLength + 2,
-                         objs.map!(item => item.name.displayLength + 6)
-                             .maxElement).to!int;
-        auto height = 6 + objs.length.to!int;
-        auto scrnX = (disp.width - width)/2;
-        auto scrnY = (disp.height - height)/2;
-        auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
-                                             vec(scrnX + width,
-                                                 scrnY + height)));
-        auto lookMode = Mode(
-            () {
-                scrn.hideCursor();
-                scrn.color(Color.black, Color.white);
+        auto self = this;
 
-                scrn.moveTo(0, 0);
-                scrn.clearToEos();
-
-                scrn.moveTo(1, 1);
-                scrn.writef("You see here:");
-
-                foreach (i; 0 .. objs.length)
-                {
-                    scrn.moveTo(1, (3 + i).to!int);
-                    renderItem(scrn, objs[i], Color.black, Color.white);
-                }
-
-                scrn.moveTo(1, height-2);
-                scrn.color(Color.white, Color.blue);
-                scrn.writef("[OK]");
-                scrn.showCursor();
-            },
-            (dchar ch) {
-                switch (ch)
-                {
-                    case 'q', ' ':
-                        dispatch.pop();
-                        disp.color(Color.DEFAULT, Color.DEFAULT);
-                        disp.clear();
-                        break;
-
-                    default:
-                        break;
-                }
+        struct Item
+        {
+            private InventoryItem item;
+            size_t displayLength()
+            {
+                return 4 + item.name.displayLength;
             }
-        );
+            void render(S)(S scrn, Color fg, Color bg)
+            {
+                self.renderItem(scrn, item, fg, bg);
+            }
+        }
 
-        dispatch.push(lookMode);
+        selectScreen(disp, dispatch, objs.map!(obj => Item(obj)),
+            "You see here:", [
+                SelectButton(['q', ' ', keyEnter], "return to game", true,
+                             null),
+            ], -1);
     }
 
     private void renderItem(S)(S scrn, InventoryItem item, Color fg, Color bg)
@@ -1129,132 +720,28 @@ class TextUi : GameUi
         scrn.clearToEol();
     }
 
-    private static struct InventoryButton
-    {
-        dchar key;
-        string label;
-        bool exitOnClick;
-        void delegate(InventoryItem) onClick;
-    }
-
-    /**
-     * Params:
-     *  inven = List of items to display.
-     *  promptStr = Heading to display on inventory screen.
-     *  buttons = The list of buttons to be placed on the screen.
-     *  canSelect = Whether or not individual items can be selected with j/k.
-     *
-     * Returns: true if inventory UI mode is pushed on stack, otherwise false
-     * (e.g., if inventory is empty).
-     */
     private bool inventoryUi(InventoryItem[] inven, string promptStr,
-                             InventoryButton[] buttons, bool canSelect = true)
+                             SelectButton[] buttons, bool canSelect = true)
     {
-        string makeHintString()
-        {
-            string[] hints;
-            if (canSelect)
-                hints ~= "j/k:select";
-
-            foreach (button; buttons)
-            {
-                hints ~= format("%s:%s", button.key.toPrintable, button.label);
-            }
-            return hints.join(", ");
-        }
-
         if (inven.length == 0)
             return false;
 
-        auto hintString = makeHintString();
-        auto hintStringLen = hintString.displayLength;
-        auto width = (max(2 + promptStr.displayLength, 2 + hintStringLen,
-                          6 + inven.map!(item => item.name.displayLength +
-                                                 (item.equipped ? 11 : 0))
-                               .maxElement)).to!int;
-        auto height = min(disp.height, 4 + inven.length.to!int
-                                         + ((hintStringLen > 0) ? 2 : 0));
-        auto scrnX = (disp.width - width)/2;
-        auto scrnY = (disp.height - height)/2;
-        auto scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
-                                             vec(scrnX + width,
-                                                 scrnY + height)));
-        int curIdx = canSelect ? 0 : -1;
-        int yStart = 3;
-
-        InventoryButton[dchar] keymap;
-        foreach (button; buttons)
+        auto self = this;
+        struct Item
         {
-            keymap[button.key] = button;
+            private InventoryItem item;
+            size_t displayLength()
+            {
+                return 4 + item.name.displayLength + (item.equipped ? 11: 0);
+            }
+            void render(S)(S scrn, Color fg, Color bg)
+            {
+                self.renderItem(scrn, item, fg, bg);
+            }
         }
 
-        auto invenMode = Mode(
-            () {
-                scrn.hideCursor();
-                scrn.color(Color.black, Color.white);
-
-                // Can't use .clear 'cos it doesn't use color we set.
-                scrn.moveTo(0, 0);
-                scrn.clearToEos();
-
-                scrn.moveTo(1, 1);
-                scrn.writef("%s", promptStr);
-                if (canSelect)
-                {
-                    scrn.moveTo(1, height-2);
-                    scrn.color(Color.blue, Color.white);
-                    scrn.writef(hintString);
-                    scrn.color(Color.black, Color.white);
-                }
-
-                foreach (i; 0 .. inven.length)
-                {
-                    scrn.moveTo(1, (yStart + i).to!int);
-
-                    auto fg = Color.black;
-                    auto bg = Color.white;
-                    if (i == curIdx)
-                    {
-                        fg = Color.white;
-                        bg = Color.blue;
-                    }
-
-                    renderItem(scrn, inven[i], fg, bg);
-                }
-            },
-            (dchar ch) {
-                switch (ch)
-                {
-                    case 'i', 'k':
-                        if (canSelect && curIdx > 0)
-                            curIdx--;
-                        break;
-
-                    case 'j', 'm':
-                        if (canSelect && curIdx + 1 < inven.length)
-                            curIdx++;
-                        break;
-
-                    default:
-                        auto button = ch in keymap;
-                        if (button is null)
-                            break;
-
-                        if (button.exitOnClick)
-                        {
-                            dispatch.pop();
-                            disp.color(Color.DEFAULT, Color.DEFAULT);
-                            disp.clear();
-                        }
-
-                        if (button.onClick)
-                            button.onClick(inven[curIdx]);
-                        break;
-                }
-            }
-        );
-
-        dispatch.push(invenMode);
+        selectScreen(disp, dispatch, inven.map!(item => Item(item)), promptStr,
+                     buttons, canSelect ? 0 : -1);
         return true;
     }
 
@@ -1269,7 +756,7 @@ class TextUi : GameUi
 
         auto promptStr = format(
             "How many %s do you want to drop?", item.name);
-        promptNumber(promptStr, 0, item.count, (count) {
+        promptNumber(disp, dispatch, promptStr, 0, item.count, (count) {
             if (count > 0)
             {
                 auto toDrop = item;
@@ -1286,15 +773,16 @@ class TextUi : GameUi
     {
         void delegate() onExit = null;
 
-        if (!inventoryUi(g.getInventory, "You are carrying:",
+        auto inven = g.getInventory;
+        if (!inventoryUi(inven, "You are carrying:",
             [
-                InventoryButton(keyEnter, "use/equip/unequip", true, (item) {
-                    onApply(item);
+                SelectButton([keyEnter], "use/equip/unequip", true, (i) {
+                    onApply(inven[i]);
                 }),
-                InventoryButton('d',  "drop", true, (item) {
-                    promptDropCount(item, onDrop);
+                SelectButton(['d'],  "drop", true, (i) {
+                    promptDropCount(inven[i], onDrop);
                 }),
-                InventoryButton('\t', "done", true, null),
+                SelectButton(['\t', 'q'], "done", true, null),
             ]))
         {
             message("You are not carrying anything right now.");

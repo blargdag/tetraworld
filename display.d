@@ -178,7 +178,61 @@ unittest
 auto subdisplay(T)(T display, Region!(int,2) rect)
     if (isDisplay!T)
 {
-    return SubDisplay!T(display, rect);
+    static if (is(T == SubDisplay!U, U))
+        return SubDisplay!U(display.parent,
+                            region(display.rect.min + rect.min,
+                                   display.rect.min + rect.max));
+    else
+        return SubDisplay!T(display, rect);
+}
+
+unittest
+{
+    static struct TestDisp
+    {
+        enum width = 10;
+        enum height = 10;
+
+        static char[width*height] impl;
+        int x,y;
+
+        void moveTo(int _x, int _y)
+        {
+            x = _x;
+            y = _y;
+        }
+        void writef(Args...)(string fmt, Args args)
+        {
+            import std.format : formattedWrite;
+            impl[x + width*y .. $].formattedWrite(fmt, args);
+        }
+        unittest
+        {
+            TestDisp disp;
+            disp.writef("%s", "");
+        }
+    }
+    static assert(isDisplay!TestDisp);
+
+    TestDisp disp;
+
+    auto sub1 = disp.subdisplay(region(vec(1,1), vec(9,9)));
+    sub1.moveTo(1,1);
+    sub1.writef("a");
+    assert(disp.impl[22] == 'a');
+    static assert(is(typeof(sub1) == SubDisplay!TestDisp));
+
+    auto sub2 = disp.subdisplay(region(vec(2,2), vec(9,9)));
+    sub2.moveTo(0,0);
+    sub2.writef("b");
+    assert(disp.impl[22] == 'b');
+
+    auto sub3 = sub1.subdisplay(region(vec(1,1), vec(4,4)));
+    sub3.moveTo(0,0);
+    sub3.writef("c");
+    assert(disp.impl[22] == 'c');
+    static assert(is(typeof(sub3) == SubDisplay!TestDisp));
+    assert(sub3.rect == region(vec(2,2), vec(5,5)));
 }
 
 /**
@@ -2085,6 +2139,89 @@ unittest
     import arsd.terminal;
     Terminal* term;
     auto obj = displayObject(term);
+}
+
+/**
+ * Border style.
+ */
+enum BorderStyle
+{
+    thin,
+    thick,
+    ascii,
+}
+
+/**
+ * Draws a border of the given style around the given display.
+ */
+void drawBorder(Disp)(ref Disp disp, BorderStyle style)
+    if (isDisplay!Disp)
+    in (disp.width > 1 && disp.height > 1)
+{
+    static immutable dchar[6][BorderStyle.max + 1] borders = [
+        BorderStyle.thin:  "─│┌┐└┘"d,
+        BorderStyle.thick: "═║╔╗╚╝"d,
+        BorderStyle.ascii: "-|,.`'"d,
+    ];
+
+    import std.range : repeat;
+    const(dchar)[] b = borders[style];
+
+    disp.moveTo(0,0);
+    disp.writef("%s%-(%s%)%s", b[2], b[0].repeat(disp.width - 2), b[3]);
+
+    foreach (y; 1 .. disp.height-1)
+    {
+        disp.moveTo(0, y);
+        disp.writef("%s", b[1]);
+        disp.moveTo(disp.width-1, y);
+        disp.writef("%s", b[1]);
+    }
+
+    disp.moveTo(0, disp.height-1);
+    disp.writef("%s%-(%s%)%s", b[4], b[0].repeat(disp.width - 2), b[5]);
+}
+
+unittest
+{
+    struct TestDisp
+    {
+        enum width = 5;
+        enum height = 5;
+        char[width*height] impl;
+        int curX, curY;
+
+        void moveTo(int x, int y)
+            in (x >= 0 && x < width)
+            in (y >= 0 && y < height)
+        {
+            curX = x;
+            curY = y;
+        }
+
+        void writef(Args...)(string fmt, Args args)
+        {
+            import std.format : format;
+            foreach (ch; format(fmt, args))
+            {
+                impl[curX + width*curY] = ch;
+                curX++;
+            }
+        }
+    }
+
+    TestDisp disp;
+    disp.impl[] = ':';
+
+    disp.drawBorder(BorderStyle.ascii);
+
+    assert(disp.impl[] ==
+        ",---."~
+        "|:::|"~
+        "|:::|"~
+        "|:::|"~
+        "`---'"
+    );
 }
 
 // vim:set ai sw=4 ts=4 et:
