@@ -53,6 +53,53 @@ struct TextUiConfig
 }
 
 /**
+ * Load user-configured default options.
+ *
+ * Returns: User defaults, or factory defaults if user defaults not found.
+ */
+TextUiConfig loadDefaults()
+{
+    import std.file : exists, isFile;
+    import std.path : buildPath;
+    import std.stdio : File;
+
+    import config : gameDataDir;
+    import loadsave : loadFile;
+
+    TextUiConfig opts;
+
+    auto optfile = buildPath(gameDataDir, "options");
+    if (exists(optfile) && isFile(optfile))
+    {
+        opts = File(optfile, "r").byLine
+                                 .loadFile
+                                 .parse!TextUiConfig("options");
+    }
+    return opts;
+}
+
+/**
+ * Save user-configured default options.
+ */
+void saveDefaults(TextUiConfig opts)
+{
+    import std.path : buildPath;
+    import std.stdio : File;
+
+    import config : gameDataDir;
+    import loadsave : saveFile;
+
+    // Transcript file should not be persistent setting.
+    opts.tscriptFile = "";
+
+    buildPath(gameDataDir, "options")
+        .File("w")
+        .lockingTextWriter
+        .saveFile
+        .put("options", opts);
+}
+
+/**
  * Viewport representation.
  */
 struct ViewPort(Map)
@@ -294,7 +341,9 @@ class TextUi : GameUi
             SelectButton([keyEnter], "change", false, (i) {
                 opts[i].edit();
             }),
-            SelectButton(['q', '\x0F'], "return to game", true, null),
+            SelectButton(['q', '\x0F'], "return to game", true, (i) {
+                saveDefaults(cfg);
+            }),
         ];
 
         descWidth = opts.map!(opt => opt.desc.displayLength)
