@@ -320,7 +320,11 @@ class TextUi : GameUi
                     promptNumber(disp, dispatch, "Enter smooth scroll time "~
                                                  "in msec, 0 to disable",
                                  0, 1000, (val) {
-                                    cfg.smoothscrollMsec = val;
+                                    if (cfg.smoothscrollMsec != val)
+                                    {
+                                        cfg.smoothscrollMsec = val;
+                                        saveDefaults(cfg);
+                                    }
                                  }, cfg.smoothscrollMsec.to!string);
                 }
             ),
@@ -337,7 +341,11 @@ class TextUi : GameUi
                     selectScreen(disp, dispatch, labels,
                         "Select map layout style:", [
                             SelectButton([keyEnter], "select", true, (i) {
-                                cfg.mapStyle = vals[i];
+                                if (cfg.mapStyle != vals[i])
+                                {
+                                    cfg.mapStyle = vals[i];
+                                    saveDefaults(cfg);
+                                }
                             }),
                             SelectButton(['q'], "cancel", true, null),
                         ], vals.countUntil(cfg.mapStyle).to!int);
@@ -346,12 +354,10 @@ class TextUi : GameUi
         ];
 
         SelectButton[] buttons = [
-            SelectButton([keyEnter], "change", false, (i) {
+            SelectButton([keyEnter], "change", true, (i) {
                 opts[i].edit();
             }),
-            SelectButton(['q', '\x0F'], "return to game", true, (i) {
-                saveDefaults(cfg);
-            }),
+            SelectButton(['q', '\x0F'], "return to game", true, null),
         ];
 
         descWidth = opts.map!(opt => opt.desc.displayLength)
