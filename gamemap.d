@@ -735,7 +735,7 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
             _floorArea = left.floorArea() + right.floorArea();
         return _floorArea;
     }
-    private int _floorArea = int.min;
+    @NoSave private int _floorArea = int.min;
 
     /**
      * Returns: The total volume of this part of the map.
@@ -747,7 +747,7 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
             _volume = left.volume + right.volume;
         return _volume;
     }
-    private int _volume = int.min;
+    @NoSave private int _volume = int.min;
 
     /**
      * Look up a location on the map.
