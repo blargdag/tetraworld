@@ -98,5 +98,24 @@ AI redesign
      caching until the basic system works first, *then* profile the code and
      evaluate whether caching is necessary.
 
+//
+
+New mapgen design:
+
+- Stage 1:
+   - Create BSP tree down to some given criteria (max depth, min size, etc.).
+   - Insert back edges to make a graph.
+- Stage 2:
+   - Walk the graph to partition it into regions (connected subgraphs).
+   - Randomly assign each region to a theme.
+      * Note: this is NOT the same as assigning regions to a BSP subtree,
+        because the latter produces rectangular theme regions, whereas this
+        multi-stage process lets the mapgen produce non-rectangular connected
+        regions.
+- Stage 3:
+   - Instantiate each region by substituting nodes according to the assigned
+     theme.
+   - Place objects, NPCs, start locations, etc..
+
 
 // vim:set sw=3 ts=3 et ai:
