@@ -793,12 +793,24 @@ class BuildNode : MapNode // N.B.: NOT saveable
     {
         MapNode node;
         Region4 overlap;
+        bool isBackEdge;
+
+        pure int axis()
+        {
+            import std.conv : to;
+            return iota(4).countUntil!(i => overlap.min[i] == overlap.max[i])
+                          .to!int;
+        }
     }
-    Ngbr[] ngbrs;
     Region4 bounds;
+    Ngbr[] ngbrs;
     int themeId;
 
+    this() {}
+    this(Region4 _bounds) { bounds = _bounds; }
+
     override BuildNode isBuildNode() { return this; }
+    override int volume() pure { return bounds.volume; }
 }
 
 /**
