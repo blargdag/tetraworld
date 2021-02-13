@@ -55,7 +55,11 @@ string saveFileName()
     import std.path : buildPath;
     import std.process : environment;
 
-    return buildPath(gameDataDir, environment["USER"] ~ ".save");
+    version(Posix)
+        auto user = environment.get("USER", "anonymous");
+    version(Windows)
+        auto user = environment.get("USERNAME", "anonymous");
+    return buildPath(gameDataDir, user ~ ".save");
 }
 
 /**
@@ -565,7 +569,10 @@ class Game
 
         HiScore hs;
         hs.timestamp = TimeStamp(Clock.currTime);
-        hs.name = environment.get("USER", "anonymous");
+        version(Posix)
+            hs.name = environment.get("USER", "anonymous");
+        version(Windows)
+            hs.name = environment.get("USERNAME", "anonymous");
         hs.levels = storyNode;
         hs.turns = nTurns;
         hs.outcome = outcome;
