@@ -1309,7 +1309,6 @@ unittest
     }
 }
 
-version(none)
 unittest
 {
     import testutil;
@@ -1327,21 +1326,14 @@ unittest
     TreeGenArgs args;
     args.splitVolume = ValRange(50, 200);
     args.minNodeDim = 2;
+
     auto tree = genTree(bounds, args);
+    genBackEdges(tree, bounds, 4, 15);
+    tree = genTheme(tree, bounds);
 
     auto w = new World;
     w.map.tree = tree;
     w.map.bounds = bounds;
-    assert(doorsSanityCheck(w));
-
-    // Generate back edges
-    genBackEdges(w.map.tree, w.map.bounds, 4, 15,
-        (in RoomNode[2] rooms, ref Door d) {
-            d.type = Door.Type.extra;
-            return true;
-        },
-        (MapNode node, Region4 region) => uniform(0, 2), false
-    );
     assert(doorsSanityCheck(w));
 
     resizeRooms(w.map.tree, w.map.bounds, args.minNodeDim-1);
@@ -2000,7 +1992,6 @@ MapNode genTree(Region4 bounds, TreeGenArgs args)
     MapNode tree;
     foreach (_; 0 .. nRetries)
     {
-        // FIXME: should generate more than just RoomNode.
         tree = genBsp!(MapNode, BuildNode)(bounds,
             (Region4 r) => r.volume > args.splitVolume.pick,
             (Region4 r) => iota(4).filter!(i => r.max[i] - r.min[i] >= splitLen)
@@ -2010,7 +2001,6 @@ MapNode genTree(Region4 bounds, TreeGenArgs args)
                                        r.max[axis] - args.minNodeDim + 1)
         );
 
-        //setRoomInteriors(tree, bounds);
         try
         {
             genCorridors(tree, bounds);
