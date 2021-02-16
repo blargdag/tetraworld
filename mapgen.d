@@ -1681,6 +1681,9 @@ void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
         else
         {
             auto d = Door(0, pos, Door.Type.trapdoor);
+            room.doors ~= d;
+            ngbr.doors ~= d;
+
             auto floorId = style2Terrain(room.style);
             w.store.createObj(Pos(pos + vec(-1,0,0,0)),
                               Trigger(Trigger.Type.onEnter, w.triggerId));
@@ -1729,6 +1732,12 @@ unittest
                     .map!(id => w.store.get!TiledAbove(id));
     assert(!r.empty);
     assert(r.front.tileId == TileId.floorGrassy);
+
+    assert(root.left.isRoom.doors.length == 1 &&
+           root.left.isRoom.doors[0].pos[0] == 2 &&
+           root.left.isRoom.doors[0].pos[1] >= 1 &&
+           root.left.isRoom.doors[0].pos[1] <= 3);
+    assert(root.right.isRoom.doors == root.left.isRoom.doors);
 }
 
 /**
