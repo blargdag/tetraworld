@@ -1407,8 +1407,7 @@ Tuple!(MapNode,Region4) randomRoom(MapNode tree, Region4 bounds,
  *
  * FIXME: This needs to be refactored into the derived classes of MapNode.
  */
-Tuple!(MapNode, Vec4) randomRoomPos(World w, MapNode tree,
-                                           RandomPosFilt filt)
+Tuple!(MapNode, Vec4) randomRoomPos(World w, MapNode tree, RandomPosFilt filt)
 {
     foreach (nTries; 0 .. filt.maxTries)
     {
@@ -1539,6 +1538,74 @@ unittest
 }
 
 /**
+ * Locates the neighbour of the given node connected by the given door.
+ */
+RoomNode findNgbr(MapNode tree, Region4 bounds, RoomNode node, uint doorIdx)
+    in (doorIdx < node.doors.length)
+{
+    return findNgbr(tree, bounds, node, vec(node.doors[doorIdx].pos),
+                    node.doors[doorIdx].axis);
+}
+
+/// ditto
+RoomNode findNgbr(MapNode tree, Region4 bounds, RoomNode node, Vec4 pos,
+                  int axis)
+{
+    // Compute coordinates of the other side of the door.
+    auto otherSide = pos;
+    otherSide[axis] += (pos[axis] == node.interior.max[axis]) ? 1 : -1;
+
+    RoomNode ngbr;
+    Region4 ngbrBounds;
+    foreachFiltRoom(tree, bounds, (Region4 r) => r.contains(otherSide),
+                    (MapNode n, Region4 r1) {
+                        assert(ngbr is null);
+                        auto room = n.isRoom;
+                        if (room is null) return 0;
+                        ngbr = room;
+                        ngbrBounds = r1;
+                        return 1;
+                    });
+
+    return ngbr;
+}
+
+unittest
+{
+    //   0123456789
+    // 0 ##########
+    // 1 #   #    #
+    // 2 #   #    #
+    // 3 ##|##    #
+    // 4 #   -    #
+    // 5 #   #    #
+    // 6 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.axis = 3;
+    root.left.pivot = 4;
+    root.left.left = new RoomNode;
+    root.left.left.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right = new RoomNode;
+    root.left.right.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    root.right = new RoomNode;
+    root.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,10,7));
+    setRoomInteriors(root, bounds);
+
+    assert(findNgbr(root, bounds, root.right.isRoom, 0) == root.left.right);
+    assert(findNgbr(root, bounds, root.left.right.isRoom, 0) == root.left.left);
+    assert(findNgbr(root, bounds, root.left.right.isRoom, 1) == root.right);
+    assert(findNgbr(root, bounds, root.left.left.isRoom, 0) == root.left.right);
+}
+
+/**
  * Generate pits and pit traps.
  *
  * Params:
@@ -1552,55 +1619,81 @@ unittest
 void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
                  int openPitPct = 30)
 {
-version(none)
-    genBackEdges(tree, bounds, count, count*8,
-        (in RoomNode[2] rooms, ref Door d) {
-            assert(d.axis == 0);
+    static bool onPorch(RoomNode rm, Vec4 pos)
+    {
+        foreach (dd; rm.doors)
+        {
+            if (dd.axis != 0 &&
+                iota(1, 4).map!(i => abs(pos[i] - dd.pos[i]))
+                          .sum == 1)
+                return true;
+        }
+        return false;
+    }
 
-            bool nextToExisting;
-            foreach (rm; rooms)
+    static bool nextToExisting(RoomNode rm, Vec4 pos)
+    {
+        foreach (dd; rm.doors)
+        {
+            if (dd.type == Door.Type.normal &&
+                iota(4).map!(i => abs(pos[i] - dd.pos[i])).sum == 1)
             {
-                foreach (dd; rm.doors)
-                {
-                    if (dd.type == Door.Type.normal &&
-                        iota(4).map!(i => abs(d.pos[i] - dd.pos[i])).sum == 1)
-                    {
-                        nextToExisting = true;
-                    }
+                return true;
+            }
+        }
+        return false;
+    }
 
-                    if (dd.axis != 0 &&
-                        iota(1, 4).map!(i => abs(d.pos[i] - dd.pos[i]))
-                                  .sum == 1)
-                    {
-                        // Don't place where a ladder would be placed.
-                        return false;
-                    }
-                }
-            }
+    RandomPosFilt filt;
+    filt.occupancy = Occupancy.empty;
+    filt.support = Support.below;
+    filt.distrib = Distrib.floor;
+    filt.maxTries = 10;
 
-            if (!nextToExisting && uniform(0, 100) < openPitPct)
-            {
-                // Non-hidden open pit.
-                d.type = Door.Type.extra;
-            }
-            else
-            {
-                d.type = Door.Type.trapdoor;
-                auto floorId = style2Terrain(rooms[0].style);
-                w.store.createObj(Pos(vec(d.pos) + vec(-1,0,0,0)),
-                                  Trigger(Trigger.Type.onEnter, w.triggerId));
-                w.store.createObj(Pos(d.pos), Name("pit trap"),
-                    Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
-                    BlocksMovement(Climbable.yes), BlocksView(),
-                    Triggerable(w.triggerId, TriggerEffect.trapDoor),
-                    SupportsWeight(SupportType.above));
-                w.triggerId++;
-            }
-            return true;
-        },
-        (MapNode node, Region4 bounds) => 0, // always pick vertical
-        true,   // allow multiple pit traps on same wall as normal door
-    );
+    int maxFail = count*5;
+    while (count > 0 && maxFail > 0)
+    {
+        auto np = randomRoomPos(w, tree, filt);
+        auto node = np[0];
+        auto pos = np[1] + vec(1,0,0,0);
+        auto room = node.isRoom;
+
+        if (room is null || onPorch(room, pos))
+        {
+            maxFail--;
+            continue;
+        }
+
+        auto ngbr = findNgbr(tree, bounds, room, pos, 0);
+        if (ngbr is null)
+        {
+            maxFail--;
+            continue;
+        }
+
+        if ((nextToExisting(room, pos) || nextToExisting(ngbr, pos)) &&
+            uniform(0, 100) < openPitPct)
+        {
+            auto d = Door(0, pos, Door.Type.extra);
+            room.doors ~= d;
+            ngbr.doors ~= d;
+        }
+        else
+        {
+            auto d = Door(0, pos, Door.Type.trapdoor);
+            auto floorId = style2Terrain(room.style);
+            w.store.createObj(Pos(pos + vec(-1,0,0,0)),
+                              Trigger(Trigger.Type.onEnter, w.triggerId));
+            w.store.createObj(Pos(pos), Name("pit trap"),
+                Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
+                BlocksMovement(Climbable.yes), BlocksView(),
+                Triggerable(w.triggerId, TriggerEffect.trapDoor),
+                SupportsWeight(SupportType.above));
+            w.triggerId++;
+        }
+
+        count--;
+    }
 }
 
 unittest
@@ -1737,67 +1830,6 @@ unittest
         assert(r.front !is null && *r.front == Pos(1,1,2,2),
                format("%s", *r.front));
     }
-}
-
-/**
- * Locates the neighbour of the given node connected by the given door.
- */
-RoomNode findNgbr(MapNode tree, Region4 bounds, RoomNode node, uint doorIdx)
-    in (doorIdx < node.doors.length)
-{
-    // Compute coordinates of the other side of the door.
-    auto d = node.doors[doorIdx];
-    auto otherSide = vec(d.pos);
-    otherSide[d.axis] += (d.pos[d.axis] == node.interior.max[d.axis]) ? 1 : -1;
-
-    RoomNode ngbr;
-    Region4 ngbrBounds;
-    foreachFiltRoom(tree, bounds, (Region4 r) => r.contains(otherSide),
-                    (MapNode n, Region4 r1) {
-                        assert(ngbr is null);
-                        auto room = n.isRoom;
-                        if (room is null) return 0;
-                        ngbr = room;
-                        ngbrBounds = r1;
-                        return 1;
-                    });
-
-    return ngbr;
-}
-
-unittest
-{
-    //   0123456789
-    // 0 ##########
-    // 1 #   #    #
-    // 2 #   #    #
-    // 3 ##|##    #
-    // 4 #   -    #
-    // 5 #   #    #
-    // 6 ##########
-    auto root = new MapNode;
-    root.axis = 2;
-    root.pivot = 5;
-
-    root.left = new MapNode;
-    root.left.axis = 3;
-    root.left.pivot = 4;
-    root.left.left = new RoomNode;
-    root.left.left.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
-    root.left.right = new RoomNode;
-    root.left.right.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
-    root.left.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
-
-    root.right = new RoomNode;
-    root.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
-
-    auto bounds = region(vec(0,0,1,1), vec(2,2,10,7));
-    setRoomInteriors(root, bounds);
-
-    assert(findNgbr(root, bounds, root.right.isRoom, 0) == root.left.right);
-    assert(findNgbr(root, bounds, root.left.right.isRoom, 0) == root.left.left);
-    assert(findNgbr(root, bounds, root.left.right.isRoom, 1) == root.right);
-    assert(findNgbr(root, bounds, root.left.left.isRoom, 0) == root.left.right);
 }
 
 /**
