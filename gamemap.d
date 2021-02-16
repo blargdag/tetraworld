@@ -643,7 +643,10 @@ version(unittest)
 
         //enum walls = "│─.┌└┐┘"d;
         //enum walls = "|-:,`.'"d;
-        auto interior = node.interior;
+        auto room = node.isRoom;
+        if (room is null) return; // FIXME
+
+        auto interior = room.interior;
         foreach (j; interior.min[1]-1 .. interior.max[1]+1)
         {
             foreach (i; interior.min[0]-1 .. interior.max[0]+1)
@@ -661,11 +664,11 @@ version(unittest)
                 else if (j == interior.min[1]-1 || j == interior.max[1])
                     combineWall(i, j, 0b1010);
                 else
-                    screen[i, j] = ".,:"[node.style];
+                    screen[i, j] = ".,:"[room.style];
             }
         }
 
-        foreach (door; node.doors)
+        foreach (door; room.doors)
         {
             auto doorSyms = (door.type == Door.Type.extra) ? "=\u256b**"d
                                                            : "-|**"d;
@@ -798,8 +801,8 @@ class BuildNode : MapNode // N.B.: NOT saveable
         pure int axis()
         {
             import std.conv : to;
-            return iota(4).countUntil!(i => overlap.min[i] == overlap.max[i])
-                          .to!int;
+            return cast(int) iota(4)
+                .countUntil!(i => overlap.min[i] == overlap.max[i]);
         }
     }
     Region4 bounds;

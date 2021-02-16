@@ -715,6 +715,72 @@ unittest
 }
 
 /**
+ * Given a tree of BuildNodes with assigned theme IDs, replace BuildNodes with
+ * specific derived leaf nodes implementing that theme.
+ */
+MapNode genTheme(MapNode tree, Region4 bounds)
+{
+    if (tree.isLeaf)
+    {
+        auto node = tree.isBuildNode;
+        if (node is null)
+            return node;
+
+        switch (node.themeId)
+        {
+            // TBD: implement other theme nodes here
+            // TBD: should split up theme instantiation code by theme instead
+            // of putting everything here
+            case 0:
+            default:
+                auto room = new RoomNode;
+                room.interior = region(bounds.min, bounds.max - vec(1,1,1,1));
+                foreach (ngbr; node.ngbrs)
+                {
+                    Vec4 pos;
+                    int axis = ngbr.axis;
+
+                    foreach (i; 0 .. 4)
+                    {
+                        auto min = ngbr.overlap.min[i];
+                        auto max = ngbr.overlap.max[i];
+                        if (min == max)
+                            pos[i] = min - 1;
+                        else
+                            pos[i] = uniform(min, max);
+                    }
+
+                    auto d = Door(axis, pos, ngbr.isBackEdge ?
+                                             Door.Type.extra :
+                                             Door.Type.normal);
+
+                    // Confine neighbour node's edge to the door location we
+                    // selected.
+                    if (auto ngbrNode = ngbr.node.isBuildNode)
+                    {
+                        auto edge = &ngbrNode.ngbrs.find!(n => n.node is node)
+                                                   .front;
+                        edge.node = room;
+                        edge.overlap = region(pos, pos + vec(1,1,1,1));
+                        edge.overlap.min[axis] = edge.overlap.max[axis] =
+                            pos[axis] + 1;
+                    }
+                    room.doors ~= d;
+                }
+                return room;
+        }
+    }
+    else
+    {
+        tree.left = genTheme(tree.left, leftRegion(bounds, tree.axis,
+                                                   tree.pivot));
+        tree.right = genTheme(tree.right, rightRegion(bounds, tree.axis,
+                                                      tree.pivot));
+        return tree;
+    }
+}
+
+/**
  * Returns: The minimum region of the given room node that covers all Doors.
  */
 Region4 minCore(Region4 interior, Door[] doors)
@@ -1194,7 +1260,6 @@ void setRoomFloors(MapNode root, Region4 bounds)
     });
 }
 
-version(none)
 unittest
 {
     import testutil;
@@ -1209,7 +1274,7 @@ unittest
     // Generate base BSP tree
     auto bounds = region(vec(1, 1, 0, 0), vec(wd, ht, 2, 2));
 
-    auto tree = genBsp!(MapNode, RoomNode)(bounds,
+    auto tree = genBsp!(MapNode, BuildNode)(bounds,
         (Region4 r) => r.length(0)*r.length(1) > 49 + uniform(0, 50),
         (Region4 r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                         .pickOne(invalidAxis),
@@ -1219,23 +1284,17 @@ unittest
             //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
     );
 
+    // Generate connecting corridors
+    genCorridors(tree, bounds);
+    genBackEdges(tree, bounds, 4, 15);
+
+    tree = genTheme(tree, bounds);
+
     auto w = new World;
     w.map.tree = tree;
     w.map.bounds = bounds;
 
-    // Generate connecting corridors
     setRoomInteriors(w.map.tree, w.map.bounds);
-    genCorridors(w.map.tree, w.map.bounds);
-    assert(doorsSanityCheck(w));
-
-    // Generate back edges
-    genBackEdges(w.map.tree, w.map.bounds, 4, 15,
-        (in RoomNode[2] rooms, ref Door d) {
-            d.type = Door.Type.extra;
-            return true;
-        },
-        (MapNode node, Region4 region) => uniform(0, 2), false
-    );
     assert(doorsSanityCheck(w));
 
     resizeRooms(w.map.tree, w.map.bounds, 3);
@@ -1331,8 +1390,7 @@ MapNode randomRoom(MapNode tree, Distrib distrib)
 Tuple!(MapNode,Region4) randomRoom(MapNode tree, Region4 bounds,
                                    Distrib distrib)
 {
-    Tuple!(MapNode,Region4) pickNode(MapNode node,
-                                            Region4 bounds)
+    Tuple!(MapNode,Region4) pickNode(MapNode node, Region4 bounds)
     {
         if (node.isLeaf)
             return tuple(node, bounds);
