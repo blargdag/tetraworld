@@ -2057,13 +2057,14 @@ MapNode genTree(Region4 bounds, TreeGenArgs args)
 /**
  * Phase 2 of level geometry generation.
  */
-void genGeometry(World w, MapNode tree, Region4 bounds, MapGenArgs args)
+void genGeometry(World w, ref MapNode tree, Region4 bounds, MapGenArgs args)
 {
-    setRoomFloors(tree, bounds);
-
     // Add back edges, regular and pits/pit traps.
     genBackEdges(tree, bounds, args.nBackEdges.pick,
                  args.nBackEdges.max + 15);
+    tree = genTheme(tree, bounds);
+
+    setRoomFloors(tree, bounds);
     genPitTraps(w, tree, bounds, args.nPitTraps.pick);
 
     resizeRooms(tree, bounds, args.tree.minNodeDim - 1);
@@ -2199,7 +2200,7 @@ World genBspLevel(Region4 bounds, MapGenArgs args, out int[4] startPos)
 // Mapgen sanity tests.
 unittest
 {
-    foreach (i; 0 .. 12)
+    foreach (i; 0 .. 15)
     {
         int[4] startPos;
         MapGenArgs args;
