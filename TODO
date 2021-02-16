@@ -1,3 +1,5 @@
+- [Bug] Sometimes spiral staircases can block entrances (found a case where a
+  staircase blocked an ana/kata horizontal door).
 - Save files probably should be kept on-disk while game is running, and only
   deleted upon death/quitting. Otherwise there's a risk of catastrophic data
   loss if there's a bug that causes abnormal program termination.
