@@ -1665,7 +1665,7 @@ void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
         }
 
         auto ngbr = findNgbr(tree, bounds, room, pos, 0);
-        if (ngbr is null)
+        if (ngbr is null || !ngbr.interior.contains(pos + vec(1,0,0,0)))
         {
             maxFail--;
             continue;
