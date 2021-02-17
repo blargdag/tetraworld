@@ -579,8 +579,11 @@ unittest
  *  maxRetries = Maximum number of failures while looking for a room pair that
  *      can accomodate an extra edge. This is to prevent infinite loops in case
  *      the given tree cannot accomodate another `count` doors.
+ *
+ * Returns: The actual number of back edges inserted, which may be less than
+ * the requested number.
  */
-void genBackEdges(MapNode root, Region4 region, int count, int maxRetries = 15)
+int genBackEdges(MapNode root, Region4 region, int count, int maxRetries = 10)
 {
     import std.random : uniform;
     import rndutil : pickOne;
@@ -634,17 +637,24 @@ void genBackEdges(MapNode root, Region4 region, int count, int maxRetries = 15)
         return true;
     }
 
-    while (count > 0 && maxRetries > 0)
+    int n = 0;
+    int retries = 0;
+    while (n < count && retries < maxRetries)
     {
         auto nb = randomRoom(root, region, Distrib.volume);
         auto node = nb[0].isBuildNode;
         auto bounds = nb[1];
 
         if (node !is null && tryAddEdge(node, bounds))
-            count--;
+        {
+            n++;
+            retries = 0;
+        }
         else
-            maxRetries--;
+            retries++;
     }
+
+    return n;
 }
 
 unittest
@@ -684,7 +694,7 @@ unittest
         BuildNode.Ngbr(root.right.left, region(vec(4,4,0,0), vec(4,6,1,1))),
     ];
 
-    genBackEdges(root, bounds, 1, 99);
+    while (genBackEdges(root, bounds, 1, 99) < 1) {}
 
     assert(root.left.isBuildNode.ngbrs[1].node is root.right.left);
     assert(root.left.isBuildNode.ngbrs[1].overlap ==
@@ -692,6 +702,82 @@ unittest
     assert(root.right.left.isBuildNode.ngbrs[1].node is root.left);
     assert(root.right.left.isBuildNode.ngbrs[1].overlap ==
         region(vec(1,4,0,0), vec(3,4,1,1)));
+}
+
+void bspToDot(S)(MapNode tree, Region4 region, S sink)
+    if (isOutputRange!(S, char))
+{
+    import std.format : format, formattedWrite;
+
+    string nodeId(MapNode node)
+    {
+        return format("node%x", cast(void*)node);
+    }
+
+    string themeToColor(int themeId)
+    {
+        switch (themeId)
+        {
+            case 0:     return "salmon";
+            case 1:     return "orange";
+            case 2:     return "yellow";
+            case 3:     return "green";
+            case 4:     return "cyan";
+            case 5:     return "blue";
+            case 6:     return "purple";
+            case 7:     return "pink";
+            default:    return "grey";
+        }
+    }
+
+    void impl(MapNode node, Region4 r)
+    {
+        if (!node.isLeaf)
+        {
+            impl(node.left, leftRegion(r, node.axis, node.pivot));
+            impl(node.right, rightRegion(r, node.axis, node.pivot));
+            return;
+        }
+
+        auto bnode = node.isBuildNode;
+        if (bnode !is null)
+        {
+            sink.formattedWrite("\t%s [label=\"%d\",shape=ellipse,"~
+                                "style=filled,color=%s]\n",
+                                nodeId(node), bnode.ngbrs.length,
+                                themeToColor(bnode.themeId));
+            foreach (ngbr; bnode.ngbrs)
+            {
+                if (cast(void*)node < cast(void*)ngbr.node)
+                    sink.formattedWrite("\t%s -- %s [color=%s]\n",
+                                        nodeId(node), nodeId(ngbr.node),
+                                        ngbr.isBackEdge ? "blue" : "black");
+            }
+        }
+        else
+        {
+            sink.formattedWrite("\t%s [label=\"%s\",shape=box]\n",
+                                nodeId(node), "X");
+        }
+    }
+
+    sink.formattedWrite("graph G {");
+    impl(tree, region);
+    sink.formattedWrite("}");
+}
+
+unittest
+{
+    import std.stdio;
+
+    Region4 bounds = region(vec(0,0,0,0), vec(12,12,12,12));
+    TreeGenArgs args;
+    //args.splitVolume = ValRange(40, 100);
+
+    auto tree = genTree(bounds, args);
+    genBackEdges(tree, bounds, 15, 30);
+
+    bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
 }
 
 /**
@@ -1596,8 +1682,8 @@ unittest
  *  openPitPct = Percentage of pits that will be visible open pits, vs. hidden
  *      traps.
  */
-void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
-                 int openPitPct = 30)
+int genPitTraps(World w, MapNode tree, Region4 bounds, int count,
+                int openPitPct = 30)
 {
     static bool onPorch(RoomNode rm, Vec4 pos)
     {
@@ -1630,8 +1716,9 @@ void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
     filt.distrib = Distrib.floor;
     filt.maxTries = 10;
 
-    int maxFail = count*5;
-    while (count > 0 && maxFail > 0)
+    int n = 0;
+    int maxFail = count*2;
+    while (n < count && maxFail > 0)
     {
         auto np = randomRoomPos(w, tree, filt);
         auto node = np[0];
@@ -1675,8 +1762,11 @@ void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
             w.triggerId++;
         }
 
-        count--;
+        n++;
+        maxFail = count*2;
     }
+
+    return n;
 }
 
 unittest
@@ -1706,7 +1796,7 @@ unittest
     w.map.tree = root;
     w.map.bounds = bounds;
 
-    genPitTraps(w, root, bounds, 1, 0);
+    while (genPitTraps(w, root, bounds, 1, 0) < 1) {}
 
     auto r = w.store.getAll!Triggerable()
                     .map!(id => w.store.get!TiledAbove(id));
