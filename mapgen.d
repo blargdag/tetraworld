@@ -220,26 +220,6 @@ void foreachCandidateDoor(MapNode root, Region4 region,
     });
 }
 
-/// ditto
-void foreachCandidateDoor(MapNode root, Region4 region,
-                          scope int delegate(MapNode left, MapNode right,
-                                             int[4] doorPos) dg)
-{
-    foreachCandidateDoor(root, region,
-        (MapNode left, MapNode right, Region4 ir)
-    {
-        int[4] pos;
-        foreach (i; 0 .. 4)
-        {
-            if (ir.min[i] < ir.max[i])
-                pos[i] = uniform(ir.min[i], ir.max[i]);
-            else
-                pos[i] = ir.max[i] - 1;
-        }
-        return dg(left, right, pos);
-    });
-}
-
 unittest
 {
     // Test case 1:
@@ -2612,50 +2592,53 @@ World genBipartiteLevel(BipartiteGenArgs args,
     w.map.bounds = args.region;
 
     // Place doorway between two halves.
-    RoomNode[2] candidate;
+    BuildNode[2] candidate;
+    Region4 doorReg;
     int n;
     foreachCandidateDoor(w.map.tree, args.region,
-                         (MapNode l, MapNode r, int[4] pos)
+                         (MapNode l, MapNode r, Region4 ir)
     {
-        auto left = l.isRoom;
-        auto right = r.isRoom;
+        auto left = l.isBuildNode;
+        auto right = r.isBuildNode;
         if (left && right && uniform(0, ++n) == 0)
         {
             candidate[0] = left;
             candidate[1] = right;
-            doorPos = pos;
+
+            foreach (i; 0 .. 4)
+            {
+                // Note: doorReg is hacked to be a 1x1x1x0 region on the common
+                // wall so that the actual inserted door will coincide with our
+                // chosen doorPos.
+                if (ir.min[i] == ir.max[i])
+                {
+                    assert(i != 0);
+                    doorPos[i] = ir.min[i] - 1;
+                    doorReg.min[i] = doorReg.max[i] = ir.min[i];
+                }
+                else
+                {
+                    doorPos[i] = (args.sinkDoor && i==0) ? ir.max[i]-1 :
+                                 uniform(ir.min[i], ir.max[i]);
+                    doorReg.min[i] = doorPos[i];
+                    doorReg.max[i] = doorReg.min[i] + 1;
+                }
+            }
         }
         return 0;
     });
     if (n == 0)
         throw new GenCorridorsException("No viable door placement found");
 
-    auto d = Door(axis);
-    assert(doorPos[axis] == pivot-1);
-    d.pos = doorPos;
-    candidate[0].doors ~= d;
-    candidate[1].doors ~= d;
+    // Insert edge corresponding with door.
+    candidate[0].ngbrs ~= BuildNode.Ngbr(candidate[1], doorReg);
+    candidate[1].ngbrs ~= BuildNode.Ngbr(candidate[0], doorReg);
 
     // Finish up level geometry
-    // IMPORTANT: connecting door must be placed before this, otherwise
+    // IMPORTANT: connecting edge must be placed before this, otherwise
     // resizeRoom() may make the door inaccessible.
     genGeometry(w, tree1, boundsLeft, args.subargs[0]);
     genGeometry(w, tree2, boundsRight, args.subargs[1]);
-
-    if (args.sinkDoor)
-    {
-        // Need to do this manually because genGeometry can't do cross-region
-        // sinking.
-        auto floorCoor = min(candidate[0].interior.max[0],
-                             candidate[1].interior.max[0]);
-        foreach (node; candidate[])
-        {
-            auto i = node.doors.countUntil(d);
-            assert(i >= 0);
-            node.doors[i].pos[0] = floorCoor - 1;
-        }
-        doorPos[0] = floorCoor - 1;
-    }
 
     // Generate startPos in selected half of level.
     auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
