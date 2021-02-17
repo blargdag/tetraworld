@@ -700,7 +700,7 @@ enum FloorStyle
 enum Dryness { any, dry, wet }
 enum Occupancy { any, empty, occupied }
 enum Support { any, below }
-enum Distrib { tree, floor, volume }
+enum Distrib { tree, floor, volume, rooms }
 
 /**
  * Location filter for randomPos().
@@ -756,6 +756,17 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
         return _volume;
     }
     @NoSave private int _volume = int.min;
+
+    /**
+     * Returns: The number of leaf nodes in this subtree.
+     */
+    int nLeaves() pure
+    {
+        if (_nLeaves == int.min)
+            _nLeaves = (isLeaf) ? 1 : left.nLeaves + right.nLeaves;
+        return _nLeaves;
+    }
+    @NoSave private int _nLeaves = int.min;
 
     /**
      * Look up a location on the map.

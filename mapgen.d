@@ -788,6 +788,7 @@ struct Partition
  * Returns: An array of connected subsets, with their associated theme IDs.
  */
 Partition[] partitionMap(MapNode tree, Region4 bounds, int nPartitions)
+    in (nPartitions <= tree.nLeaves)
 {
     import std.conv : to;
 
@@ -796,7 +797,7 @@ Partition[] partitionMap(MapNode tree, Region4 bounds, int nPartitions)
     while (parts.length < nPartitions)
     {
         int id = 1 + parts.length.to!int;
-        auto node = randomRoom(tree, Distrib.tree).isBuildNode;
+        auto node = randomRoom(tree, Distrib.rooms).isBuildNode;
         if (node is null || node.themeId != 0)
             continue;
 
@@ -856,14 +857,14 @@ unittest
 {
     import std.stdio;
 
-    Region4 bounds = region(vec(0,0,0,0), vec(9,9,9,9));
+    Region4 bounds = region(vec(0,0,0,0), vec(12,12,12,12));
     TreeGenArgs args;
     //args.splitVolume = ValRange(40, 100);
 
     auto tree = genTree(bounds, args);
     genBackEdges(tree, bounds, 10, 50);
 
-    auto parts = partitionMap(tree, bounds, 4);
+    auto parts = partitionMap(tree, bounds, 3);
 
     bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
 }
@@ -1509,6 +1510,7 @@ private int roomMetric()(MapNode node, Distrib distrib)
         case Distrib.tree:      return 1;
         case Distrib.floor:     return node.floorArea;
         case Distrib.volume:    return node.volume;
+        case Distrib.rooms:     return node.nLeaves;
     }
 }
 
