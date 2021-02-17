@@ -1,15 +1,11 @@
 - [gravity] Stacked items that trigger fallOn should split the stack in
   multiple directions.
-- [OO map 2] Replace current Doors hack with a new generic node (possibly
-  subclassed under MapNode) that stores explicit connections with ngbrs.
-   - The first phase of mapgen should create an abstract connectivity graph
-     with these explicit back edges.
-   - Then using a .rewrite method, recursively replace these with concrete
-     derived class nodes.
-   - Due to difficulty refactoring the existing code, maybe the best approach
-     is to build the above as a new framework alongside the current old code;
-     then gradually move over the main game level gen stuff to use the new
-     code. Then sunset the old code and delete it.
+- [OO map 3] Expand on theme-based mapgen, now that existing code works with
+  new system.
+   - Implement graph traversal of BuildNodes to partition the graph into
+     multiple connected regions.
+   - Implement different themes.
+   - Continue refactoring old code.
 - [Tutorial] Should hide additional planes until player is ready to tackle it.
    - This can be implemented without touching UI code by using a special
      TutorialNode subclass of MapNode, that returns proxy objects for floor
@@ -486,3 +482,13 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
       X Incrementally move existing free functions into RoomNode-specific
         methods.
       X Introduce new subclasses.
++ [OO map 2] Replace current Doors hack with a new generic node (possibly
+  subclassed under MapNode) that stores explicit connections with ngbrs.
+   + The first phase of mapgen should create an abstract connectivity graph
+     with these explicit back edges.
+   + Then using a .rewrite method, recursively replace these with concrete
+     derived class nodes.
+   X Due to difficulty refactoring the existing code, maybe the best approach
+     is to build the above as a new framework alongside the current old code;
+     then gradually move over the main game level gen stuff to use the new
+     code. Then sunset the old code and delete it.
