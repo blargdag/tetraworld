@@ -768,33 +768,40 @@ void bspToDot(S)(MapNode tree, Region4 region, S sink)
 }
 
 /**
+ * A connected subset of a map.
+ */
+struct Partition
+{
+    int id;
+    BuildNode[] open, closed;
+}
+
+/**
+ * Partition the given BSP tree into connected subsets.
+ *
  * Params:
  *  tree = The BSP tree. Leaf nodes should be BuildNodes; otherwise nothing
  *      will be done.
  *  bounds = Bounds of the BSP tree.
- *  n = The number of themes to assign.
+ *  n = The number of partitions to assign.
+ *
+ * Returns: An array of connected subsets, with their associated theme IDs.
  */
-void assignThemes(MapNode tree, Region4 bounds, int nThemes)
+Partition[] partitionMap(MapNode tree, Region4 bounds, int nPartitions)
 {
     import std.conv : to;
 
-    static struct Theme
+    // Pick nPartitions random nodes as seed points for partition generation.
+    Partition[] parts;
+    while (parts.length < nPartitions)
     {
-        int id;
-        BuildNode[] open, closed;
-    }
-
-    // Pick nThemes random nodes as seed points for theme generation.
-    Theme[] themes;
-    while (themes.length < nThemes)
-    {
-        int id = 1 + themes.length.to!int;
+        int id = 1 + parts.length.to!int;
         auto node = randomRoom(tree, Distrib.tree).isBuildNode;
         if (node is null || node.themeId != 0)
             continue;
 
         node.themeId = id;
-        themes ~= Theme(id, [ node ]);
+        parts ~= Partition(id, [ node ]);
     }
 
     // Expand each seed to the surrounding connected region until the graph is
@@ -803,58 +810,60 @@ void assignThemes(MapNode tree, Region4 bounds, int nThemes)
     do
     {
         hasOpen = false;
-        foreach (ref theme; themes)
+        foreach (ref part; parts)
         {
-            while (theme.open.length > 0)
+            while (part.open.length > 0)
             {
-                auto i = uniform(0, theme.open.length);
-                auto node = theme.open[i];
+                auto i = uniform(0, part.open.length);
+                auto node = part.open[i];
                 auto nextHops = node.ngbrs
                                     .map!(ngbr => ngbr.node.isBuildNode)
                                     .filter!(ngbr => ngbr !is null &&
                                                      ngbr.themeId == 0);
                 if (nextHops.empty)
                 {
-                    theme.closed ~= node;
-                    theme.open = theme.open.remove(i);
+                    part.closed ~= node;
+                    part.open = part.open.remove(i);
                     continue;
                 }
 
                 auto next = nextHops.pickOne;
-                next.themeId = theme.id;
-                theme.open ~= next;
+                next.themeId = part.id;
+                part.open ~= next;
                 hasOpen = true;
                 break;
             }
         }
     } while (hasOpen);
 
-    // Renumber themes by size.
-    sort!((t1,t2) => t1.closed.length > t2.closed.length)(themes);
+    // Renumber partitions by size.
+    sort!((t1,t2) => t1.closed.length > t2.closed.length)(parts);
 
-    foreach (i, theme; themes)
+    foreach (i, part; parts)
     {
         int newId = i.to!int;
-        foreach (node; theme.closed)
+        foreach (node; part.closed)
         {
             node.themeId = newId;
         }
-        theme.id = newId;
+        part.id = newId;
     }
+
+    return parts;
 }
 
 unittest
 {
     import std.stdio;
 
-    Region4 bounds = region(vec(0,0,0,0), vec(13,13,13,13));
+    Region4 bounds = region(vec(0,0,0,0), vec(9,9,9,9));
     TreeGenArgs args;
     //args.splitVolume = ValRange(40, 100);
 
     auto tree = genTree(bounds, args);
-    genBackEdges(tree, bounds, 15, 30);
+    genBackEdges(tree, bounds, 10, 50);
 
-    assignThemes(tree, bounds, 8);
+    auto parts = partitionMap(tree, bounds, 4);
 
     bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
 }
