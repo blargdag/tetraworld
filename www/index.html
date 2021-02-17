@@ -63,12 +63,12 @@ space + 1D time.  No, there is no time travel here, sorry.)</p>
 <h3>Developmental builds</h3>
 
 <ul>
+<li>2021-02-12a: [<a href="tetraworld-2021-02-12a">Linux 64-bit</a>]
+	[<a href="tetraworld-2021-02-12a.exe">Windows 64-bit</a>]</li>
 <li>2021-01-16a: [<a href="tetraworld-2021-01-16a">Linux 64-bit</a>]
 	[<a href="tetraworld-2021-01-16a.exe">Windows 64-bit</a>]</li>
 <li>2020-12-18a: [<a href="tetraworld-2020-12-18a">Linux 64-bit</a>]
 	[<a href="tetraworld-2020-12-18a.exe">Windows 64-bit</a>]</li>
-<li>2020-11-13a: [<a href="tetraworld-2020-11-13a">Linux 64-bit</a>]
-	[<a href="tetraworld-2020-11-13a.exe">Windows 64-bit</a>]</li>
 </ul>
 
 <p><strong>Disclaimer:</strong> these builds are <em>pre-alpha</em>, meaning
@@ -89,26 +89,23 @@ Public License (GPLv2)</a>. Build instructions are in the
 <h2>News</h2>
 
 <ul>
+<li><b>2021-02-12:</b>
+  <ul>
+  <li>Added <kbd>d</kbd> back as a short-cut for dropping items. The drop
+    action is still available from the inventory screen for easy learning.</li>
+  <li>Added optional non-isometric screen layout. Access with ctrl-O in-game,
+    or use the <kbd>-m straight</kbd> command-line option. Beginners may find
+    this layout easier to understand than the default faux-isometric
+    layout.</li>
+  <li>Moved data files to dedicated directory for consistency.</li>
+  <li>Various UI improvements.</li>
+  </ul></li>
 <li><b>2021-01-16:</b>
   <ul>
   <li>Reorganize/merge some levels to reduce the number of uninteresting
     levels. More drastic changes to come in the near future.</li>
   <li>Added spiral staircases.</li>
   <li>Some UI improvements.</li>
-  </ul></li>
-<li><b>2020-12-18:</b>
-  <ul>
-  <li>Added a high-score board that logs the outcomes of your games. Each time
-    you die, quit, or win the game, an entry will be logged, and it will also
-    show you your rank in the high-score board.</li>
-  <li>Introduced a new water-dwelling creature. Very dangerous!</li>
-  <li>Reorganized the current levels and tweak map generation parameters.
-    Eliminate boring redundant levels, make existing levels more
-    dangerous.</li>
-  <li>Fixed stacking order of gold ore so that it's always visible among piles
-    of less important items. Should eliminate the tedium of hunting for that
-    last piece of gold hiding under a rock!</li>
-  <li>New pre-alpha build!</li>
   </ul></li>
 <li>[<a href="news">Older news</a>]</li>
 </ul>
@@ -166,10 +163,10 @@ chunk of the world you're in.</p>
 
 <dl>
 
-<dt><tt>/</tt></dt>
+<dt><tt>/</tt> <tt>#</tt></dt>
 <dd>Walls that you cannot pass through.</dd>
 
-<dt><tt>#</tt></dt>
+<dt><tt>#</tt> <tt>&#x2591;</tt></dt>
 <dd>Unrevealed area of the map you've not been to yet.</dd>
 
 <dt><tt>,</tt> <tt>:</tt> <tt>;</tt></dt>

@@ -31,11 +31,12 @@ import arsd.terminal;
 import display;
 import vector;
 
-version(Posix)
-    enum keyEnter = '\n';
-else version(Windows)
-    enum keyEnter = '\r';
-else static assert(0);
+/**
+ * Enter key.  Used to be for differentiating between Windows and Posix, but
+ * apparently Windows also yields \n, so collapsed into a single definition
+ * now.
+ */
+enum keyEnter = '\n';
 
 /**
  * A UI interaction mode. Basically, a set of event handlers and render hooks.

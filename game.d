@@ -55,7 +55,11 @@ string saveFileName()
     import std.path : buildPath;
     import std.process : environment;
 
-    return buildPath(gameDataDir, environment["USER"] ~ ".save");
+    version(Posix)
+        auto user = environment.get("USER", "anonymous");
+    version(Windows)
+        auto user = environment.get("USERNAME", "anonymous");
+    return buildPath(gameDataDir, user ~ ".save");
 }
 
 /**
@@ -565,7 +569,10 @@ class Game
 
         HiScore hs;
         hs.timestamp = TimeStamp(Clock.currTime);
-        hs.name = environment.get("USER", "anonymous");
+        version(Posix)
+            hs.name = environment.get("USER", "anonymous");
+        version(Windows)
+            hs.name = environment.get("USERNAME", "anonymous");
         hs.levels = storyNode;
         hs.turns = nTurns;
         hs.outcome = outcome;
@@ -1247,6 +1254,51 @@ StoryNode[] storyNodes = [
         return genBspLevel(region(vec(9,9,9,9)), args, startPos);
     }),
 
+    StoryNode("remote storage complex", [
+        "Exceptional!",
+
+        "We have a special mission for you.  One of our remote storage "~
+        "facilities has been badly damaged by instabilities and infested "~
+        "with hostile creatures.  We need you to enter the complex and "~
+        "retrieve all the ores we have stored there from a prior mission.",
+
+        "Unfortunately, due to equipment damage, we are unable to transport "~
+        "you into the facility itself, but only to a nearby area.  The "~
+        "entrance is locked, but may be opened by an emergency access lever "~
+        "located nearby. Once inside, beware of structural damage and "~
+        "unstable ceilings.",
+
+        "Be careful!",
+    ], (ref int[4] startPos) {
+        BipartiteGenArgs args;
+        args.region = region(vec(11,11,11,11));
+        args.axis = ValRange(1, 4);
+        args.pivot = ValRange(4, 5);
+
+        args.subargs[0].nBackEdges = ValRange(3, 5);
+        args.subargs[0].nPitTraps = ValRange(0, 4);
+        args.subargs[0].nRockTraps = ValRange(1, 3);
+        args.subargs[0].nMonstersA = ValRange(1, 2);
+        args.subargs[0].nMonstersC = ValRange(1, 2);
+        args.subargs[0].sharpRockPct = 7.0;
+
+        args.subargs[1].tree.splitVolume = ValRange(64, 120);
+        args.subargs[1].tree.minNodeDim = 4;
+        args.subargs[1].nBackEdges = ValRange(2, 4);
+        args.subargs[1].nPitTraps = ValRange(5, 10);
+        args.subargs[1].nRockTraps = ValRange(15, 20);
+        args.subargs[1].goldPct = 4.5;
+        args.subargs[1].nMonstersA = ValRange(6, 9);
+        args.subargs[1].sharpRockPct = 15.0;
+
+        int[4] doorPos;
+        Region!(int,4) bounds1, bounds2;
+        auto w = genBipartiteLevel(args, startPos, doorPos, bounds1, bounds2);
+
+        genDoorAndLever(w, doorPos, w.map.tree.left, bounds1);
+        return w;
+    }),
+
     StoryNode("deep mining area", [
         "We are very pleased with your continuing performance.",
 
@@ -1272,52 +1324,7 @@ StoryNode[] storyNodes = [
         args.nMonstersB = ValRange(0, 3);
         args.nMonstersC = ValRange(0, 3);
         args.nScubas = ValRange(1, 2);
-        return genBspLevel(region(vec(11,11,11,11)), args, startPos);
-    }),
-
-    StoryNode("remote storage complex", [
-        "Exceptional!",
-
-        "We have a special mission for you.  One of our remote storage "~
-        "facilities has been badly damaged by instabilities and infested "~
-        "with hostile creatures.  We need you to enter the complex and "~
-        "retrieve all the ores we have stored there from a prior mission.",
-
-        "Unfortunately, due to equipment damage, we are unable to transport "~
-        "you into the facility itself, but only to a nearby area.  The "~
-        "entrance is locked, but may be opened by an emergency access lever "~
-        "located nearby. Once inside, beware of structural damage and "~
-        "unstable ceilings.",
-
-        "Be careful!",
-    ], (ref int[4] startPos) {
-        BipartiteGenArgs args;
-        args.region = region(vec(13,13,13,13));
-        args.axis = ValRange(1, 4);
-        args.pivot = ValRange(4, 6);
-
-        args.subargs[0].nBackEdges = ValRange(3, 5);
-        args.subargs[0].nPitTraps = ValRange(0, 4);
-        args.subargs[0].nRockTraps = ValRange(1, 3);
-        args.subargs[0].nMonstersA = ValRange(1, 2);
-        args.subargs[0].nMonstersC = ValRange(1, 2);
-        args.subargs[0].sharpRockPct = 7.0;
-
-        args.subargs[1].tree.splitVolume = ValRange(64, 120);
-        args.subargs[1].tree.minNodeDim = 4;
-        args.subargs[1].nBackEdges = ValRange(1, 3);
-        args.subargs[1].nPitTraps = ValRange(5, 10);
-        args.subargs[1].nRockTraps = ValRange(15, 20);
-        args.subargs[1].goldPct = 4.5;
-        args.subargs[1].nMonstersA = ValRange(6, 9);
-        args.subargs[1].sharpRockPct = 15.0;
-
-        int[4] doorPos;
-        Region!(int,4) bounds1, bounds2;
-        auto w = genBipartiteLevel(args, startPos, doorPos, bounds1, bounds2);
-
-        genDoorAndLever(w, doorPos, w.map.tree.left, bounds1);
-        return w;
+        return genBspLevel(region(vec(13,13,13,13)), args, startPos);
     }),
 
     StoryNode("vast cave system", [
@@ -1355,7 +1362,7 @@ StoryNode[] storyNodes = [
         args.nMonstersB = ValRange(10, 15);
         args.nMonstersC = ValRange(15, 20);
         args.nScubas = ValRange(1, 2);
-        return genBspLevel(region(vec(20,20,20,20)), args, startPos);
+        return genBspLevel(region(vec(24,24,24,24)), args, startPos);
     }),
 ];
 
