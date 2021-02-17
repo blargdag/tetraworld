@@ -721,11 +721,12 @@ void bspToDot(S)(MapNode tree, Region4 region, S sink)
             case 0:     return "salmon";
             case 1:     return "orange";
             case 2:     return "yellow";
-            case 3:     return "green";
-            case 4:     return "cyan";
-            case 5:     return "blue";
-            case 6:     return "purple";
-            case 7:     return "pink";
+            case 3:     return "lime";
+            case 4:     return "green";
+            case 5:     return "cyan";
+            case 6:     return "blue";
+            case 7:     return "purple";
+            case 8:     return "pink";
             default:    return "grey";
         }
     }
@@ -777,43 +778,68 @@ void assignThemes(MapNode tree, Region4 bounds, int nThemes)
 {
     import std.conv : to;
 
+    static struct Theme
+    {
+        int id;
+        BuildNode[] open, closed;
+    }
+
     // Pick nThemes random nodes as seed points for theme generation.
-    BuildNode[][] themes;
+    Theme[] themes;
     while (themes.length < nThemes)
     {
-        int theme = 1 + themes.length.to!int;
+        int id = 1 + themes.length.to!int;
         auto node = randomRoom(tree, Distrib.tree).isBuildNode;
         if (node is null || node.themeId != 0)
             continue;
 
-        node.themeId = theme;
-        themes ~= [ node ];
+        node.themeId = id;
+        themes ~= Theme(id, [ node ]);
     }
 
     // Expand each seed to the surrounding connected region until the graph is
     // covered.
-    while (themes.length > 0)
+    bool hasOpen;
+    do
     {
-        foreach (ref membs; themes)
+        hasOpen = false;
+        foreach (ref theme; themes)
         {
-            assert(membs.length != 0);
-            auto memb = membs.enumerate.pickOne;
-            auto nextHops = memb.value.ngbrs
-                                .map!(ngbr => ngbr.node.isBuildNode)
-                                .filter!(ngbr => ngbr !is null &&
-                                                 ngbr.themeId == 0);
-            if (nextHops.empty)
+            while (theme.open.length > 0)
             {
-                membs = membs.remove(memb.index);
-                continue;
+                auto i = uniform(0, theme.open.length);
+                auto node = theme.open[i];
+                auto nextHops = node.ngbrs
+                                    .map!(ngbr => ngbr.node.isBuildNode)
+                                    .filter!(ngbr => ngbr !is null &&
+                                                     ngbr.themeId == 0);
+                if (nextHops.empty)
+                {
+                    theme.closed ~= node;
+                    theme.open = theme.open.remove(i);
+                    continue;
+                }
+
+                auto next = nextHops.pickOne;
+                next.themeId = theme.id;
+                theme.open ~= next;
+                hasOpen = true;
+                break;
             }
-
-            auto next = nextHops.pickOne;
-            next.themeId = memb.value.themeId;
-            membs ~= next;
         }
+    } while (hasOpen);
 
-        themes = themes.remove!(membs => membs.length == 0);
+    // Renumber themes by size.
+    sort!((t1,t2) => t1.closed.length > t2.closed.length)(themes);
+
+    foreach (i, theme; themes)
+    {
+        int newId = i.to!int;
+        foreach (node; theme.closed)
+        {
+            node.themeId = newId;
+        }
+        theme.id = newId;
     }
 }
 
@@ -821,14 +847,14 @@ unittest
 {
     import std.stdio;
 
-    Region4 bounds = region(vec(0,0,0,0), vec(12,12,12,12));
+    Region4 bounds = region(vec(0,0,0,0), vec(13,13,13,13));
     TreeGenArgs args;
     //args.splitVolume = ValRange(40, 100);
 
     auto tree = genTree(bounds, args);
     genBackEdges(tree, bounds, 15, 30);
 
-    assignThemes(tree, bounds, 5);
+    assignThemes(tree, bounds, 8);
 
     bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
 }
