@@ -766,6 +766,57 @@ void bspToDot(S)(MapNode tree, Region4 region, S sink)
     sink.formattedWrite("}");
 }
 
+/**
+ * Params:
+ *  tree = The BSP tree. Leaf nodes should be BuildNodes; otherwise nothing
+ *      will be done.
+ *  bounds = Bounds of the BSP tree.
+ *  n = The number of themes to assign.
+ */
+void assignThemes(MapNode tree, Region4 bounds, int nThemes)
+{
+    import std.conv : to;
+
+    // Pick nThemes random nodes as seed points for theme generation.
+    BuildNode[][] themes;
+    while (themes.length < nThemes)
+    {
+        int theme = 1 + themes.length.to!int;
+        auto node = randomRoom(tree, Distrib.tree).isBuildNode;
+        if (node is null || node.themeId != 0)
+            continue;
+
+        node.themeId = theme;
+        themes ~= [ node ];
+    }
+
+    // Expand each seed to the surrounding connected region until the graph is
+    // covered.
+    while (themes.length > 0)
+    {
+        foreach (ref membs; themes)
+        {
+            assert(membs.length != 0);
+            auto memb = membs.enumerate.pickOne;
+            auto nextHops = memb.value.ngbrs
+                                .map!(ngbr => ngbr.node.isBuildNode)
+                                .filter!(ngbr => ngbr !is null &&
+                                                 ngbr.themeId == 0);
+            if (nextHops.empty)
+            {
+                membs = membs.remove(memb.index);
+                continue;
+            }
+
+            auto next = nextHops.pickOne;
+            next.themeId = memb.value.themeId;
+            membs ~= next;
+        }
+
+        themes = themes.remove!(membs => membs.length == 0);
+    }
+}
+
 unittest
 {
     import std.stdio;
@@ -776,6 +827,8 @@ unittest
 
     auto tree = genTree(bounds, args);
     genBackEdges(tree, bounds, 15, 30);
+
+    assignThemes(tree, bounds, 5);
 
     bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
 }
