@@ -56,9 +56,9 @@ import world;
  * Initialize room interiors to the maximum size per BSP node, minus a 1-tile
  * space for the inter-room walls.
  */
-void setRoomInteriors(MapNode root, Region!(int,4) bounds)
+void setRoomInteriors(MapNode root, Region4 bounds)
 {
-    foreachRoom(root, bounds, (Region!(int,4) r, MapNode node) {
+    foreachRoom(root, bounds, (Region4 r, MapNode node) {
         auto room = node.isRoom;
         if (room !is null)
             room.interior = region(r.min, r.max - vec(1,1,1,1));
@@ -110,18 +110,17 @@ private class GenCorridorsException : Exception
  * since that lies inside the node bounds, whereas the wall filter lies 1 tile
  * past that in order to intersect with the adjacent room's bounds.)
  */
-Region!(int,4) rightWallFilt(RoomNode node, Region!(int,4) bounds, int axis)
+Region4 rightWallFilt(MapNode node, Region4 bounds, int axis)
 {
-    auto filt = node.interior;
+    auto filt = region(bounds.min, bounds.max - vec(1,1,1,1));
     filt.min[axis] = filt.max[axis] = bounds.max[axis];
     return filt;
 }
 
 unittest
 {
-    auto node = new RoomNode;
+    auto node = new BuildNode;
     auto bounds = region(vec(1,1,1,1), vec(5,5,5,5));
-    setRoomInteriors(node, bounds);
     assert(rightWallFilt(node, bounds, 0) ==
            region(vec(5,1,1,1), vec(5,4,4,4)));
 }
@@ -135,18 +134,17 @@ unittest
  * the first row of tiles in the room's interior in order to intersect with the
  * adjacent room's filter.)
  */
-Region!(int,4) leftWallFilt(RoomNode node, Region!(int,4) bounds, int axis)
+Region4 leftWallFilt(MapNode node, Region4 bounds, int axis)
 {
-    auto filt = node.interior;
+    auto filt = region(bounds.min, bounds.max - vec(1,1,1,1));
     filt.min[axis] = filt.max[axis] = bounds.min[axis];
     return filt;
 }
 
 unittest
 {
-    auto node = new RoomNode;
+    auto node = new BuildNode;
     auto bounds = region(vec(1,1,1,1), vec(5,5,5,5));
-    setRoomInteriors(node, bounds);
     assert(leftWallFilt(node, bounds, 0) ==
            region(vec(1,1,1,1), vec(1,4,4,4)));
 }
@@ -158,7 +156,7 @@ unittest
  * Returns: true if successful, false if a suitable position could not be
  * found.
  */
-bool randomEdgePos(Region!(int,4) ir, int axis, out int[4] basePos)
+bool randomEdgePos(Region4 ir, int axis, out int[4] basePos)
     in (ir.min[axis] == ir.max[axis])
 {
     foreach (i; 0 .. 4)
@@ -188,38 +186,36 @@ bool randomEdgePos(Region!(int,4) ir, int axis, out int[4] basePos)
  * Params:
  *  root = The root of the BSP tree.
  *  region = The bounding region.
- *  dg = The delegate to invoke on each door candidate. It should return
- *      0 to continue iteration, or non-zero to terminate iteration.
+ *  dg = The delegate to invoke on each connecting wall candidate. It should
+ *      return 0 to continue iteration, or non-zero to terminate iteration.
+ *      The overload that takes a delegate with an int[4] parameter will
+ *      randomly pick a door location within the wall candidate.
  */
-void foreachCandidateDoor(R)(MapNode root, R region,
-                             int delegate(MapNode left, MapNode right,
-                                          int[4] basePos) dg)
+void foreachCandidateDoor(MapNode root, Region4 region,
+                          scope int delegate(MapNode left, MapNode right,
+                                             Region4 ir) dg)
 {
     root.left.foreachFiltRoom(leftRegion(region, root.axis, root.pivot),
-        (R r) => r.max[root.axis] >= root.pivot, (MapNode n, R r1)
+        (Region4 r) => r.max[root.axis] >= root.pivot,
+        (MapNode node1, Region4 r1)
     {
-        auto node1 = n.isRoom;
-        if (node1 is null)
-            return 0;
-
-        R wallFilt = rightWallFilt(node1, r1, root.axis);
+        Region4 wallFilt = rightWallFilt(node1, r1, root.axis);
 
         return root.right.foreachFiltRoom(
             rightRegion(region, root.axis, root.pivot), wallFilt,
-            (MapNode n2, R r2)
+            (MapNode node2, Region4 r2)
         {
-            auto node2 = n2.isRoom;
-            if (node2 is null)
-                return 0;
-
             auto wallFilt2 = leftWallFilt(node2, r2, root.axis);
 
             auto ir = wallFilt.intersect(wallFilt2);
-            int[4] basePos;
-            if (!randomEdgePos(ir, root.axis, basePos))
-                return 0; // No overlap or too narrow, skip
+            if (!iota(4).map!(i => i == root.axis || ir.max[i] - ir.min[i] > 0)
+                        .fold!((a,b) => a && b)(true))
+            {
+                // No overlap or too narrow, skip.
+                return 0;
+            }
 
-            return dg(node1, node2, basePos);
+            return dg(node1, node2, ir);
         });
     });
 }
@@ -234,23 +230,20 @@ unittest
     auto root = new MapNode;
     root.axis = 2;
     root.pivot = 4;
-    root.left = new RoomNode;
-    root.right = new RoomNode;
+    root.left = new BuildNode;
+    root.right = new BuildNode;
 
     auto bounds = region(vec(0,0,1,1), vec(2,2,7,3));
-    setRoomInteriors(root, bounds);
 
     MapNode[2][] pairs;
     int[] ys;
 
     foreachCandidateDoor(root, bounds, (MapNode left, MapNode right,
-                                        int[4] basePos)
+                                        Region4 ir)
     {
         pairs ~= [ left, right ];
-        assert(basePos[0] == 0);
-        assert(basePos[1] == 0);
-        assert(basePos[2] == 3);
-        ys ~= basePos[3];
+        assert(ir == region(vec(0,0,4,1), vec(1,1,4,2)));
+        ys ~= ir.min[3];
         return 0;
     });
 
@@ -286,31 +279,30 @@ unittest
     root.left.left = new MapNode;
     root.left.left.axis = 2;
     root.left.left.pivot = 4;
-    root.left.left.left = new RoomNode;
-    root.left.left.right = new RoomNode;
+    root.left.left.left = new BuildNode;
+    root.left.left.right = new BuildNode;
 
-    root.left.right = new RoomNode;
+    root.left.right = new BuildNode;
 
     root.right = new MapNode;
     root.right.axis = 3;
     root.right.pivot = 6;
-    root.right.left = new RoomNode;
-    root.right.right = new RoomNode;
+    root.right.left = new BuildNode;
+    root.right.right = new BuildNode;
 
     auto bounds = region(vec(0,0,1,1), vec(2,2,10,9));
-    setRoomInteriors(root, bounds);
 
     MapNode[][] pairs;
     int[] ys;
 
     foreachCandidateDoor(root, bounds, (MapNode left, MapNode right,
-                                        int[4] basePos)
+                                        Region4 ir)
     {
         pairs ~= [ left, right ];
-        assert(basePos[0] == 0);
-        assert(basePos[1] == 0);
-        assert(basePos[2] == 6);
-        ys ~= basePos[3];
+        assert(ir.min[0] == 0);
+        assert(ir.min[1] == 0);
+        assert(ir.min[2] == 7);
+        ys ~= ir.min[3];
         return 0;
     });
 
@@ -329,47 +321,52 @@ unittest
 /**
  * Generate corridors based on BSP tree structure.
  *
- * Prerequisites: The .interior bounds of each leaf node must have already been
- * set, either by setRoomInteriors(), or some other means.
- *
- * Throws: GenCorridorsException if the given BSP tree does not allow doors to
- * be placed according to the BSP connectivity structure. This is pretty rare
- * but *does* happen (2-8% for a 64^4 map, seems rarer on smaller maps), so the
- * caller should catch this exception and rebuild with a different BSP tree
- * instead.
+ * Returns: false if the given BSP tree does not allow doors to be placed
+ * according to the BSP connectivity structure. This is pretty rare but *does*
+ * happen (2-8% for a 64^4 map, seems rarer on smaller maps), so the caller
+ * should check for this and rebuild with a different BSP tree instead.
  */
-void genCorridors(R)(MapNode root, R region)
-    if (is(R == Region!(int,n), size_t n))
+bool genCorridors(MapNode root, Region4 region)
 {
-    if (root.isLeaf) return;
+    if (root.isLeaf) return true;
 
-    genCorridors(root.left, leftRegion(region, root.axis, root.pivot));
-    genCorridors(root.right, rightRegion(region, root.axis, root.pivot));
+    if (!genCorridors(root.left, leftRegion(region, root.axis, root.pivot)))
+        return false;
+    if (!genCorridors(root.right, rightRegion(region, root.axis, root.pivot)))
+        return false;
 
-    RoomNode[2] candidate; // FIXME
+    BuildNode[2] candidate;
+    Region4 wall;
     int[4] basePos;
     int n;
 
     foreachCandidateDoor(root, region, (MapNode left, MapNode right,
-                                        int[4] pos)
+                                        Region4 ir)
     {
+        auto l = left.isBuildNode;
+        auto r = right.isBuildNode;
+
+        if (l is null || r is null)
+            return 0;
+
         if (uniform(0, ++n) == 0)
         {
-            candidate[0] = left.isRoom; // FIXME
-            candidate[1] = right.isRoom; // FIXME
-            basePos = pos;
+            candidate[0] = l;
+            candidate[1] = r;
+            wall = ir;
         }
         return 0;
     });
 
     if (n == 0)
-        throw new GenCorridorsException("No viable door placement found");
+        return false;
 
-    auto d = Door(root.axis);
-    d.pos = basePos;
-    assert(candidate[0] !is null && candidate[1] !is null); // FIXME
-    candidate[0].doors ~= d;
-    candidate[1].doors ~= d;
+    assert(candidate[0] !is null && candidate[1] !is null);
+
+    candidate[0].ngbrs ~= BuildNode.Ngbr(candidate[1], wall);
+    candidate[1].ngbrs ~= BuildNode.Ngbr(candidate[0], wall);
+
+    return true;
 }
 
 unittest
@@ -377,64 +374,37 @@ unittest
     // Test case 1:
     //   0123456789
     // 0 ##########
-    // 1 #   ######
-    // 2 #   -    #
-    // 3 #####    #
-    // 4 #####    #
-    // 5 ##########
-    auto root = new MapNode;
-    root.axis = 2;
-    root.pivot = 5;
-
-    root.left = new RoomNode;
-    root.left.isRoom.interior = region(vec(0,0,1,1), vec(1,1,4,3));
-
-    root.right = new RoomNode;
-    root.right.isRoom.interior = region(vec(0,0,5,2), vec(1,1,9,5));
-
-    auto bounds = region(vec(0,0,1,1), vec(1,1,10,6));
-    genCorridors(root, bounds);
-
-    assert(root.isRoom is null);
-    assert(root.left.isRoom.doors == [ Door(2, [0,0,4,2]) ]);
-    assert(root.right.isRoom.doors == [ Door(2, [0,0,4,2]) ]);
-}
-
-unittest
-{
-    // Test case 2:
-    //   0123456789
-    // 0 ##########
-    // 1 #   ######
+    // 1 #   #    #
     // 2 #   -    #
     // 3 #   #    #
-    // 4 #####    #
+    // 4 #   #    #
     // 5 ##########
     auto root = new MapNode;
     root.axis = 2;
     root.pivot = 5;
 
-    root.left = new RoomNode;
-    root.left.isRoom.interior = region(vec(0,0,1,1), vec(1,1,4,4));
+    root.left = new BuildNode;
+    // region(vec(0,0,1,1), vec(1,1,4,3));
 
-    root.right = new RoomNode;
-    root.right.isRoom.interior = region(vec(0,0,5,2), vec(1,1,9,5));
+    root.right = new BuildNode;
+    // region(vec(0,0,5,2), vec(1,1,9,5));
 
-    auto bounds = region(vec(0,0,1,1), vec(1,1,10,6));
-    genCorridors(root, bounds);
+    auto bounds = region(vec(0,0,1,1), vec(2,2,10,6));
+    while (!genCorridors(root, bounds)) {}
 
-    assert(root.isRoom is null);
-    assert((root.left.isRoom.doors == [ Door(2, [0,0,4,2]) ] &&
-            root.right.isRoom.doors == [ Door(2, [0,0,4,2]) ]) ||
-           (root.left.isRoom.doors == [ Door(2, [0,0,4,3]) ] &&
-            root.right.isRoom.doors == [ Door(2, [0,0,4,3]) ]));
+    assert(root.left.isBuildNode.ngbrs == [
+        BuildNode.Ngbr(root.right, region(vec(0,0,5,1), vec(1,1,5,5)))
+    ]);
+    assert(root.right.isBuildNode.ngbrs == [
+        BuildNode.Ngbr(root.left, region(vec(0,0,5,1), vec(1,1,5,5)))
+    ]);
 }
 
 /**
  * Returns: true if the given door is valid for the given room interior, false
  * otherwise.
  */
-bool isValidDoor()(Region!(int,4) interior, Door d)
+bool isValidDoor()(Region4 interior, Door d)
 {
     return iota(4)
         .map!(i => (i == d.axis) ? (d.pos[i] == interior.min[i] - 1 ||
@@ -483,7 +453,7 @@ unittest
 bool doorsSanityCheck()(World w)
 {
     bool result = true;
-    foreachRoom(w.map.tree, w.map.bounds, (Region!(int,4) bounds, MapNode n)
+    foreachRoom(w.map.tree, w.map.bounds, (Region4 bounds, MapNode n)
     {
         auto node = n.isRoom; // FIXME this function should be in RoomNode instead
         if (n is null)
@@ -568,7 +538,7 @@ unittest
  *      boundary).
  *  doors = The list of doors to check.
  */
-bool hasDoorAtBoundary(Region!(int,4) boundary, int axis, Door[] doors)
+bool hasDoorAtBoundary(Region4 boundary, int axis, Door[] doors)
     in (boundary.min[axis] == boundary.max[axis])
 {
     auto wall = boundary;
@@ -599,91 +569,58 @@ unittest
 }
 
 /**
- * Insert additional doors to randomly-picked rooms outside of the BSP
+ * Insert additional doors to randomly-picked BuildNodes outside of the BSP
  * connectivity structure, so that non-trivial topology is generated.
- *
- * Prerequisites: The .interior's of every room must have already been set,
- * usually via setRoomInteriors().
  *
  * Params:
  *  root = Root of BSP tree.
  *  region = Initial bounding region.
- *  count = Number of additional doors to insert.
+ *  count = Number of back-edges to insert.
  *  maxRetries = Maximum number of failures while looking for a room pair that
- *      can accomodate an extra door. This is to prevent infinite loops in case
+ *      can accomodate an extra edge. This is to prevent infinite loops in case
  *      the given tree cannot accomodate another `count` doors.
- *  doorFilter = An optional delegate that accepts or rejects a door, and
- *      optionally marks it up in some way, e.g., with an .extra flag set, or
- *      some randomized door type. The delegate is passed the room nodes that
- *      it will connect. Returns: true if the door should be added, false
- *      otherwise. Note that returning false will count towards the number of
- *      failed attempts.
- *  pickAxis = An optional delegate that selects which axis to use for finding
- *      potential back-edges.
- *  allowMultiple = Whether or not to allow multiple doors on the same wall.
- *      Default: false.
  */
-void genBackEdges(R)(MapNode root, R region, int count, int maxRetries = 15)
-{
-    import std.random : uniform;
-    genBackEdges(root, region, count, maxRetries,
-                 (in RoomNode[2], ref Door) => true,
-                 (MapNode node, R bounds) => uniform(0, 4),
-                 false);
-}
-
-/// ditto
-void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
-                     bool delegate(in RoomNode[2] node, ref Door) doorFilter,
-                     int delegate(MapNode, R) pickAxis,
-                     bool allowMultiple)
+void genBackEdges(MapNode root, Region4 region, int count, int maxRetries = 15)
 {
     import std.random : uniform;
     import rndutil : pickOne;
 
     static struct RightRoom
     {
-        RoomNode node;
-        R region;
-        int[4] basePos;
+        BuildNode node;
+        Region4 region;
     }
 
-    bool tryAddEdge(RoomNode node, R bounds)
+    bool tryAddEdge(BuildNode node, Region4 bounds)
     {
         // Randomly select a wall of the room.
-        auto axis = pickAxis(node, bounds);
-        if (axis == invalidAxis)
-            return false;
-        R wallFilt = rightWallFilt(node, bounds, axis);
+        auto axis = uniform(0, 4);
+        Region4 wallFilt = rightWallFilt(node, bounds, axis);
 
         // Find an adjacent room that can be joined to this one via a door.
         RightRoom[] targets;
-        root.foreachFiltRoom(region, wallFilt, (MapNode n2, R r2) {
+        root.foreachFiltRoom(region, wallFilt, (MapNode n2, Region4 r2) {
             import std.algorithm : canFind, filter, fold;
             import std.range : iota;
 
-            auto node2 = n2.isRoom;
-            if (node2 is null) return 0; // FIXME
+            auto node2 = n2.isBuildNode;
+            if (node2 is null) return 0;
 
             auto wallFilt2 = leftWallFilt(node2, r2, axis);
             auto ir = wallFilt.intersect(wallFilt2);
 
-            // Check that there isn't already a door between these two rooms.
-            if (!allowMultiple && hasDoorAtBoundary(ir, axis, node.doors))
-                return 0;
-
-            int[4] basePos;
-            if (!randomEdgePos(ir, axis, basePos))
+            if (!iota(4).map!(i => i == root.axis || ir.max[i] - ir.min[i] > 0)
+                        .fold!((a,b) => a && b)(true))
             {
-                // Overlap is too small to place a door, skip.
+                // No overlap or too narrow, skip.
                 return 0;
             }
 
-            // Avoid coincident doors
-            if (node.doors.canFind!(d => d.pos == basePos))
+            // Skip if there's already an edge between these two rooms.
+            if (node.ngbrs.canFind!(ngbr => ngbr.node is node2))
                 return 0;
 
-            targets ~= RightRoom(node2, r2, basePos);
+            targets ~= RightRoom(node2, ir);
             return 0;
         });
 
@@ -691,20 +628,8 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
             return false; // couldn't match anything for this room
 
         auto rightRoom = targets.pickOne;
-
-        auto d = Door(axis);
-        d.pos = rightRoom.basePos;
-        if (!doorFilter([node, rightRoom.node], d))
-            return false;
-
-        import std.format : format;
-        assert(isValidDoor(node.interior, d) &&
-               isValidDoor(rightRoom.node.interior, d),
-               format("left.interior=%s right.interior=%s d=%s",
-                      node.interior, rightRoom.node.interior, d));
-
-        node.doors ~= d;
-        rightRoom.node.doors ~= d;
+        node.ngbrs ~= BuildNode.Ngbr(rightRoom.node, rightRoom.region, true);
+        rightRoom.node.ngbrs ~= BuildNode.Ngbr(node, rightRoom.region, true);
 
         return true;
     }
@@ -712,10 +637,10 @@ void genBackEdges(R)(MapNode root, R region, int count, int maxRetries,
     while (count > 0 && maxRetries > 0)
     {
         auto nb = randomRoom(root, region, Distrib.volume);
-        auto node = nb[0].isRoom; // FIXME
+        auto node = nb[0].isBuildNode;
         auto bounds = nb[1];
 
-        if (tryAddEdge(node, bounds))
+        if (node !is null && tryAddEdge(node, bounds))
             count--;
         else
             maxRetries--;
@@ -727,8 +652,8 @@ unittest
     // Test case:
     //   012345678
     // 0 #########
-    // 1 ##      #
-    // 2 ##      #
+    // 1 #       #
+    // 2 #       #
     // 3 ##X###|##
     // 4 #  -    #
     // 5 #  #    #
@@ -739,32 +664,106 @@ unittest
     root.axis = 1;
     root.pivot = 4;
 
-    root.left = new RoomNode;
-    root.left.isRoom.interior = region(vec(2,1,0,0), vec(8,3,1,1));
-    root.left.isRoom.doors = [ Door(1, [6,3,0,0]) ];
+    root.left = new BuildNode(region(vec(1,1,0,0), vec(9,4,2,2)));
 
     root.right = new MapNode;
     root.right.axis = 0;
     root.right.pivot = 4;
 
-    root.right.left = new RoomNode;
-    root.right.left.isRoom.interior = region(vec(1,4,0,0), vec(3,6,1,1));
-    root.right.left.isRoom.doors = [ Door(0, [3,4,0,0]) ];
+    root.right.left = new BuildNode(region(vec(1,4,0,0), vec(4,7,2,2)));
+    root.right.right = new BuildNode(region(vec(4,4,0,0), vec(9,7,2,2)));
 
-    root.right.right = new RoomNode;
-    root.right.right.isRoom.interior = region(vec(4,4,0,0), vec(8,6,1,1));
-    root.right.right.isRoom.doors = [ Door(1, [6,3,0,0]),
-                               Door(0, [3,4,0,0]) ];
+    root.left.isBuildNode.ngbrs = [
+        BuildNode.Ngbr(root.right.right, region(vec(4,4,0,0), vec(8,4,1,1))),
+    ];
+    root.right.left.isBuildNode.ngbrs = [
+        BuildNode.Ngbr(root.right.right, region(vec(4,4,0,0), vec(4,6,1,1))),
+    ];
+    root.right.right.isBuildNode.ngbrs = [
+        BuildNode.Ngbr(root.left, region(vec(4,4,0,0), vec(8,4,1,1))),
+        BuildNode.Ngbr(root.right.left, region(vec(4,4,0,0), vec(4,6,1,1))),
+    ];
 
-    genBackEdges(root, bounds, 1, 99, (in RoomNode[2], ref Door) => true,
-                 (MapNode, Region!(int,4)) => 1, false);
-    assert(root.right.left.isRoom.doors.canFind(Door(1, [2,3,0,0])));
+    genBackEdges(root, bounds, 1, 99);
+
+    assert(root.left.isBuildNode.ngbrs[1].node is root.right.left);
+    assert(root.left.isBuildNode.ngbrs[1].overlap ==
+        region(vec(1,4,0,0), vec(3,4,1,1)));
+    assert(root.right.left.isBuildNode.ngbrs[1].node is root.left);
+    assert(root.right.left.isBuildNode.ngbrs[1].overlap ==
+        region(vec(1,4,0,0), vec(3,4,1,1)));
+}
+
+/**
+ * Given a tree of BuildNodes with assigned theme IDs, replace BuildNodes with
+ * specific derived leaf nodes implementing that theme.
+ */
+MapNode genTheme(MapNode tree, Region4 bounds)
+{
+    if (tree.isLeaf)
+    {
+        auto node = tree.isBuildNode;
+        if (node is null)
+            return node;
+
+        switch (node.themeId)
+        {
+            // TBD: implement other theme nodes here
+            // TBD: should split up theme instantiation code by theme instead
+            // of putting everything here
+            case 0:
+            default:
+                auto room = new RoomNode;
+                room.interior = region(bounds.min, bounds.max - vec(1,1,1,1));
+                foreach (ngbr; node.ngbrs)
+                {
+                    Vec4 pos;
+                    int axis = ngbr.axis;
+
+                    foreach (i; 0 .. 4)
+                    {
+                        auto min = ngbr.overlap.min[i];
+                        auto max = ngbr.overlap.max[i];
+                        if (min == max)
+                            pos[i] = min - 1;
+                        else
+                            pos[i] = uniform(min, max);
+                    }
+
+                    auto d = Door(axis, pos, ngbr.isBackEdge ?
+                                             Door.Type.extra :
+                                             Door.Type.normal);
+
+                    // Confine neighbour node's edge to the door location we
+                    // selected.
+                    if (auto ngbrNode = ngbr.node.isBuildNode)
+                    {
+                        auto edge = &ngbrNode.ngbrs.find!(n => n.node is node)
+                                                   .front;
+                        edge.node = room;
+                        edge.overlap = region(pos, pos + vec(1,1,1,1));
+                        edge.overlap.min[axis] = edge.overlap.max[axis] =
+                            pos[axis] + 1;
+                    }
+                    room.doors ~= d;
+                }
+                return room;
+        }
+    }
+    else
+    {
+        tree.left = genTheme(tree.left, leftRegion(bounds, tree.axis,
+                                                   tree.pivot));
+        tree.right = genTheme(tree.right, rightRegion(bounds, tree.axis,
+                                                      tree.pivot));
+        return tree;
+    }
 }
 
 /**
  * Returns: The minimum region of the given room node that covers all Doors.
  */
-Region!(int,4) minCore(Region!(int,4) interior, Door[] doors)
+Region4 minCore(Region4 interior, Door[] doors)
     out(r; iota(4).all!(i => interior.min[i] <= r.min[i] &&
                              r.max[i] <= interior.max[i]))
 {
@@ -894,10 +893,9 @@ unittest
  * Doors must have already been computed, since minimum room interior regions
  * are computed based on the position of doors.
  */
-void resizeRooms(R)(MapNode root, R region, int minRoomDim)
-    if (is(R == Region!(int,n), size_t n))
+void resizeRooms(MapNode root, Region4 region, int minRoomDim)
 {
-    foreachRoom(root, region, (R bounds, MapNode n) {
+    foreachRoom(root, region, (Region4 bounds, MapNode n) {
         import std.random : uniform;
 
         auto node = n.isRoom; // FIXME: this function should be a member of RoomNode
@@ -929,7 +927,7 @@ void resizeRooms(R)(MapNode root, R region, int minRoomDim)
         }
 
         // Select random size between bounding region and minimum region.
-        R result;
+        Region4 result;
         foreach (i; 0 .. 4)
         {
             result.min[i] = uniform!"[]"(node.interior.min[i], core.min[i]);
@@ -972,7 +970,7 @@ unittest
  * Prerequisites: The door must be part of the room, otherwise the result will
  * be nonsensical.
  */
-Vec!(int,4) doorPorch(RoomNode room, Door d)
+Vec4 doorPorch(RoomNode room, Door d)
 {
     auto result = vec(d.pos);
     result[d.axis] = result[d.axis].clamp(room.interior.min[d.axis],
@@ -1000,11 +998,11 @@ unittest
 /**
  * Create spiral stairs with the given top and winding parameters.
  */
-void createSpiralStairs(World w, Vec!(int,4) top, Vec!(int,4) dx,
-                        Vec!(int,4) dy, int bottom, bool thickenBelow)
+void createSpiralStairs(World w, Vec4 top, Vec4 dx,
+                        Vec4 dy, int bottom, bool thickenBelow)
 {
     auto r = only(dx, dy, -dx, -dy).cycle;
-    Vec!(int,4) v = top;
+    Vec4 v = top;
     while (++v[0] < bottom)
     {
         assert(!w.locationHas!BlocksMovement(v));
@@ -1048,7 +1046,7 @@ bool tryAddSpiralStairs(World w, RoomNode room, Door d)
     }
 
     // Construct basis vectors for winding the stairs.
-    Vec!(int,4)[2] basis;
+    Vec4[2] basis;
     foreach (i; 0 .. 2)
     {
         auto axis = axes[i];
@@ -1069,9 +1067,9 @@ bool tryAddSpiralStairs(World w, RoomNode room, Door d)
  *
  * Prerequisites: Room interiors must already have been set.
  */
-void addLadders(World w, MapNode tree, Region!(int,4) bounds, int spiralPct)
+void addLadders(World w, MapNode tree, Region4 bounds, int spiralPct)
 {
-    foreachRoom(tree, bounds, (Region!(int,4) bounds, MapNode n) {
+    foreachRoom(tree, bounds, (Region4 bounds, MapNode n) {
         auto node = n.isRoom;
         if (node is null) return 0;
         foreach (d; node.doors)
@@ -1126,7 +1124,7 @@ unittest
     //  4 #= =  #
     //  5 #######
     auto root = new RoomNode;
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,6,2,2));
+    root.interior = Region4(vec(1,1,1,1), vec(5,6,2,2));
     root.doors ~= Door(1, [2,0,1,1], Door.Type.normal);
     root.doors ~= Door(0, [0,3,1,1], Door.Type.normal);
     root.doors ~= Door(1, [3,6,1,1], Door.Type.normal);
@@ -1182,7 +1180,7 @@ unittest
     //  4 #  = =#
     //  5 #######
     auto root = new RoomNode;
-    root.interior = Region!(int,4)(vec(1,1,1,1), vec(5,6,2,2));
+    root.interior = Region4(vec(1,1,1,1), vec(5,6,2,2));
     root.doors ~= Door(1, [3,0,1,1], Door.Type.normal);
     root.doors ~= Door(0, [0,3,1,1], Door.Type.normal);
     root.doors ~= Door(1, [2,6,1,1], Door.Type.normal);
@@ -1228,10 +1226,9 @@ unittest
 /**
  * Randomly assign room floors.
  */
-void setRoomFloors(R)(MapNode root, R bounds)
-    if (is(R == Region!(int,n), size_t n))
+void setRoomFloors(MapNode root, Region4 bounds)
 {
-    foreachRoom(root, bounds, (R r, MapNode n) {
+    foreachRoom(root, bounds, (Region4 r, MapNode n) {
         import std.random : uniform;
         auto node = n.isRoom; // FIXME
         if (node is null) return 0;
@@ -1256,35 +1253,28 @@ unittest
 
     // Generate base BSP tree
     auto bounds = region(vec(1, 1, 0, 0), vec(wd, ht, 2, 2));
-    alias R = typeof(bounds);
 
-    auto tree = genBsp!(MapNode, RoomNode)(bounds,
-        (R r) => r.length(0)*r.length(1) > 49 + uniform(0, 50),
-        (R r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
+    auto tree = genBsp!(MapNode, BuildNode)(bounds,
+        (Region4 r) => r.length(0)*r.length(1) > 49 + uniform(0, 50),
+        (Region4 r) => iota(4).filter!(i => r.max[i] - r.min[i] > 8)
                         .pickOne(invalidAxis),
-        (R r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
+        (Region4 r, int axis) => (r.max[axis] - r.min[axis] < 8) ?
             invalidPivot : uniform(r.min[axis]+4, r.max[axis]-3)
             //gaussian(r.max[axis] - r.min[axis], 4)
             //    .clamp(r.min[axis] + 3, r.max[axis] - 3)
     );
 
+    // Generate connecting corridors
+    genCorridors(tree, bounds);
+    genBackEdges(tree, bounds, 4, 15);
+
+    tree = genTheme(tree, bounds);
+
     auto w = new World;
     w.map.tree = tree;
     w.map.bounds = bounds;
 
-    // Generate connecting corridors
     setRoomInteriors(w.map.tree, w.map.bounds);
-    genCorridors(w.map.tree, w.map.bounds);
-    assert(doorsSanityCheck(w));
-
-    // Generate back edges
-    genBackEdges!R(w.map.tree, w.map.bounds, 4, 15,
-        (in RoomNode[2] rooms, ref Door d) {
-            d.type = Door.Type.extra;
-            return true;
-        },
-        (MapNode node, R region) => uniform(0, 2), false
-    );
     assert(doorsSanityCheck(w));
 
     resizeRooms(w.map.tree, w.map.bounds, 3);
@@ -1312,26 +1302,18 @@ unittest
 
     // Generate base BSP tree
     auto bounds = region(vec(1, 1, 0, 0), vec(wd, ht, 2, 2));
-    alias R = typeof(bounds);
 
     TreeGenArgs args;
     args.splitVolume = ValRange(50, 200);
     args.minNodeDim = 2;
+
     auto tree = genTree(bounds, args);
+    genBackEdges(tree, bounds, 4, 15);
+    tree = genTheme(tree, bounds);
 
     auto w = new World;
     w.map.tree = tree;
     w.map.bounds = bounds;
-    assert(doorsSanityCheck(w));
-
-    // Generate back edges
-    genBackEdges!R(w.map.tree, w.map.bounds, 4, 15,
-        (in RoomNode[2] rooms, ref Door d) {
-            d.type = Door.Type.extra;
-            return true;
-        },
-        (MapNode node, R region) => uniform(0, 2), false
-    );
     assert(doorsSanityCheck(w));
 
     resizeRooms(w.map.tree, w.map.bounds, args.minNodeDim-1);
@@ -1377,11 +1359,10 @@ MapNode randomRoom(MapNode tree, Distrib distrib)
 }
 
 /// ditto
-Tuple!(MapNode,Region!(int,4)) randomRoom(MapNode tree, Region!(int,4) bounds,
-                                          Distrib distrib)
+Tuple!(MapNode,Region4) randomRoom(MapNode tree, Region4 bounds,
+                                   Distrib distrib)
 {
-    Tuple!(MapNode,Region!(int,4)) pickNode(MapNode node,
-                                            Region!(int,4) bounds)
+    Tuple!(MapNode,Region4) pickNode(MapNode node, Region4 bounds)
     {
         if (node.isLeaf)
             return tuple(node, bounds);
@@ -1406,8 +1387,7 @@ Tuple!(MapNode,Region!(int,4)) randomRoom(MapNode tree, Region!(int,4) bounds,
  *
  * FIXME: This needs to be refactored into the derived classes of MapNode.
  */
-Tuple!(MapNode, Vec!(int,4)) randomRoomPos(World w, MapNode tree,
-                                           RandomPosFilt filt)
+Tuple!(MapNode, Vec4) randomRoomPos(World w, MapNode tree, RandomPosFilt filt)
 {
     foreach (nTries; 0 .. filt.maxTries)
     {
@@ -1468,7 +1448,7 @@ Tuple!(MapNode, Vec!(int,4)) randomRoomPos(World w, MapNode tree,
 }
 
 /// ditto
-Vec!(int,4) randomPos(World w, MapNode tree, RandomPosFilt filt)
+Vec4 randomPos(World w, MapNode tree, RandomPosFilt filt)
 {
     auto roomPos = randomRoomPos(w, tree, filt);
     if (roomPos[0] is null)
@@ -1538,6 +1518,74 @@ unittest
 }
 
 /**
+ * Locates the neighbour of the given node connected by the given door.
+ */
+RoomNode findNgbr(MapNode tree, Region4 bounds, RoomNode node, uint doorIdx)
+    in (doorIdx < node.doors.length)
+{
+    return findNgbr(tree, bounds, node, vec(node.doors[doorIdx].pos),
+                    node.doors[doorIdx].axis);
+}
+
+/// ditto
+RoomNode findNgbr(MapNode tree, Region4 bounds, RoomNode node, Vec4 pos,
+                  int axis)
+{
+    // Compute coordinates of the other side of the door.
+    auto otherSide = pos;
+    otherSide[axis] += (pos[axis] == node.interior.max[axis]) ? 1 : -1;
+
+    RoomNode ngbr;
+    Region4 ngbrBounds;
+    foreachFiltRoom(tree, bounds, (Region4 r) => r.contains(otherSide),
+                    (MapNode n, Region4 r1) {
+                        assert(ngbr is null);
+                        auto room = n.isRoom;
+                        if (room is null) return 0;
+                        ngbr = room;
+                        ngbrBounds = r1;
+                        return 1;
+                    });
+
+    return ngbr;
+}
+
+unittest
+{
+    //   0123456789
+    // 0 ##########
+    // 1 #   #    #
+    // 2 #   #    #
+    // 3 ##|##    #
+    // 4 #   -    #
+    // 5 #   #    #
+    // 6 ##########
+    auto root = new MapNode;
+    root.axis = 2;
+    root.pivot = 5;
+
+    root.left = new MapNode;
+    root.left.axis = 3;
+    root.left.pivot = 4;
+    root.left.left = new RoomNode;
+    root.left.left.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right = new RoomNode;
+    root.left.right.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
+    root.left.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    root.right = new RoomNode;
+    root.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
+
+    auto bounds = region(vec(0,0,1,1), vec(2,2,10,7));
+    setRoomInteriors(root, bounds);
+
+    assert(findNgbr(root, bounds, root.right.isRoom, 0) == root.left.right);
+    assert(findNgbr(root, bounds, root.left.right.isRoom, 0) == root.left.left);
+    assert(findNgbr(root, bounds, root.left.right.isRoom, 1) == root.right);
+    assert(findNgbr(root, bounds, root.left.left.isRoom, 0) == root.left.right);
+}
+
+/**
  * Generate pits and pit traps.
  *
  * Params:
@@ -1548,57 +1596,87 @@ unittest
  *  openPitPct = Percentage of pits that will be visible open pits, vs. hidden
  *      traps.
  */
-void genPitTraps(World w, MapNode tree, Region!(int,4) bounds, int count,
+void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
                  int openPitPct = 30)
 {
-    genBackEdges(tree, bounds, count, count*8,
-        (in RoomNode[2] rooms, ref Door d) {
-            assert(d.axis == 0);
+    static bool onPorch(RoomNode rm, Vec4 pos)
+    {
+        foreach (dd; rm.doors)
+        {
+            if (dd.axis != 0 &&
+                iota(1, 4).map!(i => abs(pos[i] - dd.pos[i]))
+                          .sum == 1)
+                return true;
+        }
+        return false;
+    }
 
-            bool nextToExisting;
-            foreach (rm; rooms)
+    static bool nextToExisting(RoomNode rm, Vec4 pos)
+    {
+        foreach (dd; rm.doors)
+        {
+            if (dd.type == Door.Type.normal &&
+                iota(4).map!(i => abs(pos[i] - dd.pos[i])).sum == 1)
             {
-                foreach (dd; rm.doors)
-                {
-                    if (dd.type == Door.Type.normal &&
-                        iota(4).map!(i => abs(d.pos[i] - dd.pos[i])).sum == 1)
-                    {
-                        nextToExisting = true;
-                    }
+                return true;
+            }
+        }
+        return false;
+    }
 
-                    if (dd.axis != 0 &&
-                        iota(1, 4).map!(i => abs(d.pos[i] - dd.pos[i]))
-                                  .sum == 1)
-                    {
-                        // Don't place where a ladder would be placed.
-                        return false;
-                    }
-                }
-            }
+    RandomPosFilt filt;
+    filt.occupancy = Occupancy.empty;
+    filt.support = Support.below;
+    filt.distrib = Distrib.floor;
+    filt.maxTries = 10;
 
-            if (!nextToExisting && uniform(0, 100) < openPitPct)
-            {
-                // Non-hidden open pit.
-                d.type = Door.Type.extra;
-            }
-            else
-            {
-                d.type = Door.Type.trapdoor;
-                auto floorId = style2Terrain(rooms[0].style);
-                w.store.createObj(Pos(vec(d.pos) + vec(-1,0,0,0)),
-                                  Trigger(Trigger.Type.onEnter, w.triggerId));
-                w.store.createObj(Pos(d.pos), Name("pit trap"),
-                    Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
-                    BlocksMovement(Climbable.yes), BlocksView(),
-                    Triggerable(w.triggerId, TriggerEffect.trapDoor),
-                    SupportsWeight(SupportType.above));
-                w.triggerId++;
-            }
-            return true;
-        },
-        (MapNode node, Region!(int,4) bounds) => 0, // always pick vertical
-        true,   // allow multiple pit traps on same wall as normal door
-    );
+    int maxFail = count*5;
+    while (count > 0 && maxFail > 0)
+    {
+        auto np = randomRoomPos(w, tree, filt);
+        auto node = np[0];
+        auto pos = np[1] + vec(1,0,0,0);
+        auto room = node.isRoom;
+
+        if (room is null || onPorch(room, pos))
+        {
+            maxFail--;
+            continue;
+        }
+
+        auto ngbr = findNgbr(tree, bounds, room, pos, 0);
+        if (ngbr is null || !ngbr.interior.contains(pos + vec(1,0,0,0)))
+        {
+            maxFail--;
+            continue;
+        }
+
+        if ((nextToExisting(room, pos) || nextToExisting(ngbr, pos)) &&
+            uniform(0, 100) < openPitPct)
+        {
+            auto d = Door(0, pos, Door.Type.extra);
+            room.doors ~= d;
+            ngbr.doors ~= d;
+        }
+        else
+        {
+            auto d = Door(0, pos, Door.Type.trapdoor);
+            room.doors ~= d;
+            ngbr.doors ~= d;
+
+            auto floorId = style2Terrain(room.style);
+            w.store.createObj(Pos(pos + vec(-1,0,0,0)),
+                              Trigger(Trigger.Type.onEnter, w.triggerId));
+            w.store.createObj(Pos(pos), Name("pit trap"),
+                Tiled(TileId.wall, -1), *w.store.get!TiledAbove(floorId),
+                BlocksMovement(Climbable.yes), BlocksView(),
+                Triggerable(w.triggerId, TriggerEffect.trapDoor),
+                SupportsWeight(SupportType.above));
+            w.triggerId++;
+        }
+
+        count--;
+    }
 }
 
 unittest
@@ -1634,6 +1712,12 @@ unittest
                     .map!(id => w.store.get!TiledAbove(id));
     assert(!r.empty);
     assert(r.front.tileId == TileId.floorGrassy);
+
+    assert(root.left.isRoom.doors.length == 1 &&
+           root.left.isRoom.doors[0].pos[0] == 2 &&
+           root.left.isRoom.doors[0].pos[1] >= 1 &&
+           root.left.isRoom.doors[0].pos[1] <= 3);
+    assert(root.right.isRoom.doors == root.left.isRoom.doors);
 }
 
 /**
@@ -1652,7 +1736,7 @@ unittest
  * BUGS: Unfortunately, this function is not 100% World-agnostic; it requires
  * w.map to be initialized otherwise it will crash.
  */
-void genRockTraps(World w, MapNode tree, Region!(int,4) bounds, int count)
+void genRockTraps(World w, MapNode tree, Region4 bounds, int count)
 {
     auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.any,
                               Distrib.floor);
@@ -1738,73 +1822,12 @@ unittest
 }
 
 /**
- * Locates the neighbour of the given node connected by the given door.
- */
-RoomNode findNgbr(R)(MapNode tree, R bounds, RoomNode node, uint doorIdx)
-    in (doorIdx < node.doors.length)
-{
-    // Compute coordinates of the other side of the door.
-    auto d = node.doors[doorIdx];
-    auto otherSide = vec(d.pos);
-    otherSide[d.axis] += (d.pos[d.axis] == node.interior.max[d.axis]) ? 1 : -1;
-
-    RoomNode ngbr;
-    Region!(int,4) ngbrBounds;
-    foreachFiltRoom(tree, bounds, (R r) => r.contains(otherSide),
-                    (MapNode n, R r1) {
-                        assert(ngbr is null);
-                        auto room = n.isRoom;
-                        if (room is null) return 0;
-                        ngbr = room;
-                        ngbrBounds = r1;
-                        return 1;
-                    });
-
-    return ngbr;
-}
-
-unittest
-{
-    //   0123456789
-    // 0 ##########
-    // 1 #   #    #
-    // 2 #   #    #
-    // 3 ##|##    #
-    // 4 #   -    #
-    // 5 #   #    #
-    // 6 ##########
-    auto root = new MapNode;
-    root.axis = 2;
-    root.pivot = 5;
-
-    root.left = new MapNode;
-    root.left.axis = 3;
-    root.left.pivot = 4;
-    root.left.left = new RoomNode;
-    root.left.left.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
-    root.left.right = new RoomNode;
-    root.left.right.isRoom.doors ~= Door(3, [ 1, 1, 2, 3 ]);
-    root.left.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
-
-    root.right = new RoomNode;
-    root.right.isRoom.doors ~= Door(2, [ 1, 1, 4, 4 ]);
-
-    auto bounds = region(vec(0,0,1,1), vec(2,2,10,7));
-    setRoomInteriors(root, bounds);
-
-    assert(findNgbr(root, bounds, root.right.isRoom, 0) == root.left.right);
-    assert(findNgbr(root, bounds, root.left.right.isRoom, 0) == root.left.left);
-    assert(findNgbr(root, bounds, root.left.right.isRoom, 1) == root.right);
-    assert(findNgbr(root, bounds, root.left.left.isRoom, 0) == root.left.right);
-}
-
-/**
  * Adjusts doors heights to be flush against the highest floor they connect, so
  * that we avoid unnecessary ladders.
  */
-void sinkDoors(MapNode tree, Region!(int,4) region)
+void sinkDoors(MapNode tree, Region4 region)
 {
-    foreachRoom(tree, region, (Region!(int,4) bounds, MapNode n)
+    foreachRoom(tree, region, (Region4 bounds, MapNode n)
     {
         auto node = n.isRoom;
         if (node is null) return 0; // FIXME
@@ -1876,7 +1899,7 @@ unittest
 /**
  * Places an exit portal.
  */
-void genPortal(World w, MapNode tree, Region!(int,4) bounds)
+void genPortal(World w, MapNode tree, Region4 bounds)
 {
     // Pick a tile that isn't empty or has no floor support.
     auto pos = randomPos(w, tree, RandomPosFilt(Dryness.dry, Occupancy.empty,
@@ -1982,27 +2005,23 @@ struct MapGenArgs
  * NOTE: May return null if bounds are too small to generate geometry that
  * satisfies map constraints.
  */
-MapNode genTree(Region!(int,4) bounds, TreeGenArgs args)
+MapNode genTree(Region4 bounds, TreeGenArgs args)
 {
     enum nRetries = 10;
-    alias R = Region!(int,4);
-
     auto splitLen = args.minNodeDim * 2;
 
     MapNode tree;
     foreach (_; 0 .. nRetries)
     {
-        // FIXME: should generate more than just RoomNode.
-        tree = genBsp!(MapNode, RoomNode)(bounds,
-            (R r) => r.volume > args.splitVolume.pick,
-            (R r) => iota(4).filter!(i => r.max[i] - r.min[i] >= splitLen)
-                            .pickOne(invalidAxis),
-            (R r, int axis) => (r.max[axis] - r.min[axis] < splitLen) ?
+        tree = genBsp!(MapNode, BuildNode)(bounds,
+            (Region4 r) => r.volume > args.splitVolume.pick,
+            (Region4 r) => iota(4).filter!(i => r.max[i] - r.min[i] >= splitLen)
+                                  .pickOne(invalidAxis),
+            (Region4 r, int axis) => (r.max[axis] - r.min[axis] < splitLen) ?
                 invalidPivot : uniform(r.min[axis] + args.minNodeDim,
                                        r.max[axis] - args.minNodeDim + 1)
         );
 
-        setRoomInteriors(tree, bounds);
         try
         {
             genCorridors(tree, bounds);
@@ -2027,13 +2046,14 @@ MapNode genTree(Region!(int,4) bounds, TreeGenArgs args)
 /**
  * Phase 2 of level geometry generation.
  */
-void genGeometry(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args)
+void genGeometry(World w, ref MapNode tree, Region4 bounds, MapGenArgs args)
 {
-    setRoomFloors(tree, bounds);
-
     // Add back edges, regular and pits/pit traps.
     genBackEdges(tree, bounds, args.nBackEdges.pick,
                  args.nBackEdges.max + 15);
+    tree = genTheme(tree, bounds);
+
+    setRoomFloors(tree, bounds);
     genPitTraps(w, tree, bounds, args.nPitTraps.pick);
 
     resizeRooms(tree, bounds, args.tree.minNodeDim - 1);
@@ -2041,7 +2061,7 @@ void genGeometry(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args)
         sinkDoors(tree, bounds);
 }
 
-void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
+void genObjects(World w, MapNode tree, Region4 bounds, MapGenArgs args,
                 MapNode startRoom = null)
 {
     addLadders(w, tree, bounds, args.spiralStairsPct);
@@ -2140,7 +2160,7 @@ void genObjects(World w, MapNode tree, Region!(int,4) bounds, MapGenArgs args,
 /**
  * Generate new game world using the BSP tree algorithm.
  */
-World genBspLevel(Region!(int,4) bounds, MapGenArgs args, out int[4] startPos)
+World genBspLevel(Region4 bounds, MapGenArgs args, out int[4] startPos)
 {
     auto w = new World;
 
@@ -2169,7 +2189,7 @@ World genBspLevel(Region!(int,4) bounds, MapGenArgs args, out int[4] startPos)
 // Mapgen sanity tests.
 unittest
 {
-    foreach (i; 0 .. 12)
+    foreach (i; 0 .. 15)
     {
         int[4] startPos;
         MapGenArgs args;
@@ -2178,7 +2198,7 @@ unittest
 
         // Door placement checks.
         foreachRoom(w.map.tree, w.map.bounds,
-            (Region!(int,4) region, MapNode n) {
+            (Region4 region, MapNode n) {
                 auto node = n.isRoom;
                 if (node is null) return 0;
                 foreach (i; 0 .. node.doors.length-1)
@@ -2349,11 +2369,10 @@ World genTutorialLevel(out int[4] startPos)
     w.map.waterLevel = int.max;
 
     // FIXME: this should be autogen'd
-    void addDoor(Vec!(int,4) pos)
+    void addDoor(Vec4 pos)
     {
-        alias R = Region!(int,4);
-        foreachFiltRoom(tree, w.map.bounds, (R r) => r.contains(pos),
-            (MapNode n, R r) {
+        foreachFiltRoom(tree, w.map.bounds, (Region4 r) => r.contains(pos),
+            (MapNode n, Region4 r) {
                 auto node = n.isRoom;
                 if (node is null) return 0;
                 node.doors ~= Door(3, pos[]);
@@ -2516,7 +2535,7 @@ unittest
  */
 struct BipartiteGenArgs
 {
-    Region!(int,4) region;
+    Region4 region;
     ValRange axis;
     ValRange pivot;
     ValRange waterLevel = ValRange(int.max-1, int.max);
@@ -2539,8 +2558,8 @@ struct BipartiteGenArgs
 World genBipartiteLevel(BipartiteGenArgs args,
                         out int[4] startPos,
                         out int[4] doorPos,
-                        out Region!(int,4) boundsLeft,
-                        out Region!(int,4) boundsRight)
+                        out Region4 boundsLeft,
+                        out Region4 boundsRight)
 {
     auto axis = args.axis.pick;
     auto pivot = args.pivot.pick;
@@ -2573,55 +2592,58 @@ World genBipartiteLevel(BipartiteGenArgs args,
     w.map.bounds = args.region;
 
     // Place doorway between two halves.
-    RoomNode[2] candidate;
+    BuildNode[2] candidate;
+    Region4 doorReg;
     int n;
     foreachCandidateDoor(w.map.tree, args.region,
-                         (MapNode l, MapNode r, int[4] pos)
+                         (MapNode l, MapNode r, Region4 ir)
     {
-        auto left = l.isRoom;
-        auto right = r.isRoom;
+        auto left = l.isBuildNode;
+        auto right = r.isBuildNode;
         if (left && right && uniform(0, ++n) == 0)
         {
             candidate[0] = left;
             candidate[1] = right;
-            doorPos = pos;
+
+            foreach (i; 0 .. 4)
+            {
+                // Note: doorReg is hacked to be a 1x1x1x0 region on the common
+                // wall so that the actual inserted door will coincide with our
+                // chosen doorPos.
+                if (ir.min[i] == ir.max[i])
+                {
+                    assert(i != 0);
+                    doorPos[i] = ir.min[i] - 1;
+                    doorReg.min[i] = doorReg.max[i] = ir.min[i];
+                }
+                else
+                {
+                    doorPos[i] = (args.sinkDoor && i==0) ? ir.max[i]-1 :
+                                 uniform(ir.min[i], ir.max[i]);
+                    doorReg.min[i] = doorPos[i];
+                    doorReg.max[i] = doorReg.min[i] + 1;
+                }
+            }
         }
         return 0;
     });
     if (n == 0)
         throw new GenCorridorsException("No viable door placement found");
 
-    auto d = Door(axis);
-    assert(doorPos[axis] == pivot-1);
-    d.pos = doorPos;
-    candidate[0].doors ~= d;
-    candidate[1].doors ~= d;
+    // Insert edge corresponding with door.
+    candidate[0].ngbrs ~= BuildNode.Ngbr(candidate[1], doorReg);
+    candidate[1].ngbrs ~= BuildNode.Ngbr(candidate[0], doorReg);
 
     // Finish up level geometry
-    // IMPORTANT: connecting door must be placed before this, otherwise
+    // IMPORTANT: connecting edge must be placed before this, otherwise
     // resizeRoom() may make the door inaccessible.
     genGeometry(w, tree1, boundsLeft, args.subargs[0]);
     genGeometry(w, tree2, boundsRight, args.subargs[1]);
 
-    if (args.sinkDoor)
-    {
-        // Need to do this manually because genGeometry can't do cross-region
-        // sinking.
-        auto floorCoor = min(candidate[0].interior.max[0],
-                             candidate[1].interior.max[0]);
-        foreach (node; candidate[])
-        {
-            auto i = node.doors.countUntil(d);
-            assert(i >= 0);
-            node.doors[i].pos[0] = floorCoor - 1;
-        }
-        doorPos[0] = floorCoor - 1;
-    }
-
     // Generate startPos in selected half of level.
     auto filt = RandomPosFilt(Dryness.dry, Occupancy.empty, Support.below,
                               Distrib.floor);
-    Tuple!(MapNode, Vec!(int,4)) roomPos;
+    Tuple!(MapNode, Vec4) roomPos;
     switch (args.startPart)
     {
         case 0:
@@ -2663,7 +2685,7 @@ World genBipartiteLevel(BipartiteGenArgs args,
  * Generate a door + lever combo.
  */
 void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
-                     Region!(int,4) leverBounds)
+                     Region4 leverBounds)
 {
     // Actual locked door object
     auto doorTrigId = w.triggerId++;

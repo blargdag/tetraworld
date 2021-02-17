@@ -114,16 +114,24 @@ Node genBsp(Node, Leaf=Node, R)
             int delegate(R r, int axis) findPivot)
     if (is(Node : BspNode!D, D) && is(R == Region!(int,n), size_t n))
 {
+    Leaf newLeaf()
+    {
+        static if (is(typeof(new Leaf(region)) : Leaf))
+            return new Leaf(region);
+        else
+            return new Leaf;
+    }
+
     if (!canSplitRegion(region))
-        return new Leaf;
+        return newLeaf();
 
     auto axis = findSplitAxis(region);
     if (axis == invalidAxis)
-        return new Leaf;
+        return newLeaf();
 
     auto pivot = findPivot(region, axis);
     if (pivot == invalidPivot)
-        return new Leaf;
+        return newLeaf();
 
     auto node = new Node();
     node.axis = axis;

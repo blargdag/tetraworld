@@ -33,6 +33,12 @@ import tile : Tile16;
 import vector;
 
 /**
+ * Convenience aliases.
+ */
+alias Region4 = Region!(int,4);
+alias Vec4 = Vec!(int,4);
+
+/**
  * Checks if T is a 4D array of elements, and furthermore has dimensions that
  * can be queried via opDollar.
  */
@@ -167,7 +173,7 @@ void renderMap(T, Map)(T display, Map map, MapStyle style)
  * dimensions that would be rendered by renderMap, as a vector of width and
  * height, respectively.
  */
-Vec!(int,2) renderSize(Vec!(int,4) dim)
+Vec!(int,2) renderSize(Vec4 dim)
 {
     return vec(dim[1]*(dim[2] + dim[3] + interColSpace) - 1,
                dim[0]*(dim[2] + interRowSpace) - 1);
@@ -225,7 +231,7 @@ unittest
  *  2D coordinates where renderMap would draw a tile at the given 4D
  *  coordinates.
  */
-Vec!(int,2) renderingCoors(Map)(Map map, Vec!(int,4) coors, MapStyle style)
+Vec!(int,2) renderingCoors(Map)(Map map, Vec4 coors, MapStyle style)
     if (is4DArray!Map)
 {
     //auto wlen = map.opDollar!0;
@@ -289,10 +295,10 @@ struct SubMap(Map)
     alias Elem = CellType!Map;
 
     private Map impl;
-    Region!(int,4) reg;
+    Region4 reg;
 
     /// Constructor.
-    this(Map map, Region!(int,4) _reg)
+    this(Map map, Region4 _reg)
         in (region(vec(map.opDollar!0, map.opDollar!1, map.opDollar!2,
                        map.opDollar!3)).contains(reg))
     {
@@ -327,7 +333,7 @@ struct SubMap(Map)
 /**
  * Constructs a submap of the given 4D map, with the specified dimensions.
  */
-auto submap(Map)(Map map, Region!(int,4) reg)
+auto submap(Map)(Map map, Region4 reg)
     if (is4DArray!Map)
 {
     return SubMap!Map(map, reg);
@@ -370,8 +376,7 @@ unittest
  */
 struct FMap(alias fun, Map)
     if (is4DArray!Map && (is(typeof(fun(Map.init[0,0,0,0]))) ||
-                          is(typeof(fun(Vec!(int,4).init,
-                                        Map.init[0,0,0,0])))))
+                          is(typeof(fun(Vec4.init, Map.init[0,0,0,0])))))
 {
     private Map impl;
 
@@ -382,7 +387,7 @@ struct FMap(alias fun, Map)
     {
         static if (is4DArray!Map && is(typeof(fun(Map.init[0,0,0,0]))))
             return fun(impl[coors[0], coors[1], coors[2], coors[3]]);
-        else static if (is(typeof(fun(Vec!(int,4).init, Map.init[0,0,0,0]))))
+        else static if (is(typeof(fun(Vec4.init, Map.init[0,0,0,0]))))
             return fun(vec(coors),
                        impl[coors[0], coors[1], coors[2], coors[3]]);
         else static assert(0);
@@ -399,8 +404,7 @@ struct FMap(alias fun, Map)
  */
 auto fmap(alias fun, Map)(Map map)
     if (is4DArray!Map && (is(typeof(fun(Map.init[0,0,0,0]))) ||
-                          is(typeof(fun(Vec!(int,4).init,
-                                        Map.init[0,0,0,0])))))
+                          is(typeof(fun(Vec4.init, Map.init[0,0,0,0])))))
 {
     return FMap!(fun,Map)(map);
 }
@@ -450,7 +454,7 @@ enum minDisplaySize = renderSize(vec(3,3,3,3));
  *
  * Returns: The 4D dimensions as a Vec.
  */
-Vec!(int,4) optimalViewportSize(int[2] dim)
+Vec4 optimalViewportSize(int[2] dim)
 out(r)
 {
     auto rs = renderSize(r);
@@ -639,7 +643,10 @@ version(unittest)
 
         //enum walls = "│─.┌└┐┘"d;
         //enum walls = "|-:,`.'"d;
-        auto interior = node.interior;
+        auto room = node.isRoom;
+        if (room is null) return; // FIXME
+
+        auto interior = room.interior;
         foreach (j; interior.min[1]-1 .. interior.max[1]+1)
         {
             foreach (i; interior.min[0]-1 .. interior.max[0]+1)
@@ -657,11 +664,11 @@ version(unittest)
                 else if (j == interior.min[1]-1 || j == interior.max[1])
                     combineWall(i, j, 0b1010);
                 else
-                    screen[i, j] = ".,:"[node.style];
+                    screen[i, j] = ".,:"[room.style];
             }
         }
 
-        foreach (door; node.doors)
+        foreach (door; room.doors)
         {
             auto doorSyms = (door.type == Door.Type.extra) ? "=\u256b**"d
                                                            : "-|**"d;
@@ -723,6 +730,7 @@ struct RandomPosFilt
  */
 class MapNode : Saveable!(MapNode, BspNode!(MapNode))
 {
+    BuildNode isBuildNode() { return null; }
     RoomNode isRoom() { return null; }
 
     /**
@@ -772,10 +780,53 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
      *
      * Prerequisites: Must be a leaf node.
      */
-    Vec!(int,4) randomLoc(bool onFloor)
+    Vec4 randomLoc(bool onFloor)
         in (isLeaf)
     {
         assert(0);
+    }
+}
+
+/**
+ * Temporary construction node used by mapgen.
+ */
+class BuildNode : MapNode // N.B.: NOT saveable
+{
+    static struct Ngbr
+    {
+        MapNode node;
+        Region4 overlap;
+        bool isBackEdge;
+
+        pure int axis()
+        {
+            import std.conv : to;
+            return cast(int) iota(4)
+                .countUntil!(i => overlap.min[i] == overlap.max[i]);
+        }
+    }
+    Region4 bounds;
+    Ngbr[] ngbrs;
+    int themeId;
+
+    this() {}
+    this(Region4 _bounds) { bounds = _bounds; }
+
+    override BuildNode isBuildNode() { return this; }
+    override int volume() pure { return bounds.volume; }
+}
+
+/**
+ * A blocked node consisting only of impassable walls.
+ */
+class BlockedNode : Saveable!(BlockedNode, MapNode)
+{
+    override int floorArea() pure { return 0; }
+    override int volume() pure { return 0; }
+    override ThingId opIndex(int[4] pos...)
+    {
+        import terrain : blockBare;
+        return blockBare.id;
     }
 }
 
@@ -785,7 +836,7 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
 class RoomNode : Saveable!(RoomNode, MapNode)
 {
     Door[] doors;
-    Region!(int,4) interior;
+    Region4 interior;
     FloorStyle style;
 
     override RoomNode isRoom() { return this; }
@@ -834,7 +885,7 @@ class RoomNode : Saveable!(RoomNode, MapNode)
         return style2Terrain(style);
     }
 
-    override Vec!(int,4) randomLoc(bool onFloor)
+    override Vec4 randomLoc(bool onFloor)
     {
         int[4] result;
         foreach (i; 0 .. 4)
