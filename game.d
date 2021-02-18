@@ -1352,15 +1352,15 @@ StoryNode[] storyNodes = [
         "You brace yourself and prepare for the worst."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.nBackEdges = ValRange(200, 300);
-        args.nPitTraps = ValRange(180, 250);
-        args.nRockTraps = ValRange(150, 180);
-        args.spiralStairsPct = 25;
+        args.nBackEdges = ValRange(350, 450);
+        args.nPitTraps = ValRange(250, 350);
+        args.nRockTraps = ValRange(160, 180);
+        args.spiralStairsPct = 30;
         args.goldPct = 0.8;
-        args.waterLevel = ValRange(12, 15);
-        args.nMonstersA = ValRange(30, 50);
-        args.nMonstersB = ValRange(10, 15);
-        args.nMonstersC = ValRange(15, 20);
+        args.waterLevel = ValRange(16, 19);
+        args.nMonstersA = ValRange(40, 60);
+        args.nMonstersB = ValRange(15, 20);
+        args.nMonstersC = ValRange(20, 30);
         args.nScubas = ValRange(1, 2);
         return genBspLevel(region(vec(24,24,24,24)), args, startPos);
     }),
