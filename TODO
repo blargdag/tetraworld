@@ -1,4 +1,6 @@
 - Add horizontal hidden doors? Triggered from porch tile.
+- [Bug] New mapgen code seems to miss excluding door porches from back edge
+  generation.
 - [Bug] Sometimes spiral staircases can block entrances (found a case where a
   staircase blocked an ana/kata horizontal door).
 - Save files probably should be kept on-disk while game is running, and only
