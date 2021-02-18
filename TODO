@@ -1,3 +1,8 @@
+- BBBP: current genTheme algorithm is flawed, because it assumes free placement
+  of all doors. We can't add the requirement for pits not to fall on a door's
+  porch, because the other side of the door could have been fixed already (with
+  .overlap reduced to 1 tile) so there is no more wiggle room to place the door
+  somewhere else.
 - [Bug] Sometimes spiral staircases can block entrances (found a case where a
   staircase blocked an ana/kata horizontal door).
 - Save files probably should be kept on-disk while game is running, and only
@@ -15,6 +20,15 @@
      multiple connected regions.
    - Implement different themes.
    - Continue refactoring old code.
+- Improve implementation of genBackEdges.
+   - We're doing this totally wrong. Recursing down the BSP tree n times hoping
+     to strike the right wall that interfaces with a viable neighbour has very
+     high failure rate not to mention very slow.
+   - What we need to do is to decorate each node with *all* of its potential
+     neighbours.  Then selectively drop edges until it reaches the desired
+     number of back edges.
+      - Or rather, make a list of all adjacent node pairs (minus hard edges
+        from the BSP tree), and do a select N on it.
 - [Tutorial] Should hide additional planes until player is ready to tackle it.
    - This can be implemented without touching UI code by using a special
      TutorialNode subclass of MapNode, that returns proxy objects for floor
