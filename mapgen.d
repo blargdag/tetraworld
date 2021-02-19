@@ -895,15 +895,30 @@ MapNode genTheme(MapNode tree, Region4 bounds)
                     Vec4 pos;
                     int axis = ngbr.axis;
 
-                    foreach (i; 0 .. 4)
+                    do
                     {
-                        auto min = ngbr.overlap.min[i];
-                        auto max = ngbr.overlap.max[i];
-                        if (min == max)
-                            pos[i] = min - 1;
-                        else
-                            pos[i] = uniform(min, max);
-                    }
+                        foreach (i; 0 .. 4)
+                        {
+                            auto min = ngbr.overlap.min[i];
+                            auto max = ngbr.overlap.max[i];
+                            if (min == max)
+                                pos[i] = min - 1;
+                            else
+                                pos[i] = uniform(min, max);
+                        }
+
+                        // Vertical back-edges should not fall on other door
+                        // porches (to prevent pits that prevent access to a
+                        // door).
+
+                        // FIXME: this DOES NOT WORK; for some doors it will be
+                        // an infinite loop because if the other side of the
+                        // door has been fixed (.overlap on this side is only 1
+                        // tile large) then no solution exists if the current
+                        // location is not allowed.
+                    } while (false /* axis == 0 && ngbr.isBackEdge &&
+                             room.doors.canFind!(d => d.axis != 0 &&
+                                 doorPorch(room, d)[1 .. 3] == pos[1 .. 3]) */);
 
                     auto d = Door(axis, pos, ngbr.isBackEdge ?
                                              Door.Type.extra :
