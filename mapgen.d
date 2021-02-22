@@ -895,6 +895,7 @@ MapNode genTheme(MapNode tree, Region4 bounds)
                     Vec4 pos;
                     int axis = ngbr.axis;
 
+                    int nTries = 0; // FIXME: horrible hack
                     do
                     {
                         foreach (i; 0 .. 4)
@@ -910,19 +911,13 @@ MapNode genTheme(MapNode tree, Region4 bounds)
                         // Vertical back-edges should not fall on other door
                         // porches (to prevent pits that prevent access to a
                         // door).
-
-                        // FIXME: this DOES NOT WORK; for some doors it will be
-                        // an infinite loop because if the other side of the
-                        // door has been fixed (.overlap on this side is only 1
-                        // tile large) then no solution exists if the current
-                        // location is not allowed.
-                    } while (false /* axis == 0 && ngbr.isBackEdge &&
+                    } while (++nTries < 10 && axis == 0 && ngbr.isBackEdge &&
                              room.doors.canFind!(d => d.axis != 0 &&
-                                 doorPorch(room, d)[1 .. 3] == pos[1 .. 3]) */);
+                                 doorPorch(room, d)[1 .. 3] == pos[1 .. 3]));
 
-                    auto d = Door(axis, pos, ngbr.isBackEdge ?
-                                             Door.Type.extra :
-                                             Door.Type.normal);
+                    auto d = Door(axis, pos,
+                                  (ngbr.isBackEdge && uniform(0, 100) < 50) ?
+                                  Door.Type.extra : Door.Type.normal);
 
                     // Confine neighbour node's edge to the door location we
                     // selected.

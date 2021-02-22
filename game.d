@@ -1352,7 +1352,7 @@ StoryNode[] storyNodes = [
         "You brace yourself and prepare for the worst."
     ], (ref int[4] startPos) {
         MapGenArgs args;
-        args.nBackEdges = ValRange(350, 450);
+        args.nBackEdges = ValRange(500, 700);
         args.nPitTraps = ValRange(250, 350);
         args.nRockTraps = ValRange(160, 180);
         args.spiralStairsPct = 30;
