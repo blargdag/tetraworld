@@ -15,10 +15,13 @@ release = ARGUMENTS.get('release', 0)
 
 ldc = '/usr/src/d/ldc/latest/bin/ldc2'
 ldcflags = [ ]
-ldcoptflags = [ '-O' ]
+ldcoptflags = [ '-O', '-linkonce-templates' ]
 
 if release:
-	ldcoptflags = ['-O3']
+	ldcoptflags = [
+        '-O3',
+        '-linkonce-templates'
+    ]
 
 if debug:
 	ldcflags += ['-g', '-gc', '-d-debug']
