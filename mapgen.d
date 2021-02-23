@@ -857,14 +857,16 @@ unittest
 {
     import std.stdio;
 
-    Region4 bounds = region(vec(0,0,0,0), vec(12,12,12,12));
+    Region4 bounds = region(vec(0,0,0,0), vec(13,13,13,13));
     TreeGenArgs args;
     //args.splitVolume = ValRange(40, 100);
 
     auto tree = genTree(bounds, args);
-    genBackEdges(tree, bounds, 10, 50);
+    auto nbe = genBackEdges(tree, bounds, tree.nLeaves/3, 50);
+    import std;writefln("num leaves=%d", tree.nLeaves);
+    import std;writefln("num back edges=%d", nbe);
 
-    auto parts = partitionMap(tree, bounds, 3);
+    auto parts = partitionMap(tree, bounds, 4);
 
     bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
 }
