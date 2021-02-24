@@ -848,6 +848,7 @@ Partition[] partitionMap(MapNode tree, Region4 bounds, int nPartitions)
     return parts;
 }
 
+version(none)
 unittest
 {
     import std.stdio;
@@ -861,7 +862,7 @@ unittest
     import std;writefln("num leaves=%d", tree.nLeaves);
     import std;writefln("num back edges=%d", nbe);
 
-    auto parts = partitionMap(tree, bounds, 4);
+    auto parts = partitionMap(tree, bounds, 5);
 
     bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
 }
@@ -883,10 +884,13 @@ MapNode genTheme(MapNode tree, Region4 bounds)
             // TBD: implement other theme nodes here
             // TBD: should split up theme instantiation code by theme instead
             // of putting everything here
-            case 0:
+            case 0: .. case 2:
             default:
                 auto room = new RoomNode;
                 room.interior = region(bounds.min, bounds.max - vec(1,1,1,1));
+                if (node.themeId < 3)
+                    room.style = cast(FloorStyle) node.themeId;
+
                 foreach (ngbr; node.ngbrs)
                 {
                     Vec4 pos;
@@ -2239,7 +2243,7 @@ void genGeometry(World w, ref MapNode tree, Region4 bounds, MapGenArgs args)
     genBackEdges(tree, bounds, args.nBackEdges.pick);
     tree = genTheme(tree, bounds);
 
-    setRoomFloors(tree, bounds);
+    //setRoomFloors(tree, bounds);
     genPitTraps(w, tree, bounds, args.nPitTraps.pick);
 
     resizeRooms(tree, bounds, args.tree.minNodeDim - 1);
@@ -2899,33 +2903,42 @@ void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
  */
 World genTestLevel()(out int[4] startPos)
 {
-    auto root = new MapNode;
-    root.axis = 1;
-    root.pivot = 5;
+    auto bounds = region(vec(12,12,12,12));
+    TreeGenArgs args;
 
-    root.left = new RoomNode;
-    root.left.isRoom.interior = region(vec(1,1,1,1), vec(3,4,4,4));
-    root.left.isRoom.doors = [
-        Door(1, [1,4,2,2]),
-    ];
+    auto tree = genTree(bounds, args);
+    genBackEdges(tree, bounds, tree.nLeaves * 30/100);
+    auto parts = partitionMap(tree, bounds, 3);
 
-    root.right = new RoomNode;
-    root.right.isRoom.interior = region(vec(1,5,1,1), vec(8,8,4,4));
-    root.right.isRoom.doors = [
-        Door(1, [1,4,2,2]),
-    ];
+    // DEBUG
+    {
+        import std.exception : enforce;
+        import std.stdio : File;
+        import std.process : executeShell;
+        auto f = File("/tmp/graph.dot", "w");
+        bspToDot(tree, bounds, f.lockingTextWriter);
+        f.close;
+        auto rs = executeShell(
+            "neato -Tsvg /tmp/graph.dot -o /home/hsteoh/www/tmp/test.svg "~
+            "&& convert /home/hsteoh/www/tmp/test.svg /home/hsteoh/www/tmp/test.png"
+        );
+        enforce(rs.status == 0, rs.output);
+    }
+
+    tree = genTheme(tree, bounds);
+
+    resizeRooms(tree, bounds, 3);
+    sinkDoors(tree, bounds);
 
     auto w = new World;
-    w.map.tree = root;
-    w.map.bounds = region(vec(1,1,1,1), vec(9,9,5,5));
-    w.map.waterLevel = int.max;
+    w.map.tree = tree;
+    w.map.bounds = bounds;
+    w.map.waterLevel = 8;
 
-    if (!tryAddSpiralStairs(w, root.right.isRoom, root.right.isRoom.doors[0]))
-        assert(0, "Failed to add spiral stairs");
+    addLadders(w, tree, bounds, 50);
 
-    //addLadders(w, w.map.tree, w.map.bounds);
-
-    startPos = [7,6,2,2];
+    startPos = randomPos(w, w.map.tree, RandomPosFilt(Dryness.dry,
+                         Occupancy.empty, Support.below, Distrib.rooms));
     return w;
 }
 
