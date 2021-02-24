@@ -1,3 +1,9 @@
+- [OO map 3] Expand on theme-based mapgen, now that existing code works with
+  new system.
+   + Implement graph traversal of BuildNodes to partition the graph into
+     multiple connected regions.
+   - Implement different themes.
+   - Continue refactoring old code.
 - Add horizontal hidden doors? Triggered from porch tile.
 - [Bug] Sometimes spiral staircases can block entrances (found a case where a
   staircase blocked an ana/kata horizontal door).
@@ -10,12 +16,6 @@
      :-D
 - [gravity] Stacked items that trigger fallOn should split the stack in
   multiple directions.
-- [OO map 3] Expand on theme-based mapgen, now that existing code works with
-  new system.
-   - Implement graph traversal of BuildNodes to partition the graph into
-     multiple connected regions.
-   - Implement different themes.
-   - Continue refactoring old code.
 - [Tutorial] Should hide additional planes until player is ready to tackle it.
    - This can be implemented without touching UI code by using a special
      TutorialNode subclass of MapNode, that returns proxy objects for floor
