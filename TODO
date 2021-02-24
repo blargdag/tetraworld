@@ -1,13 +1,4 @@
 - Add horizontal hidden doors? Triggered from porch tile.
-- Improve implementation of genBackEdges.
-   - We're doing this totally wrong. Recursing down the BSP tree n times hoping
-     to strike the right wall that interfaces with a viable neighbour has very
-     high failure rate not to mention very slow.
-   - What we need to do is to decorate each node with *all* of its potential
-     neighbours.  Then selectively drop edges until it reaches the desired
-     number of back edges.
-      - Or rather, make a list of all adjacent node pairs (minus hard edges
-        from the BSP tree), and do a select N on it.
 - [Bug] Sometimes spiral staircases can block entrances (found a case where a
   staircase blocked an ana/kata horizontal door).
 - Save files probably should be kept on-disk while game is running, and only
@@ -520,3 +511,12 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
      room to place the door somewhere else.
    * For now, with some upper limit on number of iterations, it seems to work
      reasonably well. Probably OK for now.
++ Improve implementation of genBackEdges.
+   + We're doing this totally wrong. Recursing down the BSP tree n times hoping
+     to strike the right wall that interfaces with a viable neighbour has very
+     high failure rate not to mention very slow.
+   + What we need to do is to decorate each node with *all* of its potential
+     neighbours.  Then selectively drop edges until it reaches the desired
+     number of back edges.
+      + Or rather, make a list of all adjacent node pairs (minus hard edges
+        from the BSP tree), and do a select N on it.

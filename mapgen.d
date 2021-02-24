@@ -583,78 +583,72 @@ unittest
  * Returns: The actual number of back edges inserted, which may be less than
  * the requested number.
  */
-int genBackEdges(MapNode root, Region4 region, int count, int maxRetries = 10)
+int genBackEdges(MapNode root, Region4 region, int count)
 {
     import std.random : uniform;
-    import rndutil : pickOne;
 
-    static struct RightRoom
+    static struct Candidate
     {
-        BuildNode node;
+        BuildNode left, right;
         Region4 region;
     }
 
-    bool tryAddEdge(BuildNode node, Region4 bounds)
-    {
-        // Randomly select a wall of the room.
-        auto axis = uniform(0, 4);
-        Region4 wallFilt = rightWallFilt(node, bounds, axis);
+    auto cands = new Candidate[count];
+    size_t n;
+    root.foreachRoom(region, (Region4 r, MapNode n1) {
+        auto node = n1.isBuildNode;
+        if (node is null) return 0;
 
-        // Find an adjacent room that can be joined to this one via a door.
-        RightRoom[] targets;
-        root.foreachFiltRoom(region, wallFilt, (MapNode n2, Region4 r2) {
-            import std.algorithm : canFind, filter, fold;
-            import std.range : iota;
-
-            auto node2 = n2.isBuildNode;
-            if (node2 is null) return 0;
-
-            auto wallFilt2 = leftWallFilt(node2, r2, axis);
-            auto ir = wallFilt.intersect(wallFilt2);
-
-            if (!iota(4).map!(i => i == root.axis || ir.max[i] - ir.min[i] > 0)
-                        .fold!((a,b) => a && b)(true))
-            {
-                // No overlap or too narrow, skip.
-                return 0;
-            }
-
-            // Skip if there's already an edge between these two rooms.
-            if (node.ngbrs.canFind!(ngbr => ngbr.node is node2))
-                return 0;
-
-            targets ~= RightRoom(node2, ir);
-            return 0;
-        });
-
-        if (targets.empty)
-            return false; // couldn't match anything for this room
-
-        auto rightRoom = targets.pickOne;
-        node.ngbrs ~= BuildNode.Ngbr(rightRoom.node, rightRoom.region, true);
-        rightRoom.node.ngbrs ~= BuildNode.Ngbr(node, rightRoom.region, true);
-
-        return true;
-    }
-
-    int n = 0;
-    int retries = 0;
-    while (n < count && retries < maxRetries)
-    {
-        auto nb = randomRoom(root, region, Distrib.volume);
-        auto node = nb[0].isBuildNode;
-        auto bounds = nb[1];
-
-        if (node !is null && tryAddEdge(node, bounds))
+        foreach (axis; 0 .. 4)
         {
-            n++;
-            retries = 0;
+            Region4 wallFilt = rightWallFilt(node, r, axis);
+            root.foreachFiltRoom(region, wallFilt, (MapNode n2, Region4 r2) {
+                auto node2 = n2.isBuildNode;
+                if (node2 is null) return 0;
+
+                auto wallFilt2 = leftWallFilt(node2, r2, axis);
+                auto ir = wallFilt.intersect(wallFilt2);
+
+                if (!iota(4).map!(i => i == root.axis || ir.max[i] - ir.min[i] > 0)
+                            .fold!((a,b) => a && b)(true))
+                {
+                    // No overlap or too narrow, skip.
+                    return 0;
+                }
+
+                // Skip if there's already an edge between these two rooms.
+                if (node.ngbrs.canFind!(ngbr => ngbr.node is node2))
+                    return 0;
+
+                auto cand = Candidate(node, node2, ir);
+                if (n < count)
+                {
+                    // Fill in first `count` candidates first.
+                    cands[n++] = cand;
+                }
+                else
+                {
+                    // Replace earlier candidates with equal probability.
+                    n++;
+                    auto i = uniform(0, n);
+                    if (i < count)
+                        cands[i] = cand;
+                }
+                return 0;
+            });
         }
-        else
-            retries++;
+        return 0;
+    });
+
+    // Add selected back-edges.
+    auto found = min(count, n);
+    foreach (c; cands[0 .. found])
+    {
+        c.left.ngbrs ~= BuildNode.Ngbr(c.right, c.region, true);
+        c.right.ngbrs ~= BuildNode.Ngbr(c.left, c.region, true);
     }
 
-    return n;
+    return found;
 }
 
 unittest
@@ -694,7 +688,8 @@ unittest
         BuildNode.Ngbr(root.right.left, region(vec(4,4,0,0), vec(4,6,1,1))),
     ];
 
-    while (genBackEdges(root, bounds, 1, 99) < 1) {}
+    auto n = genBackEdges(root, bounds, 1);
+    assert(n == 1);
 
     assert(root.left.isBuildNode.ngbrs[1].node is root.right.left);
     assert(root.left.isBuildNode.ngbrs[1].overlap ==
@@ -862,7 +857,7 @@ unittest
     //args.splitVolume = ValRange(40, 100);
 
     auto tree = genTree(bounds, args);
-    auto nbe = genBackEdges(tree, bounds, tree.nLeaves/3, 50);
+    auto nbe = genBackEdges(tree, bounds, tree.nLeaves/3);
     import std;writefln("num leaves=%d", tree.nLeaves);
     import std;writefln("num back edges=%d", nbe);
 
@@ -1453,7 +1448,7 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
-    genBackEdges(tree, bounds, 4, 15);
+    genBackEdges(tree, bounds, 4);
 
     tree = genTheme(tree, bounds);
 
@@ -1495,7 +1490,7 @@ unittest
     args.minNodeDim = 2;
 
     auto tree = genTree(bounds, args);
-    genBackEdges(tree, bounds, 4, 15);
+    genBackEdges(tree, bounds, 4);
     tree = genTheme(tree, bounds);
 
     auto w = new World;
@@ -2241,8 +2236,7 @@ MapNode genTree(Region4 bounds, TreeGenArgs args)
 void genGeometry(World w, ref MapNode tree, Region4 bounds, MapGenArgs args)
 {
     // Add back edges, regular and pits/pit traps.
-    genBackEdges(tree, bounds, args.nBackEdges.pick,
-                 args.nBackEdges.max + 15);
+    genBackEdges(tree, bounds, args.nBackEdges.pick);
     tree = genTheme(tree, bounds);
 
     setRoomFloors(tree, bounds);
