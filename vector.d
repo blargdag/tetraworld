@@ -540,24 +540,43 @@ unittest
  */
 struct BitMask(size_t n)
 {
+    private import std.algorithm : fold;
+    private import std.range : iota;
+
     private Vec!(int,n) dim;
-    private size_t[] impl;
+    private ulong[] impl;
+
+    private static size_t calcLen()(Vec!(int,n) _dim)
+    {
+        return 1 + ((_dim[].fold!((a,b) => (a*b))(1) - 1) >> 6);
+    }
 
     this(Vec!(int,n) _dim)
     {
-        import std.algorithm : fold;
-        import std.range : iota;
 
         dim = _dim;
-        impl.length = 1 + (iota(n).fold!((a,i) => a * dim[i])(1) >> 6);
+        impl.length = calcLen(dim);
     }
+
+    // Mainly for internal tests.
+    private this(Vec!(int,n) _dim, ulong[] data)
+        in (data.length == calcLen(_dim))
+    {
+        dim = _dim;
+        impl = data;
+    }
+
+    /**
+     * The dimensions of this bitmask.
+     */
+    Vec!(int,n) dimensions()() pure const nothrow { return dim; }
 
     /**
      * Counts the number of set/unset bits in the bitmask.
      */
     int count(bool value = true)() pure const
     {
-        import std.algorithm : map;
+        import std.algorithm : map, sum;
         import core.bitop : popcnt;
 
         static if (value)
@@ -566,7 +585,7 @@ struct BitMask(size_t n)
             return impl.map!(m => popcnt(~m)).sum;
     }
 
-    private size_t pos2offset()(Vec!(int,n) pos) const pure
+    private ulong pos2offset()(Vec!(int,n) pos) const pure
     {
         import std.algorithm : fold;
         import std.range : iota;
@@ -577,15 +596,15 @@ struct BitMask(size_t n)
     /**
      * Sets all the bits in the mask to the given value.
      */
-    void opAssign(bool value)
+    void opAssign()(bool value)
     {
-        impl[] = value ? size_t.max : 0;
+        impl[] = value ? ulong.max : 0;
     }
 
     /**
      * Get a single bit.
      */
-    bool opIndex(Vec!(int,n) pos...) const pure
+    bool opIndex()(Vec!(int,n) pos...) const pure
         in (region(dim).contains(pos))
     {
         auto off = pos2offset(pos);
@@ -602,9 +621,33 @@ struct BitMask(size_t n)
         auto off = pos2offset(pos);
         auto idx = off >> 6;
         auto m = 1UL << (off & 0b111111);
-        auto bit = (cast(size_t) b) << (off & 0b111111);
+        auto bit = (cast(ulong) b) << (off & 0b111111);
         impl[idx] = (impl[idx] & ~m) | bit;
     }
+
+    /**
+     * Binary bit operations.
+     */
+    BitMask!n opBinary(string op)(const BitMask!n b) const
+        if (op == "&" || op == "|" || op == "^")
+        in (dimensions == b.dimensions)
+    {
+        auto result = BitMask!n(dimensions);
+        mixin("result.impl[] = impl[] "~op~" b.impl[];");
+        return result;
+    }
+}
+
+unittest
+{
+    auto m = BitMask!2(vec(7,7));
+    assert(m.impl.length == 1);
+
+    m = BitMask!2(vec(8,8));
+    assert(m.impl.length == 1);
+
+    m = BitMask!2(vec(5,13));
+    assert(m.impl.length == 2);
 }
 
 unittest
@@ -618,10 +661,10 @@ unittest
     assert(mask.impl.length == 1);
 
     mask = BitMask!4(vec(1,1,1,64));
-    assert(mask.impl.length == 2);
+    assert(mask.impl.length == 1);
 
     mask = BitMask!4(vec(2,2,4,4));
-    assert(mask.impl.length == 2);
+    assert(mask.impl.length == 1);
 
     mask = BitMask!4(vec(3,3,3,3));
     assert(mask.impl.length == 2);
@@ -656,6 +699,56 @@ unittest
     assert( mask[vec(0,1,0,0)]);
     assert(!mask[vec(0,0,1,0)]);
     assert( mask[vec(0,0,0,1)]);
+}
+
+unittest
+{
+    auto m1 = BitMask!2(vec(8,8), [ mixin("0b"~
+        "00000000"~
+        "00011000"~
+        "00100100"~
+        "01000010"~
+        "01111110"~
+        "01000010"~
+        "01000010"~
+        "00000000"
+    ) ]);
+
+    auto m2 = BitMask!2(vec(8,8), [ mixin("0b"~
+        "00000000"~
+        "01111100"~
+        "01000010"~
+        "01111100"~
+        "01000010"~
+        "01000010"~
+        "01111100"~
+        "00000000"
+    ) ]);
+
+    auto m3 = m1 & m2;
+    assert(m3.impl == [ mixin("0b"~
+        "00000000"~
+        "00011000"~
+        "00000000"~
+        "01000000"~
+        "01000010"~
+        "01000010"~
+        "01000000"~
+        "00000000"
+    ) ]);
+
+    auto m4 = m1 ^ m2;
+    assert(m4.impl == [ mixin("0b"~
+        "00000000"~
+        "01100100"~
+        "01100110"~
+        "00111110"~
+        "00111100"~
+        "00000000"~
+        "00111110"~
+        "00000000"
+    ) ]);
+
 }
 
 // vim:set ai sw=4 ts=4 et:
