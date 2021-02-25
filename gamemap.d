@@ -37,6 +37,7 @@ import vector;
  */
 alias Region4 = Region!(int,4);
 alias Vec4 = Vec!(int,4);
+alias Mask4 = BitMask!4;
 
 /**
  * Checks if T is a 4D array of elements, and furthermore has dimensions that
@@ -917,87 +918,36 @@ class RoomNode : Saveable!(RoomNode, MapNode)
  */
 class CaveNode : Saveable!(CaveNode, MapNode)
 {
-    private Region4 _interior;
-    private size_t[] mask;
+    private Vec4 origin;
+    private Mask4 mask;
 
-    Region4 interior()() pure { return _interior; }
+    Region4 interior()() pure { return region(origin, mask.dim); }
 
     void interior(Region4 ir)
     {
-        _interior = ir;
-        mask.length = 1 + (iota(4).fold!((a,i) => a * ir.length(i))(1) >> 6);
-        mask[] = size_t.max;
-    }
-
-    unittest
-    {
-        auto cn = new CaveNode;
-
-        cn.interior = region(vec(1,1,1,1), vec(3,3,3,3));
-        assert(cn.mask.length == 1);
-
-        cn.interior = region(vec(0,0,0,0), vec(1,1,1,63));
-        assert(cn.mask.length == 1);
-
-        cn.interior = region(vec(0,0,0,0), vec(1,1,1,64));
-        assert(cn.mask.length == 2);
-
-        cn.interior = region(vec(0,0,0,0), vec(2,2,4,4));
-        assert(cn.mask.length == 2);
-
-        cn.interior = region(vec(0,0,0,0), vec(3,3,3,3));
-        assert(cn.mask.length == 2);
+        origin = ir.min;
+        mask = Mask4(ir.max - ir.min);
+        mask = 1;
     }
 
     override int floorArea() pure { assert(0, "TBD"); }
 
-    override int volume() pure
-    {
-        import core.bitop : popcnt;
-        return mask.map!(m => popcnt(m)).sum;
-    }
-
-    private size_t pos2offset()(Vec4 pos...)
-    {
-        auto relpos = pos - _interior.min;
-        return iota(3).fold!((a,i) => a*_interior.length(i) + relpos[i+1])
-                            (relpos[0]);
-    }
-
-    unittest
-    {
-        auto cn = new CaveNode;
-        cn._interior = region(vec(1,1,1,1), vec(4,4,4,4));
-        assert(cn.pos2offset(vec(1,1,1,1)) == 0);
-        assert(cn.pos2offset(vec(1,1,1,2)) == 1);
-        assert(cn.pos2offset(vec(1,1,1,3)) == 2);
-        assert(cn.pos2offset(vec(1,1,2,1)) == 3);
-    }
+    override int volume() pure { return mask.count!0; }
 
     override ThingId opIndex(int[4] pos...)
     {
         import terrain;
-        if (!_interior.contains(vec(pos)))
-            return terrain.blockBare.id;
-
-        auto off = pos2offset(vec(pos));
-        auto idx = off >> 6;
-        auto m = 1UL << (off & 0b111111);
-        return ((mask[idx] & m) != 0) ? terrain.blockBare.id
-                                      : terrain.emptySpace.id;
+        return mask[vec(pos) - origin] ? terrain.blockBare.id
+                                       : terrain.emptySpace.id;
     }
 
     void opIndexAssign()(int b, int[4] pos...)
         in (b==0 || b==1)
     {
-        if (!_interior.contains(vec(pos)))
+        if (!region(origin, mask.dimensions).contains(vec(pos)))
             return;
 
-        auto off = pos2offset(vec(pos));
-        auto idx = off >> 6;
-        auto m = 1UL << (off & 0b111111);
-        auto bit = b << (off & 0b111111);
-        mask[idx] = (mask[idx] & ~m) | bit;
+        mask[vec(pos) - origin] = cast(bool) b;
     }
 
     unittest

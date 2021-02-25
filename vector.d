@@ -535,4 +535,127 @@ unittest
     assert(r.lengths == vec(8,6,4,2));
 }
 
+/**
+ * An n-dimensional bitmask over a rectangular region.
+ */
+struct BitMask(size_t n)
+{
+    private Vec!(int,n) dim;
+    private size_t[] impl;
+
+    this(Vec!(int,n) _dim)
+    {
+        import std.algorithm : fold;
+        import std.range : iota;
+
+        dim = _dim;
+        impl.length = 1 + (iota(n).fold!((a,i) => a * dim[i])(1) >> 6);
+    }
+
+    /**
+     * Counts the number of set/unset bits in the bitmask.
+     */
+    int count(bool value = true)() pure const
+    {
+        import std.algorithm : map;
+        import core.bitop : popcnt;
+
+        static if (value)
+            return impl.map!(m => popcnt(m)).sum;
+        else
+            return impl.map!(m => popcnt(~m)).sum;
+    }
+
+    private size_t pos2offset()(Vec!(int,n) pos) const pure
+    {
+        import std.algorithm : fold;
+        import std.range : iota;
+
+        return iota(n-1).fold!((a,i) => a*dim[i] + pos[i+1])(pos[0]);
+    }
+
+    /**
+     * Sets all the bits in the mask to the given value.
+     */
+    void opAssign(bool value)
+    {
+        impl[] = value ? size_t.max : 0;
+    }
+
+    /**
+     * Get a single bit.
+     */
+    bool opIndex(Vec!(int,n) pos...) const pure
+        in (region(dim).contains(pos))
+    {
+        auto off = pos2offset(pos);
+        auto idx = off >> 6;
+        auto m = 1UL << (off & 0b111111);
+        return ((impl[idx] & m) != 0);
+    }
+
+    /**
+     * Sets a single bit.
+     */
+    void opIndexAssign()(bool b, Vec!(int,4) pos) pure
+    {
+        auto off = pos2offset(pos);
+        auto idx = off >> 6;
+        auto m = 1UL << (off & 0b111111);
+        auto bit = (cast(size_t) b) << (off & 0b111111);
+        impl[idx] = (impl[idx] & ~m) | bit;
+    }
+}
+
+unittest
+{
+    BitMask!4 mask;
+
+    mask = BitMask!4(vec(2,2,2,2));
+    assert(mask.impl.length == 1);
+
+    mask = BitMask!4(vec(1,1,1,63));
+    assert(mask.impl.length == 1);
+
+    mask = BitMask!4(vec(1,1,1,64));
+    assert(mask.impl.length == 2);
+
+    mask = BitMask!4(vec(2,2,4,4));
+    assert(mask.impl.length == 2);
+
+    mask = BitMask!4(vec(3,3,3,3));
+    assert(mask.impl.length == 2);
+}
+
+unittest
+{
+    auto mask = BitMask!4(vec(5,5,5,5));
+    assert(!mask[vec(0,0,0,0)]);
+    assert(!mask[vec(1,0,0,0)]);
+    assert(!mask[vec(0,1,0,0)]);
+    assert(!mask[vec(0,0,1,0)]);
+    assert(!mask[vec(0,0,0,1)]);
+
+    mask = 1;
+    assert( mask[vec(0,0,0,0)]);
+    assert( mask[vec(1,0,0,0)]);
+    assert( mask[vec(0,1,0,0)]);
+    assert( mask[vec(0,0,1,0)]);
+    assert( mask[vec(0,0,0,1)]);
+
+    mask[vec(0,0,0,0)] = 0;
+    assert(!mask[vec(0,0,0,0)]);
+    assert( mask[vec(1,0,0,0)]);
+    assert( mask[vec(0,1,0,0)]);
+    assert( mask[vec(0,0,1,0)]);
+    assert( mask[vec(0,0,0,1)]);
+
+    mask[vec(0,0,1,0)] = 0;
+    assert(!mask[vec(0,0,0,0)]);
+    assert( mask[vec(1,0,0,0)]);
+    assert( mask[vec(0,1,0,0)]);
+    assert(!mask[vec(0,0,1,0)]);
+    assert( mask[vec(0,0,0,1)]);
+}
+
 // vim:set ai sw=4 ts=4 et:
