@@ -921,7 +921,7 @@ class CaveNode : Saveable!(CaveNode, MapNode)
     private Vec4 origin;
     private Mask4 mask;
 
-    Region4 interior()() pure { return region(origin, mask.dim); }
+    Region4 interior()() pure { return region(origin, mask.dimensions); }
 
     void interior(Region4 ir)
     {
@@ -937,6 +937,8 @@ class CaveNode : Saveable!(CaveNode, MapNode)
     override ThingId opIndex(int[4] pos...)
     {
         import terrain;
+        if (!interior.contains(vec(pos)))
+            return terrain.blockBare.id;
         return mask[vec(pos) - origin] ? terrain.blockBare.id
                                        : terrain.emptySpace.id;
     }

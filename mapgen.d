@@ -576,9 +576,6 @@ unittest
  *  root = Root of BSP tree.
  *  region = Initial bounding region.
  *  count = Number of back-edges to insert.
- *  maxRetries = Maximum number of failures while looking for a room pair that
- *      can accomodate an extra edge. This is to prevent infinite loops in case
- *      the given tree cannot accomodate another `count` doors.
  *
  * Returns: The actual number of back edges inserted, which may be less than
  * the requested number.
@@ -848,7 +845,7 @@ Partition[] partitionMap(MapNode tree, Region4 bounds, int nPartitions)
     return parts;
 }
 
-version(none)
+//version(none)
 unittest
 {
     import std.stdio;
@@ -865,6 +862,52 @@ unittest
     auto parts = partitionMap(tree, bounds, 5);
 
     bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
+}
+
+/**
+ * Returns: true if pos is in one of the nodes in the given partition, false
+ * otherwise.
+ */
+bool isInPartition(MapNode tree, Region4 bounds, int id, Vec4 pos)
+{
+    assert(0, "TBD");
+}
+
+/**
+ * Theme definition.
+ */
+class Theme
+{
+    int maxNodes;
+    //Vec3 doorMaxDim;
+
+    abstract BitMask!4 edgeFilter(BuildNode node, BuildNode.Ngbr edge);
+    abstract void instantiate(Partition part);
+}
+
+class RoomsTheme : Theme
+{
+    override BitMask!4 edgeFilter(BuildNode node, BuildNode.Ngbr edge)
+    {
+        Vec4 dim = edge.overlap.max - edge.overlap.min;
+        dim[edge.axis] = 1;
+        auto result = BitMask!4(dim);
+        result = 1;
+
+        if (auto room = node.wip ? node.wip.isRoom : null)
+        {
+            foreach (d; room.doors)
+            {
+                // TBD: mask out prohibited spots here
+            }
+        }
+
+        return result;
+    }
+
+    override void instantiate(Partition part)
+    {
+    }
 }
 
 /**
@@ -2902,6 +2945,54 @@ void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
  * Scratch pad function for generating various test levels.
  */
 World genTestLevel()(out int[4] startPos)
+{
+    auto bounds = region(vec(12,12,12,12));
+    auto tree = new CaveNode;
+
+    tree.interior = bounds;
+    startPos = (bounds.min + bounds.max) / 2;
+
+    auto w = new World;
+    w.map.tree = tree;
+    w.map.bounds = region(bounds.min, bounds.max + vec(1,1,1,1));
+    w.map.waterLevel = startPos[0];
+
+    struct Digger
+    {
+        Vec4 pos;
+        int ttl;
+        bool wasVertical;
+
+        bool run()
+        {
+            import dir, terrain;
+
+            tree[pos] = 0;
+            if (--ttl <= 0)
+                return false;
+
+            Dir d = (wasVertical) ? horizDirs.pickOne : randomDir;
+            wasVertical = (d == Dir.up || d == Dir.down);
+
+            pos = pos + vec(d.dir2vec);
+
+            if (!bounds.contains(pos))
+                return false;
+
+            return true;
+        }
+    }
+
+    foreach (i; 0 .. 25)
+    {
+        Digger digger = Digger(vec(startPos), uniform(15, 25));
+        while (digger.run()) {}
+    }
+
+    return w;
+}
+
+World genTestLevel2()(out int[4] startPos)
 {
     auto bounds = region(vec(12,12,12,12));
     TreeGenArgs args;

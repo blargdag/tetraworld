@@ -68,7 +68,9 @@ ElementType!R pickOne(R)(R range)
     if (isInputRange!R)
     in (!range.empty)
 {
-    ElementType!R result = range.front;
+    import std.traits : Unqual;
+
+    Unqual!(ElementType!R) result = range.front;
     range.popFront();
     size_t i = 2;
     while (!range.empty)
