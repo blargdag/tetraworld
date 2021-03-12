@@ -31,6 +31,7 @@ import config;
 import game;
 import hiscore;
 import loadsave;
+import tui;
 import ui;
 
 /**

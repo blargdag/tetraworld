@@ -43,6 +43,18 @@ import widgets;
 import world;
 
 /**
+ * UI backend interface.
+ */
+interface UiBackend
+{
+    DisplayObject term();
+    dchar getch();
+    UiEvent nextEvent();
+    void sleep(int msecs);
+    void quit();
+}
+
+/**
  * Text UI configuration parameters.
  */
 struct TextUiConfig
@@ -193,59 +205,6 @@ ENDTEXT"
     .split('\n');
 
 private enum ident(alias Memb) = __traits(identifier, Memb);
-
-interface UiBackend
-{
-    DisplayObject term();
-    dchar getch();
-    InputEvent nextEvent();
-    void sleep(int msecs);
-    void quit();
-}
-
-class TerminalUiBackend : UiBackend
-{
-    private Terminal* _term;
-    private DisplayObject wrappedterm;
-    private RealTimeConsoleInput* input;
-
-    this()
-    {
-        _term = new Terminal(ConsoleOutputType.cellular);
-        wrappedterm = displayObject(_term);
-        input = new RealTimeConsoleInput(_term, ConsoleInputFlags.raw);
-    }
-
-    ~this() { quit(); }
-
-    override DisplayObject term() { return wrappedterm; }
-
-    override dchar getch() { return input.getch(); }
-
-    override InputEvent nextEvent() { return input.nextEvent(); }
-
-    override void sleep(int msecs)
-    {
-        import core.thread : Thread;
-        import core.time : dur;
-        Thread.sleep(dur!"msecs"(msecs));
-    }
-
-    void quit()
-    {
-        if (_term)
-        {
-            destroy(*_term);
-            _term = null;
-            wrappedterm = null;
-        }
-        if (input)
-        {
-            destroy(*input);
-            input = null;
-        }
-    }
-}
 
 /**
  * Text-based UI implementation.

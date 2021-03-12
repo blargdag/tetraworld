@@ -48,6 +48,35 @@ struct Mode
 }
 
 /**
+ * A UI backend event.
+ *
+ * Unfortunately we can't reuse existing definitions, because
+ * arsd.terminal.InputEvent can only be privately constructed and it's
+ * incompatible with arsd.simpledisplay.xxxEvent. So we have to translate
+ * events to a common format.
+ */
+struct UiEvent
+{
+    enum Type { kbd, mouse, resize }
+    Type type;
+
+    union
+    {
+        dchar key;  // Type.kbd
+        struct      // Type.mouse
+        {
+            int mouseX, mouseY;
+            uint buttons; // TBD
+        }
+        struct      // Type.resize
+        {
+            int newWidth;
+            int newHeight;
+        }
+    }
+}
+
+/**
  * Input dispatcher.
  */
 struct InputDispatcher
@@ -91,14 +120,13 @@ struct InputDispatcher
             top.render();
     }
 
-    void handleEvent(InputEvent event)
+    void handleEvent(UiEvent event)
     {
         switch (event.type)
         {
-            case InputEvent.Type.KeyboardEvent:
-                auto ev = event.get!(InputEvent.Type.KeyboardEvent);
+            case UiEvent.Type.kbd:
                 assert(top.onCharEvent !is null);
-                top.onCharEvent(ev.which);
+                top.onCharEvent(event.key);
                 break;
 
             default:

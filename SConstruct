@@ -60,6 +60,7 @@ sources = Split("""
 	terrain.d
 	testutil.d
 	tile.d
+	tui.d
 	ui.d
 	vector.d
 	widgets.d
