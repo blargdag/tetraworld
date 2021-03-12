@@ -576,75 +576,76 @@ unittest
  *  root = Root of BSP tree.
  *  region = Initial bounding region.
  *  count = Number of back-edges to insert.
- *  maxRetries = Maximum number of failures while looking for a room pair that
- *      can accomodate an extra edge. This is to prevent infinite loops in case
- *      the given tree cannot accomodate another `count` doors.
+ *
+ * Returns: The actual number of back edges inserted, which may be less than
+ * the requested number.
  */
-void genBackEdges(MapNode root, Region4 region, int count, int maxRetries = 15)
+int genBackEdges(MapNode root, Region4 region, int count)
 {
     import std.random : uniform;
-    import rndutil : pickOne;
 
-    static struct RightRoom
+    static struct Candidate
     {
-        BuildNode node;
+        BuildNode left, right;
         Region4 region;
     }
 
-    bool tryAddEdge(BuildNode node, Region4 bounds)
+    auto cands = new Candidate[count];
+    size_t n;
+    root.foreachRoom(region, (Region4 r, MapNode n1) {
+        auto node = n1.isBuildNode;
+        if (node is null) return 0;
+
+        foreach (axis; 0 .. 4)
+        {
+            Region4 wallFilt = rightWallFilt(node, r, axis);
+            root.foreachFiltRoom(region, wallFilt, (MapNode n2, Region4 r2) {
+                auto node2 = n2.isBuildNode;
+                if (node2 is null) return 0;
+
+                auto wallFilt2 = leftWallFilt(node2, r2, axis);
+                auto ir = wallFilt.intersect(wallFilt2);
+
+                if (!iota(4).map!(i => i == root.axis || ir.max[i] - ir.min[i] > 0)
+                            .fold!((a,b) => a && b)(true))
+                {
+                    // No overlap or too narrow, skip.
+                    return 0;
+                }
+
+                // Skip if there's already an edge between these two rooms.
+                if (node.ngbrs.canFind!(ngbr => ngbr.node is node2))
+                    return 0;
+
+                auto cand = Candidate(node, node2, ir);
+                if (n < count)
+                {
+                    // Fill in first `count` candidates first.
+                    cands[n++] = cand;
+                }
+                else
+                {
+                    // Replace earlier candidates with equal probability.
+                    n++;
+                    auto i = uniform(0, n);
+                    if (i < count)
+                        cands[i] = cand;
+                }
+                return 0;
+            });
+        }
+        return 0;
+    });
+
+    // Add selected back-edges.
+    auto found = min(count, n);
+    foreach (c; cands[0 .. found])
     {
-        // Randomly select a wall of the room.
-        auto axis = uniform(0, 4);
-        Region4 wallFilt = rightWallFilt(node, bounds, axis);
-
-        // Find an adjacent room that can be joined to this one via a door.
-        RightRoom[] targets;
-        root.foreachFiltRoom(region, wallFilt, (MapNode n2, Region4 r2) {
-            import std.algorithm : canFind, filter, fold;
-            import std.range : iota;
-
-            auto node2 = n2.isBuildNode;
-            if (node2 is null) return 0;
-
-            auto wallFilt2 = leftWallFilt(node2, r2, axis);
-            auto ir = wallFilt.intersect(wallFilt2);
-
-            if (!iota(4).map!(i => i == root.axis || ir.max[i] - ir.min[i] > 0)
-                        .fold!((a,b) => a && b)(true))
-            {
-                // No overlap or too narrow, skip.
-                return 0;
-            }
-
-            // Skip if there's already an edge between these two rooms.
-            if (node.ngbrs.canFind!(ngbr => ngbr.node is node2))
-                return 0;
-
-            targets ~= RightRoom(node2, ir);
-            return 0;
-        });
-
-        if (targets.empty)
-            return false; // couldn't match anything for this room
-
-        auto rightRoom = targets.pickOne;
-        node.ngbrs ~= BuildNode.Ngbr(rightRoom.node, rightRoom.region, true);
-        rightRoom.node.ngbrs ~= BuildNode.Ngbr(node, rightRoom.region, true);
-
-        return true;
+        c.left.ngbrs ~= BuildNode.Ngbr(c.right, c.region, true);
+        c.right.ngbrs ~= BuildNode.Ngbr(c.left, c.region, true);
     }
 
-    while (count > 0 && maxRetries > 0)
-    {
-        auto nb = randomRoom(root, region, Distrib.volume);
-        auto node = nb[0].isBuildNode;
-        auto bounds = nb[1];
-
-        if (node !is null && tryAddEdge(node, bounds))
-            count--;
-        else
-            maxRetries--;
-    }
+    return found;
 }
 
 unittest
@@ -684,7 +685,8 @@ unittest
         BuildNode.Ngbr(root.right.left, region(vec(4,4,0,0), vec(4,6,1,1))),
     ];
 
-    genBackEdges(root, bounds, 1, 99);
+    auto n = genBackEdges(root, bounds, 1);
+    assert(n == 1);
 
     assert(root.left.isBuildNode.ngbrs[1].node is root.right.left);
     assert(root.left.isBuildNode.ngbrs[1].overlap ==
@@ -692,6 +694,220 @@ unittest
     assert(root.right.left.isBuildNode.ngbrs[1].node is root.left);
     assert(root.right.left.isBuildNode.ngbrs[1].overlap ==
         region(vec(1,4,0,0), vec(3,4,1,1)));
+}
+
+void bspToDot(S)(MapNode tree, Region4 region, S sink)
+    if (isOutputRange!(S, char))
+{
+    import std.format : format, formattedWrite;
+
+    string nodeId(MapNode node)
+    {
+        return format("node%x", cast(void*)node);
+    }
+
+    string themeToColor(int themeId)
+    {
+        switch (themeId)
+        {
+            case 0:     return "salmon";
+            case 1:     return "orange";
+            case 2:     return "yellow";
+            case 3:     return "lime";
+            case 4:     return "green";
+            case 5:     return "cyan";
+            case 6:     return "blue";
+            case 7:     return "purple";
+            case 8:     return "pink";
+            default:    return "grey";
+        }
+    }
+
+    void impl(MapNode node, Region4 r)
+    {
+        if (!node.isLeaf)
+        {
+            impl(node.left, leftRegion(r, node.axis, node.pivot));
+            impl(node.right, rightRegion(r, node.axis, node.pivot));
+            return;
+        }
+
+        auto bnode = node.isBuildNode;
+        if (bnode !is null)
+        {
+            sink.formattedWrite("\t%s [label=\"%d\",shape=ellipse,"~
+                                "style=filled,color=%s]\n",
+                                nodeId(node), bnode.ngbrs.length,
+                                themeToColor(bnode.themeId));
+            foreach (ngbr; bnode.ngbrs)
+            {
+                if (cast(void*)node < cast(void*)ngbr.node)
+                    sink.formattedWrite("\t%s -- %s [color=%s]\n",
+                                        nodeId(node), nodeId(ngbr.node),
+                                        ngbr.isBackEdge ? "blue" : "black");
+            }
+        }
+        else
+        {
+            sink.formattedWrite("\t%s [label=\"%s\",shape=box]\n",
+                                nodeId(node), "X");
+        }
+    }
+
+    sink.formattedWrite("graph G {");
+    impl(tree, region);
+    sink.formattedWrite("}");
+}
+
+/**
+ * A connected subset of a map.
+ */
+struct Partition
+{
+    int id;
+    BuildNode[] open, closed;
+}
+
+/**
+ * Partition the given BSP tree into connected subsets.
+ *
+ * Params:
+ *  tree = The BSP tree. Leaf nodes should be BuildNodes; otherwise nothing
+ *      will be done.
+ *  bounds = Bounds of the BSP tree.
+ *  n = The number of partitions to assign.
+ *
+ * Returns: An array of connected subsets, with their associated theme IDs.
+ */
+Partition[] partitionMap(MapNode tree, Region4 bounds, int nPartitions)
+    in (nPartitions <= tree.nLeaves)
+{
+    import std.conv : to;
+
+    // Pick nPartitions random nodes as seed points for partition generation.
+    Partition[] parts;
+    while (parts.length < nPartitions)
+    {
+        int id = 1 + parts.length.to!int;
+        auto node = randomRoom(tree, Distrib.rooms).isBuildNode;
+        if (node is null || node.themeId != 0)
+            continue;
+
+        node.themeId = id;
+        parts ~= Partition(id, [ node ]);
+    }
+
+    // Expand each seed to the surrounding connected region until the graph is
+    // covered.
+    bool hasOpen;
+    do
+    {
+        hasOpen = false;
+        foreach (ref part; parts)
+        {
+            while (part.open.length > 0)
+            {
+                auto i = uniform(0, part.open.length);
+                auto node = part.open[i];
+                auto nextHops = node.ngbrs
+                                    .map!(ngbr => ngbr.node.isBuildNode)
+                                    .filter!(ngbr => ngbr !is null &&
+                                                     ngbr.themeId == 0);
+                if (nextHops.empty)
+                {
+                    part.closed ~= node;
+                    part.open = part.open.remove(i);
+                    continue;
+                }
+
+                auto next = nextHops.pickOne;
+                next.themeId = part.id;
+                part.open ~= next;
+                hasOpen = true;
+                break;
+            }
+        }
+    } while (hasOpen);
+
+    // Renumber partitions by size.
+    sort!((t1,t2) => t1.closed.length > t2.closed.length)(parts);
+
+    foreach (i, part; parts)
+    {
+        int newId = i.to!int;
+        foreach (node; part.closed)
+        {
+            node.themeId = newId;
+        }
+        part.id = newId;
+    }
+
+    return parts;
+}
+
+//version(none)
+unittest
+{
+    import std.stdio;
+
+    Region4 bounds = region(vec(0,0,0,0), vec(13,13,13,13));
+    TreeGenArgs args;
+    //args.splitVolume = ValRange(40, 100);
+
+    auto tree = genTree(bounds, args);
+    auto nbe = genBackEdges(tree, bounds, tree.nLeaves/3);
+    import std;writefln("num leaves=%d", tree.nLeaves);
+    import std;writefln("num back edges=%d", nbe);
+
+    auto parts = partitionMap(tree, bounds, 5);
+
+    bspToDot(tree, bounds, File("/tmp/graph.dot", "w").lockingTextWriter);
+}
+
+/**
+ * Returns: true if pos is in one of the nodes in the given partition, false
+ * otherwise.
+ */
+bool isInPartition(MapNode tree, Region4 bounds, int id, Vec4 pos)
+{
+    assert(0, "TBD");
+}
+
+/**
+ * Theme definition.
+ */
+class Theme
+{
+    int maxNodes;
+    //Vec3 doorMaxDim;
+
+    abstract BitMask!4 edgeFilter(BuildNode node, BuildNode.Ngbr edge);
+    abstract void instantiate(Partition part);
+}
+
+class RoomsTheme : Theme
+{
+    override BitMask!4 edgeFilter(BuildNode node, BuildNode.Ngbr edge)
+    {
+        Vec4 dim = edge.overlap.max - edge.overlap.min;
+        dim[edge.axis] = 1;
+        auto result = BitMask!4(dim);
+        result = 1;
+
+        if (auto room = node.wip ? node.wip.isRoom : null)
+        {
+            foreach (d; room.doors)
+            {
+                // TBD: mask out prohibited spots here
+            }
+        }
+
+        return result;
+    }
+
+    override void instantiate(Partition part)
+    {
+    }
 }
 
 /**
@@ -711,28 +927,41 @@ MapNode genTheme(MapNode tree, Region4 bounds)
             // TBD: implement other theme nodes here
             // TBD: should split up theme instantiation code by theme instead
             // of putting everything here
-            case 0:
+            case 0: .. case 2:
             default:
                 auto room = new RoomNode;
                 room.interior = region(bounds.min, bounds.max - vec(1,1,1,1));
+                if (node.themeId < 3)
+                    room.style = cast(FloorStyle) node.themeId;
+
                 foreach (ngbr; node.ngbrs)
                 {
                     Vec4 pos;
                     int axis = ngbr.axis;
 
-                    foreach (i; 0 .. 4)
+                    int nTries = 0; // FIXME: horrible hack
+                    do
                     {
-                        auto min = ngbr.overlap.min[i];
-                        auto max = ngbr.overlap.max[i];
-                        if (min == max)
-                            pos[i] = min - 1;
-                        else
-                            pos[i] = uniform(min, max);
-                    }
+                        foreach (i; 0 .. 4)
+                        {
+                            auto min = ngbr.overlap.min[i];
+                            auto max = ngbr.overlap.max[i];
+                            if (min == max)
+                                pos[i] = min - 1;
+                            else
+                                pos[i] = uniform(min, max);
+                        }
 
-                    auto d = Door(axis, pos, ngbr.isBackEdge ?
-                                             Door.Type.extra :
-                                             Door.Type.normal);
+                        // Vertical back-edges should not fall on other door
+                        // porches (to prevent pits that prevent access to a
+                        // door).
+                    } while (++nTries < 10 && axis == 0 && ngbr.isBackEdge &&
+                             room.doors.canFind!(d => d.axis != 0 &&
+                                 doorPorch(room, d)[1 .. 3] == pos[1 .. 3]));
+
+                    auto d = Door(axis, pos,
+                                  (ngbr.isBackEdge && uniform(0, 100) < 50) ?
+                                  Door.Type.extra : Door.Type.normal);
 
                     // Confine neighbour node's edge to the door location we
                     // selected.
@@ -1266,7 +1495,7 @@ unittest
 
     // Generate connecting corridors
     genCorridors(tree, bounds);
-    genBackEdges(tree, bounds, 4, 15);
+    genBackEdges(tree, bounds, 4);
 
     tree = genTheme(tree, bounds);
 
@@ -1308,7 +1537,7 @@ unittest
     args.minNodeDim = 2;
 
     auto tree = genTree(bounds, args);
-    genBackEdges(tree, bounds, 4, 15);
+    genBackEdges(tree, bounds, 4);
     tree = genTheme(tree, bounds);
 
     auto w = new World;
@@ -1335,6 +1564,7 @@ private int roomMetric()(MapNode node, Distrib distrib)
         case Distrib.tree:      return 1;
         case Distrib.floor:     return node.floorArea;
         case Distrib.volume:    return node.volume;
+        case Distrib.rooms:     return node.nLeaves;
     }
 }
 
@@ -1596,8 +1826,8 @@ unittest
  *  openPitPct = Percentage of pits that will be visible open pits, vs. hidden
  *      traps.
  */
-void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
-                 int openPitPct = 30)
+int genPitTraps(World w, MapNode tree, Region4 bounds, int count,
+                int openPitPct = 30)
 {
     static bool onPorch(RoomNode rm, Vec4 pos)
     {
@@ -1630,8 +1860,9 @@ void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
     filt.distrib = Distrib.floor;
     filt.maxTries = 10;
 
-    int maxFail = count*5;
-    while (count > 0 && maxFail > 0)
+    int n = 0;
+    int maxFail = count*2;
+    while (n < count && maxFail > 0)
     {
         auto np = randomRoomPos(w, tree, filt);
         auto node = np[0];
@@ -1675,8 +1906,11 @@ void genPitTraps(World w, MapNode tree, Region4 bounds, int count,
             w.triggerId++;
         }
 
-        count--;
+        n++;
+        maxFail = count*2;
     }
+
+    return n;
 }
 
 unittest
@@ -1706,7 +1940,7 @@ unittest
     w.map.tree = root;
     w.map.bounds = bounds;
 
-    genPitTraps(w, root, bounds, 1, 0);
+    while (genPitTraps(w, root, bounds, 1, 0) < 1) {}
 
     auto r = w.store.getAll!Triggerable()
                     .map!(id => w.store.get!TiledAbove(id));
@@ -2049,11 +2283,10 @@ MapNode genTree(Region4 bounds, TreeGenArgs args)
 void genGeometry(World w, ref MapNode tree, Region4 bounds, MapGenArgs args)
 {
     // Add back edges, regular and pits/pit traps.
-    genBackEdges(tree, bounds, args.nBackEdges.pick,
-                 args.nBackEdges.max + 15);
+    genBackEdges(tree, bounds, args.nBackEdges.pick);
     tree = genTheme(tree, bounds);
 
-    setRoomFloors(tree, bounds);
+    //setRoomFloors(tree, bounds);
     genPitTraps(w, tree, bounds, args.nPitTraps.pick);
 
     resizeRooms(tree, bounds, args.tree.minNodeDim - 1);
@@ -2713,33 +2946,90 @@ void genDoorAndLever(World w, int[4] doorPos, MapNode leverTree,
  */
 World genTestLevel()(out int[4] startPos)
 {
-    auto root = new MapNode;
-    root.axis = 1;
-    root.pivot = 5;
+    auto bounds = region(vec(12,12,12,12));
+    auto tree = new CaveNode;
 
-    root.left = new RoomNode;
-    root.left.isRoom.interior = region(vec(1,1,1,1), vec(3,4,4,4));
-    root.left.isRoom.doors = [
-        Door(1, [1,4,2,2]),
-    ];
-
-    root.right = new RoomNode;
-    root.right.isRoom.interior = region(vec(1,5,1,1), vec(8,8,4,4));
-    root.right.isRoom.doors = [
-        Door(1, [1,4,2,2]),
-    ];
+    tree.interior = bounds;
+    startPos = (bounds.min + bounds.max) / 2;
 
     auto w = new World;
-    w.map.tree = root;
-    w.map.bounds = region(vec(1,1,1,1), vec(9,9,5,5));
-    w.map.waterLevel = int.max;
+    w.map.tree = tree;
+    w.map.bounds = region(bounds.min, bounds.max + vec(1,1,1,1));
+    w.map.waterLevel = startPos[0];
 
-    if (!tryAddSpiralStairs(w, root.right.isRoom, root.right.isRoom.doors[0]))
-        assert(0, "Failed to add spiral stairs");
+    struct Digger
+    {
+        Vec4 pos;
+        int ttl;
+        bool wasVertical;
 
-    //addLadders(w, w.map.tree, w.map.bounds);
+        bool run()
+        {
+            import dir, terrain;
 
-    startPos = [7,6,2,2];
+            tree[pos] = 0;
+            if (--ttl <= 0)
+                return false;
+
+            Dir d = (wasVertical) ? horizDirs.pickOne : randomDir;
+            wasVertical = (d == Dir.up || d == Dir.down);
+
+            pos = pos + vec(d.dir2vec);
+
+            if (!bounds.contains(pos))
+                return false;
+
+            return true;
+        }
+    }
+
+    foreach (i; 0 .. 25)
+    {
+        Digger digger = Digger(vec(startPos), uniform(15, 25));
+        while (digger.run()) {}
+    }
+
+    return w;
+}
+
+World genTestLevel2()(out int[4] startPos)
+{
+    auto bounds = region(vec(12,12,12,12));
+    TreeGenArgs args;
+
+    auto tree = genTree(bounds, args);
+    genBackEdges(tree, bounds, tree.nLeaves * 30/100);
+    auto parts = partitionMap(tree, bounds, 3);
+
+    // DEBUG
+    {
+        import std.exception : enforce;
+        import std.stdio : File;
+        import std.process : executeShell;
+        auto f = File("/tmp/graph.dot", "w");
+        bspToDot(tree, bounds, f.lockingTextWriter);
+        f.close;
+        auto rs = executeShell(
+            "neato -Tsvg /tmp/graph.dot -o /home/hsteoh/www/tmp/test.svg "~
+            "&& convert /home/hsteoh/www/tmp/test.svg /home/hsteoh/www/tmp/test.png"
+        );
+        enforce(rs.status == 0, rs.output);
+    }
+
+    tree = genTheme(tree, bounds);
+
+    resizeRooms(tree, bounds, 3);
+    sinkDoors(tree, bounds);
+
+    auto w = new World;
+    w.map.tree = tree;
+    w.map.bounds = bounds;
+    w.map.waterLevel = 8;
+
+    addLadders(w, tree, bounds, 50);
+
+    startPos = randomPos(w, w.map.tree, RandomPosFilt(Dryness.dry,
+                         Occupancy.empty, Support.below, Distrib.rooms));
     return w;
 }
 

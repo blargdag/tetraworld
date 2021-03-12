@@ -37,6 +37,7 @@ import vector;
  */
 alias Region4 = Region!(int,4);
 alias Vec4 = Vec!(int,4);
+alias Mask4 = BitMask!4;
 
 /**
  * Checks if T is a 4D array of elements, and furthermore has dimensions that
@@ -700,7 +701,7 @@ enum FloorStyle
 enum Dryness { any, dry, wet }
 enum Occupancy { any, empty, occupied }
 enum Support { any, below }
-enum Distrib { tree, floor, volume }
+enum Distrib { tree, floor, volume, rooms }
 
 /**
  * Location filter for randomPos().
@@ -758,6 +759,17 @@ class MapNode : Saveable!(MapNode, BspNode!(MapNode))
     @NoSave private int _volume = int.min;
 
     /**
+     * Returns: The number of leaf nodes in this subtree.
+     */
+    int nLeaves() pure
+    {
+        if (_nLeaves == int.min)
+            _nLeaves = (isLeaf) ? 1 : left.nLeaves + right.nLeaves;
+        return _nLeaves;
+    }
+    @NoSave private int _nLeaves = int.min;
+
+    /**
      * Look up a location on the map.
      *
      * Returns: The ThingId of the top object in the given location.
@@ -808,6 +820,8 @@ class BuildNode : MapNode // N.B.: NOT saveable
     Region4 bounds;
     Ngbr[] ngbrs;
     int themeId;
+
+    MapNode wip;
 
     this() {}
     this(Region4 _bounds) { bounds = _bounds; }
@@ -896,6 +910,73 @@ class RoomNode : Saveable!(RoomNode, MapNode)
                 result[i] = uniform(interior.min[i], interior.max[i]);
         }
         return vec(result);
+    }
+}
+
+/**
+ * A cave node.
+ */
+class CaveNode : Saveable!(CaveNode, MapNode)
+{
+    private Vec4 origin;
+    private Mask4 mask;
+
+    Region4 interior()() pure { return region(origin, mask.dimensions); }
+
+    void interior(Region4 ir)
+    {
+        origin = ir.min;
+        mask = Mask4(ir.max - ir.min);
+        mask = 1;
+    }
+
+    override int floorArea() pure { assert(0, "TBD"); }
+
+    override int volume() pure { return mask.count!0; }
+
+    override ThingId opIndex(int[4] pos...)
+    {
+        import terrain;
+        if (!interior.contains(vec(pos)))
+            return terrain.blockBare.id;
+        return mask[vec(pos) - origin] ? terrain.blockBare.id
+                                       : terrain.emptySpace.id;
+    }
+
+    void opIndexAssign()(int b, int[4] pos...)
+        in (b==0 || b==1)
+    {
+        if (!region(origin, mask.dimensions).contains(vec(pos)))
+            return;
+
+        mask[vec(pos) - origin] = cast(bool) b;
+    }
+
+    unittest
+    {
+        import terrain;
+
+        auto cn = new CaveNode;
+        cn.interior = region(vec(0,0,0,0), vec(5,5,5,5));
+        assert(cn[0,0,0,0] == terrain.blockBare.id);
+        assert(cn[1,0,0,0] == terrain.blockBare.id);
+        assert(cn[0,1,0,0] == terrain.blockBare.id);
+        assert(cn[0,0,1,0] == terrain.blockBare.id);
+        assert(cn[0,0,0,1] == terrain.blockBare.id);
+
+        cn[0,0,0,0] = 0;
+        assert(cn[0,0,0,0] == terrain.emptySpace.id);
+        assert(cn[1,0,0,0] == terrain.blockBare.id);
+        assert(cn[0,1,0,0] == terrain.blockBare.id);
+        assert(cn[0,0,1,0] == terrain.blockBare.id);
+        assert(cn[0,0,0,1] == terrain.blockBare.id);
+
+        cn[0,0,1,0] = 0;
+        assert(cn[0,0,0,0] == terrain.emptySpace.id);
+        assert(cn[1,0,0,0] == terrain.blockBare.id);
+        assert(cn[0,1,0,0] == terrain.blockBare.id);
+        assert(cn[0,0,1,0] == terrain.emptySpace.id);
+        assert(cn[0,0,0,1] == terrain.blockBare.id);
     }
 }
 

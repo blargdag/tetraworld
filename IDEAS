@@ -117,5 +117,51 @@ New mapgen design:
      theme.
    - Place objects, NPCs, start locations, etc..
 
+[2021-03-08] Further refinement of new mapgen:
+- Instead of using the BSP structure as the connectivity structure, what about
+  we use the BSP *only* for partitioning?
+- New idea:
+   - Stage 1: Create a BSP tree to partition the map into rectangular blocks.
+   - Stage 2: Pick n random leaf nodes and accrete neighbours *spatially*,
+     i.e., not limited to BSP tree structure. As long as nodes overlap by at
+     least 2 tiles, they qualify.  This partitions the rectangular blocks into
+     connected regions.
+      - We can optionally bias the selection of accreting neighbours by theme
+        (e.g., some themes prefer a mostly-horizontal layout, some vertical,
+        some don't care).
+      - Theme configuration:
+         - List of themes desired for generated map;
+         - Each theme may be unique (assigned to exactly one region), or
+           multiple (can be assigned to multiple regions).
+         - Neighbour accreting function / distribution (probably best to just
+           keep to vertical/horizontal bias instead of doing all 4 directions).
+         - Max theme size (to handle themes used for modelling special rooms /
+           group of rooms).
+         - Catch-all theme for unassigned nodes (if theme constraints leave
+           some areas unassigned -- or maybe we could just assign this to
+           blocked nodes).
+         - Placement criteria (e.g., near water line, must be at skyline,
+           etc.).
+   - Stage 3: Construct a *graph* of regions by spatial adjacency. Compute a
+     spanning tree of regions, then insert back edges to form a connected
+     subgraph. Edges only exist between blocks belonging to different regions;
+     no edges are generated between blocks in a single region.
+      - Note that technically, the graph produced would be a multi-graph, since
+        we can have multiple edges between the same pair of regions by
+        connecting different adjacent blocks that belong to each region.
+      - Perhaps the most flexible approach is to leave it as an abstract graph
+        of regions, and let the theme generators simply make sure to include at
+        least one edge to the target region.  The returning edge from the other
+        region need not coincide with this one, so one-way pit cycles can be
+        possible!
+      - There must be some cross-theme algorithm for deciding on exact exits,
+        though. So the theme generators will need a negotiation component.
+        Perhaps the easiest way is for each theme to have some sort of
+        description or list of preferences for connection types, and the edge
+        resolver will decide based on the two adjacent themes' preferences a
+        common solution.
+   - Stage 4: Instantiate themes in each region. Each theme generator will have
+     freedom how to generate internal connections.
+
 
 // vim:set sw=3 ts=3 et ai:
