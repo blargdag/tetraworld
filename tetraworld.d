@@ -103,7 +103,10 @@ int main(string[] args)
     auto ui = new TextUi(uiConfig);
     try
     {
-        auto quitMsg = ui.play(game);
+        auto uiBackend = new TerminalUiBackend;
+        scope(exit) uiBackend.quit();
+
+        auto quitMsg = ui.play(game, uiBackend);
         writeln(quitMsg);
 
         version(Windows)

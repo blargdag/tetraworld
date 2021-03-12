@@ -194,6 +194,59 @@ ENDTEXT"
 
 private enum ident(alias Memb) = __traits(identifier, Memb);
 
+interface UiBackend
+{
+    DisplayObject term();
+    dchar getch();
+    InputEvent nextEvent();
+    void sleep(int msecs);
+    void quit();
+}
+
+class TerminalUiBackend : UiBackend
+{
+    private Terminal* _term;
+    private DisplayObject wrappedterm;
+    private RealTimeConsoleInput* input;
+
+    this()
+    {
+        _term = new Terminal(ConsoleOutputType.cellular);
+        wrappedterm = displayObject(_term);
+        input = new RealTimeConsoleInput(_term, ConsoleInputFlags.raw);
+    }
+
+    ~this() { quit(); }
+
+    override DisplayObject term() { return wrappedterm; }
+
+    override dchar getch() { return input.getch(); }
+
+    override InputEvent nextEvent() { return input.nextEvent(); }
+
+    override void sleep(int msecs)
+    {
+        import core.thread : Thread;
+        import core.time : dur;
+        Thread.sleep(dur!"msecs"(msecs));
+    }
+
+    void quit()
+    {
+        if (_term)
+        {
+            destroy(*_term);
+            _term = null;
+            wrappedterm = null;
+        }
+        if (input)
+        {
+            destroy(*input);
+            input = null;
+        }
+    }
+}
+
 /**
  * Text-based UI implementation.
  */
@@ -210,7 +263,7 @@ class TextUi : GameUi
     private TextUiConfig cfg;
 
     private DisplayObject term;
-    private RealTimeConsoleInput* input;
+    private UiBackend backend;
     private MainDisplay disp;
 
     private MsgBox      msgBox;
@@ -257,7 +310,7 @@ class TextUi : GameUi
     {
         msgBox.message(str, {
             refresh();
-            input.getch();
+            backend.getch();
         });
     }
 
@@ -527,7 +580,7 @@ class TextUi : GameUi
                 term.moveTo(cx, cy);
                 term.flush();
 
-                Thread.sleep(dur!"msecs"(50));
+                backend.sleep(50);
             }
             refreshNeedsPause = true;
         }
@@ -596,7 +649,7 @@ class TextUi : GameUi
             {
                 import core.thread : Thread;
                 import core.time : dur;
-                Thread.sleep(dur!"msecs"(180));
+                backend.sleep(180);
             }
         }
         viewport.centerOn(center);
@@ -626,7 +679,7 @@ class TextUi : GameUi
         // Make sure player has read all current messages first.
         msgBox.flush({
             refresh();
-            input.getch();
+            backend.getch();
         });
 
         auto scrn = pagerScreen();
@@ -880,20 +933,10 @@ class TextUi : GameUi
         statusview = createStatusView(screenRect);
     }
 
-    string play(Game game)
+    string play(Game game, UiBackend _backend)
     {
-        auto _term = Terminal(ConsoleOutputType.cellular);
-        if (cfg.tscriptFile.length > 0)
-        {
-            import std.stdio;
-            auto f = File(cfg.tscriptFile, "w");
-            term = displayObject(recorded(&_term, f.lockingBinaryWriter));
-        }
-        else
-            term = displayObject(&_term);
-
-        auto _input = RealTimeConsoleInput(&_term, ConsoleInputFlags.raw);
-        input = &_input;
+        backend = _backend;
+        term = backend.term;
         setupUi();
 
         // Run game engine thread in its own fiber.
@@ -911,12 +954,12 @@ class TextUi : GameUi
             disp.flush();
             refreshNeedsPause = false;
             msgBox.sync();
-            dispatch.handleEvent(input.nextEvent());
+            dispatch.handleEvent(backend.nextEvent());
         }
 
         msgBox.flush({
             refresh();
-            input.getch();
+            backend.getch();
         });
 
         term.clear();
