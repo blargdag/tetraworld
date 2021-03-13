@@ -31,6 +31,7 @@ import config;
 import game;
 import hiscore;
 import loadsave;
+import gui;
 import tui;
 import ui;
 
@@ -40,7 +41,10 @@ import ui;
 int main(string[] args)
 {
     enum Action { play, playTest, showHiScores }
+    enum BackendType { console, gui }
+
     Action act = Action.play;
+    BackendType betype = BackendType.console;
     TextUiConfig uiConfig = loadDefaults();
 
     auto optInfo = getopt(args,
@@ -51,6 +55,9 @@ int main(string[] args)
         "mapstyle|m",
             "Set map style [isometric|straight].",
             &uiConfig.mapStyle,
+        "gui|g",
+            "Use GUI backend instead of console",
+            { betype = BackendType.gui; },
         "hiscore|H",
             "Display high score.",
             { act = Action.showHiScores; },
@@ -104,11 +111,30 @@ int main(string[] args)
     auto ui = new TextUi(uiConfig);
     try
     {
-        auto uiBackend = new TerminalUiBackend;
-        scope(exit) uiBackend.quit();
+        final switch (betype)
+        {
+            case BackendType.console:
+            {
+                auto uiBackend = new TerminalUiBackend;
+                scope(exit) uiBackend.quit();
 
-        auto quitMsg = ui.play(game, uiBackend);
-        writeln(quitMsg);
+                auto quitMsg = ui.play(game, uiBackend);
+                writeln(quitMsg);
+                break;
+            }
+
+            case BackendType.gui:
+            {
+                auto uiBackend = new GuiBackend(800, 600, "Tetraworld");
+                scope(exit) uiBackend.quit();
+
+                uiBackend.run({
+                    auto quitMsg = ui.play(game, uiBackend);
+                    writeln(quitMsg); // FIXME: should display in GUI
+                });
+                break;
+            }
+        }
 
         version(Windows)
         {

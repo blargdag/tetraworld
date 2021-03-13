@@ -62,6 +62,10 @@ struct TextUiConfig
     int smoothscrollMsec = 80;
     string tscriptFile;
     MapStyle mapStyle;
+
+    // Note: this must be large enough to prevent stack overflows when using
+    // simpledisplay.
+    size_t fiberStackSize = 512*1024;
 }
 
 /**
@@ -902,7 +906,7 @@ class TextUi : GameUi
         g = game;
         gameFiber = new Fiber({
             g.run(this);
-        });
+        }, cfg.fiberStackSize);
 
         quit = false;
         gameFiber.call();
