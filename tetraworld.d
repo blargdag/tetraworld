@@ -126,11 +126,11 @@ int main(string[] args)
             case BackendType.gui:
             {
                 auto uiBackend = new GuiBackend(800, 600, "Tetraworld");
-                scope(exit) uiBackend.quit();
 
                 uiBackend.run({
                     auto quitMsg = ui.play(game, uiBackend);
                     writeln(quitMsg); // FIXME: should display in GUI
+                    uiBackend.quit();
                 });
                 break;
             }

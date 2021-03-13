@@ -118,12 +118,13 @@ class GuiTerminal : DisplayObject
 
         auto paint = impl.paint;
         paint.setFont(impl.font.osfont);
-        paint.pen = Pen(impl.bgColor, 1);
-        paint.drawRectangle(pixPos, Point(pixPos.x + w*impl.font.charWidth,
-                                          pixPos.y + impl.font.charHeight));
+        paint.pen = Pen(impl.bgColor);
+        paint.rasterOp = RasterOp.normal;
+        paint.drawRectangle(pixPos, w*impl.font.charWidth + 1,
+                            impl.font.charHeight + 1);
 
         int i = 0, j;
-        paint.pen = Pen(impl.fgColor, 1);
+        paint.pen = Pen(impl.fgColor);
         while (i < s.length)
         {
             j = cast(int) graphemeStride(s, i);
@@ -171,6 +172,7 @@ class GuiBackend : UiBackend
     private Font font;
     private int gridWidth, gridHeight;
     private int offsetX, offsetY;
+    private bool _quit;
 
     private ScreenPainter* curPaint;
     private int curX, curY, lastX, lastY;
@@ -319,7 +321,7 @@ class GuiBackend : UiBackend
 
     override void quit()
     {
-        window.close();
+        _quit = true;
     }
 
     void run(void delegate() _userFiber)
@@ -339,23 +341,37 @@ class GuiBackend : UiBackend
 
         window.eventLoop(0,
             delegate(dchar ch) {
-                auto d = window.draw();
-                curPaint = &d;
-                scope(exit) curPaint = null;
+                {
+                    auto d = window.draw();
+                    curPaint = &d;
+                    scope(exit) curPaint = null;
 
-                if (keyConsumer !is null)
-                    keyConsumer(ch);
+                    if (keyConsumer !is null)
+                    {
+                        keyConsumer(ch);
+                    }
+                }
+                if (_quit)
+                    window.close();
             },
             delegate(MouseEvent event) {
-                auto gridX = (event.x - offsetX) / font.charWidth;
-                auto gridY = (event.y - offsetY) / font.charHeight;
-
-                if (mouseConsumer !is null)
                 {
-                    // TBD: button state: see event.modifierState and
-                    // ModifierState.
-                    mouseConsumer(gridX, gridY, 0 /* FIXME */);
+                    auto d = window.draw();
+                    curPaint = &d;
+                    scope(exit) curPaint = null;
+
+                    auto gridX = (event.x - offsetX) / font.charWidth;
+                    auto gridY = (event.y - offsetY) / font.charHeight;
+
+                    if (mouseConsumer !is null)
+                    {
+                        // TBD: button state: see event.modifierState and
+                        // ModifierState.
+                        mouseConsumer(gridX, gridY, 0 /* FIXME */);
+                    }
                 }
+                if (_quit)
+                    window.close();
             },
         );
     }
