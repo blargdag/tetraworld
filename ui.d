@@ -629,17 +629,6 @@ class TextUi : GameUi
         quitScore = hs;
     }
 
-    /**
-     * Create a subdisplay to be used as the canvas for pager().
-     */
-    auto pagerScreen()
-    {
-        auto width = min(80, disp.width - 6);
-        auto padding = (disp.width - width) / 2;
-        return subdisplay(&disp, region(vec(padding, 1),
-                          vec(disp.width - padding, disp.height - 1)));
-    }
-
     void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
         // Make sure player has read all current messages first.
@@ -648,17 +637,15 @@ class TextUi : GameUi
             backend.getch();
         });
 
-        auto scrn = pagerScreen();
-
-        // Format paragraphs into lines
         import lang : wordWrap;
-        auto lines = paragraphs.map!(p => p.wordWrap(scrn.width - 2))
-                               .joiner([""])
-                               .array;
-
-        pager(scrn, dispatch, lines, endPrompt, {
-            gameFiber.call();
-        });
+        pager(disp, dispatch, (w, h) {
+                return paragraphs.map!(p => p.wordWrap(w-2))
+                                 .joiner([""])
+                                 .array;
+            }, endPrompt, {
+                gameFiber.call();
+            }
+        );
         Fiber.yield();
     }
 
@@ -691,8 +678,7 @@ class TextUi : GameUi
 
     private void showHelp()
     {
-        auto scrn = pagerScreen();
-        pager(scrn, dispatch, helpText[], "Press any key to return to game",
+        pager(disp, dispatch, helpText[], "Press any key to return to game",
               {});
     }
 

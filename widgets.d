@@ -362,6 +362,7 @@ unittest
 void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
                         string promptStr, int minVal, int maxVal,
                         void delegate(int) dg, string defaultVal = "")
+    if (isDisplay!Disp)
     in (defaultVal.length <= 12)
 {
     auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
@@ -481,9 +482,30 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
 /**
  * Pager for long text.
  */
-void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
-              string endPrompt, void delegate() exitHook)
+void pager(Disp)(ref Disp disp, ref InputDispatcher dispatch,
+                 const(char[])[] lines, string endPrompt,
+                 void delegate() exitHook)
+    if (isDisplay!Disp)
 {
+    pager(disp, dispatch, (w,h) => lines, endPrompt, exitHook);
+}
+
+/// ditto
+void pager(Disp)(ref Disp disp, ref InputDispatcher dispatch,
+                 const(char[])[] delegate(int w, int h) fmtLines,
+                 string endPrompt, void delegate() exitHook)
+    if (isDisplay!Disp)
+{
+    auto pagerScreen(int w, int h)
+    {
+        auto width = min(80, w - 6);
+        auto padding = (w - width) / 2;
+        return subdisplay(&disp, region(vec(padding, 1),
+                                        vec(w - padding, h - 1)));
+    }
+
+    auto scrn = pagerScreen(disp.width, disp.height);
+    auto lines = fmtLines(scrn.width, scrn.height);
     const(char[])[] nextLines;
 
     void displayPage()
@@ -516,7 +538,10 @@ void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
         () {
             displayPage();
         },
-        null,
+        (int w, int h) {
+            scrn = pagerScreen(w, h);
+            lines = fmtLines(scrn.width, scrn.height);
+        },
         (dchar ch) {
             if (nextLines.length > 0)
             {
@@ -542,6 +567,7 @@ void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
  */
 void promptYesNo(Disp)(Disp disp, ref InputDispatcher dispatch,
                        string promptStr, void delegate(bool answer) cb)
+    if (isDisplay!Disp)
 {
     string str = promptStr ~ " [yn] ";
     auto mode = Mode(
@@ -610,7 +636,7 @@ struct SelectButton
 void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
                        R inven, string promptStr, SelectButton[] buttons,
                        int startIdx = 0)
-    if (isRandomAccessRange!R && hasLength!R)
+    if (isDisplay!S && isRandomAccessRange!R && hasLength!R)
 {
     string makeHintString()
     {
