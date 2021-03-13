@@ -35,7 +35,8 @@ class TerminalUiBackend : UiBackend
     {
         _term = new Terminal(ConsoleOutputType.cellular);
         wrappedterm = displayObject(_term);
-        input = new RealTimeConsoleInput(_term, ConsoleInputFlags.raw);
+        input = new RealTimeConsoleInput(_term,
+            ConsoleInputFlags.raw | ConsoleInputFlags.size);
     }
 
     ~this() { quit(); }
@@ -56,6 +57,13 @@ class TerminalUiBackend : UiBackend
                     auto ev = event.get!(InputEvent.Type.KeyboardEvent);
                     result.type = UiEvent.Type.kbd;
                     result.key = ev.which;
+                    return result;
+
+                case InputEvent.Type.SizeChangedEvent:
+                    auto ev = event.get!(InputEvent.Type.SizeChangedEvent);
+                    result.type = UiEvent.Type.resize;
+                    result.newWidth = ev.newWidth;
+                    result.newHeight = ev.newHeight;
                     return result;
 
                 default:

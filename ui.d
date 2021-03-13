@@ -919,16 +919,16 @@ class TextUi : GameUi
             msgBox.sync();
 
             auto ev = backend.nextEvent();
-            while (ev.type == UiEvent.Type.resize)
+            if (ev.type == UiEvent.Type.resize)
             {
                 // Terminal resized; reconfigure UI.
                 setupUi();
+                viewport.centerOn(g.playerPos);
+                refresh();
                 disp.repaint();
-                disp.flush();
-
-                ev = backend.nextEvent();
             }
-            dispatch.handleEvent(ev);
+            else
+                dispatch.handleEvent(ev);
         }
 
         msgBox.flush({
