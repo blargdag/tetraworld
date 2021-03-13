@@ -65,9 +65,12 @@ struct Font
     }
 }
 
-Color xlatTermColor(ushort c)
+Color xlatTermColor(ushort c, Color defColor = Color.black)
 {
     static import arsd.terminal;
+    if (c == arsd.terminal.Color.DEFAULT)
+        return defColor;
+
     auto result = Color.black;
 
     ubyte value = (c & arsd.terminal.Bright) ? 255 : 127;
@@ -84,6 +87,11 @@ unittest
     assert(xlatTermColor(arsd.terminal.Color.yellow) == Color(127, 127, 0));
     assert(xlatTermColor(arsd.terminal.Color.yellow | arsd.terminal.Bright) ==
            Color(255, 255, 0));
+
+    assert(xlatTermColor(arsd.terminal.Color.DEFAULT,
+                         arsd.terminal.Color.yellow) == Color(127, 127, 0));
+    assert(xlatTermColor(arsd.terminal.Color.red,
+                         arsd.terminal.Color.yellow) == Color(127, 0, 0));
 }
 
 /**
@@ -143,14 +151,17 @@ class GuiTerminal : DisplayObject
 
     override void color(ushort fg, ushort bg)
     {
-        impl.fgColor = xlatTermColor(fg);
-        impl.bgColor = xlatTermColor(bg);
+        impl.fgColor = xlatTermColor(fg, Color.black);
+        impl.bgColor = xlatTermColor(bg, Color.white);
     }
 
     override bool canClear() { return true; }
     override void clear()
     {
-        impl.paint.clear();
+        auto paint = impl.paint;
+        paint.pen = Pen(impl.bgColor);
+        paint.rasterOp = RasterOp.normal;
+        paint.drawRectangle(Point(0,0), impl.window.width, impl.window.height);
     }
 
     override bool hasCursorXY() { return true; }
@@ -200,6 +211,7 @@ class GuiBackend : UiBackend
                 curPaint.pen = Pen(Color.white);
                 curPaint.rasterOp = RasterOp.xor;
                 curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
+                curPaint.rasterOp = RasterOp.normal;
                 shownCur = false;
             }
             return *curPaint;
@@ -242,6 +254,9 @@ class GuiBackend : UiBackend
         font = Font(fontName, 16);
         computeGridDim();
 
+        fgColor = Color.white;
+        bgColor = Color.black;
+
         window.draw.clear();
 
         terminal = new GuiTerminal(this);
@@ -269,24 +284,31 @@ class GuiBackend : UiBackend
     override dchar getch()
     {
         dchar result;
+
+        auto oldkc = keyConsumer;
         keyConsumer = (dchar key) {
             result = key;
             userFiber.call();
         };
-        Fiber.yield();
+        scope(exit) keyConsumer = oldkc;
 
-        keyConsumer = null;
+        Fiber.yield();
         return result;
     }
 
     override UiEvent nextEvent()
     {
         UiEvent ev;
+
+        auto oldkc = keyConsumer;
         keyConsumer = (dchar key) {
             ev.type = UiEvent.Type.kbd;
             ev.key = key;
             userFiber.call();
         };
+        scope(exit) keyConsumer = oldkc;
+
+        auto oldmc = mouseConsumer;
         mouseConsumer = (int x, int y, uint buttons) {
             ev.type = UiEvent.Type.mouse;
             ev.mouseX = x;
@@ -294,18 +316,18 @@ class GuiBackend : UiBackend
             ev.buttons = buttons;
             userFiber.call();
         };
+        scope(exit) mouseConsumer = oldmc;
+
+        auto oldrc = resizeConsumer;
         resizeConsumer = (int w, int h) {
             ev.type = UiEvent.Type.resize;
             ev.newWidth = w;
             ev.newHeight = h;
             userFiber.call();
         };
+        scope(exit) resizeConsumer = oldrc;
+
         Fiber.yield();
-
-        keyConsumer = null;
-        mouseConsumer = null;
-        resizeConsumer = null;
-
         return ev;
     }
 

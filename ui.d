@@ -917,7 +917,18 @@ class TextUi : GameUi
             disp.flush();
             refreshNeedsPause = false;
             msgBox.sync();
-            dispatch.handleEvent(backend.nextEvent());
+
+            auto ev = backend.nextEvent();
+            while (ev.type == UiEvent.Type.resize)
+            {
+                // Terminal resized; reconfigure UI.
+                setupUi();
+                disp.repaint();
+                disp.flush();
+
+                ev = backend.nextEvent();
+            }
+            dispatch.handleEvent(ev);
         }
 
         msgBox.flush({
