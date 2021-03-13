@@ -44,6 +44,7 @@ enum keyEnter = '\n';
 struct Mode
 {
     void delegate() render;
+    void delegate(int w, int h) onResizeEvent;
     void delegate(dchar) onCharEvent;
 }
 
@@ -127,6 +128,13 @@ struct InputDispatcher
             case UiEvent.Type.kbd:
                 assert(top.onCharEvent !is null);
                 top.onCharEvent(event.key);
+                break;
+
+            case UiEvent.Type.resize:
+                if (top.onResizeEvent !is null)
+                    top.onResizeEvent(event.newWidth, event.newHeight);
+                if (top.render !is null)
+                    top.render();
                 break;
 
             default:
@@ -403,6 +411,13 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
             inner.moveTo(1 + curPos, 2);
             inner.showCursor();
         },
+        (int w, int h) {
+            width = min(fullPrompt.displayLength() + 2, w);
+            scrnX = (w - width)/2;
+            scrnY = (h - height)/2;
+            scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                            vec(scrnX + w, scrnY + h)));
+        },
         (dchar ch) {
             import std.conv : to, ConvException;
             switch (ch)
@@ -501,6 +516,7 @@ void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
         () {
             displayPage();
         },
+        null,
         (dchar ch) {
             if (nextLines.length > 0)
             {
@@ -537,7 +553,9 @@ void promptYesNo(Disp)(Disp disp, ref InputDispatcher dispatch,
             auto y = disp.cursorY;
             disp.clearToEol();
             disp.moveTo(x, y);
-        }, (dchar key) {
+        },
+        null,
+        (dchar key) {
             switch (key)
             {
                 case 'y':
@@ -671,6 +689,14 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
                     inner.writef("%s", inven[i].to!string);
                 }
             }
+        },
+        (int w, int h) {
+            height = min(h, 4 + inven.length.to!int +
+                            ((hintStringLen > 0) ? 2 : 0));
+            scrnX = (w - width)/2;
+            scrnY = (h - height)/2;
+            scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                            vec(scrnX + width, scrnY + height)));
         },
         (dchar ch) {
             switch (ch)

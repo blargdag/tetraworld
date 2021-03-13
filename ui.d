@@ -403,6 +403,9 @@ class TextUi : GameUi
             {
                 refresh();
             },
+            (int w, int h) {
+                viewport.centerOn(g.playerPos);
+            },
             (dchar ch) {
                 switch (ch)
                 {
@@ -923,12 +926,9 @@ class TextUi : GameUi
             {
                 // Terminal resized; reconfigure UI.
                 setupUi();
-                viewport.centerOn(g.playerPos);
-                refresh();
                 disp.repaint();
             }
-            else
-                dispatch.handleEvent(ev);
+            dispatch.handleEvent(ev);
         }
 
         msgBox.flush({
