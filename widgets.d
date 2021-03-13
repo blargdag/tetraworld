@@ -131,8 +131,13 @@ struct InputDispatcher
                 break;
 
             case UiEvent.Type.resize:
-                if (top.onResizeEvent !is null)
-                    top.onResizeEvent(event.newWidth, event.newHeight);
+                // Need to reconfigure every mode, not just top, otherwise when
+                // we return to them they may be misconfigured.
+                foreach (ref mode; modestack)
+                {
+                    if (mode.onResizeEvent !is null)
+                        mode.onResizeEvent(event.newWidth, event.newHeight);
+                }
                 if (top.render !is null)
                     top.render();
                 break;
