@@ -202,24 +202,19 @@ class GuiBackend : UiBackend
     {
         if (hasCurPaint) return curPaint;
 
+        curPaint = window.draw();
         version(none)
-            return window.draw();
-        else
+        if (shownCur)
         {
-            curPaint = window.draw();
-            version(none)
-            if (shownCur)
-            {
-                auto pos = gridToPix(Point(lastX, lastY));
-                curPaint.pen = Pen(Color.white);
-                curPaint.rasterOp = RasterOp.xor;
-                curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
-                curPaint.rasterOp = RasterOp.normal;
-                shownCur = false;
-            }
-            hasCurPaint = true;
-            return curPaint;
+            auto pos = gridToPix(Point(lastX, lastY));
+            curPaint.pen = Pen(Color.white);
+            curPaint.rasterOp = RasterOp.xor;
+            curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
+            curPaint.rasterOp = RasterOp.normal;
+            shownCur = false;
         }
+        hasCurPaint = true;
+        return curPaint;
     }
 
     private void commitPaint()
@@ -353,6 +348,16 @@ class GuiBackend : UiBackend
 
     void run(void delegate() _userFiber)
     {
+        // Need large stack to prevent stack overflow.
+        enum fiberStackSz = 256*1024;
+        userFiber = new Fiber(_userFiber, fiberStackSz);
+
+        window.visibleForTheFirstTime = () {
+            // Don't run user fiber until window is visible; we may get X11
+            // errors if user fiber starts calling drawing functions too early
+            // on.
+            userFiber.call();
+        };
         window.windowResized = (int w, int h) {
             computeGridDim();
             window.draw.clear();
@@ -360,11 +365,6 @@ class GuiBackend : UiBackend
             if (resizeConsumer !is null)
                 resizeConsumer(gridWidth, gridHeight);
         };
-
-        // Need large stack to prevent stack overflow.
-        enum fiberStackSz = 256*1024;
-        userFiber = new Fiber(_userFiber, fiberStackSz);
-        userFiber.call();
 
         window.eventLoop(0,
             delegate(dchar ch) {

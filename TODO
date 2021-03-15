@@ -1,7 +1,9 @@
 - GUI:
+   + Starting new game in GUI mode crashes with X invalid request error.
    - Fix the widgets.d:129 assert bug. Must find out why the mode stack behaves
      differently in GUI mode...
    - Why doesn't the buffered display detect dirty lines after exiting a mode?
+   - Enter key not translated properly. Probably special keys will fail too.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
