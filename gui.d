@@ -128,8 +128,9 @@ class GuiTerminal : DisplayObject
         paint.setFont(impl.font.osfont);
         paint.pen = Pen(impl.bgColor);
         paint.rasterOp = RasterOp.normal;
-        paint.drawRectangle(pixPos, w*impl.font.charWidth + 1,
-                            impl.font.charHeight + 1);
+        paint.fillColor = Color.white;
+        paint.drawRectangle(pixPos, w*impl.font.charWidth,
+                            impl.font.charHeight);
 
         int i = 0, j;
         paint.pen = Pen(impl.fgColor);
