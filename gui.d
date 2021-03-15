@@ -191,7 +191,7 @@ class GuiBackend : UiBackend
 
     private int curX, curY, lastX, lastY;
     private bool showCur, shownCur;
-    private Color fgColor, bgColor;
+    private Color fgColor = Color.black, bgColor = Color.white;
 
     private Fiber userFiber;
     private void delegate(dchar key) keyConsumer;
@@ -370,6 +370,10 @@ class GuiBackend : UiBackend
             delegate(dchar ch) {
                 {
                     scope(exit) commitPaint();
+
+                    // Enter key remapping hack
+                    if (ch == '\x0D')
+                        ch = '\n';
 
                     if (keyConsumer !is null)
                     {
