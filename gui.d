@@ -333,8 +333,9 @@ class GuiBackend : UiBackend
 
     override void sleep(int msecs)
     {
+        auto callerFiber = Fiber.getThis;
         auto timer = new Timer(msecs, () {
-            userFiber.call();
+            callerFiber.call();
         });
 
         Fiber.yield();

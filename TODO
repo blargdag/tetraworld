@@ -1,11 +1,17 @@
 - GUI:
    + Starting new game in GUI mode crashes with X invalid request error.
-   - Fix the widgets.d:129 assert bug. Must find out why the mode stack behaves
+   + Fix the widgets.d:129 assert bug. Must find out why the mode stack behaves
      differently in GUI mode...
-      - Probably caused by Fiber sync issues when gui.sleep() is called. E.g.,
+      + Probably caused by Fiber sync issues when gui.sleep() is called. E.g.,
         if a key event occurs while in the middle of a sleep, the key handler
         will likely end up in the wrong fiber and strange things will happen
         once the fibers are out-of-sync.
+      * Haha no, the BP is more fundamental than that. The REAL BP is that
+        gui.sleep() is assuming that it's being called from userFiber, but this
+        may not necessarily be the case; it could be called from a Fiber
+        spawned by userFiber. If so, sleep() will wrongly short-circuit that
+        Fiber and return prematurely to userFiber, at which point things are
+        out-of-sync and will malfunction.
    + Why doesn't the buffered display detect dirty lines after exiting a mode?
    - Why do popup widgets have the grid effect when the main map display
      doesn't??
@@ -16,6 +22,9 @@
      multiple connected regions.
    - Implement different themes.
    - Continue refactoring old code.
+- [Fiber] Need to audit UI code to catch other wrong Fiber assumptions. (Don't
+  assume Fiber calling UI code is the same as the one we were told about; it
+  could be a different one!)
 - Add horizontal hidden doors? Triggered from porch tile.
 - [Bug] Sometimes spiral staircases can block entrances (found a case where a
   staircase blocked an ana/kata horizontal door).
