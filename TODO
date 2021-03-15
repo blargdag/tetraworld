@@ -16,6 +16,7 @@
    - Why do popup widgets have the grid effect when the main map display
      doesn't??
    + Enter key not translated properly. Probably special keys will fail too.
+   - Implement the cursor.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
