@@ -283,12 +283,13 @@ class GuiBackend : UiBackend
 
     override dchar getch()
     {
+        auto caller = Fiber.getThis();
         dchar result;
 
         auto oldkc = keyConsumer;
         keyConsumer = (dchar key) {
             result = key;
-            userFiber.call();
+            caller.call();
         };
         scope(exit) keyConsumer = oldkc;
 
@@ -298,13 +299,14 @@ class GuiBackend : UiBackend
 
     override UiEvent nextEvent()
     {
+        auto caller = Fiber.getThis();
         UiEvent ev;
 
         auto oldkc = keyConsumer;
         keyConsumer = (dchar key) {
             ev.type = UiEvent.Type.kbd;
             ev.key = key;
-            userFiber.call();
+            caller.call();
         };
         scope(exit) keyConsumer = oldkc;
 
@@ -314,7 +316,7 @@ class GuiBackend : UiBackend
             ev.mouseX = x;
             ev.mouseY = y;
             ev.buttons = buttons;
-            userFiber.call();
+            caller.call();
         };
         scope(exit) mouseConsumer = oldmc;
 
@@ -323,7 +325,7 @@ class GuiBackend : UiBackend
             ev.type = UiEvent.Type.resize;
             ev.newWidth = w;
             ev.newHeight = h;
-            userFiber.call();
+            caller.call();
         };
         scope(exit) resizeConsumer = oldrc;
 
@@ -333,9 +335,9 @@ class GuiBackend : UiBackend
 
     override void sleep(int msecs)
     {
-        auto callerFiber = Fiber.getThis;
+        auto caller = Fiber.getThis;
         auto timer = new Timer(msecs, () {
-            callerFiber.call();
+            caller.call();
         });
 
         Fiber.yield();
