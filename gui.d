@@ -126,7 +126,7 @@ class GuiTerminal : DisplayObject
 
         auto paint = impl.paint;
         paint.setFont(impl.font.osfont);
-        paint.pen = Pen(impl.bgColor);
+        paint.pen = Pen(impl.bgColor, 0);
         paint.rasterOp = RasterOp.normal;
         paint.fillColor = Color.white;
         paint.drawRectangle(pixPos, w*impl.font.charWidth,
@@ -186,7 +186,9 @@ class GuiBackend : UiBackend
     private int offsetX, offsetY;
     private bool _quit;
 
-    private ScreenPainter* curPaint;
+    private ScreenPainter curPaint;
+    private bool hasCurPaint;
+
     private int curX, curY, lastX, lastY;
     private bool showCur, shownCur;
     private Color fgColor, bgColor;
@@ -198,14 +200,14 @@ class GuiBackend : UiBackend
 
     private ScreenPainter paint()()
     {
-        if (curPaint) return *curPaint;
+        if (hasCurPaint) return curPaint;
 
-        version(all)
+        version(none)
             return window.draw();
         else
         {
-            curPaint = new ScreenPainter;
-            *curPaint = window.draw();
+            curPaint = window.draw();
+            version(none)
             if (shownCur)
             {
                 auto pos = gridToPix(Point(lastX, lastY));
@@ -215,21 +217,23 @@ class GuiBackend : UiBackend
                 curPaint.rasterOp = RasterOp.normal;
                 shownCur = false;
             }
-            return *curPaint;
+            hasCurPaint = true;
+            return curPaint;
         }
     }
 
     private void commitPaint()
     {
-        version(none)
-        {
-            if (curPaint is null)
-                return;
+        if (!hasCurPaint)
+            return;
 
-            if (showCur)
+        if (showCur)
+        {
+            auto pos = gridToPix(Point(curX, curY));
+            curPaint.pen = Pen(Color.white);
+
+            version(none)
             {
-                auto pos = gridToPix(Point(curX, curY));
-                curPaint.pen = Pen(Color.white);
                 curPaint.rasterOp = RasterOp.xor;
                 curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
 
@@ -237,10 +241,10 @@ class GuiBackend : UiBackend
                 lastX = curX;
                 lastY = curY;
             }
-
-            destroy(*curPaint);
-            curPaint = null;
         }
+
+        destroy(curPaint);
+        hasCurPaint = false;
     }
 
     private GuiTerminal terminal;
@@ -365,9 +369,7 @@ class GuiBackend : UiBackend
         window.eventLoop(0,
             delegate(dchar ch) {
                 {
-                    auto d = window.draw();
-                    curPaint = &d;
-                    scope(exit) curPaint = null;
+                    scope(exit) commitPaint();
 
                     if (keyConsumer !is null)
                     {
@@ -379,9 +381,7 @@ class GuiBackend : UiBackend
             },
             delegate(MouseEvent event) {
                 {
-                    auto d = window.draw();
-                    curPaint = &d;
-                    scope(exit) curPaint = null;
+                    scope(exit) commitPaint();
 
                     auto gridX = (event.x - offsetX) / font.charWidth;
                     auto gridY = (event.y - offsetY) / font.charHeight;
