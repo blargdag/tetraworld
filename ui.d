@@ -399,6 +399,7 @@ class TextUi : GameUi
             'p': PlayerAction(PlayerAction.Type.pass),
         ];
 
+        auto caller = Fiber.getThis();
         auto mainMode = Mode(
             {
                 refresh();
@@ -424,12 +425,12 @@ class TextUi : GameUi
                                 result = PlayerAction(
                                         PlayerAction.Type.applyItem, item.id);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             }, (InventoryItem item) {
                                 result = PlayerAction(PlayerAction.Type.drop,
                                                       item.id, item.count);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             }
                         );
                         break;
@@ -440,7 +441,7 @@ class TextUi : GameUi
                                 result = PlayerAction(PlayerAction.Type.drop,
                                                       toDrop.id, toDrop.count);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             }),
                             "You're not carrying anything!"
                         );
@@ -476,7 +477,7 @@ class TextUi : GameUi
                                 result = PlayerAction(
                                     PlayerAction.Type.applyFloor, item.id);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             },
                             "Nothing to apply here."
                         );
@@ -489,7 +490,7 @@ class TextUi : GameUi
                                 result = PlayerAction(PlayerAction.Type.pickup,
                                                       item.id);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             },
                             "Nothing to pick up here."
                         );
@@ -500,7 +501,7 @@ class TextUi : GameUi
                         {
                             result = *cmd;
                             dispatch.pop();
-                            gameFiber.call();
+                            caller.call();
                         }
                         else
                         {
@@ -638,12 +639,13 @@ class TextUi : GameUi
         });
 
         import lang : wordWrap;
+        auto caller = Fiber.getThis();
         pager(disp, dispatch, (w, h) {
                 return paragraphs.map!(p => p.wordWrap(w-2))
                                  .joiner([""])
                                  .array;
             }, endPrompt, {
-                gameFiber.call();
+                caller.call();
             }
         );
         Fiber.yield();

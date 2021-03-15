@@ -22,9 +22,6 @@
      multiple connected regions.
    - Implement different themes.
    - Continue refactoring old code.
-- [Fiber] Need to audit UI code to catch other wrong Fiber assumptions. (Don't
-  assume Fiber calling UI code is the same as the one we were told about; it
-  could be a different one!)
 - Add horizontal hidden doors? Triggered from porch tile.
 - [Bug] Sometimes spiral staircases can block entrances (found a case where a
   staircase blocked an ana/kata horizontal door).
@@ -541,3 +538,6 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
      number of back edges.
       + Or rather, make a list of all adjacent node pairs (minus hard edges
         from the BSP tree), and do a select N on it.
++ [Fiber] Need to audit UI code to catch other wrong Fiber assumptions. (Don't
+  assume Fiber calling UI code is the same as the one we were told about; it
+  could be a different one!)
