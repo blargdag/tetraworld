@@ -13,8 +13,12 @@
         Fiber and return prematurely to userFiber, at which point things are
         out-of-sync and will malfunction.
    + Why doesn't the buffered display detect dirty lines after exiting a mode?
-   - Why do popup widgets have the grid effect when the main map display
+   + Why do popup widgets have the grid effect when the main map display
      doesn't??
+      * Because you totally misunderstood how simpledisplay rendering works.
+        Pens don't do what you think they do; you should set .fillColor and
+        .outlineColor separately, and don't bother with Pens at all. In most
+        cases that's Good Enough(tm).
    + Enter key not translated properly. Probably special keys will fail too.
    - Implement the cursor.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with

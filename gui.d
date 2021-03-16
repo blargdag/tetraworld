@@ -73,7 +73,7 @@ Color xlatTermColor(ushort c, Color defColor = Color.black)
 
     auto result = Color.black;
 
-    ubyte value = (c & arsd.terminal.Bright) ? 255 : 127;
+    ubyte value = (c & arsd.terminal.Bright) ? 255 : 192;
     if (c & arsd.terminal.Color.red)   result.r = value;
     if (c & arsd.terminal.Color.green) result.g = value;
     if (c & arsd.terminal.Color.blue)  result.b = value;
@@ -126,14 +126,14 @@ class GuiTerminal : DisplayObject
 
         auto paint = impl.paint;
         paint.setFont(impl.font.osfont);
-        paint.pen = Pen(impl.bgColor, 0);
-        paint.rasterOp = RasterOp.normal;
-        paint.fillColor = Color.white;
+        paint.outlineColor = impl.bgColor;
+        paint.fillColor = impl.bgColor;
         paint.drawRectangle(pixPos, w*impl.font.charWidth,
                             impl.font.charHeight);
 
         int i = 0, j;
-        paint.pen = Pen(impl.fgColor);
+        paint.outlineColor = impl.fgColor;
+        paint.fillColor = impl.fgColor;
         while (i < s.length)
         {
             j = cast(int) graphemeStride(s, i);
@@ -160,8 +160,8 @@ class GuiTerminal : DisplayObject
     override void clear()
     {
         auto paint = impl.paint;
-        paint.pen = Pen(impl.bgColor);
-        paint.rasterOp = RasterOp.normal;
+        paint.outlineColor = impl.bgColor;
+        paint.fillColor = impl.bgColor;
         paint.drawRectangle(Point(0,0), impl.window.width, impl.window.height);
     }
 
@@ -207,7 +207,8 @@ class GuiBackend : UiBackend
         if (shownCur)
         {
             auto pos = gridToPix(Point(lastX, lastY));
-            curPaint.pen = Pen(Color.white);
+            curPaint.outlineColor = Color.white;
+            curPaint.fillColor = Color.white;
             curPaint.rasterOp = RasterOp.xor;
             curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
             curPaint.rasterOp = RasterOp.normal;
@@ -222,15 +223,18 @@ class GuiBackend : UiBackend
         if (!hasCurPaint)
             return;
 
+        version(none)
         if (showCur)
         {
             auto pos = gridToPix(Point(curX, curY));
-            curPaint.pen = Pen(Color.white);
+            curPaint.outlineColor = Color.white;
+            curPaint.fillColor = Color.white;
 
             version(none)
             {
                 curPaint.rasterOp = RasterOp.xor;
                 curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
+                curPaint.rasterOp = RasterOp.normal;
 
                 shownCur = true;
                 lastX = curX;
