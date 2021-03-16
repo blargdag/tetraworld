@@ -21,6 +21,21 @@
         cases that's Good Enough(tm).
    + Enter key not translated properly. Probably special keys will fail too.
    - Implement the cursor.
+   - There's still Fiber sync issues somewhere in there. Having to do with
+     sleep() and queued events. And it's looking bad, as bad as multithreading
+     bugs, except everything is synchronous.
+      - Here's the BP: in getch() and sleep(), we're *assuming* that
+        Fiber.yield returns immediately to the GUI Fiber. But that's not the
+        case if we're being called from the gameFiber that's in the middle of
+        handling a different GUI event. So we'll end up prematurely returning
+        to the next loop iteration in gameFiber, but the getch/sleep state is
+        already pushed on the GUI state stack, so now it will do things
+        out-of-order, leading to an inconsistent state that eventually triggers
+        the assert.
+      - Looks like the only real solution is to use actual OS threads instead
+        of just Fibers...
+         - We can make GuiTerminal the caller-thread proxy that shuttles data
+           to the GUI thread.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
