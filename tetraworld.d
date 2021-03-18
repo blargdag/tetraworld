@@ -128,9 +128,13 @@ int main(string[] args)
                 auto uiBackend = new GuiBackend(800, 600, "Tetraworld");
 
                 uiBackend.run({
+import core.thread.osthread;
+import std;File("/tmp/debug","a").writefln("[thread %x] starting text UI",cast(void*)Thread.getThis() );
                     auto quitMsg = ui.play(game, uiBackend);
                     writeln(quitMsg); // FIXME: should display in GUI
+import std;File("/tmp/debug","a").writefln("[thread %x] signalling gui thread to quit",cast(void*)Thread.getThis() );
                     uiBackend.quit();
+import std;File("/tmp/debug","a").writefln("[thread %x] done",cast(void*)Thread.getThis() );
                 });
                 break;
             }
