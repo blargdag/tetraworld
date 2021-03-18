@@ -255,6 +255,7 @@ private synchronized class EventQueue
 
         auto ev = events[0];
         events[0 .. $-1] = events[1 .. $];
+        events.length--;
         return ev;
     }
 }
