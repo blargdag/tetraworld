@@ -111,27 +111,25 @@ int main(string[] args)
     auto ui = new TextUi(uiConfig);
     try
     {
+        static string runGame(UiBackend backend, TextUi ui, Game game)
+        {
+            return ui.play(game, backend);
+        }
+
         final switch (betype)
         {
             case BackendType.console:
             {
-                auto uiBackend = new TerminalUiBackend;
-                scope(exit) uiBackend.quit();
-
-                auto quitMsg = ui.play(game, uiBackend);
+                auto quitMsg = runTerminalBackend(&runGame, ui, game);
                 writeln(quitMsg);
                 break;
             }
 
             case BackendType.gui:
             {
-                auto uiBackend = new GuiBackend(800, 600, "Tetraworld");
-
-                uiBackend.run({
-                    auto quitMsg = ui.play(game, uiBackend);
-                    writeln(quitMsg); // FIXME: should display in GUI
-                    uiBackend.quit();
-                });
+                auto quitMsg = runGuiBackend(800, 600, "Tetraworld", &runGame,
+                                             ui, game);
+                writeln(quitMsg); // FIXME: should display in GUI
                 break;
             }
         }

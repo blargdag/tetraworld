@@ -255,9 +255,9 @@ private synchronized class EventQueue
         if (events.length == 0)
             return UiEvent.init;
 
+        import std.algorithm : remove;
         auto ev = events[0];
-        events[0 .. $-1] = events[1 .. $];
-        events.length--;
+        events = events.remove(0);
         return ev;
     }
 }
@@ -350,7 +350,7 @@ class GuiBackend : UiBackend
         window.draw.clear();
 
         terminal = new GuiTerminal(this, gridWidth, gridHeight);
-        events = new EventQueue;
+        events = new shared EventQueue;
         hasEvent.initialize(false, false);
     }
 
@@ -498,6 +498,22 @@ class GuiBackend : UiBackend
 
         userThread.join();
     }
+}
+
+/**
+ * Initializes and runs the given code with the console terminal backend.
+ */
+T runGuiBackend(T, Args...)(int width, int height, string title,
+                            T function(UiBackend, Args) cb, Args args)
+{
+    auto gui = new GuiBackend(width, height, title);
+    scope(exit) gui.quit();
+
+    T result;
+    gui.run({
+        result = cb(gui, args);
+    });
+    return result;
 }
 
 // vim:set ai sw=4 ts=4 et:
