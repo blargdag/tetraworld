@@ -228,9 +228,7 @@ class GuiTerminal : DisplayObject
 
     override void flush()
     {
-import std;File("/tmp/debug","a").writefln("[thread %x] flush",cast(void*)Thread.getThis() );
         runInGuiThread({
-import std;File("/tmp/debug","a").writefln("[thread %x] commitPaint",cast(void*)Thread.getThis() );
             impl.commitPaint();
         });
     }
@@ -415,15 +413,12 @@ class GuiBackend : UiBackend
         UiEvent ev;
         do
         {
-import std;File("/tmp/debug","a").writefln("[thread %x] getch wait",cast(void*)Thread.getThis() );
             hasEvent.wait();
-import std;File("/tmp/debug","a").writefln("[thread %x] getch retrieving event",cast(void*)Thread.getThis() );
             ev = events.pop();
             updateDim(ev);
         } while (ev.type != UiEvent.Type.kbd);
 
         assert(ev.type == UiEvent.Type.kbd);
-import std;File("/tmp/debug","a").writefln("[thread %x] getch got '%s'",cast(void*)Thread.getThis() ,ev.key);
         return ev.key;
     }
 
@@ -432,13 +427,10 @@ import std;File("/tmp/debug","a").writefln("[thread %x] getch got '%s'",cast(voi
         UiEvent ev;
         do
         {
-import std;File("/tmp/debug","a").writefln("[thread %x] nextEvent wait",cast(void*)Thread.getThis() );
             hasEvent.wait();
-import std;File("/tmp/debug","a").writefln("[thread %x] nextEvent retrieving event",cast(void*)Thread.getThis() );
             ev = events.pop();
         } while (ev.type == UiEvent.Type.none);
 
-import std;File("/tmp/debug","a").writefln("[thread %x] nextEvent got '%s'",cast(void*)Thread.getThis() ,ev);
         updateDim(ev);
         return ev;
     }
@@ -451,9 +443,8 @@ import std;File("/tmp/debug","a").writefln("[thread %x] nextEvent got '%s'",cast
 
     override void quit()
     {
-import std;File("/tmp/debug","a").writefln("[thread %x] quit",cast(void*)Thread.getThis() );
         runInGuiThread({
-import std;File("/tmp/debug","a").writefln("[thread %x] closing window",cast(void*)Thread.getThis() );
+            commitPaint();
             window.close();
         });
     }
@@ -465,7 +456,6 @@ import std;File("/tmp/debug","a").writefln("[thread %x] closing window",cast(voi
             // Don't run user code until window is visible; we may get X11
             // errors if user code starts calling drawing functions too early
             // on.
-import std;File("/tmp/debug","a").writefln("[thread %x] starting user thread",cast(void*)Thread.getThis() );
             userThread.start();
         };
 
@@ -488,33 +478,25 @@ import std;File("/tmp/debug","a").writefln("[thread %x] starting user thread",ca
 
                 auto ev = UiEvent(UiEvent.Type.kbd);
                 ev.key = ch;
-import std;File("/tmp/debug","a").writefln("[thread %x] key event: %s ",cast(void*)Thread.getThis(), ev);
                 events.append(ev);
-import std;File("/tmp/debug","a").writefln("[thread %x] notifying event",cast(void*)Thread.getThis() );
                 hasEvent.set();
 
                 version(none) // FIXME
                 {
                     scope(exit) commitPaint();
                 }
-import std;File("/tmp/debug","a").writefln("[thread %x] key event done",cast(void*)Thread.getThis() );
             },
             delegate(MouseEvent event) {
                 auto ev = UiEvent(UiEvent.Type.mouse);
                 ev.mouseX = (event.x - offsetX) / font.charWidth;
                 ev.mouseY = (event.y - offsetY) / font.charHeight;
                 ev.buttons = 0; // FIXME: TBD
-import std;File("/tmp/debug","a").writefln("[thread %x] mouse event: %s ",cast(void*)Thread.getThis(), ev);
                 events.append(ev);
-import std;File("/tmp/debug","a").writefln("[thread %x] notifying event",cast(void*)Thread.getThis() );
                 hasEvent.set();
-import std;File("/tmp/debug","a").writefln("[thread %x] mouse event done",cast(void*)Thread.getThis() );
             },
         );
 
-import std;File("/tmp/debug","a").writefln("[thread %x] joining user thread",cast(void*)Thread.getThis() );
         userThread.join();
-import std;File("/tmp/debug","a").writefln("[thread %x] gui.run done",cast(void*)Thread.getThis() );
     }
 }
 

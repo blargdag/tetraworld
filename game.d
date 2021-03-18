@@ -1138,16 +1138,12 @@ class Game
     {
         ui = _ui;
 
-import core.thread.osthread;
-import std;File("/tmp/debug","a").writefln("[thread %x] Game.run",cast(void*)Thread.getThis() );
         if (w is null)
         {
-import std;File("/tmp/debug","a").writefln("[thread %x] starting new story",cast(void*)Thread.getThis() );
             startStory();
         }
         else
         {
-import std;File("/tmp/debug","a").writefln("[thread %x] continuing old game",cast(void*)Thread.getThis() );
             setupEventWatchers();
             setupAgentImpls();
 
@@ -1160,13 +1156,11 @@ import std;File("/tmp/debug","a").writefln("[thread %x] continuing old game",cas
 
         while (!quit)
         {
-import std;File("/tmp/debug","a").writefln("[thread %x] main loop",cast(void*)Thread.getThis() );
             if (!sysAgent.run(w))
                 quit = true;
             portalSystem();
             sysGravity.run(w);
         }
-import std;File("/tmp/debug","a").writefln("[thread %x] finishing game",cast(void*)Thread.getThis() );
     }
 }
 

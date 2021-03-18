@@ -36,7 +36,9 @@
         of just Fibers...
          + We can make GuiTerminal the caller-thread proxy that shuttles data
            to the GUI thread.
-   - Fix crash on exit.
+   + Fix crash on exit.
+      + BP is caused by ScreenPainter being cached, and its dtor invoked by the
+        dtor of GuiBackend, after the window has already closed.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
