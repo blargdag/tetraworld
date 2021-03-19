@@ -102,6 +102,12 @@ class GuiTerminal : DisplayObject
 {
     private GuiBackend impl;
 
+    private Color fg, bg;
+    private int startX, startY;
+    private int curX, curY;
+    private bool _showCursor;
+    private char[] buf;
+
     // Cached values, 'cos this is very frequently accessed and it's ridiculous
     // to incur a context switch and mutex lock every single time!
     private int w, h;
@@ -111,15 +117,9 @@ class GuiTerminal : DisplayObject
         impl = _impl;
         w = gridWidth;
         h = gridHeight;
-    }
 
-    private T getFromGuiThread(T)(T delegate() dg)
-    {
-        T value;
-        runInGuiThread({
-            value = dg();
-        });
-        return value;
+        fg = Color.white;
+        bg = Color.black;
     }
 
     override @property int width() { return w; }
@@ -127,110 +127,125 @@ class GuiTerminal : DisplayObject
 
     override void moveTo(int x, int y)
     {
-        runInGuiThread({
-            impl.curX = x;
-            impl.curY = y;
-        });
+        if (curX != x || curY != y)
+        {
+            flushImpl(false);
+            startX = curX = x;
+            startY = curY = y;
+        }
+    }
+
+    private int renderLength(const(char)[] s)
+    {
+        import std.uni;
+        int w;
+        for (size_t i=0; i < s.length; i += graphemeStride(s, i))
+        {
+            w++;
+        }
+        return w;
     }
 
     override void writefImpl(string s)
     {
-        runInGuiThread({
-            auto pixPos = impl.gridToPix(Point(impl.curX, impl.curY));
-
-            // Poor man's grid-based font rendering. Just to get that
-            // deliberately ugly look. :-/
-            import std.uni;
-            int w;
-            for (size_t i=0; i < s.length; i += graphemeStride(s, i))
-            {
-                w++;
-            }
-
-            auto paint = impl.paint;
-            paint.setFont(impl.font.osfont);
-            paint.outlineColor = impl.bgColor;
-            paint.fillColor = impl.bgColor;
-            paint.drawRectangle(pixPos, w*impl.font.charWidth,
-                                impl.font.charHeight);
-
-            int i = 0, j;
-            paint.outlineColor = impl.fgColor;
-            paint.fillColor = impl.fgColor;
-            while (i < s.length)
-            {
-                j = cast(int) graphemeStride(s, i);
-                paint.drawText(Point(pixPos.x + i*impl.font.charWidth,
-                                     pixPos.y),
-                               s[i .. i+j]);
-                i += j;
-                impl.curX++;
-            }
-        });
+        auto w = renderLength(s);
+        buf ~= s;
+        curX += w;
     }
 
     override bool canShowHideCursor() { return true; }
-
-    override void showCursor()
-    {
-        runInGuiThread({
-            impl.showCur = true;
-        });
-    }
-
-    override void hideCursor()
-    {
-        runInGuiThread({
-            impl.showCur = false;
-        });
-    }
+    override void showCursor() { _showCursor = true; }
+    override void hideCursor() { _showCursor = false; }
 
     override bool hasColor() { return true; }
 
-    override void color(ushort fg, ushort bg)
+    override void color(ushort fgColor, ushort bgColor)
     {
-        runInGuiThread({
-            impl.fgColor = xlatTermColor(fg, Color.black);
-            impl.bgColor = xlatTermColor(bg, Color.white);
-        });
+        auto newFg = xlatTermColor(fgColor, Color.black);
+        auto newBg = xlatTermColor(bgColor, Color.white);
+        if (fg != newFg || bg != newBg)
+        {
+            flushImpl(false);
+            fg = newFg;
+            bg = newBg;
+        }
     }
 
     override bool canClear() { return true; }
 
     override void clear()
     {
+        // Buffer contents no longer relevant since we're erasing it all, so
+        // just drop it.
+        buf.length = 0;
+        startX = startY = curX = curY = 0;
+
         runInGuiThread({
             auto paint = impl.paint;
-            paint.outlineColor = impl.bgColor;
-            paint.fillColor = impl.bgColor;
+            paint.outlineColor = bg;
+            paint.fillColor = bg;
             paint.drawRectangle(Point(0,0), impl.window.width,
                                 impl.window.height);
         });
     }
 
     override bool hasCursorXY() { return true; }
-
-    override @property int cursorX()
-    {
-        int x;
-        runInGuiThread({
-            x = impl.curX;
-        });
-        return x;
-    }
-
-    override @property int cursorY()
-    {
-        return getFromGuiThread(() => impl.curY);
-    }
+    override @property int cursorX() { return curX; }
+    override @property int cursorY() { return curY; }
 
     override bool hasFlush() { return true; }
 
+    private void flushImpl(bool commit)
+    {
+        if (buf.length == 0 && !commit)
+            return;
+
+        runInGuiThread({
+            if (buf.length > 0)
+            {
+                auto pixPos = impl.gridToPix(Point(startX, startY));
+
+                // Poor man's grid-based font rendering. Just to get that
+                // deliberately ugly look. :-/
+                auto w = renderLength(buf);
+                auto paint = impl.paint;
+
+                paint.setFont(impl.font.osfont);
+                paint.outlineColor = bg;
+                paint.fillColor = bg;
+                paint.drawRectangle(pixPos, w*impl.font.charWidth,
+                                    impl.font.charHeight);
+
+                int i = 0;
+                paint.outlineColor = fg;
+                paint.fillColor = fg;
+                while (i < buf.length)
+                {
+                    import std.uni : graphemeStride;
+                    auto j = graphemeStride(buf, i);
+                    paint.drawText(Point(pixPos.x, pixPos.y), buf[i .. i+j]);
+                    pixPos.x += impl.font.charWidth;
+                    i += j;
+                }
+
+                buf.length = 0;
+                startX = curX;
+                startY = curY;
+            }
+
+            if (commit)
+            {
+                impl.curX = curX;
+                impl.curY = curY;
+                impl.showCur = _showCursor;
+                impl.commitPaint();
+            }
+        });
+    }
+
     override void flush()
     {
-        runInGuiThread({
-            impl.commitPaint();
-        });
+        flushImpl(true);
     }
 }
 
@@ -278,9 +293,8 @@ class GuiBackend : UiBackend
     private ScreenPainter curPaint;
     private bool hasCurPaint;
 
-    private int curX, curY, lastX, lastY;
+    private int curX, curY;
     private bool showCur, shownCur;
-    private Color fgColor = Color.black, bgColor = Color.white;
 
     private GuiTerminal terminal;
     private shared EventQueue events;
@@ -344,19 +358,11 @@ class GuiBackend : UiBackend
         font = Font(fontName, 16);
         computeGridDim();
 
-        fgColor = Color.white;
-        bgColor = Color.black;
-
         window.draw.clear();
 
         terminal = new GuiTerminal(this, gridWidth, gridHeight);
         events = new shared EventQueue;
         hasEvent.initialize(false, false);
-    }
-
-    ~this()
-    {
-        hasEvent.terminate();
     }
 
     /**
@@ -410,6 +416,11 @@ class GuiBackend : UiBackend
      */
     override dchar getch()
     {
+        // Flush updates before potentially blocking.
+        runInGuiThread({
+            commitPaint();
+        });
+
         UiEvent ev;
         do
         {
@@ -424,6 +435,11 @@ class GuiBackend : UiBackend
 
     override UiEvent nextEvent()
     {
+        // Flush updates before potentially blocking.
+        runInGuiThread({
+            commitPaint();
+        });
+
         UiEvent ev;
         do
         {
@@ -438,6 +454,11 @@ class GuiBackend : UiBackend
     override void sleep(int msecs)
     {
         import core.time : dur;
+
+        // Flush updates before potentially blocking.
+        runInGuiThread({
+            commitPaint();
+        });
         Thread.sleep(dur!"msecs"(msecs));
     }
 
@@ -480,11 +501,6 @@ class GuiBackend : UiBackend
                 ev.key = ch;
                 events.append(ev);
                 hasEvent.set();
-
-                version(none) // FIXME
-                {
-                    scope(exit) commitPaint();
-                }
             },
             delegate(MouseEvent event) {
                 auto ev = UiEvent(UiEvent.Type.mouse);
@@ -511,7 +527,19 @@ T runGuiBackend(T, Args...)(int width, int height, string title,
 
     T result;
     gui.run({
-        result = cb(gui, args);
+        scope(exit) gui.quit();
+        try
+        {
+            result = cb(gui, args);
+        }
+        catch(Throwable t)
+        {
+            // DEBUG
+            import std.stdio : stderr;
+            stderr.writefln("[%x:%s:%d] user thread crash: %s",cast(void*)Thread.getThis,__FUNCTION__,__LINE__ ,t.msg);
+            gui.quit();
+            throw t;
+        }
     });
     return result;
 }
