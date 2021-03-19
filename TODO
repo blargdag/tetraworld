@@ -39,11 +39,12 @@
    + Fix crash on exit.
       + BP is caused by ScreenPainter being cached, and its dtor invoked by the
         dtor of GuiBackend, after the window has already closed.
-   - Performance continues to be lousy due to excessive use of runInGuiThread.
+   + Performance continues to be lousy due to excessive use of runInGuiThread.
      Should move cursor positioning code (and everything else that isn't
      essential) to GuiTerminal, and have the GUI thread take explicit
      coordinates for all writef calls.
-   - There's apparently a deadlock between EventQueue and the GC??!
+   P There's apparently a deadlock between EventQueue and the GC??!
+   - Replace all occurrences of getch.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
