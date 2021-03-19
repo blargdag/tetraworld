@@ -195,51 +195,60 @@ class GuiTerminal : DisplayObject, UiBackend
 
     override bool hasFlush() { return true; }
 
+    /**
+     * WARNING: this function MUST be run only the GUI thread, otherwise it
+     * will cause problems!
+     */
+    private void guiThreadFlush(bool commit)
+    {
+        if (buf.length > 0)
+        {
+            auto pixPos = impl.gridToPix(Point(startX, startY));
+
+            // Poor man's grid-based font rendering. Just to get that
+            // deliberately ugly look. :-/
+            auto w = renderLength(buf);
+            auto paint = impl.paint;
+
+            paint.setFont(impl.font.osfont);
+            paint.outlineColor = bg;
+            paint.fillColor = bg;
+            paint.drawRectangle(pixPos, w*impl.font.charWidth,
+                                impl.font.charHeight);
+
+            int i = 0;
+            paint.outlineColor = fg;
+            paint.fillColor = fg;
+            while (i < buf.length)
+            {
+                import std.uni : graphemeStride;
+                auto j = graphemeStride(buf, i);
+                paint.drawText(Point(pixPos.x, pixPos.y), buf[i .. i+j]);
+                pixPos.x += impl.font.charWidth;
+                i += j;
+            }
+
+            buf.length = 0;
+            startX = curX;
+            startY = curY;
+        }
+
+        if (commit)
+        {
+            impl.curX = curX;
+            impl.curY = curY;
+            impl.showCur = _showCursor;
+            impl.commitPaint();
+        }
+    }
+
     private void flushImpl(bool commit)
     {
         if (buf.length == 0 && !commit)
             return;
 
         runInGuiThread({
-            if (buf.length > 0)
-            {
-                auto pixPos = impl.gridToPix(Point(startX, startY));
-
-                // Poor man's grid-based font rendering. Just to get that
-                // deliberately ugly look. :-/
-                auto w = renderLength(buf);
-                auto paint = impl.paint;
-
-                paint.setFont(impl.font.osfont);
-                paint.outlineColor = bg;
-                paint.fillColor = bg;
-                paint.drawRectangle(pixPos, w*impl.font.charWidth,
-                                    impl.font.charHeight);
-
-                int i = 0;
-                paint.outlineColor = fg;
-                paint.fillColor = fg;
-                while (i < buf.length)
-                {
-                    import std.uni : graphemeStride;
-                    auto j = graphemeStride(buf, i);
-                    paint.drawText(Point(pixPos.x, pixPos.y), buf[i .. i+j]);
-                    pixPos.x += impl.font.charWidth;
-                    i += j;
-                }
-
-                buf.length = 0;
-                startX = curX;
-                startY = curY;
-            }
-
-            if (commit)
-            {
-                impl.curX = curX;
-                impl.curY = curY;
-                impl.showCur = _showCursor;
-                impl.commitPaint();
-            }
+            guiThreadFlush(commit);
         });
     }
 
@@ -278,16 +287,39 @@ class GuiTerminal : DisplayObject, UiBackend
      */
     override dchar getch()
     {
-        // Flush updates before potentially blocking.
-        flush();
-
         UiEvent ev;
-        do
+        bool mustBlock;
+
+        void popUntilKbdEvent()
+        {
+            do
+            {
+                if (!impl.popEvent(ev))
+                {
+                    mustBlock = true;
+                    return;
+                }
+            } while (ev.type != UiEvent.Type.kbd);
+        }
+
+        runInGuiThread({
+            guiThreadFlush(true); // Flush updates before potentially blocking.
+            popUntilKbdEvent();
+        });
+
+        // BUG: if GUI thread exits while inside this loop, this will spin
+        // forever. Again, this function is a BAD BAD IDEA. Need to refactor
+        // our code to get rid of this function.
+        while (mustBlock)
         {
             impl.hasEvent.wait();
-            ev = impl.events.pop();
+            mustBlock = false;
+            runInGuiThread({
+                popUntilKbdEvent();
+            });
+
             updateDim(ev);
-        } while (ev.type != UiEvent.Type.kbd);
+        }
 
         assert(ev.type == UiEvent.Type.kbd);
         return ev.key;
@@ -295,15 +327,30 @@ class GuiTerminal : DisplayObject, UiBackend
 
     override UiEvent nextEvent()
     {
-        // Flush updates before potentially blocking.
-        flush();
-
         UiEvent ev;
-        do
+        bool mustBlock;
+
+        runInGuiThread({
+            guiThreadFlush(true); // Flush updates before potentially blocking.
+            if (!impl.popEvent(ev))
+            {
+                mustBlock = true;
+                return;
+            }
+        });
+
+        while (mustBlock)
         {
             impl.hasEvent.wait();
-            ev = impl.events.pop();
-        } while (ev.type == UiEvent.Type.none);
+            mustBlock = false;
+            runInGuiThread({
+                if (!impl.popEvent(ev))
+                {
+                    mustBlock = true;
+                    return;
+                }
+            });
+        }
 
         updateDim(ev);
         return ev;
@@ -320,38 +367,10 @@ class GuiTerminal : DisplayObject, UiBackend
 
     override void quit()
     {
-        flush();
         runInGuiThread({
+            guiThreadFlush(true);
             impl.window.close();
         });
-    }
-}
-
-private synchronized class EventQueue
-{
-    private UiEvent[] events;
-
-    /**
-     * Appends an event to the queue.
-     */
-    void append(UiEvent ev)
-    {
-        events ~= ev;
-    }
-
-    /**
-     * Returns: The next event in the queue, or UiEvent.init if the queue is
-     * empty.
-     */
-    @property UiEvent pop()
-    {
-        if (events.length == 0)
-            return UiEvent.init;
-
-        import std.algorithm : remove;
-        auto ev = events[0];
-        events = events.remove(0);
-        return ev;
     }
 }
 
@@ -375,8 +394,25 @@ private class GuiImpl
     private bool showCur, shownCur;
 
     private GuiTerminal terminal;
-    private shared EventQueue events;
+    private UiEvent[] events;
     private core.sync.event.Event hasEvent;
+
+    private void addEvent(UiEvent ev)
+    {
+        events ~= ev;
+        hasEvent.set();
+    }
+
+    private bool popEvent(out UiEvent ev)
+    {
+        if (events.length == 0)
+            return false;
+
+        import std.algorithm : remove;
+        ev = events[0];
+        events = events.remove(0);
+        return true;
+    }
 
     private ScreenPainter paint()()
     {
@@ -433,7 +469,6 @@ private class GuiImpl
         window.draw.clear();
 
         terminal = new GuiTerminal(this, gridWidth, gridHeight);
-        events = new shared EventQueue;
         hasEvent.initialize(false, false);
     }
 
@@ -471,8 +506,7 @@ private class GuiImpl
             auto ev = UiEvent(UiEvent.type.resize);
             ev.newWidth = gridWidth;
             ev.newHeight = gridHeight;
-            events.append(ev);
-            hasEvent.set();
+            addEvent(ev);
         };
 
         window.eventLoop(0,
@@ -483,16 +517,14 @@ private class GuiImpl
 
                 auto ev = UiEvent(UiEvent.Type.kbd);
                 ev.key = ch;
-                events.append(ev);
-                hasEvent.set();
+                addEvent(ev);
             },
             delegate(MouseEvent event) {
                 auto ev = UiEvent(UiEvent.Type.mouse);
                 ev.mouseX = (event.x - offsetX) / font.charWidth;
                 ev.mouseY = (event.y - offsetY) / font.charHeight;
                 ev.buttons = 0; // FIXME: TBD
-                events.append(ev);
-                hasEvent.set();
+                addEvent(ev);
             },
         );
 
