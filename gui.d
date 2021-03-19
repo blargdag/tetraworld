@@ -371,7 +371,7 @@ private class GuiImpl
     private ScreenPainter curPaint;
     private bool hasCurPaint;
 
-    private int curX, curY;
+    private int curX, curY, lastX, lastY;
     private bool showCur, shownCur;
 
     private GuiTerminal terminal;
@@ -383,7 +383,6 @@ private class GuiImpl
         if (hasCurPaint) return curPaint;
 
         curPaint = window.draw();
-        version(none)
         if (shownCur)
         {
             auto pos = gridToPix(Point(lastX, lastY));
@@ -403,23 +402,18 @@ private class GuiImpl
         if (!hasCurPaint)
             return;
 
-        version(none)
         if (showCur)
         {
             auto pos = gridToPix(Point(curX, curY));
             curPaint.outlineColor = Color.white;
             curPaint.fillColor = Color.white;
+            curPaint.rasterOp = RasterOp.xor;
+            curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
+            curPaint.rasterOp = RasterOp.normal;
 
-            version(none)
-            {
-                curPaint.rasterOp = RasterOp.xor;
-                curPaint.drawRectangle(pos, font.charWidth, font.charHeight);
-                curPaint.rasterOp = RasterOp.normal;
-
-                shownCur = true;
-                lastX = curX;
-                lastY = curY;
-            }
+            shownCur = true;
+            lastX = curX;
+            lastY = curY;
         }
 
         destroy(curPaint);

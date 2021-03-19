@@ -50,7 +50,7 @@
       + Better just move getch and nextEvent completely out of GuiBackend into
         GuiTerminal. Better just have a single user-facing object and a single
         implementation object cleanly separated.
-   - Implement the cursor.
+   + Implement the cursor.
    - Replace all occurrences of getch.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
