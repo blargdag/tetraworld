@@ -98,9 +98,9 @@ unittest
 /**
  * GUI backend wrapper with a Display interface.
  */
-class GuiTerminal : DisplayObject
+class GuiTerminal : DisplayObject, UiBackend
 {
-    private GuiBackend impl;
+    private GuiImpl impl;
 
     private Color fg, bg;
     private int startX, startY;
@@ -112,7 +112,7 @@ class GuiTerminal : DisplayObject
     // to incur a context switch and mutex lock every single time!
     private int w, h;
 
-    private this(GuiBackend _impl, int gridWidth, int gridHeight)
+    private this(GuiImpl _impl, int gridWidth, int gridHeight)
     {
         impl = _impl;
         w = gridWidth;
@@ -247,6 +247,84 @@ class GuiTerminal : DisplayObject
     {
         flushImpl(true);
     }
+
+    override DisplayObject term() { return this; }
+
+    private void updateDim(UiEvent ev)
+    {
+        if (ev.type == UiEvent.Type.resize)
+        {
+            w = ev.newWidth;
+            h = ev.newHeight;
+        }
+    }
+
+    /**
+     * BUGS: ALL non-keyboard events will be dropped by this function. This is
+     * in general a VERY BAD API, because there is no way to handle a lot of
+     * situations that may come up: e.g., while waiting for input via getch(),
+     * user resizes window. We can't trigger the resize handling code, because
+     * the user thread is inside getch(), and not expecting a resize. We cannot
+     * return from getch() because the calling code may be deeply nested and
+     * the immediate caller may not know what to do with a resize, or how to
+     * get back to the equivalent state after resize. E.g., the message pane
+     * calls getch() to prompt user to scroll messages; after resize the
+     * message pane may be in a completely different state. It basically WILL
+     * NOT WORK.
+     *
+     * IOW, this function is a VERY BAD IDEA; we should refactor our code to
+     * get rid of dependency on getch. Instead, use a Mode to capture user
+     * input while still processing other events.
+     */
+    override dchar getch()
+    {
+        // Flush updates before potentially blocking.
+        flush();
+
+        UiEvent ev;
+        do
+        {
+            impl.hasEvent.wait();
+            ev = impl.events.pop();
+            updateDim(ev);
+        } while (ev.type != UiEvent.Type.kbd);
+
+        assert(ev.type == UiEvent.Type.kbd);
+        return ev.key;
+    }
+
+    override UiEvent nextEvent()
+    {
+        // Flush updates before potentially blocking.
+        flush();
+
+        UiEvent ev;
+        do
+        {
+            impl.hasEvent.wait();
+            ev = impl.events.pop();
+        } while (ev.type == UiEvent.Type.none);
+
+        updateDim(ev);
+        return ev;
+    }
+
+    override void sleep(int msecs)
+    {
+        // Flush updates before potentially blocking.
+        flush();
+
+        import core.time : dur;
+        Thread.sleep(dur!"msecs"(msecs));
+    }
+
+    override void quit()
+    {
+        flush();
+        runInGuiThread({
+            impl.window.close();
+        });
+    }
 }
 
 private synchronized class EventQueue
@@ -282,7 +360,7 @@ private synchronized class EventQueue
  *
  * Mostly to stop depending on command.exe on Windows, which is stupidly slow.
  */
-class GuiBackend : UiBackend
+private class GuiImpl
 {
     private SimpleWindow window;
     private Font font;
@@ -382,94 +460,6 @@ class GuiBackend : UiBackend
         offsetY = (window.height - gridHeight*font.charHeight) / 2;
     }
 
-    override DisplayObject term() { return terminal; }
-
-    // FIXME: this is SUPER DANGEROUS and subject to race conditions because we
-    // blindly assume this will be called from the user thread only. But I
-    // don't know how else to optimize away the mutex lock in reading the
-    // width/height, which makes things super slow.
-    private void updateDim(UiEvent ev)
-    {
-        if (ev.type == UiEvent.Type.resize)
-        {
-            terminal.w = ev.newWidth;
-            terminal.h = ev.newHeight;
-        }
-    }
-
-    /**
-     * BUGS: ALL non-keyboard events will be dropped by this function. This is
-     * in general a VERY BAD API, because there is no way to handle a lot of
-     * situations that may come up: e.g., while waiting for input via getch(),
-     * user resizes window. We can't trigger the resize handling code, because
-     * the user thread is inside getch(), and not expecting a resize. We cannot
-     * return from getch() because the calling code may be deeply nested and
-     * the immediate caller may not know what to do with a resize, or how to
-     * get back to the equivalent state after resize. E.g., the message pane
-     * calls getch() to prompt user to scroll messages; after resize the
-     * message pane may be in a completely different state. It basically WILL
-     * NOT WORK.
-     *
-     * IOW, this function is a VERY BAD IDEA; we should refactor our code to
-     * get rid of dependency on getch. Instead, use a Mode to capture user
-     * input while still processing other events.
-     */
-    override dchar getch()
-    {
-        // Flush updates before potentially blocking.
-        runInGuiThread({
-            commitPaint();
-        });
-
-        UiEvent ev;
-        do
-        {
-            hasEvent.wait();
-            ev = events.pop();
-            updateDim(ev);
-        } while (ev.type != UiEvent.Type.kbd);
-
-        assert(ev.type == UiEvent.Type.kbd);
-        return ev.key;
-    }
-
-    override UiEvent nextEvent()
-    {
-        // Flush updates before potentially blocking.
-        runInGuiThread({
-            commitPaint();
-        });
-
-        UiEvent ev;
-        do
-        {
-            hasEvent.wait();
-            ev = events.pop();
-        } while (ev.type == UiEvent.Type.none);
-
-        updateDim(ev);
-        return ev;
-    }
-
-    override void sleep(int msecs)
-    {
-        import core.time : dur;
-
-        // Flush updates before potentially blocking.
-        runInGuiThread({
-            commitPaint();
-        });
-        Thread.sleep(dur!"msecs"(msecs));
-    }
-
-    override void quit()
-    {
-        runInGuiThread({
-            commitPaint();
-            window.close();
-        });
-    }
-
     void run(void delegate() userCode)
     {
         Thread userThread = new Thread(userCode);
@@ -522,22 +512,21 @@ class GuiBackend : UiBackend
 T runGuiBackend(T, Args...)(int width, int height, string title,
                             T function(UiBackend, Args) cb, Args args)
 {
-    auto gui = new GuiBackend(width, height, title);
-    scope(exit) gui.quit();
+    auto gui = new GuiImpl(width, height, title);
+    scope(exit) gui.terminal.quit();
 
     T result;
     gui.run({
-        scope(exit) gui.quit();
+        scope(exit) gui.terminal.quit();
         try
         {
-            result = cb(gui, args);
+            result = cb(gui.terminal, args);
         }
         catch(Throwable t)
         {
             // DEBUG
             import std.stdio : stderr;
             stderr.writefln("[%x:%s:%d] user thread crash: %s",cast(void*)Thread.getThis,__FUNCTION__,__LINE__ ,t.msg);
-            gui.quit();
             throw t;
         }
     });

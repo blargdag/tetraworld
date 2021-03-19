@@ -20,7 +20,6 @@
         .outlineColor separately, and don't bother with Pens at all. In most
         cases that's Good Enough(tm).
    + Enter key not translated properly. Probably special keys will fail too.
-   - Implement the cursor.
    + There's still Fiber sync issues somewhere in there. Having to do with
      sleep() and queued events. And it's looking bad, as bad as multithreading
      bugs, except everything is synchronous.
@@ -44,6 +43,14 @@
      essential) to GuiTerminal, and have the GUI thread take explicit
      coordinates for all writef calls.
    P There's apparently a deadlock between EventQueue and the GC??!
+   + Fix incomplete rendering of popups.
+      * BP was that getch and nextEvent call commitPaint instead of
+        GuiTerminal.flush, so the state of the GuiTerminal buffer is
+        out-of-sync.
+      + Better just move getch and nextEvent completely out of GuiBackend into
+        GuiTerminal. Better just have a single user-facing object and a single
+        implementation object cleanly separated.
+   - Implement the cursor.
    - Replace all occurrences of getch.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
