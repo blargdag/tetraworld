@@ -58,7 +58,7 @@ struct Mode
  */
 struct UiEvent
 {
-    enum Type { kbd, mouse, resize }
+    enum Type { none, kbd, mouse, resize }
     Type type;
 
     union

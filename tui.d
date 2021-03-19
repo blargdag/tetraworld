@@ -96,4 +96,15 @@ class TerminalUiBackend : UiBackend
     }
 }
 
+/**
+ * Initializes and runs the given code with the console terminal backend.
+ */
+T runTerminalBackend(T, Args...)(T function(UiBackend, Args) cb, Args args)
+{
+    auto uiBackend = new TerminalUiBackend;
+    scope(exit) uiBackend.quit();
+
+    return cb(uiBackend, args);
+}
+
 // vim:set ai sw=4 ts=4 et:

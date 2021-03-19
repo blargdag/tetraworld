@@ -20,7 +20,8 @@
  */
 module gui;
 
-import core.thread : Fiber;
+static import core.sync.event;
+import core.thread.osthread;
 import std.format : format;
 
 import arsd.color;
@@ -101,76 +102,179 @@ class GuiTerminal : DisplayObject
 {
     private GuiBackend impl;
 
-    private this(GuiBackend _impl) { impl = _impl; }
+    private Color fg, bg;
+    private int startX, startY;
+    private int curX, curY;
+    private bool _showCursor;
+    private char[] buf;
 
-    override @property int width() { return impl.gridWidth; }
-    override @property int height() { return impl.gridHeight; }
-    override void moveTo(int x, int y)
+    // Cached values, 'cos this is very frequently accessed and it's ridiculous
+    // to incur a context switch and mutex lock every single time!
+    private int w, h;
+
+    private this(GuiBackend _impl, int gridWidth, int gridHeight)
     {
-        impl.curX = x;
-        impl.curY = y;
+        impl = _impl;
+        w = gridWidth;
+        h = gridHeight;
+
+        fg = Color.white;
+        bg = Color.black;
     }
 
-    override void writefImpl(string s)
-    {
-        auto pixPos = impl.gridToPix(Point(impl.curX, impl.curY));
+    override @property int width() { return w; }
+    override @property int height() { return h; }
 
-        // Poor man's grid-based font rendering. Just to get that
-        // deliberately ugly look. :-/
+    override void moveTo(int x, int y)
+    {
+        if (curX != x || curY != y)
+        {
+            flushImpl(false);
+            startX = curX = x;
+            startY = curY = y;
+        }
+    }
+
+    private int renderLength(const(char)[] s)
+    {
         import std.uni;
         int w;
         for (size_t i=0; i < s.length; i += graphemeStride(s, i))
         {
             w++;
         }
+        return w;
+    }
 
-        auto paint = impl.paint;
-        paint.setFont(impl.font.osfont);
-        paint.outlineColor = impl.bgColor;
-        paint.fillColor = impl.bgColor;
-        paint.drawRectangle(pixPos, w*impl.font.charWidth,
-                            impl.font.charHeight);
-
-        int i = 0, j;
-        paint.outlineColor = impl.fgColor;
-        paint.fillColor = impl.fgColor;
-        while (i < s.length)
-        {
-            j = cast(int) graphemeStride(s, i);
-            paint.drawText(Point(pixPos.x + i*impl.font.charWidth, pixPos.y),
-                           s[i .. i+j]);
-            i += j;
-            impl.curX++;
-        }
+    override void writefImpl(string s)
+    {
+        auto w = renderLength(s);
+        buf ~= s;
+        curX += w;
     }
 
     override bool canShowHideCursor() { return true; }
-    override void showCursor() { impl.showCur = true; }
-    override void hideCursor() { impl.showCur = false; }
+    override void showCursor() { _showCursor = true; }
+    override void hideCursor() { _showCursor = false; }
 
     override bool hasColor() { return true; }
 
-    override void color(ushort fg, ushort bg)
+    override void color(ushort fgColor, ushort bgColor)
     {
-        impl.fgColor = xlatTermColor(fg, Color.black);
-        impl.bgColor = xlatTermColor(bg, Color.white);
+        auto newFg = xlatTermColor(fgColor, Color.black);
+        auto newBg = xlatTermColor(bgColor, Color.white);
+        if (fg != newFg || bg != newBg)
+        {
+            flushImpl(false);
+            fg = newFg;
+            bg = newBg;
+        }
     }
 
     override bool canClear() { return true; }
+
     override void clear()
     {
-        auto paint = impl.paint;
-        paint.outlineColor = impl.bgColor;
-        paint.fillColor = impl.bgColor;
-        paint.drawRectangle(Point(0,0), impl.window.width, impl.window.height);
+        // Buffer contents no longer relevant since we're erasing it all, so
+        // just drop it.
+        buf.length = 0;
+        startX = startY = curX = curY = 0;
+
+        runInGuiThread({
+            auto paint = impl.paint;
+            paint.outlineColor = bg;
+            paint.fillColor = bg;
+            paint.drawRectangle(Point(0,0), impl.window.width,
+                                impl.window.height);
+        });
     }
 
     override bool hasCursorXY() { return true; }
-    override @property int cursorX() { return impl.curX; }
-    override @property int cursorY() { return impl.curY; }
+    override @property int cursorX() { return curX; }
+    override @property int cursorY() { return curY; }
 
     override bool hasFlush() { return true; }
-    override void flush() { impl.commitPaint(); }
+
+    private void flushImpl(bool commit)
+    {
+        if (buf.length == 0 && !commit)
+            return;
+
+        runInGuiThread({
+            if (buf.length > 0)
+            {
+                auto pixPos = impl.gridToPix(Point(startX, startY));
+
+                // Poor man's grid-based font rendering. Just to get that
+                // deliberately ugly look. :-/
+                auto w = renderLength(buf);
+                auto paint = impl.paint;
+
+                paint.setFont(impl.font.osfont);
+                paint.outlineColor = bg;
+                paint.fillColor = bg;
+                paint.drawRectangle(pixPos, w*impl.font.charWidth,
+                                    impl.font.charHeight);
+
+                int i = 0;
+                paint.outlineColor = fg;
+                paint.fillColor = fg;
+                while (i < buf.length)
+                {
+                    import std.uni : graphemeStride;
+                    auto j = graphemeStride(buf, i);
+                    paint.drawText(Point(pixPos.x, pixPos.y), buf[i .. i+j]);
+                    pixPos.x += impl.font.charWidth;
+                    i += j;
+                }
+
+                buf.length = 0;
+                startX = curX;
+                startY = curY;
+            }
+
+            if (commit)
+            {
+                impl.curX = curX;
+                impl.curY = curY;
+                impl.showCur = _showCursor;
+                impl.commitPaint();
+            }
+        });
+    }
+
+    override void flush()
+    {
+        flushImpl(true);
+    }
+}
+
+private synchronized class EventQueue
+{
+    private UiEvent[] events;
+
+    /**
+     * Appends an event to the queue.
+     */
+    void append(UiEvent ev)
+    {
+        events ~= ev;
+    }
+
+    /**
+     * Returns: The next event in the queue, or UiEvent.init if the queue is
+     * empty.
+     */
+    @property UiEvent pop()
+    {
+        if (events.length == 0)
+            return UiEvent.init;
+
+        import std.algorithm : remove;
+        auto ev = events[0];
+        events = events.remove(0);
+        return ev;
+    }
 }
 
 /**
@@ -189,14 +293,12 @@ class GuiBackend : UiBackend
     private ScreenPainter curPaint;
     private bool hasCurPaint;
 
-    private int curX, curY, lastX, lastY;
+    private int curX, curY;
     private bool showCur, shownCur;
-    private Color fgColor = Color.black, bgColor = Color.white;
 
-    private Fiber userFiber;
-    private void delegate(dchar key) keyConsumer;
-    private void delegate(int x, int x, uint buttons) mouseConsumer;
-    private void delegate(int w, int h) resizeConsumer;
+    private GuiTerminal terminal;
+    private shared EventQueue events;
+    private core.sync.event.Event hasEvent;
 
     private ScreenPainter paint()()
     {
@@ -246,8 +348,6 @@ class GuiBackend : UiBackend
         hasCurPaint = false;
     }
 
-    private GuiTerminal terminal;
-
     this(int width, int height, string title)
     {
         window = new SimpleWindow(Size(width, height), title,
@@ -258,12 +358,11 @@ class GuiBackend : UiBackend
         font = Font(fontName, 16);
         computeGridDim();
 
-        fgColor = Color.white;
-        bgColor = Color.black;
-
         window.draw.clear();
 
-        terminal = new GuiTerminal(this);
+        terminal = new GuiTerminal(this, gridWidth, gridHeight);
+        events = new shared EventQueue;
+        hasEvent.initialize(false, false);
     }
 
     /**
@@ -285,130 +384,164 @@ class GuiBackend : UiBackend
 
     override DisplayObject term() { return terminal; }
 
+    // FIXME: this is SUPER DANGEROUS and subject to race conditions because we
+    // blindly assume this will be called from the user thread only. But I
+    // don't know how else to optimize away the mutex lock in reading the
+    // width/height, which makes things super slow.
+    private void updateDim(UiEvent ev)
+    {
+        if (ev.type == UiEvent.Type.resize)
+        {
+            terminal.w = ev.newWidth;
+            terminal.h = ev.newHeight;
+        }
+    }
+
+    /**
+     * BUGS: ALL non-keyboard events will be dropped by this function. This is
+     * in general a VERY BAD API, because there is no way to handle a lot of
+     * situations that may come up: e.g., while waiting for input via getch(),
+     * user resizes window. We can't trigger the resize handling code, because
+     * the user thread is inside getch(), and not expecting a resize. We cannot
+     * return from getch() because the calling code may be deeply nested and
+     * the immediate caller may not know what to do with a resize, or how to
+     * get back to the equivalent state after resize. E.g., the message pane
+     * calls getch() to prompt user to scroll messages; after resize the
+     * message pane may be in a completely different state. It basically WILL
+     * NOT WORK.
+     *
+     * IOW, this function is a VERY BAD IDEA; we should refactor our code to
+     * get rid of dependency on getch. Instead, use a Mode to capture user
+     * input while still processing other events.
+     */
     override dchar getch()
     {
-        auto caller = Fiber.getThis();
-        dchar result;
+        // Flush updates before potentially blocking.
+        runInGuiThread({
+            commitPaint();
+        });
 
-        auto oldkc = keyConsumer;
-        keyConsumer = (dchar key) {
-            result = key;
-            caller.call();
-        };
-        scope(exit) keyConsumer = oldkc;
+        UiEvent ev;
+        do
+        {
+            hasEvent.wait();
+            ev = events.pop();
+            updateDim(ev);
+        } while (ev.type != UiEvent.Type.kbd);
 
-        Fiber.yield();
-        return result;
+        assert(ev.type == UiEvent.Type.kbd);
+        return ev.key;
     }
 
     override UiEvent nextEvent()
     {
-        auto caller = Fiber.getThis();
+        // Flush updates before potentially blocking.
+        runInGuiThread({
+            commitPaint();
+        });
+
         UiEvent ev;
+        do
+        {
+            hasEvent.wait();
+            ev = events.pop();
+        } while (ev.type == UiEvent.Type.none);
 
-        auto oldkc = keyConsumer;
-        keyConsumer = (dchar key) {
-            ev.type = UiEvent.Type.kbd;
-            ev.key = key;
-            caller.call();
-        };
-        scope(exit) keyConsumer = oldkc;
-
-        auto oldmc = mouseConsumer;
-        mouseConsumer = (int x, int y, uint buttons) {
-            ev.type = UiEvent.Type.mouse;
-            ev.mouseX = x;
-            ev.mouseY = y;
-            ev.buttons = buttons;
-            caller.call();
-        };
-        scope(exit) mouseConsumer = oldmc;
-
-        auto oldrc = resizeConsumer;
-        resizeConsumer = (int w, int h) {
-            ev.type = UiEvent.Type.resize;
-            ev.newWidth = w;
-            ev.newHeight = h;
-            caller.call();
-        };
-        scope(exit) resizeConsumer = oldrc;
-
-        Fiber.yield();
+        updateDim(ev);
         return ev;
     }
 
     override void sleep(int msecs)
     {
-        auto caller = Fiber.getThis;
-        auto timer = new Timer(msecs, () {
-            caller.call();
-        });
+        import core.time : dur;
 
-        Fiber.yield();
-        timer.destroy();
+        // Flush updates before potentially blocking.
+        runInGuiThread({
+            commitPaint();
+        });
+        Thread.sleep(dur!"msecs"(msecs));
     }
 
     override void quit()
     {
-        _quit = true;
+        runInGuiThread({
+            commitPaint();
+            window.close();
+        });
     }
 
-    void run(void delegate() _userFiber)
+    void run(void delegate() userCode)
     {
-        // Need large stack to prevent stack overflow.
-        enum fiberStackSz = 256*1024;
-        userFiber = new Fiber(_userFiber, fiberStackSz);
-
+        Thread userThread = new Thread(userCode);
         window.visibleForTheFirstTime = () {
-            // Don't run user fiber until window is visible; we may get X11
-            // errors if user fiber starts calling drawing functions too early
+            // Don't run user code until window is visible; we may get X11
+            // errors if user code starts calling drawing functions too early
             // on.
-            userFiber.call();
+            userThread.start();
         };
+
         window.windowResized = (int w, int h) {
             computeGridDim();
-            window.draw.clear();
+            paint.clear();
 
-            if (resizeConsumer !is null)
-                resizeConsumer(gridWidth, gridHeight);
+            auto ev = UiEvent(UiEvent.type.resize);
+            ev.newWidth = gridWidth;
+            ev.newHeight = gridHeight;
+            events.append(ev);
+            hasEvent.set();
         };
 
         window.eventLoop(0,
             delegate(dchar ch) {
-                {
-                    scope(exit) commitPaint();
+                // Enter key remapping hack
+                if (ch == '\x0D')
+                    ch = '\n';
 
-                    // Enter key remapping hack
-                    if (ch == '\x0D')
-                        ch = '\n';
-
-                    if (keyConsumer !is null)
-                    {
-                        keyConsumer(ch);
-                    }
-                }
-                if (_quit)
-                    window.close();
+                auto ev = UiEvent(UiEvent.Type.kbd);
+                ev.key = ch;
+                events.append(ev);
+                hasEvent.set();
             },
             delegate(MouseEvent event) {
-                {
-                    scope(exit) commitPaint();
-
-                    auto gridX = (event.x - offsetX) / font.charWidth;
-                    auto gridY = (event.y - offsetY) / font.charHeight;
-
-                    if (mouseConsumer !is null)
-                    {
-                        // TBD: button state: see event.modifierState and
-                        // ModifierState.
-                        mouseConsumer(gridX, gridY, 0 /* FIXME */);
-                    }
-                }
-                if (_quit)
-                    window.close();
+                auto ev = UiEvent(UiEvent.Type.mouse);
+                ev.mouseX = (event.x - offsetX) / font.charWidth;
+                ev.mouseY = (event.y - offsetY) / font.charHeight;
+                ev.buttons = 0; // FIXME: TBD
+                events.append(ev);
+                hasEvent.set();
             },
         );
+
+        userThread.join();
     }
+}
+
+/**
+ * Initializes and runs the given code with the console terminal backend.
+ */
+T runGuiBackend(T, Args...)(int width, int height, string title,
+                            T function(UiBackend, Args) cb, Args args)
+{
+    auto gui = new GuiBackend(width, height, title);
+    scope(exit) gui.quit();
+
+    T result;
+    gui.run({
+        scope(exit) gui.quit();
+        try
+        {
+            result = cb(gui, args);
+        }
+        catch(Throwable t)
+        {
+            // DEBUG
+            import std.stdio : stderr;
+            stderr.writefln("[%x:%s:%d] user thread crash: %s",cast(void*)Thread.getThis,__FUNCTION__,__LINE__ ,t.msg);
+            gui.quit();
+            throw t;
+        }
+    });
+    return result;
 }
 
 // vim:set ai sw=4 ts=4 et:
