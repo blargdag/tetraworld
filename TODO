@@ -52,6 +52,7 @@
         implementation object cleanly separated.
    + Implement the cursor.
    - Replace all occurrences of getch.
+   - There's still the occasional sync problem... buggy event queue perhaps?
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
