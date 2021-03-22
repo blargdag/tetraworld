@@ -509,6 +509,8 @@ class TextUi : GameUi
                                     .format(ch.toPrintable));
                         }
                 }
+            },
+            {
                 msgBox.sync();
             }
         );
@@ -633,10 +635,12 @@ class TextUi : GameUi
 
     void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
+        auto caller = Fiber.getThis();
+
         // Make sure player has read all current messages first.
+        // If msgBox needs to prompt, it will push additional mode here.
         msgBox.flush(dispatch, { refresh(); }, {
             import lang : wordWrap;
-            auto caller = Fiber.getThis();
             pager(disp, dispatch, (w, h) {
                     return paragraphs.map!(p => p.wordWrap(w-2))
                                      .joiner([""])
@@ -645,8 +649,9 @@ class TextUi : GameUi
                     caller.call();
                 }
             );
-            Fiber.yield();
         });
+
+        Fiber.yield();
     }
 
     private auto highlightAxialTiles(Vec!(int,4) pos, TileId tileId)
@@ -906,6 +911,9 @@ class TextUi : GameUi
         {
             disp.flush();
             refreshNeedsPause = false;
+
+            if (dispatch.top.onPreEvent)
+                dispatch.top.onPreEvent();
 
             auto ev = backend.nextEvent();
             if (ev.type == UiEvent.Type.resize)

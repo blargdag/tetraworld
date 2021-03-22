@@ -46,6 +46,7 @@ struct Mode
     void delegate() render;
     void delegate(int w, int h) onResizeEvent;
     void delegate(dchar) onCharEvent;
+    void delegate() onPreEvent;
 }
 
 /**
