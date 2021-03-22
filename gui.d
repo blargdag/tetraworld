@@ -268,63 +268,6 @@ class GuiTerminal : DisplayObject, UiBackend
         }
     }
 
-    /**
-     * BUGS: ALL non-keyboard events will be dropped by this function. This is
-     * in general a VERY BAD API, because there is no way to handle a lot of
-     * situations that may come up: e.g., while waiting for input via getch(),
-     * user resizes window. We can't trigger the resize handling code, because
-     * the user thread is inside getch(), and not expecting a resize. We cannot
-     * return from getch() because the calling code may be deeply nested and
-     * the immediate caller may not know what to do with a resize, or how to
-     * get back to the equivalent state after resize. E.g., the message pane
-     * calls getch() to prompt user to scroll messages; after resize the
-     * message pane may be in a completely different state. It basically WILL
-     * NOT WORK.
-     *
-     * IOW, this function is a VERY BAD IDEA; we should refactor our code to
-     * get rid of dependency on getch. Instead, use a Mode to capture user
-     * input while still processing other events.
-     */
-    override dchar getch()
-    {
-        UiEvent ev;
-        bool mustBlock;
-
-        void popUntilKbdEvent()
-        {
-            do
-            {
-                if (!impl.popEvent(ev))
-                {
-                    mustBlock = true;
-                    return;
-                }
-            } while (ev.type != UiEvent.Type.kbd);
-        }
-
-        runInGuiThread({
-            guiThreadFlush(true); // Flush updates before potentially blocking.
-            popUntilKbdEvent();
-        });
-
-        // BUG: if GUI thread exits while inside this loop, this will spin
-        // forever. Again, this function is a BAD BAD IDEA. Need to refactor
-        // our code to get rid of this function.
-        while (mustBlock)
-        {
-            impl.hasEvent.wait();
-            mustBlock = false;
-            runInGuiThread({
-                popUntilKbdEvent();
-            });
-
-            updateDim(ev);
-        }
-
-        assert(ev.type == UiEvent.Type.kbd);
-        return ev.key;
-    }
-
     override UiEvent nextEvent()
     {
         UiEvent ev;

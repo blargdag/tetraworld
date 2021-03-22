@@ -52,6 +52,19 @@
         implementation object cleanly separated.
    + Implement the cursor.
    - Replace all occurrences of getch.
+      - The only uses are related to MessageBox. Need to rewrite MessageBox to
+        use Modes instead.
+      - Overview:
+         - MessageBox should have persistent state (store current accumulated
+           message line), that can be rendered on-demand.
+         - It should be rendered as part of mainMode's refresh.
+      - The main message() method should optionally push a new Mode if
+        prompting is necessary; otherwise it will only render the message
+        and update the message buffer.
+      - Flushing the MessageBox may require another event loop? :-(
+         - Maybe what we need is a different mode for flushing: upon quit
+           request we should push a new flush Mode, spool everything until no
+           more messages left, and only then exit the loop.
    - There's still the occasional sync problem... buggy event queue perhaps?
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
