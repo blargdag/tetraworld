@@ -2131,7 +2131,10 @@ private class DisplayObjImpl(Disp) : DisplayObject
 auto displayObject(Disp)(Disp disp)
     if (isDisplay!Disp)
 {
-    return new DisplayObjImpl!Disp(disp);
+    static if (is(Disp == DisplayObjImpl!U, U))
+        return disp;
+    else
+        return new DisplayObjImpl!Disp(disp);
 }
 
 unittest
@@ -2139,6 +2142,9 @@ unittest
     import arsd.terminal;
     Terminal* term;
     auto obj = displayObject(term);
+
+    auto obj2 = displayObject(obj);
+    assert(obj2 is obj);
 }
 
 /**

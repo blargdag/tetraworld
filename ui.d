@@ -43,6 +43,17 @@ import widgets;
 import world;
 
 /**
+ * UI backend interface.
+ */
+interface UiBackend
+{
+    DisplayObject term();
+    UiEvent nextEvent();
+    void sleep(int msecs);
+    void quit();
+}
+
+/**
  * Text UI configuration parameters.
  */
 struct TextUiConfig
@@ -50,6 +61,10 @@ struct TextUiConfig
     int smoothscrollMsec = 80;
     string tscriptFile;
     MapStyle mapStyle;
+
+    // Note: this must be large enough to prevent stack overflows when using
+    // simpledisplay.
+    size_t fiberStackSize = 512*1024;
 }
 
 /**
@@ -202,7 +217,7 @@ class TextUi : GameUi
     import std.traits : ReturnType;
 
     alias MainDisplay = ReturnType!createDisp;
-    alias MsgBox = ReturnType!createMsgBox;
+    alias MsgBox = MessageBox!(SubDisplay!(MainDisplay*));
     alias Viewport = ReturnType!createViewport;
     alias MapView = ReturnType!createMapView;
     alias StatusView = ReturnType!createStatusView;
@@ -210,10 +225,10 @@ class TextUi : GameUi
     private TextUiConfig cfg;
 
     private DisplayObject term;
-    private RealTimeConsoleInput* input;
+    private UiBackend backend;
     private MainDisplay disp;
 
-    private MsgBox      msgBox;
+    private MsgBox msgBox;
     private Viewport    viewport;
     private MapView     mapview;
     private StatusView  statusview;
@@ -229,7 +244,7 @@ class TextUi : GameUi
     private auto createDisp() { return bufferedDisplay(term); }
     private auto createMsgBox(Region!(int,2) msgRect)
     {
-        return messageBox(subdisplay(&disp, msgRect));
+        return messageBox(subdisplay(&disp, msgRect), msgBox);
     }
     private auto createViewport(Region!(int,2) screenRect)
     {
@@ -255,10 +270,15 @@ class TextUi : GameUi
 
     void message(string str)
     {
-        msgBox.message(str, {
-            refresh();
-            input.getch();
-        });
+        auto caller = Fiber.getThis;
+        if (msgBox.message(dispatch, str, { refresh(); }, {
+                if (caller is gameFiber)
+                    gameFiber.call();
+            }))
+        {
+            if (caller is gameFiber)
+                Fiber.yield();
+        }
     }
 
     /**
@@ -383,9 +403,13 @@ class TextUi : GameUi
             'p': PlayerAction(PlayerAction.Type.pass),
         ];
 
+        auto caller = Fiber.getThis();
         auto mainMode = Mode(
             {
                 refresh();
+            },
+            (int w, int h) {
+                viewport.centerOn(g.playerPos);
             },
             (dchar ch) {
                 switch (ch)
@@ -405,12 +429,12 @@ class TextUi : GameUi
                                 result = PlayerAction(
                                         PlayerAction.Type.applyItem, item.id);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             }, (InventoryItem item) {
                                 result = PlayerAction(PlayerAction.Type.drop,
                                                       item.id, item.count);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             }
                         );
                         break;
@@ -421,7 +445,7 @@ class TextUi : GameUi
                                 result = PlayerAction(PlayerAction.Type.drop,
                                                       toDrop.id, toDrop.count);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             }),
                             "You're not carrying anything!"
                         );
@@ -457,7 +481,7 @@ class TextUi : GameUi
                                 result = PlayerAction(
                                     PlayerAction.Type.applyFloor, item.id);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             },
                             "Nothing to apply here."
                         );
@@ -470,7 +494,7 @@ class TextUi : GameUi
                                 result = PlayerAction(PlayerAction.Type.pickup,
                                                       item.id);
                                 dispatch.pop();
-                                gameFiber.call();
+                                caller.call();
                             },
                             "Nothing to pick up here."
                         );
@@ -481,7 +505,7 @@ class TextUi : GameUi
                         {
                             result = *cmd;
                             dispatch.pop();
-                            gameFiber.call();
+                            caller.call();
                         }
                         else
                         {
@@ -489,6 +513,9 @@ class TextUi : GameUi
                                     .format(ch.toPrintable));
                         }
                 }
+            },
+            {
+                msgBox.sync();
             }
         );
 
@@ -527,7 +554,7 @@ class TextUi : GameUi
                 term.moveTo(cx, cy);
                 term.flush();
 
-                Thread.sleep(dur!"msecs"(50));
+                backend.sleep(50);
             }
             refreshNeedsPause = true;
         }
@@ -596,7 +623,7 @@ class TextUi : GameUi
             {
                 import core.thread : Thread;
                 import core.time : dur;
-                Thread.sleep(dur!"msecs"(180));
+                backend.sleep(180);
             }
         }
         viewport.centerOn(center);
@@ -610,36 +637,24 @@ class TextUi : GameUi
         quitScore = hs;
     }
 
-    /**
-     * Create a subdisplay to be used as the canvas for pager().
-     */
-    auto pagerScreen()
-    {
-        auto width = min(80, disp.width - 6);
-        auto padding = (disp.width - width) / 2;
-        return subdisplay(&disp, region(vec(padding, 1),
-                          vec(disp.width - padding, disp.height - 1)));
-    }
-
     void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
+        auto caller = Fiber.getThis();
+
         // Make sure player has read all current messages first.
-        msgBox.flush({
-            refresh();
-            input.getch();
+        // If msgBox needs to prompt, it will push additional mode here.
+        msgBox.flush(dispatch, { refresh(); }, {
+            import lang : wordWrap;
+            pager(disp, dispatch, (w, h) {
+                    return paragraphs.map!(p => p.wordWrap(w-2))
+                                     .joiner([""])
+                                     .array;
+                }, endPrompt, {
+                    caller.call();
+                }
+            );
         });
 
-        auto scrn = pagerScreen();
-
-        // Format paragraphs into lines
-        import lang : wordWrap;
-        auto lines = paragraphs.map!(p => p.wordWrap(scrn.width - 2))
-                               .joiner([""])
-                               .array;
-
-        pager(scrn, dispatch, lines, endPrompt, {
-            gameFiber.call();
-        });
         Fiber.yield();
     }
 
@@ -672,8 +687,7 @@ class TextUi : GameUi
 
     private void showHelp()
     {
-        auto scrn = pagerScreen();
-        pager(scrn, dispatch, helpText[], "Press any key to return to game",
+        pager(disp, dispatch, helpText[], "Press any key to return to game",
               {});
     }
 
@@ -851,6 +865,7 @@ class TextUi : GameUi
     private void refresh()
     {
         refreshStatus();
+        msgBox.render();
         refreshMap();
 
         disp.flush();
@@ -880,27 +895,17 @@ class TextUi : GameUi
         statusview = createStatusView(screenRect);
     }
 
-    string play(Game game)
+    string play(Game game, UiBackend _backend)
     {
-        auto _term = Terminal(ConsoleOutputType.cellular);
-        if (cfg.tscriptFile.length > 0)
-        {
-            import std.stdio;
-            auto f = File(cfg.tscriptFile, "w");
-            term = displayObject(recorded(&_term, f.lockingBinaryWriter));
-        }
-        else
-            term = displayObject(&_term);
-
-        auto _input = RealTimeConsoleInput(&_term, ConsoleInputFlags.raw);
-        input = &_input;
+        backend = _backend;
+        term = backend.term;
         setupUi();
 
         // Run game engine thread in its own fiber.
         g = game;
         gameFiber = new Fiber({
             g.run(this);
-        });
+        }, cfg.fiberStackSize);
 
         quit = false;
         gameFiber.call();
@@ -910,14 +915,34 @@ class TextUi : GameUi
         {
             disp.flush();
             refreshNeedsPause = false;
-            msgBox.sync();
-            dispatch.handleEvent(input.nextEvent());
+
+            if (dispatch.top.onPreEvent)
+                dispatch.top.onPreEvent();
+
+            auto ev = backend.nextEvent();
+            if (ev.type == UiEvent.Type.resize)
+            {
+                // Terminal resized; reconfigure UI.
+                setupUi();
+                disp.repaint();
+            }
+            dispatch.handleEvent(ev);
         }
 
-        msgBox.flush({
-            refresh();
-            input.getch();
-        });
+        // Flush final messages before actually exiting.
+        bool flushed;
+        msgBox.flush(dispatch, { refresh(); }, { flushed = true; });
+        while (!flushed)
+        {
+            disp.flush();
+            auto ev = backend.nextEvent();
+            if (ev.type == UiEvent.Type.resize)
+            {
+                setupUi();
+                disp.repaint();
+            }
+            dispatch.handleEvent(ev);
+        }
 
         term.clear();
 

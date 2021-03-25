@@ -44,7 +44,38 @@ enum keyEnter = '\n';
 struct Mode
 {
     void delegate() render;
+    void delegate(int w, int h) onResizeEvent;
     void delegate(dchar) onCharEvent;
+    void delegate() onPreEvent;
+}
+
+/**
+ * A UI backend event.
+ *
+ * Unfortunately we can't reuse existing definitions, because
+ * arsd.terminal.InputEvent can only be privately constructed and it's
+ * incompatible with arsd.simpledisplay.xxxEvent. So we have to translate
+ * events to a common format.
+ */
+struct UiEvent
+{
+    enum Type { none, kbd, mouse, resize }
+    Type type;
+
+    union
+    {
+        dchar key;  // Type.kbd
+        struct      // Type.mouse
+        {
+            int mouseX, mouseY;
+            uint buttons; // TBD
+        }
+        struct      // Type.resize
+        {
+            int newWidth;
+            int newHeight;
+        }
+    }
 }
 
 /**
@@ -91,14 +122,25 @@ struct InputDispatcher
             top.render();
     }
 
-    void handleEvent(InputEvent event)
+    void handleEvent(UiEvent event)
     {
         switch (event.type)
         {
-            case InputEvent.Type.KeyboardEvent:
-                auto ev = event.get!(InputEvent.Type.KeyboardEvent);
+            case UiEvent.Type.kbd:
                 assert(top.onCharEvent !is null);
-                top.onCharEvent(ev.which);
+                top.onCharEvent(event.key);
+                break;
+
+            case UiEvent.Type.resize:
+                // Need to reconfigure every mode, not just top, otherwise when
+                // we return to them they may be misconfigured.
+                foreach (ref mode; modestack)
+                {
+                    if (mode.onResizeEvent !is null)
+                        mode.onResizeEvent(event.newWidth, event.newHeight);
+                }
+                if (top.render !is null)
+                    top.render();
                 break;
 
             default:
@@ -123,7 +165,8 @@ struct MessageBox(Disp)
 
     private Disp impl;
     private size_t moreLen;
-    private int curX = 0;
+    private string buf;
+    private bool killOnNext;
 
     this(Disp disp)
     {
@@ -131,17 +174,43 @@ struct MessageBox(Disp)
         moreLen = morePrompt.displayLength;
     }
 
-    private void showPrompt(void delegate() waitForKeypress)
+    this(Disp disp, MessageBox oldBox) // for resizes
     {
-        // FIXME: this assumes impl.height==1.
-        impl.moveTo(curX, 0);
-        impl.color(Color.white, Color.blue);
-        impl.writef("%s", morePrompt);
-        waitForKeypress();
+        this(disp);
+        buf = oldBox.buf;
+        killOnNext = oldBox.killOnNext;
+    }
 
+    void render()
+    {
         impl.moveTo(0, 0);
+        impl.color(Color.DEFAULT, Color.DEFAULT);
+        impl.writef("%s", buf);
         impl.clearToEol();
-        curX = 0;
+    }
+
+    private void showPrompt(ref InputDispatcher dispatch,
+                            void delegate() parentRefresh,
+                            void delegate() onExit)
+    {
+        auto mode = Mode(
+            () {
+                parentRefresh();
+                render();
+
+                // FIXME: this assumes impl.height==1.
+                impl.moveTo(buf.displayLength.to!int, 0);
+                impl.color(Color.white, Color.blue);
+                impl.writef("%s", morePrompt);
+            },
+            null,
+            (dchar ch) {
+                dispatch.pop();
+                onExit();
+            }
+        );
+
+        dispatch.push(mode);
     }
 
     /**
@@ -149,24 +218,35 @@ struct MessageBox(Disp)
      * print it immediately. Otherwise, display a prompt for the user to
      * acknowledge reading the previous messages first, then clear the line and
      * display this one.
+     *
+     * Returns: true if prompt mode is entered; false if the message did not
+     * trigger a prompt.
      */
-    void message(string str, void delegate() waitForKeypress)
+    bool message(ref InputDispatcher dispatch, string str,
+                 void delegate() parentRefresh, void delegate() onExit)
     {
-        auto len = str.displayLength;
-        if (curX + len + moreLen >= impl.width)
+        if (killOnNext)
         {
-            showPrompt(waitForKeypress);
-            assert(curX == 0);
+            buf.length = 0;
+            killOnNext = false;
         }
 
-        // FIXME: this assumes impl.height==1.
-        // FIXME: support the case where len > impl.width.
-        impl.moveTo(curX, 0);
-        impl.color(Color.DEFAULT, Color.DEFAULT);
-        impl.writef("%s", str);
-        impl.clearToEol();
-
-        curX += len + 1;
+        auto len = str.displayLength;
+        if (buf.displayLength + len + moreLen >= impl.width)
+        {
+            showPrompt(dispatch, parentRefresh, {
+                buf = str ~ " "; // N.B.: overwrite
+                render();
+                onExit();
+            });
+            return true;
+        }
+        else
+        {
+            buf ~= str ~ " ";   // N.B.: append
+            render();
+            return false;
+        }
     }
 
     /**
@@ -175,7 +255,7 @@ struct MessageBox(Disp)
      */
     void sync()
     {
-        curX = 0;
+        killOnNext = true;
     }
 
     /**
@@ -185,10 +265,18 @@ struct MessageBox(Disp)
      * message box is about to get covered up by a different mode, and we want
      * to ensure the player has read the current messages first.
      */
-    void flush(void delegate() waitForKeypress)
+    void flush(ref InputDispatcher dispatch, void delegate() parentRefresh,
+               void delegate() onExit)
     {
-        if (curX > 0)
-            showPrompt(waitForKeypress);
+        if (buf.length > 0 && !killOnNext)
+        {
+            showPrompt(dispatch, parentRefresh, {
+                buf.length = 0;
+                onExit();
+            });
+        }
+        else
+            onExit();
     }
 }
 
@@ -197,6 +285,13 @@ auto messageBox(Disp)(Disp disp)
     if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
 {
     return MessageBox!Disp(disp);
+}
+
+/// ditto
+auto messageBox(Disp)(Disp disp, MessageBox!Disp oldBox)
+    if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
+{
+    return MessageBox!Disp(disp, oldBox);
 }
 
 unittest
@@ -326,6 +421,7 @@ unittest
 void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
                         string promptStr, int minVal, int maxVal,
                         void delegate(int) dg, string defaultVal = "")
+    if (isDisplay!Disp)
     in (defaultVal.length <= 12)
 {
     auto fullPrompt = format("%s (%d-%d,*)", promptStr, minVal, maxVal);
@@ -374,6 +470,13 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
 
             inner.moveTo(1 + curPos, 2);
             inner.showCursor();
+        },
+        (int w, int h) {
+            width = min(fullPrompt.displayLength() + 2, w);
+            scrnX = (w - width)/2;
+            scrnY = (h - height)/2;
+            scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                            vec(scrnX + w, scrnY + h)));
         },
         (dchar ch) {
             import std.conv : to, ConvException;
@@ -438,9 +541,30 @@ void promptNumber(Disp)(ref Disp disp, ref InputDispatcher dispatch,
 /**
  * Pager for long text.
  */
-void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
-              string endPrompt, void delegate() exitHook)
+void pager(Disp)(ref Disp disp, ref InputDispatcher dispatch,
+                 const(char[])[] lines, string endPrompt,
+                 void delegate() exitHook)
+    if (isDisplay!Disp)
 {
+    pager(disp, dispatch, (w,h) => lines, endPrompt, exitHook);
+}
+
+/// ditto
+void pager(Disp)(ref Disp disp, ref InputDispatcher dispatch,
+                 const(char[])[] delegate(int w, int h) fmtLines,
+                 string endPrompt, void delegate() exitHook)
+    if (isDisplay!Disp)
+{
+    auto pagerScreen(int w, int h)
+    {
+        auto width = min(80, w - 6);
+        auto padding = (w - width) / 2;
+        return subdisplay(&disp, region(vec(padding, 1),
+                                        vec(w - padding, h - 1)));
+    }
+
+    auto scrn = pagerScreen(disp.width, disp.height);
+    auto lines = fmtLines(scrn.width, scrn.height);
     const(char[])[] nextLines;
 
     void displayPage()
@@ -473,6 +597,10 @@ void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
         () {
             displayPage();
         },
+        (int w, int h) {
+            scrn = pagerScreen(w, h);
+            lines = fmtLines(scrn.width, scrn.height);
+        },
         (dchar ch) {
             if (nextLines.length > 0)
             {
@@ -498,6 +626,7 @@ void pager(S)(S scrn, ref InputDispatcher dispatch, const(char[])[] lines,
  */
 void promptYesNo(Disp)(Disp disp, ref InputDispatcher dispatch,
                        string promptStr, void delegate(bool answer) cb)
+    if (isDisplay!Disp)
 {
     string str = promptStr ~ " [yn] ";
     auto mode = Mode(
@@ -509,7 +638,9 @@ void promptYesNo(Disp)(Disp disp, ref InputDispatcher dispatch,
             auto y = disp.cursorY;
             disp.clearToEol();
             disp.moveTo(x, y);
-        }, (dchar key) {
+        },
+        null,
+        (dchar key) {
             switch (key)
             {
                 case 'y':
@@ -564,7 +695,7 @@ struct SelectButton
 void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
                        R inven, string promptStr, SelectButton[] buttons,
                        int startIdx = 0)
-    if (isRandomAccessRange!R && hasLength!R)
+    if (isDisplay!S && isRandomAccessRange!R && hasLength!R)
 {
     string makeHintString()
     {
@@ -643,6 +774,14 @@ void selectScreen(S,R)(ref S disp, ref InputDispatcher dispatch,
                     inner.writef("%s", inven[i].to!string);
                 }
             }
+        },
+        (int w, int h) {
+            height = min(h, 4 + inven.length.to!int +
+                            ((hintStringLen > 0) ? 2 : 0));
+            scrnX = (w - width)/2;
+            scrnY = (h - height)/2;
+            scrn = subdisplay(&disp, region(vec(scrnX, scrnY),
+                                            vec(scrnX + width, scrnY + height)));
         },
         (dchar ch) {
             switch (ch)

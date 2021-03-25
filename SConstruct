@@ -51,6 +51,7 @@ sources = Split("""
 	game.d
 	gamemap.d
 	gravity.d
+	gui.d
 	medium.d
 	objects.d
 	rndutil.d
@@ -60,11 +61,14 @@ sources = Split("""
 	terrain.d
 	testutil.d
 	tile.d
+	tui.d
 	ui.d
 	vector.d
 	widgets.d
 	world.d
 
+	arsd/color.d
+	arsd/simpledisplay.d
 	arsd/terminal.d
 """)
 
