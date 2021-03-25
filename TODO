@@ -1,80 +1,4 @@
-- GUI:
-   + Starting new game in GUI mode crashes with X invalid request error.
-   + Fix the widgets.d:129 assert bug. Must find out why the mode stack behaves
-     differently in GUI mode...
-      + Probably caused by Fiber sync issues when gui.sleep() is called. E.g.,
-        if a key event occurs while in the middle of a sleep, the key handler
-        will likely end up in the wrong fiber and strange things will happen
-        once the fibers are out-of-sync.
-      * Haha no, the BP is more fundamental than that. The REAL BP is that
-        gui.sleep() is assuming that it's being called from userFiber, but this
-        may not necessarily be the case; it could be called from a Fiber
-        spawned by userFiber. If so, sleep() will wrongly short-circuit that
-        Fiber and return prematurely to userFiber, at which point things are
-        out-of-sync and will malfunction.
-   + Why doesn't the buffered display detect dirty lines after exiting a mode?
-   + Why do popup widgets have the grid effect when the main map display
-     doesn't??
-      * Because you totally misunderstood how simpledisplay rendering works.
-        Pens don't do what you think they do; you should set .fillColor and
-        .outlineColor separately, and don't bother with Pens at all. In most
-        cases that's Good Enough(tm).
-   + Enter key not translated properly. Probably special keys will fail too.
-   + There's still Fiber sync issues somewhere in there. Having to do with
-     sleep() and queued events. And it's looking bad, as bad as multithreading
-     bugs, except everything is synchronous.
-      + Here's the BP: in getch() and sleep(), we're *assuming* that
-        Fiber.yield returns immediately to the GUI Fiber. But that's not the
-        case if we're being called from the gameFiber that's in the middle of
-        handling a different GUI event. So we'll end up prematurely returning
-        to the next loop iteration in gameFiber, but the getch/sleep state is
-        already pushed on the GUI state stack, so now it will do things
-        out-of-order, leading to an inconsistent state that eventually triggers
-        the assert.
-      + Looks like the only real solution is to use actual OS threads instead
-        of just Fibers...
-         + We can make GuiTerminal the caller-thread proxy that shuttles data
-           to the GUI thread.
-   + Fix crash on exit.
-      + BP is caused by ScreenPainter being cached, and its dtor invoked by the
-        dtor of GuiBackend, after the window has already closed.
-   + Performance continues to be lousy due to excessive use of runInGuiThread.
-     Should move cursor positioning code (and everything else that isn't
-     essential) to GuiTerminal, and have the GUI thread take explicit
-     coordinates for all writef calls.
-   P There's apparently a deadlock between EventQueue and the GC??!
-   + Fix incomplete rendering of popups.
-      * BP was that getch and nextEvent call commitPaint instead of
-        GuiTerminal.flush, so the state of the GuiTerminal buffer is
-        out-of-sync.
-      + Better just move getch and nextEvent completely out of GuiBackend into
-        GuiTerminal. Better just have a single user-facing object and a single
-        implementation object cleanly separated.
-   + Implement the cursor.
-   + Replace all occurrences of getch.
-      + The only uses are related to MessageBox. Need to rewrite MessageBox to
-        use Modes instead.
-      + Overview:
-         + MessageBox should have persistent state (store current accumulated
-           message line), that can be rendered on-demand.
-         + It should be rendered as part of mainMode's refresh.
-      + The main message() method should optionally push a new Mode if
-        prompting is necessary; otherwise it will only render the message
-        and update the message buffer.
-      + Flushing the MessageBox may require another event loop? :-(
-         + Maybe what we need is a different mode for flushing: upon quit
-           request we should push a new flush Mode, spool everything until no
-           more messages left, and only then exit the loop.
-   + There's still the occasional sync problem... buggy event queue perhaps?
-      * It was a missed context switch in message(): if called from the
-        gameFiber and it triggers a prompt, after the prompt mode is popped off
-        we need to explicitly return to the gameFiber, otherwise things go out
-        of sync.
-   + TUI cursor is misaligned.
-   - GUI main mode rendering is all out of sync and messed up:
-      + Prompt is not displayed at the right position.
-      - Map is not centered.
-         * Actually, this is a problem with TUI as well, not specific to GUI.
+- Resize during message prompt screws up centering of map display.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
@@ -600,3 +524,80 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
 + [Fiber] Need to audit UI code to catch other wrong Fiber assumptions. (Don't
   assume Fiber calling UI code is the same as the one we were told about; it
   could be a different one!)
++ GUI:
+   + Starting new game in GUI mode crashes with X invalid request error.
+   + Fix the widgets.d:129 assert bug. Must find out why the mode stack behaves
+     differently in GUI mode...
+      + Probably caused by Fiber sync issues when gui.sleep() is called. E.g.,
+        if a key event occurs while in the middle of a sleep, the key handler
+        will likely end up in the wrong fiber and strange things will happen
+        once the fibers are out-of-sync.
+      * Haha no, the BP is more fundamental than that. The REAL BP is that
+        gui.sleep() is assuming that it's being called from userFiber, but this
+        may not necessarily be the case; it could be called from a Fiber
+        spawned by userFiber. If so, sleep() will wrongly short-circuit that
+        Fiber and return prematurely to userFiber, at which point things are
+        out-of-sync and will malfunction.
+   + Why doesn't the buffered display detect dirty lines after exiting a mode?
+   + Why do popup widgets have the grid effect when the main map display
+     doesn't??
+      * Because you totally misunderstood how simpledisplay rendering works.
+        Pens don't do what you think they do; you should set .fillColor and
+        .outlineColor separately, and don't bother with Pens at all. In most
+        cases that's Good Enough(tm).
+   + Enter key not translated properly. Probably special keys will fail too.
+   + There's still Fiber sync issues somewhere in there. Having to do with
+     sleep() and queued events. And it's looking bad, as bad as multithreading
+     bugs, except everything is synchronous.
+      + Here's the BP: in getch() and sleep(), we're *assuming* that
+        Fiber.yield returns immediately to the GUI Fiber. But that's not the
+        case if we're being called from the gameFiber that's in the middle of
+        handling a different GUI event. So we'll end up prematurely returning
+        to the next loop iteration in gameFiber, but the getch/sleep state is
+        already pushed on the GUI state stack, so now it will do things
+        out-of-order, leading to an inconsistent state that eventually triggers
+        the assert.
+      + Looks like the only real solution is to use actual OS threads instead
+        of just Fibers...
+         + We can make GuiTerminal the caller-thread proxy that shuttles data
+           to the GUI thread.
+   + Fix crash on exit.
+      + BP is caused by ScreenPainter being cached, and its dtor invoked by the
+        dtor of GuiBackend, after the window has already closed.
+   + Performance continues to be lousy due to excessive use of runInGuiThread.
+     Should move cursor positioning code (and everything else that isn't
+     essential) to GuiTerminal, and have the GUI thread take explicit
+     coordinates for all writef calls.
+   P There's apparently a deadlock between EventQueue and the GC??!
+   + Fix incomplete rendering of popups.
+      * BP was that getch and nextEvent call commitPaint instead of
+        GuiTerminal.flush, so the state of the GuiTerminal buffer is
+        out-of-sync.
+      + Better just move getch and nextEvent completely out of GuiBackend into
+        GuiTerminal. Better just have a single user-facing object and a single
+        implementation object cleanly separated.
+   + Implement the cursor.
+   + Replace all occurrences of getch.
+      + The only uses are related to MessageBox. Need to rewrite MessageBox to
+        use Modes instead.
+      + Overview:
+         + MessageBox should have persistent state (store current accumulated
+           message line), that can be rendered on-demand.
+         + It should be rendered as part of mainMode's refresh.
+      + The main message() method should optionally push a new Mode if
+        prompting is necessary; otherwise it will only render the message
+        and update the message buffer.
+      + Flushing the MessageBox may require another event loop? :-(
+         + Maybe what we need is a different mode for flushing: upon quit
+           request we should push a new flush Mode, spool everything until no
+           more messages left, and only then exit the loop.
+   + There's still the occasional sync problem... buggy event queue perhaps?
+      * It was a missed context switch in message(): if called from the
+        gameFiber and it triggers a prompt, after the prompt mode is popped off
+        we need to explicitly return to the gameFiber, otherwise things go out
+        of sync.
+   + TUI cursor is misaligned.
+   + GUI main mode rendering is all out of sync and messed up:
+      + Prompt is not displayed at the right position.
+      C Map is not centered.
+         * Actually, this is a problem with TUI as well, not specific to GUI.
