@@ -167,12 +167,18 @@ struct MessageBox(Disp)
     private size_t moreLen;
     private string buf;
     private bool killOnNext;
-    //private int curX = 0;
 
     this(Disp disp)
     {
         impl = disp;
         moreLen = morePrompt.displayLength;
+    }
+
+    this(Disp disp, MessageBox oldBox) // for resizes
+    {
+        this(disp);
+        buf = oldBox.buf;
+        killOnNext = oldBox.killOnNext;
     }
 
     void render()
@@ -279,6 +285,13 @@ auto messageBox(Disp)(Disp disp)
     if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
 {
     return MessageBox!Disp(disp);
+}
+
+/// ditto
+auto messageBox(Disp)(Disp disp, MessageBox!Disp oldBox)
+    if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
+{
+    return MessageBox!Disp(disp, oldBox);
 }
 
 unittest

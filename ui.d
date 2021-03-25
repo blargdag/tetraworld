@@ -217,7 +217,7 @@ class TextUi : GameUi
     import std.traits : ReturnType;
 
     alias MainDisplay = ReturnType!createDisp;
-    alias MsgBox = ReturnType!createMsgBox;
+    alias MsgBox = MessageBox!(SubDisplay!(MainDisplay*));
     alias Viewport = ReturnType!createViewport;
     alias MapView = ReturnType!createMapView;
     alias StatusView = ReturnType!createStatusView;
@@ -228,7 +228,7 @@ class TextUi : GameUi
     private UiBackend backend;
     private MainDisplay disp;
 
-    private MsgBox      msgBox;
+    private MsgBox msgBox;
     private Viewport    viewport;
     private MapView     mapview;
     private StatusView  statusview;
@@ -244,7 +244,7 @@ class TextUi : GameUi
     private auto createDisp() { return bufferedDisplay(term); }
     private auto createMsgBox(Region!(int,2) msgRect)
     {
-        return messageBox(subdisplay(&disp, msgRect));
+        return messageBox(subdisplay(&disp, msgRect), msgBox);
     }
     private auto createViewport(Region!(int,2) screenRect)
     {
