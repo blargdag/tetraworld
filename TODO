@@ -72,8 +72,9 @@
         of sync.
    + TUI cursor is misaligned.
    - GUI main mode rendering is all out of sync and messed up:
-      - Prompt is not displayed at the right position.
+      + Prompt is not displayed at the right position.
       - Map is not centered.
+         * Actually, this is a problem with TUI as well, not specific to GUI.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
