@@ -865,8 +865,8 @@ class TextUi : GameUi
     private void refresh()
     {
         refreshStatus();
-        refreshMap();
         msgBox.render();
+        refreshMap();
 
         disp.flush();
         term.flush(); // FIXME: arsd.terminal also caches!

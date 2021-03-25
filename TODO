@@ -70,7 +70,7 @@
         gameFiber and it triggers a prompt, after the prompt mode is popped off
         we need to explicitly return to the gameFiber, otherwise things go out
         of sync.
-   - TUI cursor is misaligned.
+   + TUI cursor is misaligned.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
