@@ -270,9 +270,13 @@ class TextUi : GameUi
 
     void message(string str)
     {
-        if (msgBox.message(dispatch, { refresh(); }, str))
+        auto caller = Fiber.getThis;
+        if (msgBox.message(dispatch, str, { refresh(); }, {
+                if (caller is gameFiber)
+                    gameFiber.call();
+            }))
         {
-            if (Fiber.getThis is gameFiber)
+            if (caller is gameFiber)
                 Fiber.yield();
         }
     }

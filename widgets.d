@@ -216,8 +216,8 @@ struct MessageBox(Disp)
      * Returns: true if prompt mode is entered; false if the message did not
      * trigger a prompt.
      */
-    bool message(ref InputDispatcher dispatch, void delegate() parentRefresh,
-                 string str)
+    bool message(ref InputDispatcher dispatch, string str,
+                 void delegate() parentRefresh, void delegate() onExit)
     {
         if (killOnNext)
         {
@@ -231,6 +231,7 @@ struct MessageBox(Disp)
             showPrompt(dispatch, parentRefresh, {
                 buf = str ~ " "; // N.B.: overwrite
                 render();
+                onExit();
             });
             return true;
         }
