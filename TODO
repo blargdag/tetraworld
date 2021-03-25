@@ -71,6 +71,9 @@
         we need to explicitly return to the gameFiber, otherwise things go out
         of sync.
    + TUI cursor is misaligned.
+   - GUI main mode rendering is all out of sync and messed up:
+      - Prompt is not displayed at the right position.
+      - Map is not centered.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
