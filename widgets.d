@@ -46,6 +46,7 @@ struct Mode
     void delegate() render;
     void delegate(int w, int h) onResizeEvent;
     void delegate(dchar) onCharEvent;
+    void delegate() onPreEvent;
 }
 
 /**
@@ -164,7 +165,9 @@ struct MessageBox(Disp)
 
     private Disp impl;
     private size_t moreLen;
-    private int curX = 0;
+    private string buf;
+    private bool killOnNext;
+    //private int curX = 0;
 
     this(Disp disp)
     {
@@ -172,17 +175,36 @@ struct MessageBox(Disp)
         moreLen = morePrompt.displayLength;
     }
 
-    private void showPrompt(void delegate() waitForKeypress)
+    void render()
     {
-        // FIXME: this assumes impl.height==1.
-        impl.moveTo(curX, 0);
-        impl.color(Color.white, Color.blue);
-        impl.writef("%s", morePrompt);
-        waitForKeypress();
-
         impl.moveTo(0, 0);
+        impl.color(Color.DEFAULT, Color.DEFAULT);
+        impl.writef("%s", buf);
         impl.clearToEol();
-        curX = 0;
+    }
+
+    private void showPrompt(ref InputDispatcher dispatch,
+                            void delegate() parentRefresh,
+                            void delegate() onExit)
+    {
+        auto mode = Mode(
+            () {
+                parentRefresh();
+                render();
+
+                // FIXME: this assumes impl.height==1.
+                impl.moveTo(buf.displayLength.to!int, 0);
+                impl.color(Color.white, Color.blue);
+                impl.writef("%s", morePrompt);
+            },
+            null,
+            (dchar ch) {
+                dispatch.pop();
+                onExit();
+            }
+        );
+
+        dispatch.push(mode);
     }
 
     /**
@@ -190,24 +212,35 @@ struct MessageBox(Disp)
      * print it immediately. Otherwise, display a prompt for the user to
      * acknowledge reading the previous messages first, then clear the line and
      * display this one.
+     *
+     * Returns: true if prompt mode is entered; false if the message did not
+     * trigger a prompt.
      */
-    void message(string str, void delegate() waitForKeypress)
+    bool message(ref InputDispatcher dispatch, string str,
+                 void delegate() parentRefresh, void delegate() onExit)
     {
-        auto len = str.displayLength;
-        if (curX + len + moreLen >= impl.width)
+        if (killOnNext)
         {
-            showPrompt(waitForKeypress);
-            assert(curX == 0);
+            buf.length = 0;
+            killOnNext = false;
         }
 
-        // FIXME: this assumes impl.height==1.
-        // FIXME: support the case where len > impl.width.
-        impl.moveTo(curX, 0);
-        impl.color(Color.DEFAULT, Color.DEFAULT);
-        impl.writef("%s", str);
-        impl.clearToEol();
-
-        curX += len + 1;
+        auto len = str.displayLength;
+        if (buf.displayLength + len + moreLen >= impl.width)
+        {
+            showPrompt(dispatch, parentRefresh, {
+                buf = str ~ " "; // N.B.: overwrite
+                render();
+                onExit();
+            });
+            return true;
+        }
+        else
+        {
+            buf ~= str ~ " ";   // N.B.: append
+            render();
+            return false;
+        }
     }
 
     /**
@@ -216,7 +249,7 @@ struct MessageBox(Disp)
      */
     void sync()
     {
-        curX = 0;
+        killOnNext = true;
     }
 
     /**
@@ -226,10 +259,18 @@ struct MessageBox(Disp)
      * message box is about to get covered up by a different mode, and we want
      * to ensure the player has read the current messages first.
      */
-    void flush(void delegate() waitForKeypress)
+    void flush(ref InputDispatcher dispatch, void delegate() parentRefresh,
+               void delegate() onExit)
     {
-        if (curX > 0)
-            showPrompt(waitForKeypress);
+        if (buf.length > 0 && !killOnNext)
+        {
+            showPrompt(dispatch, parentRefresh, {
+                buf.length = 0;
+                onExit();
+            });
+        }
+        else
+            onExit();
     }
 }
 

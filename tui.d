@@ -43,8 +43,6 @@ class TerminalUiBackend : UiBackend
 
     override DisplayObject term() { return wrappedterm; }
 
-    override dchar getch() { return input.getch(); }
-
     override UiEvent nextEvent()
     {
         UiEvent result;

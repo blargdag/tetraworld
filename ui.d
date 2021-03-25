@@ -48,7 +48,6 @@ import world;
 interface UiBackend
 {
     DisplayObject term();
-    dchar getch();
     UiEvent nextEvent();
     void sleep(int msecs);
     void quit();
@@ -271,10 +270,15 @@ class TextUi : GameUi
 
     void message(string str)
     {
-        msgBox.message(str, {
-            refresh();
-            backend.getch();
-        });
+        auto caller = Fiber.getThis;
+        if (msgBox.message(dispatch, str, { refresh(); }, {
+                if (caller is gameFiber)
+                    gameFiber.call();
+            }))
+        {
+            if (caller is gameFiber)
+                Fiber.yield();
+        }
     }
 
     /**
@@ -509,6 +513,9 @@ class TextUi : GameUi
                                     .format(ch.toPrintable));
                         }
                 }
+            },
+            {
+                msgBox.sync();
             }
         );
 
@@ -632,22 +639,22 @@ class TextUi : GameUi
 
     void infoScreen(const(string)[] paragraphs, string endPrompt)
     {
+        auto caller = Fiber.getThis();
+
         // Make sure player has read all current messages first.
-        msgBox.flush({
-            refresh();
-            backend.getch();
+        // If msgBox needs to prompt, it will push additional mode here.
+        msgBox.flush(dispatch, { refresh(); }, {
+            import lang : wordWrap;
+            pager(disp, dispatch, (w, h) {
+                    return paragraphs.map!(p => p.wordWrap(w-2))
+                                     .joiner([""])
+                                     .array;
+                }, endPrompt, {
+                    caller.call();
+                }
+            );
         });
 
-        import lang : wordWrap;
-        auto caller = Fiber.getThis();
-        pager(disp, dispatch, (w, h) {
-                return paragraphs.map!(p => p.wordWrap(w-2))
-                                 .joiner([""])
-                                 .array;
-            }, endPrompt, {
-                caller.call();
-            }
-        );
         Fiber.yield();
     }
 
@@ -858,6 +865,7 @@ class TextUi : GameUi
     private void refresh()
     {
         refreshStatus();
+        msgBox.render();
         refreshMap();
 
         disp.flush();
@@ -907,7 +915,9 @@ class TextUi : GameUi
         {
             disp.flush();
             refreshNeedsPause = false;
-            msgBox.sync();
+
+            if (dispatch.top.onPreEvent)
+                dispatch.top.onPreEvent();
 
             auto ev = backend.nextEvent();
             if (ev.type == UiEvent.Type.resize)
@@ -919,10 +929,20 @@ class TextUi : GameUi
             dispatch.handleEvent(ev);
         }
 
-        msgBox.flush({
-            refresh();
-            backend.getch();
-        });
+        // Flush final messages before actually exiting.
+        bool flushed;
+        msgBox.flush(dispatch, { refresh(); }, { flushed = true; });
+        while (!flushed)
+        {
+            disp.flush();
+            auto ev = backend.nextEvent();
+            if (ev.type == UiEvent.Type.resize)
+            {
+                setupUi();
+                disp.repaint();
+            }
+            dispatch.handleEvent(ev);
+        }
 
         term.clear();
 
