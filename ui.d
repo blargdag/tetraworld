@@ -895,6 +895,22 @@ class TextUi : GameUi
         statusview = createStatusView(screenRect);
     }
 
+    void processNextEvent()
+    {
+        if (dispatch.top.onPreEvent)
+            dispatch.top.onPreEvent();
+
+        auto ev = backend.nextEvent();
+        if (ev.type == UiEvent.Type.resize)
+        {
+            // Terminal resized; reconfigure UI.
+            setupUi();
+            disp.repaint();
+            viewport.centerOn(g.playerPos);
+        }
+        dispatch.handleEvent(ev);
+    }
+
     string play(Game game, UiBackend _backend)
     {
         backend = _backend;
@@ -915,18 +931,7 @@ class TextUi : GameUi
         {
             disp.flush();
             refreshNeedsPause = false;
-
-            if (dispatch.top.onPreEvent)
-                dispatch.top.onPreEvent();
-
-            auto ev = backend.nextEvent();
-            if (ev.type == UiEvent.Type.resize)
-            {
-                // Terminal resized; reconfigure UI.
-                setupUi();
-                disp.repaint();
-            }
-            dispatch.handleEvent(ev);
+            processNextEvent();
         }
 
         // Flush final messages before actually exiting.
@@ -935,13 +940,7 @@ class TextUi : GameUi
         while (!flushed)
         {
             disp.flush();
-            auto ev = backend.nextEvent();
-            if (ev.type == UiEvent.Type.resize)
-            {
-                setupUi();
-                disp.repaint();
-            }
-            dispatch.handleEvent(ev);
+            processNextEvent();
         }
 
         term.clear();
