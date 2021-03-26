@@ -66,6 +66,12 @@ struct Font
     }
 }
 
+private class Run
+{
+    void delegate() dg;
+    this(void delegate() _dg) { dg = _dg; }
+}
+
 Color xlatTermColor(ushort c, Color defColor = Color.black)
 {
     static import arsd.terminal;
@@ -180,13 +186,13 @@ class GuiTerminal : DisplayObject, UiBackend
         buf.length = 0;
         startX = startY = curX = curY = 0;
 
-        runInGuiThread({
+        impl.window.postEvent(new Run({
             auto paint = impl.paint;
             paint.outlineColor = bg;
             paint.fillColor = bg;
             paint.drawRectangle(Point(0,0), impl.window.width,
                                 impl.window.height);
-        });
+        }));
     }
 
     override bool hasCursorXY() { return true; }
@@ -199,15 +205,16 @@ class GuiTerminal : DisplayObject, UiBackend
      * WARNING: this function MUST be run only the GUI thread, otherwise it
      * will cause problems!
      */
-    private void guiThreadFlush(bool commit)
+    private void guiThreadFlush(const(char)[] s, int x, int y, Color fg,
+                                Color bg, bool showCursor_, bool commit)
     {
-        if (buf.length > 0)
+        if (s.length > 0)
         {
-            auto pixPos = impl.gridToPix(Point(startX, startY));
+            auto pixPos = impl.gridToPix(Point(x, y));
 
             // Poor man's grid-based font rendering. Just to get that
             // deliberately ugly look. :-/
-            auto w = renderLength(buf);
+            auto w = renderLength(s);
             auto paint = impl.paint;
 
             paint.setFont(impl.font.osfont);
@@ -219,25 +226,22 @@ class GuiTerminal : DisplayObject, UiBackend
             int i = 0;
             paint.outlineColor = fg;
             paint.fillColor = fg;
-            while (i < buf.length)
+            while (i < s.length)
             {
                 import std.uni : graphemeStride;
-                auto j = graphemeStride(buf, i);
-                paint.drawText(Point(pixPos.x, pixPos.y), buf[i .. i+j]);
+                auto j = graphemeStride(s, i);
+                paint.drawText(Point(pixPos.x, pixPos.y), s[i .. i+j]);
                 pixPos.x += impl.font.charWidth;
+                x++;    // so that if commit, cursor pos will be up-to-date
                 i += j;
             }
-
-            buf.length = 0;
-            startX = curX;
-            startY = curY;
         }
 
         if (commit)
         {
-            impl.curX = curX;
-            impl.curY = curY;
-            impl.showCur = _showCursor;
+            impl.curX = x;
+            impl.curY = y;
+            impl.showCur = showCursor_;
             impl.commitPaint();
         }
     }
@@ -247,9 +251,23 @@ class GuiTerminal : DisplayObject, UiBackend
         if (buf.length == 0 && !commit)
             return;
 
-        runInGuiThread({
-            guiThreadFlush(commit);
-        });
+        // Need to locally capture this state, otherwise we have a race
+        // condition when we subsequently modify it.
+        auto str = buf;
+        auto x = startX;
+        auto y = startY;
+        auto fgColor = fg;
+        auto bgColor = bg;
+        auto showCursor_ = _showCursor;
+
+        // Run update asynchronously.
+        impl.window.postEvent(new Run({
+            guiThreadFlush(str, x, y, fgColor, bgColor, showCursor_, commit);
+        }));
+
+        buf = [];
+        startX = curX;
+        startY = curY;
     }
 
     override void flush()
@@ -274,7 +292,12 @@ class GuiTerminal : DisplayObject, UiBackend
         bool mustBlock;
 
         runInGuiThread({
-            guiThreadFlush(true); // Flush updates before potentially blocking.
+            // Flush updates before potentially blocking.
+            guiThreadFlush(buf, startX, startY, fg, bg, _showCursor, true);
+            buf.length = 0;
+            startX = curX;
+            startY = curY;
+
             if (!impl.popEvent(ev))
             {
                 mustBlock = true;
@@ -311,7 +334,7 @@ class GuiTerminal : DisplayObject, UiBackend
     override void quit()
     {
         runInGuiThread({
-            guiThreadFlush(true);
+            guiThreadFlush(buf, startX, startY, fg, bg, _showCursor, true);
             impl.window.close();
         });
     }
@@ -451,6 +474,9 @@ private class GuiImpl
             ev.newHeight = gridHeight;
             addEvent(ev);
         };
+
+        // Hook for running bits of code inside the GUI thread asynchronously.
+        window.addEventListener((Run run) { run.dg(); });
 
         window.eventLoop(0,
             delegate(dchar ch) {
