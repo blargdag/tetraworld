@@ -85,14 +85,14 @@ Color xlatTermColor(ushort c, Color defColor = Color.black)
 unittest
 {
     static import arsd.terminal;
-    assert(xlatTermColor(arsd.terminal.Color.yellow) == Color(127, 127, 0));
+    assert(xlatTermColor(arsd.terminal.Color.yellow) == Color(192, 192, 0));
     assert(xlatTermColor(arsd.terminal.Color.yellow | arsd.terminal.Bright) ==
            Color(255, 255, 0));
 
     assert(xlatTermColor(arsd.terminal.Color.DEFAULT, Color.yellow) ==
            Color.yellow);
     assert(xlatTermColor(arsd.terminal.Color.red, Color.yellow) ==
-           Color(127, 0, 0));
+           Color(192, 0, 0));
 }
 
 /**

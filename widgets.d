@@ -195,7 +195,7 @@ struct MessageBox(Disp)
     {
         auto mode = Mode(
             () {
-                parentRefresh();
+                if (parentRefresh) parentRefresh();
                 render();
 
                 // FIXME: this assumes impl.height==1.
@@ -206,7 +206,7 @@ struct MessageBox(Disp)
             null,
             (dchar ch) {
                 dispatch.pop();
-                onExit();
+                if (onExit) onExit();
             }
         );
 
@@ -223,7 +223,8 @@ struct MessageBox(Disp)
      * trigger a prompt.
      */
     bool message(ref InputDispatcher dispatch, string str,
-                 void delegate() parentRefresh, void delegate() onExit)
+                 void delegate() parentRefresh = null,
+                 void delegate() onExit = null)
     {
         if (killOnNext)
         {
@@ -237,7 +238,7 @@ struct MessageBox(Disp)
             showPrompt(dispatch, parentRefresh, {
                 buf = str ~ " "; // N.B.: overwrite
                 render();
-                onExit();
+                if (onExit) onExit();
             });
             return true;
         }
@@ -325,30 +326,29 @@ unittest
     }
 
     TestDisp disp;
+    InputDispatcher dispatch;
 
     foreach (ref ch; disp.impl) { ch = ' '; }
     auto box = messageBox(&disp);
 
-    box.message("Blehk.", { assert(false, "should not wait for keypress"); });
+    box.message(dispatch, "Blehk.");
     assert(disp.impl == "Blehk.              ");
 
-    box.message("Eh?", { assert(false, "should not wait for keypress"); });
+    box.message(dispatch, "Eh?");
     assert(disp.impl == "Blehk. Eh?          ");
 
     box.sync();
 
-    box.message("Blah.", { assert(false, "should not wait for keypress"); });
+    box.message(dispatch, "Blah.");
     assert(disp.impl == "Blah.               ");
 
-    box.message("Bleh.", { assert(false, "should not wait for keypress"); });
+    box.message(dispatch, "Bleh.");
     assert(disp.impl == "Blah. Bleh.         ");
 
-    bool keypress;
-    box.message("Kaboom.", {
-        assert(disp.impl == "Blah. Bleh. --MORE--");
-        keypress = true;
-    });
-    assert(keypress && disp.impl == "Kaboom.             ");
+    box.message(dispatch, "Kaboom.");
+    assert(disp.impl == "Blah. Bleh. --MORE--");
+    dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
+    assert(disp.impl == "Kaboom.             ");
 }
 
 /**
