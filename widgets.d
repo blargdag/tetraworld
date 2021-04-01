@@ -393,7 +393,7 @@ unittest
 {
     struct NullDisp
     {
-        enum width = 40, height = 24;
+        enum width = 30, height = 24;
         void moveTo(int x, int y) {}
         void writef(Args...)(string fmt, Args args) {}
         void color(ushort fg, ushort bg) {}
@@ -424,12 +424,21 @@ unittest
     assert(mbox.msgs[$-2] == MsgBox.Msg("bluh", 1));
     assert(mbox.msgs[$-3] == MsgBox.Msg("bleh", 1));
 
+    // Test prompt and maintenance of curX.
     mbox.sync();
     mbox.message(dispatch, "Blah1.");
     assert(mbox.curX == 7);
 
     mbox.message(dispatch, "Blah2.");
     assert(mbox.curX == 14);
+
+    mbox.message(dispatch, "Blah3.");
+    assert(mbox.curX == 21);
+
+    mbox.message(dispatch, "Blah4.");
+    assert(mbox.curX == 21);    // prompt
+    dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
+    assert(mbox.curX == 7);     // last message
 }
 
 /**

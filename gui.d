@@ -114,6 +114,9 @@ class GuiTerminal : DisplayObject, UiBackend
     private bool _showCursor;
     private char[] buf;
 
+    private UiEvent[] events;
+    private core.sync.event.Event hasEvent;
+
     // Cached values, 'cos this is very frequently accessed and it's ridiculous
     // to incur a context switch and mutex lock every single time!
     private int w, h;
@@ -126,6 +129,8 @@ class GuiTerminal : DisplayObject, UiBackend
 
         fg = Color.white;
         bg = Color.black;
+
+        hasEvent.initialize(false, false);
     }
 
     override @property int width() { return w; }
@@ -208,7 +213,7 @@ class GuiTerminal : DisplayObject, UiBackend
     private void guiThreadFlush(const(char)[] s, int x, int y, Color fg,
                                 Color bg, bool showCursor_, bool commit)
     {
-        if (s.length > 0)
+        void doPaint()
         {
             auto pixPos = impl.gridToPix(Point(x, y));
 
@@ -236,6 +241,9 @@ class GuiTerminal : DisplayObject, UiBackend
                 i += j;
             }
         }
+
+        if (s.length > 0)
+            doPaint();
 
         if (commit)
         {
@@ -286,36 +294,53 @@ class GuiTerminal : DisplayObject, UiBackend
         }
     }
 
+    private void addEvent(UiEvent ev)
+    {
+        synchronized(this)
+        {
+            events ~= ev;
+            hasEvent.set();
+        }
+    }
+
     override UiEvent nextEvent()
     {
+        // Manually capture needed parameters to run in GUI thread.
+        auto s = buf;
+        auto x = startX;
+        auto y = startY;
+        auto fgColor = fg;
+        auto bgColor = bg;
+        auto __showCursor = _showCursor;
+
+        buf = [];
+        startX = curX;
+        startY = curY;
+
+        impl.window.postEvent(new Run({
+            guiThreadFlush(s, x, y, fgColor, bgColor, __showCursor, true);
+        }));
+
         UiEvent ev;
-        bool mustBlock;
+        bool gotEvent;
 
-        runInGuiThread({
-            // Flush updates before potentially blocking.
-            guiThreadFlush(buf, startX, startY, fg, bg, _showCursor, true);
-            buf.length = 0;
-            startX = curX;
-            startY = curY;
-
-            if (!impl.popEvent(ev))
-            {
-                mustBlock = true;
-                return;
-            }
-        });
-
-        while (mustBlock)
+        for (;;)
         {
-            impl.hasEvent.wait();
-            mustBlock = false;
-            runInGuiThread({
-                if (!impl.popEvent(ev))
+            synchronized(this)
+            {
+                if (events.length > 0)
                 {
-                    mustBlock = true;
-                    return;
+                    import std.algorithm : remove;
+                    ev = events[0];
+                    events = events.remove(0);
+                    gotEvent = true;
                 }
-            });
+            }
+
+            if (gotEvent)
+                break;
+
+            hasEvent.wait();
         }
 
         updateDim(ev);
@@ -353,38 +378,19 @@ private class GuiImpl
     private int offsetX, offsetY;
     private bool _quit;
 
-    private ScreenPainter curPaint;
-    private bool hasCurPaint;
+    private ScreenPainter* curPaint;
 
     private int curX, curY, lastX, lastY;
     private bool showCur, shownCur;
 
     private GuiTerminal terminal;
-    private UiEvent[] events;
-    private core.sync.event.Event hasEvent;
 
-    private void addEvent(UiEvent ev)
+    private ScreenPainter* paint()()
     {
-        events ~= ev;
-        hasEvent.set();
-    }
+        if (curPaint) return curPaint;
 
-    private bool popEvent(out UiEvent ev)
-    {
-        if (events.length == 0)
-            return false;
-
-        import std.algorithm : remove;
-        ev = events[0];
-        events = events.remove(0);
-        return true;
-    }
-
-    private ScreenPainter paint()()
-    {
-        if (hasCurPaint) return curPaint;
-
-        curPaint = window.draw();
+        curPaint = new ScreenPainter;
+        *curPaint = window.draw();
         if (shownCur)
         {
             auto pos = gridToPix(Point(lastX, lastY));
@@ -395,13 +401,12 @@ private class GuiImpl
             curPaint.rasterOp = RasterOp.normal;
             shownCur = false;
         }
-        hasCurPaint = true;
         return curPaint;
     }
 
     private void commitPaint()
     {
-        if (!hasCurPaint)
+        if (!curPaint)
             return;
 
         if (showCur)
@@ -418,8 +423,8 @@ private class GuiImpl
             lastY = curY;
         }
 
-        destroy(curPaint);
-        hasCurPaint = false;
+        destroy(*curPaint);
+        curPaint = null;
     }
 
     this(int width, int height, string title)
@@ -435,7 +440,6 @@ private class GuiImpl
         window.draw.clear();
 
         terminal = new GuiTerminal(this, gridWidth, gridHeight);
-        hasEvent.initialize(false, false);
     }
 
     /**
@@ -472,7 +476,7 @@ private class GuiImpl
             auto ev = UiEvent(UiEvent.type.resize);
             ev.newWidth = gridWidth;
             ev.newHeight = gridHeight;
-            addEvent(ev);
+            terminal.addEvent(ev);
         };
 
         // Hook for running bits of code inside the GUI thread asynchronously.
@@ -486,14 +490,14 @@ private class GuiImpl
 
                 auto ev = UiEvent(UiEvent.Type.kbd);
                 ev.key = ch;
-                addEvent(ev);
+                terminal.addEvent(ev);
             },
             delegate(MouseEvent event) {
                 auto ev = UiEvent(UiEvent.Type.mouse);
                 ev.mouseX = (event.x - offsetX) / font.charWidth;
                 ev.mouseY = (event.y - offsetY) / font.charHeight;
                 ev.buttons = 0; // FIXME: TBD
-                addEvent(ev);
+                terminal.addEvent(ev);
             },
         );
 

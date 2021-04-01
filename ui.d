@@ -900,6 +900,7 @@ class TextUi : GameUi
         if (dispatch.top.onPreEvent)
             dispatch.top.onPreEvent();
 
+        disp.flush();
         auto ev = backend.nextEvent();
         if (ev.type == UiEvent.Type.resize)
         {
@@ -929,7 +930,6 @@ class TextUi : GameUi
         // Main loop
         while (!quit)
         {
-            disp.flush();
             refreshNeedsPause = false;
             processNextEvent();
         }
@@ -939,7 +939,6 @@ class TextUi : GameUi
         msgBox.flush(dispatch, { refresh(); }, { flushed = true; });
         while (!flushed)
         {
-            disp.flush();
             processNextEvent();
         }
 
