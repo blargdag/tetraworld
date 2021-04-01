@@ -161,11 +161,36 @@ struct InputDispatcher
 struct MessageBox(Disp)
     if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
 {
-    private enum morePrompt = "--MORE--";
+    enum morePrompt = "--MORE--";
+
+    private struct Msg
+    {
+        string baseMsg;
+        string dispStr;
+        size_t dispLen;
+        uint count;
+
+        this(string msg)
+        {
+            baseMsg = msg;
+            increment();
+        }
+
+        string toString() const pure { return dispStr; }
+
+        void increment()
+        {
+            if (++count == 1)
+                dispStr = format("%s ", baseMsg);
+            else
+                dispStr = format("%s(x%d) ", baseMsg, count);
+            dispLen = displayLength(dispStr);
+        }
+    }
 
     private Disp impl;
     private size_t moreLen;
-    private string buf;
+    private Msg[] msgs;
     private bool killOnNext;
 
     this(Disp disp)
@@ -176,17 +201,23 @@ struct MessageBox(Disp)
 
     this(Disp disp, MessageBox oldBox) // for resizes
     {
-        this(disp);
-        buf = oldBox.buf;
-        killOnNext = oldBox.killOnNext;
+        this = oldBox;
+        impl = disp;
+        moreLen = morePrompt.displayLength;
     }
+
+    private size_t curX() { return msgs.map!(m => m.dispLen).sum; }
 
     void render()
     {
+        // FIXME: this assumes impl.height==1.
         impl.moveTo(0, 0);
         impl.color(Color.DEFAULT, Color.DEFAULT);
-        impl.writef("%s", buf);
+        impl.writef("%-(%s%)", msgs);
+
+        int x = impl.cursorX;
         impl.clearToEol();
+        impl.moveTo(x, 0);
     }
 
     private void showPrompt(ref InputDispatcher dispatch,
@@ -196,10 +227,8 @@ struct MessageBox(Disp)
         auto mode = Mode(
             () {
                 if (parentRefresh) parentRefresh();
-                render();
 
-                // FIXME: this assumes impl.height==1.
-                impl.moveTo(buf.displayLength.to!int, 0);
+                render();
                 impl.color(Color.white, Color.blue);
                 impl.writef("%s", morePrompt);
             },
@@ -228,26 +257,46 @@ struct MessageBox(Disp)
     {
         if (killOnNext)
         {
-            buf.length = 0;
+            msgs = [];
             killOnNext = false;
         }
 
-        auto len = str.displayLength;
-        if (buf.displayLength + len + moreLen >= impl.width)
+        if (msgs.length > 0 && msgs[$-1].baseMsg == str)
         {
-            showPrompt(dispatch, parentRefresh, {
-                buf = str ~ " "; // N.B.: overwrite
+            // Merge repeated messages.
+            auto msg = msgs[$-1];
+            msg.increment();
+
+            if (curX + msg.dispLen + moreLen <= impl.width)
+            {
+                // There's enough room to insert a multiplier to the last
+                // message.
+                msgs[$-1] = msg;
                 render();
-                if (onExit) onExit();
-            });
-            return true;
+                return false;
+            }
+
+            // Fallthrough: no more room for multiplier; don't merge, just
+            // flush and start over.
         }
         else
         {
-            buf ~= str ~ " ";   // N.B.: append
-            render();
-            return false;
+            auto msg = Msg(str);
+            if (curX + msg.dispLen + moreLen <= impl.width)
+            {
+                msgs ~= msg;
+                render();
+                return false;
+            }
         }
+
+        // No more room for message; prompt then flush and start over.
+        showPrompt(dispatch, parentRefresh, {
+            msgs = [ Msg(str) ];
+            render();
+            if (onExit) onExit();
+        });
+        return true;
     }
 
     /**
@@ -269,10 +318,10 @@ struct MessageBox(Disp)
     void flush(ref InputDispatcher dispatch, void delegate() parentRefresh,
                void delegate() onExit)
     {
-        if (buf.length > 0 && !killOnNext)
+        if (msgs.length > 0 && !killOnNext)
         {
             showPrompt(dispatch, parentRefresh, {
-                buf.length = 0;
+                msgs = [];
                 onExit();
             });
         }
@@ -349,6 +398,17 @@ unittest
     assert(disp.impl == "Blah. Bleh. --MORE--");
     dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
     assert(disp.impl == "Kaboom.             ");
+
+    box.message(dispatch, "Oh.");
+    assert(disp.impl == "Kaboom. Oh.         ");
+    box.message(dispatch, "Walla.");
+    assert(disp.impl == "Kaboom. Oh. --MORE--");
+    dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
+    assert(disp.impl == "Walla.              ");
+
+    // Test repeat folding
+    box.message(dispatch, "Walla.");
+    assert(disp.impl == "Walla.(x2)          ");
 }
 
 /**
