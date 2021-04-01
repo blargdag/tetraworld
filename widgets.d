@@ -261,23 +261,42 @@ struct MessageBox(Disp)
             killOnNext = false;
         }
 
-        auto msg = Msg(str);
-        auto len = msg.dispLen;
-        if (curX + len + moreLen > impl.width)
+        if (msgs.length > 0 && msgs[$-1].baseMsg == str)
         {
-            showPrompt(dispatch, parentRefresh, {
-                msgs = [ msg ];
+            // Merge repeated messages.
+            auto msg = msgs[$-1];
+            msg.increment();
+
+            if (curX + msg.dispLen + moreLen <= impl.width)
+            {
+                // There's enough room to insert a multiplier to the last
+                // message.
+                msgs[$-1] = msg;
                 render();
-                if (onExit) onExit();
-            });
-            return true;
+                return false;
+            }
+
+            // Fallthrough: no more room for multiplier; don't merge, just
+            // flush and start over.
         }
         else
         {
-            msgs ~= msg;
-            render();
-            return false;
+            auto msg = Msg(str);
+            if (curX + msg.dispLen + moreLen <= impl.width)
+            {
+                msgs ~= msg;
+                render();
+                return false;
+            }
         }
+
+        // No more room for message; prompt then flush and start over.
+        showPrompt(dispatch, parentRefresh, {
+            msgs = [ Msg(str) ];
+            render();
+            if (onExit) onExit();
+        });
+        return true;
     }
 
     /**
@@ -382,10 +401,14 @@ unittest
 
     box.message(dispatch, "Oh.");
     assert(disp.impl == "Kaboom. Oh.         ");
-    box.message(dispatch, "Walla-walla.");
+    box.message(dispatch, "Walla.");
     assert(disp.impl == "Kaboom. Oh. --MORE--");
     dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
-    assert(disp.impl == "Walla-walla.        ");
+    assert(disp.impl == "Walla.              ");
+
+    // Test repeat folding
+    box.message(dispatch, "Walla.");
+    assert(disp.impl == "Walla.(x2)          ");
 }
 
 /**
