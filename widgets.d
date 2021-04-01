@@ -162,29 +162,35 @@ struct MessageBox(Disp)
     if (isDisplay!Disp && hasColor!Disp && hasCursorXY!Disp)
 {
     enum morePrompt = "--MORE--";
-    enum maxMessages = 12;
 
     private struct Msg
     {
-        string str;
+        string baseMsg;
+        string dispStr;
+        size_t dispLen;
         uint count;
 
-        size_t displayLength()
+        this(string msg)
         {
-            return .displayLength(toString);
+            baseMsg = msg;
+            increment();
         }
 
-        string toString() const pure
+        string toString() const pure { return dispStr; }
+
+        void increment()
         {
-            return (count == 1) ? str : format("%s (x%d)", str, count);
+            if (++count == 1)
+                dispStr = format("%s ", baseMsg);
+            else
+                dispStr = format("%s(x%d) ", baseMsg, count);
+            dispLen = displayLength(dispStr);
         }
     }
 
     private Disp impl;
     private size_t moreLen;
     private Msg[] msgs;
-    private size_t dispIdx, nextIdx;
-    private int curX;
     private bool killOnNext;
 
     this(Disp disp)
@@ -197,29 +203,21 @@ struct MessageBox(Disp)
     {
         this = oldBox;
         impl = disp;
+        moreLen = morePrompt.displayLength;
     }
+
+    private size_t curX() { return msgs.map!(m => m.dispLen).sum; }
 
     void render()
     {
+        // FIXME: this assumes impl.height==1.
         impl.moveTo(0, 0);
         impl.color(Color.DEFAULT, Color.DEFAULT);
-        impl.writef("%-(%s %)", msgs[dispIdx .. nextIdx]);
+        impl.writef("%-(%s%)", msgs);
+
+        int x = impl.cursorX;
         impl.clearToEol();
-    }
-
-    private void append(Msg msg)
-    {
-        if (msgs.length == 0)
-            msgs.length = maxMessages;
-
-        if (nextIdx == msgs.length && msgs.length > 0)
-        {
-            msgs.remove(0);
-            nextIdx--;
-        }
-
-        msgs[nextIdx++] = msg;
-        curX += msg.displayLength + 1;
+        impl.moveTo(x, 0);
     }
 
     private void showPrompt(ref InputDispatcher dispatch,
@@ -229,10 +227,8 @@ struct MessageBox(Disp)
         auto mode = Mode(
             () {
                 if (parentRefresh) parentRefresh();
-                render();
 
-                // FIXME: this assumes impl.height==1.
-                impl.moveTo(curX, 0);
+                render();
                 impl.color(Color.white, Color.blue);
                 impl.writef("%s", morePrompt);
             },
@@ -261,19 +257,16 @@ struct MessageBox(Disp)
     {
         if (killOnNext)
         {
-            dispIdx = nextIdx;
-            curX = 0;
+            msgs = [];
             killOnNext = false;
         }
 
-        auto msg = Msg(str, 1);
-        auto len = msg.displayLength;
-        if (curX + len + moreLen >= impl.width)
+        auto msg = Msg(str);
+        auto len = msg.dispLen;
+        if (curX + len + moreLen > impl.width)
         {
             showPrompt(dispatch, parentRefresh, {
-                dispIdx = nextIdx;
-                curX = 0;
-                append(msg);
+                msgs = [ msg ];
                 render();
                 if (onExit) onExit();
             });
@@ -281,7 +274,7 @@ struct MessageBox(Disp)
         }
         else
         {
-            append(msg);
+            msgs ~= msg;
             render();
             return false;
         }
@@ -306,11 +299,10 @@ struct MessageBox(Disp)
     void flush(ref InputDispatcher dispatch, void delegate() parentRefresh,
                void delegate() onExit)
     {
-        if (dispIdx < nextIdx && !killOnNext)
+        if (msgs.length > 0 && !killOnNext)
         {
             showPrompt(dispatch, parentRefresh, {
-                dispIdx = nextIdx;
-                curX = 0;
+                msgs = [];
                 onExit();
             });
         }
@@ -387,58 +379,13 @@ unittest
     assert(disp.impl == "Blah. Bleh. --MORE--");
     dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
     assert(disp.impl == "Kaboom.             ");
-}
 
-unittest
-{
-    struct NullDisp
-    {
-        enum width = 30, height = 24;
-        void moveTo(int x, int y) {}
-        void writef(Args...)(string fmt, Args args) {}
-        void color(ushort fg, ushort bg) {}
-        enum cursorX = 0, cursorY = 0;
-    }
-
-    NullDisp disp;
-    InputDispatcher dispatch;
-    auto mbox = messageBox(disp);
-    alias MsgBox = typeof(mbox);
-
-    foreach (i; 0 .. mbox.maxMessages)
-    {
-        auto str = format("blah%d", i);
-        mbox.append(MsgBox.Msg(str, 1));
-        assert(mbox.msgs[i] == MsgBox.Msg(str, 1));
-    }
-
-    mbox.append(MsgBox.Msg("bleh", 1));
-    assert(mbox.msgs[$-1] == MsgBox.Msg("bleh", 1));
-
-    mbox.append(MsgBox.Msg("bluh", 1));
-    assert(mbox.msgs[$-1] == MsgBox.Msg("bluh", 1));
-    assert(mbox.msgs[$-2] == MsgBox.Msg("bleh", 1));
-
-    mbox.append(MsgBox.Msg("pfeh", 1));
-    assert(mbox.msgs[$-1] == MsgBox.Msg("pfeh", 1));
-    assert(mbox.msgs[$-2] == MsgBox.Msg("bluh", 1));
-    assert(mbox.msgs[$-3] == MsgBox.Msg("bleh", 1));
-
-    // Test prompt and maintenance of curX.
-    mbox.sync();
-    mbox.message(dispatch, "Blah1.");
-    assert(mbox.curX == 7);
-
-    mbox.message(dispatch, "Blah2.");
-    assert(mbox.curX == 14);
-
-    mbox.message(dispatch, "Blah3.");
-    assert(mbox.curX == 21);
-
-    mbox.message(dispatch, "Blah4.");
-    assert(mbox.curX == 21);    // prompt
+    box.message(dispatch, "Oh.");
+    assert(disp.impl == "Kaboom. Oh.         ");
+    box.message(dispatch, "Walla-walla.");
+    assert(disp.impl == "Kaboom. Oh. --MORE--");
     dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
-    assert(mbox.curX == 7);     // last message
+    assert(disp.impl == "Walla-walla.        ");
 }
 
 /**
