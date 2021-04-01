@@ -267,7 +267,7 @@ struct MessageBox(Disp)
             auto msg = msgs[$-1];
             msg.increment();
 
-            if (curX + msg.dispLen + moreLen <= impl.width)
+            if (msg.dispLen + moreLen <= impl.width)
             {
                 // There's enough room to insert a multiplier to the last
                 // message.
@@ -401,14 +401,16 @@ unittest
 
     box.message(dispatch, "Oh.");
     assert(disp.impl == "Kaboom. Oh.         ");
-    box.message(dispatch, "Walla.");
+    box.message(dispatch, "Pfeh!");
     assert(disp.impl == "Kaboom. Oh. --MORE--");
     dispatch.handleEvent(UiEvent(UiEvent.Type.kbd, ' '));
-    assert(disp.impl == "Walla.              ");
+    assert(disp.impl == "Pfeh!               ");
 
     // Test repeat folding
-    box.message(dispatch, "Walla.");
-    assert(disp.impl == "Walla.(x2)          ");
+    box.message(dispatch, "Pfeh!");
+    assert(disp.impl == "Pfeh!(x2)           ");
+    box.message(dispatch, "Pfeh!");
+    assert(disp.impl == "Pfeh!(x3)           ");
 }
 
 /**
