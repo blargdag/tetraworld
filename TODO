@@ -1,18 +1,3 @@
-- [GUI] Performance still sux.
-   + Probably there's too much syncing between the two threads. Things like the
-     painter flush should probably be done asynchronously, with a barrier to
-     throttle the subsequent update if the old one is still running. That, or
-     is it safe to assume scheduled GUI thread jobs will always be sequentially
-     executed? Then we can just remove the wait completely, just like an actual
-     terminal (write data to OS buffer, continue running while terminal reads
-     from stream in parallel).
-      * No need for any throttling; flush already needs to run synchronously so
-        it acts as a natural throttle. Normal updates should just run
-        asynchronously to maximize throughput.
-   - Also, probably should cache rendered font chars for faster blitting? May
-     have to bypass some of simpledisplay's APIs to do what we want, though,
-     given ScreenPainter's documented limitations.
-      - Either that, or just go all-out OpenGL API.
 - [OO map 3] Expand on theme-based mapgen, now that existing code works with
   new system.
    + Implement graph traversal of BuildNodes to partition the graph into
@@ -635,3 +620,19 @@ X To investigate: underwater rock trap spawns rock that seems to vanish into
         out-of-order!!
    + Moved event queue to GuiTerminal, use synchronized blocks to manage it.
 + [MessageBox] Sometimes shows blanks instead of actual messages.
++ [GUI] Performance still sux.
+   + Probably there's too much syncing between the two threads. Things like the
+     painter flush should probably be done asynchronously, with a barrier to
+     throttle the subsequent update if the old one is still running. That, or
+     is it safe to assume scheduled GUI thread jobs will always be sequentially
+     executed? Then we can just remove the wait completely, just like an actual
+     terminal (write data to OS buffer, continue running while terminal reads
+     from stream in parallel).
+      * No need for any throttling; flush already needs to run synchronously so
+        it acts as a natural throttle. Normal updates should just run
+        asynchronously to maximize throughput.
+   P Also, probably should cache rendered font chars for faster blitting? May
+     have to bypass some of simpledisplay's APIs to do what we want, though,
+     given ScreenPainter's documented limitations.
+      P Either that, or just go all-out OpenGL API.
+      * Actually, after the latest fixes, performance is now acceptable.

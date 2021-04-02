@@ -432,9 +432,20 @@ private class GuiImpl
         window = new SimpleWindow(Size(width, height), title,
                                   Resizability.allowResizing);
 
-        //enum fontName = "DejaVu Sans Mono"; // FIXME: make this cross-platform
-        enum fontName = "Courier New"; // seems pretty cross-platform... NOT
-        font = Font(fontName, 16);
+        version(linux)
+        {
+            enum fontName = "DejaVu Sans Mono";
+            enum fontSize = 16;
+        }
+        else version(Windows)
+        {
+            enum fontName = "Courier Sans Mono"; // FIXME: this doesn't work
+            enum fontSize = 18;
+        }
+        else
+            static assert(0, "Unsupported OS");
+
+        font = Font(fontName, fontSize);
         computeGridDim();
 
         window.draw.clear();

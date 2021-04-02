@@ -46,7 +46,7 @@ int main(string[] args)
     Action act = Action.play;
     TextUiConfig uiConfig = loadDefaults();
 
-    version(Linux)
+    version(linux)
         BackendType betype = BackendType.console;
     else version(Windows)
         BackendType betype = BackendType.gui;
