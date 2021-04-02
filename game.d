@@ -356,6 +356,9 @@ class Game
 
     void saveGame()
     {
+        if (!player)
+            return; // game state not initialized yet, don't do anything!
+
         auto sf = File(saveFileName, "wb").lockingTextWriter.saveFile;
         sf.put("version", saveFileVer);
         sf.put("player", player.id);

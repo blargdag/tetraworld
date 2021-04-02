@@ -44,8 +44,14 @@ int main(string[] args)
     enum BackendType { console, gui }
 
     Action act = Action.play;
-    BackendType betype = BackendType.console;
     TextUiConfig uiConfig = loadDefaults();
+
+    version(Linux)
+        BackendType betype = BackendType.console;
+    else version(Windows)
+        BackendType betype = BackendType.gui;
+    else
+        static assert(0, "Unsupported OS");
 
     auto optInfo = getopt(args,
         std.getopt.config.caseSensitive,
@@ -89,8 +95,27 @@ int main(string[] args)
 
     import std.file : exists;
     if (saveFileName.exists)
-        game = Game.loadGame();
-    else
+    {
+        try
+        {
+            game = Game.loadGame();
+        }
+        catch (Exception e)
+        {
+            // Game could not be loaded; back it up and start anew.
+            int i = 1;
+            string bakName;
+            do
+            {
+                import std.format : format;
+                bakName = format("%s.old%d", saveFileName, i++);
+            } while (bakName.exists);
+
+            rename(saveFileName, bakName);
+        }
+    }
+
+    if (game is null)
     {
         if (act == Action.playTest)
         {
@@ -134,19 +159,13 @@ int main(string[] args)
             }
         }
 
-        version(Windows)
-        {
-            import core.thread : Thread;
-            import core.time : dur;
-            Thread.sleep(dur!"seconds"(3));
-        }
         return 0;
     }
     catch (Exception e)
     {
         // Emergency save when things go wrong.
-        game.saveGame();
-        writefln("Error: %s", e.msg);
+        if (game) game.saveGame();
+        writefln("Error: %s\n%s", e.msg, e.info);
         return 2;
     }
 }
