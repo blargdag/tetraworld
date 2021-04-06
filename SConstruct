@@ -117,6 +117,9 @@ env.Command('upload', 'upload.d', "$LDC $LDCFLAGS $SOURCES -of$TARGET")
 
 # Cross-compiled Windows build
 winenv = env.Clone()
-winenv.Append(LDCFLAGS = [ '-mtriple=x86_64-windows-msvc' ])
+winenv.Append(LDCFLAGS = [
+    '-mtriple=x86_64-windows-msvc',
+    '-L/subsystem:windows', '-L/entry:wmainCRTStartup'
+])
 winenv.Command('tetraworld.exe', sources, "$LDC $LDCFLAGS $LDCOPTFLAGS -of$TARGET $SOURCES")
 
